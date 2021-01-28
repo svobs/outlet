@@ -181,10 +181,10 @@ class Assets:
     CLASS Assets
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, config):
-        self.config = config
-        icon_size = ensure_int(config.get('display.diff_tree.icon_size'))
-        badge_size = ensure_int(config.get('display.diff_tree.badge_size'))
+    def __init__(self, backend):
+        self.backend = backend
+        icon_size = ensure_int(backend.get_config('display.diff_tree.icon_size'))
+        badge_size = ensure_int(backend.get_config('display.diff_tree.badge_size'))
         self._icon_meta_dict: Dict[IconId, SimpleIcon] = _build_icon_meta(icon_size, badge_size)
         self._icon_dict: Dict[IconId, GdkPixbuf.Pixbuf] = _load_icon_content(self._icon_meta_dict)
 

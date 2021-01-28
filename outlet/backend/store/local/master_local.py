@@ -49,10 +49,10 @@ class LocalDiskMasterStore(MasterStore):
         self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(backend)
         self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(backend)
 
-        initial_sleep_sec: float = self.backend.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
+        initial_sleep_sec: float = self.backend.get_config('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
         self._signature_calc_thread = SignatureCalcThread(self.backend, initial_sleep_sec)
 
-        self.lazy_load_signatures: bool = backend.config.get('cache.lazy_load_local_file_signatures')
+        self.lazy_load_signatures: bool = backend.get_config('cache.lazy_load_local_file_signatures')
 
     def start_signature_calc_thread(self):
         if not self._signature_calc_thread.is_alive():

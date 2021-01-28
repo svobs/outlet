@@ -29,7 +29,7 @@ class CentralExecutor(HasLifecycle):
         self._command_executor = CommandExecutor(self.backend)
         self._global_actions = GlobalActions(self.backend)
         self._be_task_runner = TaskRunner()
-        self.enable_op_execution_thread = backend.config.get('executor.enable_op_execution_thread')
+        self.enable_op_execution_thread = backend.get_config('executor.enable_op_execution_thread')
         self._cv_can_execute = threading.Condition()
 
         self._op_execution_thread = threading.Thread(target=self._run_op_execution_thread, name='OpExecutionThread', daemon=True)

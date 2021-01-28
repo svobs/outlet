@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from zeroconf import ServiceBrowser, Zeroconf
 
@@ -8,15 +8,16 @@ from backend.daemon.client.signal_receiver_thread import SignalReceiverThread
 from backend.daemon.client.zeroconf import OutletZeroconfListener
 from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated import Outlet_pb2_grpc
-from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GenerateMergeTree_Request, \
+from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
+    GenerateMergeTree_Request, \
     GetAncestorList_Request, GetChildList_Request, \
-    GetLastPendingOp_Request, \
+    GetConfig_Request, GetConfig_Response, GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForLocalPath_Request, \
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
-    RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
+    PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request
 from constants import SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
@@ -45,8 +46,8 @@ class BackendGRPCClient(OutletBackend):
     """
     def __init__(self, cfg):
         OutletBackend.__init__(self)
-        self.config = cfg
-        self.connection_timeout_sec = int(self.config.get('thin_client.connection_timeout_sec'))
+        self._config = cfg
+        self.connection_timeout_sec = int(self._config.get('thin_client.connection_timeout_sec'))
 
         self.channel = None
         self.grpc_stub: Optional[Outlet_pb2_grpc.OutletStub] = None
@@ -66,14 +67,15 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
         self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._send_complete_merge_signal)
 
-        use_fixed_address = ensure_bool(self.config.get('grpc.use_fixed_address'))
+        # TODO: hmm...looks like a chicken & egg problem here. Ideally we should get the config from the server
+        use_fixed_address = ensure_bool(self._config.get('grpc.use_fixed_address'))
         if use_fixed_address:
-            address = self.config.get('grpc.fixed_address')
-            port = ensure_int(self.config.get('grpc.fixed_port'))
+            address = self._config.get('grpc.fixed_address')
+            port = ensure_int(self._config.get('grpc.fixed_port'))
             logger.debug(f'Config specifies fixed server address = {address}:{port}')
             self.connect(address, port)
         else:
-            zeroconf_timeout_sec = int(self.config.get('thin_client.zeroconf_discovery_timeout_sec'))
+            zeroconf_timeout_sec = int(self._config.get('thin_client.zeroconf_discovery_timeout_sec'))
             zeroconf = Zeroconf()
             try:
                 listener = OutletZeroconfListener(zeroconf, self)
@@ -100,7 +102,7 @@ class BackendGRPCClient(OutletBackend):
             self.channel.close()
             self.channel = None
 
-        if ensure_bool(self.config.get('thin_client.kill_server_on_client_shutdown')):
+        if ensure_bool(self._config.get('thin_client.kill_server_on_client_shutdown')):
             logger.debug('Configured to kill backend daemon: looking for processes to kill...')
             daemon_util.terminate_daemon_if_found()
 
@@ -124,6 +126,42 @@ class BackendGRPCClient(OutletBackend):
 
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._fe_task_runner.enqueue(task_func, *args)
+
+    def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
+        request = GetConfig_Request()
+        request.config_key_list.append(config_key)
+        response: GetConfig_Response = self.grpc_stub.get_config(request)
+        assert len(response.config_list) == 1, f'Expected exactly 1 entry in response but found {len(response.config_list)} for key "{config_key}"'
+        config_val = response.config_list[0].val
+        if config_val:
+            return config_val
+        else:
+            return default_val
+
+    def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
+        request = GetConfig_Request()
+        for config_key in config_key_list:
+            request.config_key_list.append(config_key)
+        response: GetConfig_Response = self.grpc_stub.get_config(request)
+        config_dict: Dict[str, str] = {}
+        for config in response.config_list:
+            config_dict[config.key] = config.val
+        return config_dict
+
+    def put_config(self, config_key: str, config_val: str):
+        request = PutConfig_Request()
+        config = ConfigEntry(key=config_key, val=config_val)
+        request.config_list.append(config)
+        response: GetConfig_Response = self.grpc_stub.get_config(request)
+        assert len(response.config_list) == 1, f'Expected exactly 1 entry in response but found {len(response.config_list)} for key "{config_key}"'
+        return response.config_list[0].val
+
+    def put_config_list(self, config_dict: Dict[str, str]):
+        request = PutConfig_Request()
+        for config_key, config_val in config_dict:
+            config = ConfigEntry(key=config_key, val=config_val)
+            request.config_list.append(config)
+        self.grpc_stub.get_config(request)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         request = GetNodeForUid_Request()

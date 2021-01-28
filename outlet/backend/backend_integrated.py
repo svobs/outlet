@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 import logging
@@ -30,7 +30,7 @@ class BackendIntegrated(OutletBackend):
 
     def __init__(self, config):
         OutletBackend.__init__(self)
-        self.config = config
+        self._config = config
         self.executor: CentralExecutor = CentralExecutor(self)
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
         self.cacheman: CacheManager = CacheManager(self)
@@ -55,6 +55,22 @@ class BackendIntegrated(OutletBackend):
 
         self.cacheman = None
         self.executor = None
+
+    def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
+        return self._config.get(config_key, default_val)
+
+    def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
+        response_dict: Dict[str, str] = {}
+        for config_key in config_key_list:
+            response_dict[config_key] = self._config.get(config_key)
+        return response_dict
+
+    def put_config(self, config_key: str, config_val: str):
+        self._config.write(config_key, config_val)
+
+    def put_config_list(self, config_dict: Dict[str, str]):
+        for config_key, config_val in config_dict:
+            self._config.write(config_key, config_val)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         return self.cacheman.get_node_for_uid(uid, tree_type)

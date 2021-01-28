@@ -1,7 +1,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
@@ -33,6 +33,22 @@ class OutletBackend(HasLifecycle, ABC):
     def report_error(sender: str, msg: str, secondary_msg: Optional[str] = None):
         """Convenience method for notifying the user about errors"""
         dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=sender, msg=msg)
+
+    @abstractmethod
+    def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
+        pass
+
+    @abstractmethod
+    def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
+        pass
+
+    @abstractmethod
+    def put_config(self, config_key: str, config_val: str):
+        pass
+
+    @abstractmethod
+    def put_config_list(self, config_dict: Dict[str, str]):
+        pass
 
     @abstractmethod
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:

@@ -45,7 +45,7 @@ class ActiveTreeManager(HasLifecycle):
         self._display_tree_dict: Dict[str, ActiveDisplayTreeMeta] = {}
         """Keeps track of which display trees are currently being used in the UI"""
 
-        self._is_live_capture_enabled = backend.config.get('cache.live_capture_enabled')
+        self._is_live_capture_enabled = backend.get_config('cache.live_capture_enabled')
 
     def start(self):
         gdrive_live_monitor_enabled = self._is_live_capture_enabled and self._live_monitor.enable_gdrive_polling_thread

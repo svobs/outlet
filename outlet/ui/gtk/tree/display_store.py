@@ -60,7 +60,7 @@ class DisplayStore:
     def load_expanded_rows_from_config(self):
         try:
             self.expanded_rows: Set[UID] = set()
-            expanded_rows_str: Optional[str] = self.treeview_meta.config.get(DisplayStore._make_expanded_rows_config_key(self.tree_id))
+            expanded_rows_str: Optional[str] = self.con.backend.get_config(DisplayStore._make_expanded_rows_config_key(self.tree_id))
             if expanded_rows_str:
                 for uid in expanded_rows_str.split(CONFIG_DELIMITER):
                     self.expanded_rows.add(ensure_uid(uid))
@@ -69,7 +69,7 @@ class DisplayStore:
 
     def save_expanded_rows_to_config(self):
         expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in self.expanded_rows)
-        self.treeview_meta.config.write(DisplayStore._make_expanded_rows_config_key(self.tree_id), expanded_rows_str)
+        self.con.backend.put_config(DisplayStore._make_expanded_rows_config_key(self.tree_id), expanded_rows_str)
 
     @staticmethod
     def _make_expanded_rows_config_key(tree_id: str) -> str:

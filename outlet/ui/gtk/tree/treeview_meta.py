@@ -1,7 +1,6 @@
 import logging
 from typing import Callable, Optional
 
-from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
@@ -20,17 +19,17 @@ class TreeViewMeta(HasLifecycle):
     """
     def but_with_checkboxes(self, has_checkboxes: bool, tree_id: str):
         """Return an exact duplicate of this class instance, but with has_checkboxes set to the desired value"""
-        new_inst: TreeViewMeta = TreeViewMeta(config=self.config, tree_id=tree_id, can_modify_tree=self.can_modify_tree,
+        new_inst: TreeViewMeta = TreeViewMeta(backend=self.backend, tree_id=tree_id, can_modify_tree=self.can_modify_tree,
                                               has_checkboxes=has_checkboxes, can_change_root=self.can_change_root,
                                               tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
                                               is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
         new_inst.filter_criteria = self.filter_criteria
         return new_inst
 
-    def __init__(self, config: AppConfig, tree_id: str, can_modify_tree: bool, has_checkboxes: bool, can_change_root: bool,
+    def __init__(self, backend, tree_id: str, can_modify_tree: bool, has_checkboxes: bool, can_change_root: bool,
                  tree_display_mode: TreeDisplayMode, lazy_load: bool, selection_mode, is_display_persisted: bool, is_ignored_func):
         HasLifecycle.__init__(self)
-        self.config = config
+        self.backend = backend
         self.selection_mode = selection_mode
         self.tree_id = tree_id
 
@@ -49,15 +48,15 @@ class TreeViewMeta(HasLifecycle):
 
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
-        self.use_dir_tree = config.get('display.diff_tree.use_dir_tree')
+        self.use_dir_tree = backend.get_config('display.diff_tree.use_dir_tree')
 
-        self.show_modify_ts_col: bool = config.get('display.diff_tree.show_modify_ts_col')
-        self.show_change_ts_col: bool = config.get('display.diff_tree.show_change_ts_col')
-        self.show_etc_col: bool = config.get('display.diff_tree.show_etc_col')
+        self.show_modify_ts_col: bool = backend.get_config('display.diff_tree.show_modify_ts_col')
+        self.show_change_ts_col: bool = backend.get_config('display.diff_tree.show_change_ts_col')
+        self.show_etc_col: bool = backend.get_config('display.diff_tree.show_etc_col')
 
-        self.datetime_format = config.get('display.diff_tree.datetime_format')
-        self.extra_indent: int = config.get('display.diff_tree.extra_indent')
-        self.row_height: int = config.get('display.diff_tree.row_height')
+        self.datetime_format = backend.get_config('display.diff_tree.datetime_format')
+        self.extra_indent: int = backend.get_config('display.diff_tree.extra_indent')
+        self.row_height: int = backend.get_config('display.diff_tree.row_height')
 
         self.filter_criteria: Optional[FilterCriteria] = None
 
@@ -148,10 +147,12 @@ class TreeViewMeta(HasLifecycle):
         return self.lazy_load
 
     def read_filter_criteria_from_config(self):
+        # FIXME
         logger.debug(f'[{self.tree_id}] Reading FilterCriteria from config')
         self.filter_criteria = FilterCriteria.read_filter_criteria_from_config(self.config, self.tree_id)
 
     def write_filter_criteria_to_config(self):
+        # FIXME
         if self.filter_criteria:
             logger.debug(f'[{self.tree_id}] Writing FilterCriteria to config')
             self.filter_criteria.write_filter_criteria_to_config(config=self.config, tree_id=self.tree_id)

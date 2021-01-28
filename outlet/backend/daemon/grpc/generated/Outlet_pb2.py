@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'\n\023com.msvoboda.outletP\001Z\031msvoboda.com/outlet/proto',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n1outlet/backend/daemon/grpc/generated/Outlet.proto\x12$outlet.backend.daemon.grpc.generated\x1a/outlet/backend/daemon/grpc/generated/Node.proto\"\x07\n\x05\x45mpty\",\n\x18GetLastPendingOp_Request\x12\x10\n\x08node_uid\x18\x01 \x01(\r\"D\n\x1a\x44ownloadFromGDrive_Request\x12\x10\n\x08node_uid\x18\x01 \x01(\r\x12\x14\n\x0crequestor_id\x18\x02 \x01(\t\"Z\n\x19GetLastPendingOp_Response\x12=\n\x07user_op\x18\x01 \x01(\x0b\x32,.outlet.backend.daemon.grpc.generated.UserOp\"\x13\n\x11Subscribe_Request\"\x1c\n\x1aGetOpExecPlayState_Request\"$\n\x12ToggleUiEnablement\x12\x0e\n\x06\x65nable\x18\x01 \x01(\x08\"\xe5\x01\n\x19GenerateMergeTree_Request\x12\x14\n\x0ctree_id_left\x18\x01 \x01(\t\x12\x15\n\rtree_id_right\x18\x02 \x01(\t\x12L\n\x10\x63hange_list_left\x18\x03 \x03(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12M\n\x11\x63hange_list_right\x18\x04 \x03(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\"\xda\x01\n\x10\x44ragDrop_Request\x12\x13\n\x0bsrc_tree_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64st_tree_id\x18\x02 \x01(\t\x12G\n\x0bsrc_sn_list\x18\x03 \x03(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12\x42\n\x06\x64st_sn\x18\x04 \x01(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12\x0f\n\x07is_into\x18\x05 \x01(\x08\"x\n\x16RefreshSubtree_Request\x12M\n\x0fnode_identifier\x18\x01 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.NodeIdentifier\x12\x0f\n\x07tree_id\x18\x02 \x01(\t\"@\n\x1bRefreshSubtreeStats_Request\x12\x10\n\x08root_uid\x18\x01 \x01(\r\x12\x0f\n\x07tree_id\x18\x02 \x01(\t\".\n\x15\x44\x65leteSubtree_Request\x12\x15\n\rnode_uid_list\x18\x01 \x03(\r\"3\n\rErrorOccurred\x12\x0b\n\x03msg\x18\x01 \x01(\t\x12\x15\n\rsecondary_msg\x18\x02 \x01(\t\"\x1b\n\x0cUidContainer\x12\x0b\n\x03uid\x18\x01 \x01(\r\"E\n\x16StartDiffTrees_Request\x12\x14\n\x0ctree_id_left\x18\x01 \x01(\t\x12\x15\n\rtree_id_right\x18\x02 \x01(\t\"F\n\x17StartDiffTrees_Response\x12\x14\n\x0ctree_id_left\x18\x01 \x01(\t\x12\x15\n\rtree_id_right\x18\x02 \x01(\t\"\x13\n\x11\x44ragDrop_Response\"\xde\x05\n\tSignalMsg\x12\x0f\n\x07sig_int\x18\x01 \x01(\r\x12\x0e\n\x06sender\x18\x02 \x01(\t\x12<\n\x05\x65mpty\x18\n \x01(\x0b\x32+.outlet.backend.daemon.grpc.generated.EmptyH\x00\x12M\n\x0e\x65rror_occurred\x18\x0b \x01(\x0b\x32\x33.outlet.backend.daemon.grpc.generated.ErrorOccurredH\x00\x12Y\n\x15\x64isplay_tree_ui_state\x18\x0c \x01(\x0b\x32\x38.outlet.backend.daemon.grpc.generated.DisplayTreeUiStateH\x00\x12\x45\n\nplay_state\x18\r \x01(\x0b\x32/.outlet.backend.daemon.grpc.generated.PlayStateH\x00\x12Q\n\rui_enablement\x18\x0e \x01(\x0b\x32\x38.outlet.backend.daemon.grpc.generated.ToggleUiEnablementH\x00\x12:\n\x04node\x18\x0f \x01(\x0b\x32*.outlet.backend.daemon.grpc.generated.NodeH\x00\x12Q\n\x11src_dst_node_list\x18\x10 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.SrcDstNodeListH\x00\x12\x45\n\nstatus_msg\x18\x11 \x01(\x0b\x32/.outlet.backend.daemon.grpc.generated.StatusMsgH\x00\x12I\n\x0c\x64ownload_msg\x18\x12 \x01(\x0b\x32\x31.outlet.backend.daemon.grpc.generated.DownloadMsgH\x00\x42\r\n\x0bsignal_data\"\x1f\n\x0b\x44ownloadMsg\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\"\x18\n\tStatusMsg\x12\x0b\n\x03msg\x18\x01 \x01(\t\"\x14\n\x12SendSignalResponse\"\xb7\x01\n\x14GetChildList_Request\x12?\n\x0bparent_node\x18\x01 \x01(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\x12M\n\x0f\x66ilter_criteria\x18\x02 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.FilterCriteria\x12\x0f\n\x07tree_id\x18\x03 \x01(\t\"V\n\x15GetChildList_Response\x12=\n\tnode_list\x18\x01 \x03(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\"s\n\x17GetAncestorList_Request\x12\x42\n\x04spid\x18\x01 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.NodeIdentifier\x12\x14\n\x0cstop_at_path\x18\x02 \x01(\t\"Y\n\x18GetAncestorList_Response\x12=\n\tnode_list\x18\x01 \x03(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\"\x1f\n\tPlayState\x12\x12\n\nis_enabled\x18\x01 \x01(\x08\"+\n\x18StartSubtreeLoad_Request\x12\x0f\n\x07tree_id\x18\x01 \x01(\t\"\x1b\n\x19StartSubtreeLoad_Response\"\xe5\x01\n\x12\x44isplayTreeUiState\x12\x0f\n\x07tree_id\x18\x01 \x01(\t\x12\x43\n\x07root_sn\x18\x02 \x01(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12\x13\n\x0broot_exists\x18\x03 \x01(\x08\x12\x16\n\x0eoffending_path\x18\x04 \x01(\t\x12\x19\n\x11needs_manual_load\x18\x05 \x01(\x08\x12\x19\n\x11tree_display_mode\x18\x06 \x01(\r\x12\x16\n\x0ehas_checkboxes\x18\x07 \x01(\x08\"\xc9\x01\n\x1aRequestDisplayTree_Request\x12\x12\n\nis_startup\x18\x01 \x01(\x08\x12\x0f\n\x07tree_id\x18\x02 \x01(\t\x12\x14\n\x0creturn_async\x18\x03 \x01(\x08\x12\x11\n\tuser_path\x18\x04 \x01(\t\x12\x42\n\x04spid\x18\x05 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.NodeIdentifier\x12\x19\n\x11tree_display_mode\x18\x06 \x01(\r\"v\n\x1bRequestDisplayTree_Response\x12W\n\x15\x64isplay_tree_ui_state\x18\x01 \x01(\x0b\x32\x38.outlet.backend.daemon.grpc.generated.DisplayTreeUiState\"O\n\x13SingleNode_Response\x12\x38\n\x04node\x18\x01 \x01(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\"G\n\x1aGetUidForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\x12\x16\n\x0euid_suggestion\x18\x02 \x01(\r\"*\n\x1bGetUidForLocalPath_Response\x12\x0b\n\x03uid\x18\x01 \x01(\r\"7\n\x15GetNodeForUid_Request\x12\x0b\n\x03uid\x18\x01 \x01(\r\x12\x11\n\ttree_type\x18\x02 \x01(\r\"0\n\x1bGetNodeForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\"\x14\n\x12GetNextUid_Request\"\"\n\x13GetNextUid_Response\x12\x0b\n\x03uid\x18\x01 \x01(\r2\xa7\x15\n\x06Outlet\x12\x82\x01\n\x14subscribe_to_signals\x12\x37.outlet.backend.daemon.grpc.generated.Subscribe_Request\x1a/.outlet.backend.daemon.grpc.generated.SignalMsg0\x01\x12x\n\x0bsend_signal\x12/.outlet.backend.daemon.grpc.generated.SignalMsg\x1a\x38.outlet.backend.daemon.grpc.generated.SendSignalResponse\x12\x8a\x01\n\x10get_node_for_uid\x12;.outlet.backend.daemon.grpc.generated.GetNodeForUid_Request\x1a\x39.outlet.backend.daemon.grpc.generated.SingleNode_Response\x12\x97\x01\n\x17get_node_for_local_path\x12\x41.outlet.backend.daemon.grpc.generated.GetNodeForLocalPath_Request\x1a\x39.outlet.backend.daemon.grpc.generated.SingleNode_Response\x12\x92\x01\n\x17get_child_list_for_node\x12:.outlet.backend.daemon.grpc.generated.GetChildList_Request\x1a;.outlet.backend.daemon.grpc.generated.GetChildList_Response\x12\x9b\x01\n\x1aget_ancestor_list_for_spid\x12=.outlet.backend.daemon.grpc.generated.GetAncestorList_Request\x1a>.outlet.backend.daemon.grpc.generated.GetAncestorList_Response\x12\xa4\x01\n\x1drequest_display_tree_ui_state\x12@.outlet.backend.daemon.grpc.generated.RequestDisplayTree_Request\x1a\x41.outlet.backend.daemon.grpc.generated.RequestDisplayTree_Response\x12\x95\x01\n\x12start_subtree_load\x12>.outlet.backend.daemon.grpc.generated.StartSubtreeLoad_Request\x1a?.outlet.backend.daemon.grpc.generated.StartSubtreeLoad_Response\x12\x8b\x01\n\x16get_op_exec_play_state\x12@.outlet.backend.daemon.grpc.generated.GetOpExecPlayState_Request\x1a/.outlet.backend.daemon.grpc.generated.PlayState\x12\x8f\x01\n\x10start_diff_trees\x12<.outlet.backend.daemon.grpc.generated.StartDiffTrees_Request\x1a=.outlet.backend.daemon.grpc.generated.StartDiffTrees_Response\x12|\n\x0frefresh_subtree\x12<.outlet.backend.daemon.grpc.generated.RefreshSubtree_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12\x87\x01\n\x15refresh_subtree_stats\x12\x41.outlet.backend.daemon.grpc.generated.RefreshSubtreeStats_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12\x83\x01\n\x0cget_next_uid\x12\x38.outlet.backend.daemon.grpc.generated.GetNextUid_Request\x1a\x39.outlet.backend.daemon.grpc.generated.GetNextUid_Response\x12\x9d\x01\n\x16get_uid_for_local_path\x12@.outlet.backend.daemon.grpc.generated.GetUidForLocalPath_Request\x1a\x41.outlet.backend.daemon.grpc.generated.GetUidForLocalPath_Response\x12\x83\x01\n\x13generate_merge_tree\x12?.outlet.backend.daemon.grpc.generated.GenerateMergeTree_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12\x85\x01\n\x12\x64rop_dragged_nodes\x12\x36.outlet.backend.daemon.grpc.generated.DragDrop_Request\x1a\x37.outlet.backend.daemon.grpc.generated.DragDrop_Response\x12\x9f\x01\n\x1cget_last_pending_op_for_node\x12>.outlet.backend.daemon.grpc.generated.GetLastPendingOp_Request\x1a?.outlet.backend.daemon.grpc.generated.GetLastPendingOp_Response\x12\x8a\x01\n\x19\x64ownload_file_from_gdrive\x12@.outlet.backend.daemon.grpc.generated.DownloadFromGDrive_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12z\n\x0e\x64\x65lete_subtree\x12;.outlet.backend.daemon.grpc.generated.DeleteSubtree_Request\x1a+.outlet.backend.daemon.grpc.generated.EmptyB2\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protoP\x00\x62\x06proto3'
+  serialized_pb=b'\n1outlet/backend/daemon/grpc/generated/Outlet.proto\x12$outlet.backend.daemon.grpc.generated\x1a/outlet/backend/daemon/grpc/generated/Node.proto\"\x07\n\x05\x45mpty\"\'\n\x0b\x43onfigEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x0b\n\x03val\x18\x02 \x01(\t\",\n\x11GetConfig_Request\x12\x17\n\x0f\x63onfig_key_list\x18\x01 \x03(\t\"\\\n\x12GetConfig_Response\x12\x46\n\x0b\x63onfig_list\x18\x01 \x03(\x0b\x32\x31.outlet.backend.daemon.grpc.generated.ConfigEntry\"[\n\x11PutConfig_Request\x12\x46\n\x0b\x63onfig_list\x18\x01 \x03(\x0b\x32\x31.outlet.backend.daemon.grpc.generated.ConfigEntry\"\x14\n\x12PutConfig_Response\",\n\x18GetLastPendingOp_Request\x12\x10\n\x08node_uid\x18\x01 \x01(\r\"D\n\x1a\x44ownloadFromGDrive_Request\x12\x10\n\x08node_uid\x18\x01 \x01(\r\x12\x14\n\x0crequestor_id\x18\x02 \x01(\t\"Z\n\x19GetLastPendingOp_Response\x12=\n\x07user_op\x18\x01 \x01(\x0b\x32,.outlet.backend.daemon.grpc.generated.UserOp\"\x13\n\x11Subscribe_Request\"\x1c\n\x1aGetOpExecPlayState_Request\"$\n\x12ToggleUiEnablement\x12\x0e\n\x06\x65nable\x18\x01 \x01(\x08\"\xe5\x01\n\x19GenerateMergeTree_Request\x12\x14\n\x0ctree_id_left\x18\x01 \x01(\t\x12\x15\n\rtree_id_right\x18\x02 \x01(\t\x12L\n\x10\x63hange_list_left\x18\x03 \x03(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12M\n\x11\x63hange_list_right\x18\x04 \x03(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\"\xda\x01\n\x10\x44ragDrop_Request\x12\x13\n\x0bsrc_tree_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64st_tree_id\x18\x02 \x01(\t\x12G\n\x0bsrc_sn_list\x18\x03 \x03(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12\x42\n\x06\x64st_sn\x18\x04 \x01(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12\x0f\n\x07is_into\x18\x05 \x01(\x08\"x\n\x16RefreshSubtree_Request\x12M\n\x0fnode_identifier\x18\x01 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.NodeIdentifier\x12\x0f\n\x07tree_id\x18\x02 \x01(\t\"@\n\x1bRefreshSubtreeStats_Request\x12\x10\n\x08root_uid\x18\x01 \x01(\r\x12\x0f\n\x07tree_id\x18\x02 \x01(\t\".\n\x15\x44\x65leteSubtree_Request\x12\x15\n\rnode_uid_list\x18\x01 \x03(\r\"3\n\rErrorOccurred\x12\x0b\n\x03msg\x18\x01 \x01(\t\x12\x15\n\rsecondary_msg\x18\x02 \x01(\t\"\x1b\n\x0cUidContainer\x12\x0b\n\x03uid\x18\x01 \x01(\r\"E\n\x16StartDiffTrees_Request\x12\x14\n\x0ctree_id_left\x18\x01 \x01(\t\x12\x15\n\rtree_id_right\x18\x02 \x01(\t\"F\n\x17StartDiffTrees_Response\x12\x14\n\x0ctree_id_left\x18\x01 \x01(\t\x12\x15\n\rtree_id_right\x18\x02 \x01(\t\"\x13\n\x11\x44ragDrop_Response\"\xde\x05\n\tSignalMsg\x12\x0f\n\x07sig_int\x18\x01 \x01(\r\x12\x0e\n\x06sender\x18\x02 \x01(\t\x12<\n\x05\x65mpty\x18\n \x01(\x0b\x32+.outlet.backend.daemon.grpc.generated.EmptyH\x00\x12M\n\x0e\x65rror_occurred\x18\x0b \x01(\x0b\x32\x33.outlet.backend.daemon.grpc.generated.ErrorOccurredH\x00\x12Y\n\x15\x64isplay_tree_ui_state\x18\x0c \x01(\x0b\x32\x38.outlet.backend.daemon.grpc.generated.DisplayTreeUiStateH\x00\x12\x45\n\nplay_state\x18\r \x01(\x0b\x32/.outlet.backend.daemon.grpc.generated.PlayStateH\x00\x12Q\n\rui_enablement\x18\x0e \x01(\x0b\x32\x38.outlet.backend.daemon.grpc.generated.ToggleUiEnablementH\x00\x12:\n\x04node\x18\x0f \x01(\x0b\x32*.outlet.backend.daemon.grpc.generated.NodeH\x00\x12Q\n\x11src_dst_node_list\x18\x10 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.SrcDstNodeListH\x00\x12\x45\n\nstatus_msg\x18\x11 \x01(\x0b\x32/.outlet.backend.daemon.grpc.generated.StatusMsgH\x00\x12I\n\x0c\x64ownload_msg\x18\x12 \x01(\x0b\x32\x31.outlet.backend.daemon.grpc.generated.DownloadMsgH\x00\x42\r\n\x0bsignal_data\"\x1f\n\x0b\x44ownloadMsg\x12\x10\n\x08\x66ilename\x18\x01 \x01(\t\"\x18\n\tStatusMsg\x12\x0b\n\x03msg\x18\x01 \x01(\t\"\x14\n\x12SendSignalResponse\"\xb7\x01\n\x14GetChildList_Request\x12?\n\x0bparent_node\x18\x01 \x01(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\x12M\n\x0f\x66ilter_criteria\x18\x02 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.FilterCriteria\x12\x0f\n\x07tree_id\x18\x03 \x01(\t\"V\n\x15GetChildList_Response\x12=\n\tnode_list\x18\x01 \x03(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\"s\n\x17GetAncestorList_Request\x12\x42\n\x04spid\x18\x01 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.NodeIdentifier\x12\x14\n\x0cstop_at_path\x18\x02 \x01(\t\"Y\n\x18GetAncestorList_Response\x12=\n\tnode_list\x18\x01 \x03(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\"\x1f\n\tPlayState\x12\x12\n\nis_enabled\x18\x01 \x01(\x08\"+\n\x18StartSubtreeLoad_Request\x12\x0f\n\x07tree_id\x18\x01 \x01(\t\"\x1b\n\x19StartSubtreeLoad_Response\"\xe5\x01\n\x12\x44isplayTreeUiState\x12\x0f\n\x07tree_id\x18\x01 \x01(\t\x12\x43\n\x07root_sn\x18\x02 \x01(\x0b\x32\x32.outlet.backend.daemon.grpc.generated.SPIDNodePair\x12\x13\n\x0broot_exists\x18\x03 \x01(\x08\x12\x16\n\x0eoffending_path\x18\x04 \x01(\t\x12\x19\n\x11needs_manual_load\x18\x05 \x01(\x08\x12\x19\n\x11tree_display_mode\x18\x06 \x01(\r\x12\x16\n\x0ehas_checkboxes\x18\x07 \x01(\x08\"\xc9\x01\n\x1aRequestDisplayTree_Request\x12\x12\n\nis_startup\x18\x01 \x01(\x08\x12\x0f\n\x07tree_id\x18\x02 \x01(\t\x12\x14\n\x0creturn_async\x18\x03 \x01(\x08\x12\x11\n\tuser_path\x18\x04 \x01(\t\x12\x42\n\x04spid\x18\x05 \x01(\x0b\x32\x34.outlet.backend.daemon.grpc.generated.NodeIdentifier\x12\x19\n\x11tree_display_mode\x18\x06 \x01(\r\"v\n\x1bRequestDisplayTree_Response\x12W\n\x15\x64isplay_tree_ui_state\x18\x01 \x01(\x0b\x32\x38.outlet.backend.daemon.grpc.generated.DisplayTreeUiState\"O\n\x13SingleNode_Response\x12\x38\n\x04node\x18\x01 \x01(\x0b\x32*.outlet.backend.daemon.grpc.generated.Node\"G\n\x1aGetUidForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\x12\x16\n\x0euid_suggestion\x18\x02 \x01(\r\"*\n\x1bGetUidForLocalPath_Response\x12\x0b\n\x03uid\x18\x01 \x01(\r\"7\n\x15GetNodeForUid_Request\x12\x0b\n\x03uid\x18\x01 \x01(\r\x12\x11\n\ttree_type\x18\x02 \x01(\r\"0\n\x1bGetNodeForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\"\x14\n\x12GetNextUid_Request\"\"\n\x13GetNextUid_Response\x12\x0b\n\x03uid\x18\x01 \x01(\r2\xa9\x17\n\x06Outlet\x12\x82\x01\n\x14subscribe_to_signals\x12\x37.outlet.backend.daemon.grpc.generated.Subscribe_Request\x1a/.outlet.backend.daemon.grpc.generated.SignalMsg0\x01\x12x\n\x0bsend_signal\x12/.outlet.backend.daemon.grpc.generated.SignalMsg\x1a\x38.outlet.backend.daemon.grpc.generated.SendSignalResponse\x12\x7f\n\nget_config\x12\x37.outlet.backend.daemon.grpc.generated.GetConfig_Request\x1a\x38.outlet.backend.daemon.grpc.generated.GetConfig_Response\x12\x7f\n\nput_config\x12\x37.outlet.backend.daemon.grpc.generated.PutConfig_Request\x1a\x38.outlet.backend.daemon.grpc.generated.PutConfig_Response\x12\x8a\x01\n\x10get_node_for_uid\x12;.outlet.backend.daemon.grpc.generated.GetNodeForUid_Request\x1a\x39.outlet.backend.daemon.grpc.generated.SingleNode_Response\x12\x97\x01\n\x17get_node_for_local_path\x12\x41.outlet.backend.daemon.grpc.generated.GetNodeForLocalPath_Request\x1a\x39.outlet.backend.daemon.grpc.generated.SingleNode_Response\x12\x92\x01\n\x17get_child_list_for_node\x12:.outlet.backend.daemon.grpc.generated.GetChildList_Request\x1a;.outlet.backend.daemon.grpc.generated.GetChildList_Response\x12\x9b\x01\n\x1aget_ancestor_list_for_spid\x12=.outlet.backend.daemon.grpc.generated.GetAncestorList_Request\x1a>.outlet.backend.daemon.grpc.generated.GetAncestorList_Response\x12\xa4\x01\n\x1drequest_display_tree_ui_state\x12@.outlet.backend.daemon.grpc.generated.RequestDisplayTree_Request\x1a\x41.outlet.backend.daemon.grpc.generated.RequestDisplayTree_Response\x12\x95\x01\n\x12start_subtree_load\x12>.outlet.backend.daemon.grpc.generated.StartSubtreeLoad_Request\x1a?.outlet.backend.daemon.grpc.generated.StartSubtreeLoad_Response\x12\x8b\x01\n\x16get_op_exec_play_state\x12@.outlet.backend.daemon.grpc.generated.GetOpExecPlayState_Request\x1a/.outlet.backend.daemon.grpc.generated.PlayState\x12\x8f\x01\n\x10start_diff_trees\x12<.outlet.backend.daemon.grpc.generated.StartDiffTrees_Request\x1a=.outlet.backend.daemon.grpc.generated.StartDiffTrees_Response\x12|\n\x0frefresh_subtree\x12<.outlet.backend.daemon.grpc.generated.RefreshSubtree_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12\x87\x01\n\x15refresh_subtree_stats\x12\x41.outlet.backend.daemon.grpc.generated.RefreshSubtreeStats_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12\x83\x01\n\x0cget_next_uid\x12\x38.outlet.backend.daemon.grpc.generated.GetNextUid_Request\x1a\x39.outlet.backend.daemon.grpc.generated.GetNextUid_Response\x12\x9d\x01\n\x16get_uid_for_local_path\x12@.outlet.backend.daemon.grpc.generated.GetUidForLocalPath_Request\x1a\x41.outlet.backend.daemon.grpc.generated.GetUidForLocalPath_Response\x12\x83\x01\n\x13generate_merge_tree\x12?.outlet.backend.daemon.grpc.generated.GenerateMergeTree_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12\x85\x01\n\x12\x64rop_dragged_nodes\x12\x36.outlet.backend.daemon.grpc.generated.DragDrop_Request\x1a\x37.outlet.backend.daemon.grpc.generated.DragDrop_Response\x12\x9f\x01\n\x1cget_last_pending_op_for_node\x12>.outlet.backend.daemon.grpc.generated.GetLastPendingOp_Request\x1a?.outlet.backend.daemon.grpc.generated.GetLastPendingOp_Response\x12\x8a\x01\n\x19\x64ownload_file_from_gdrive\x12@.outlet.backend.daemon.grpc.generated.DownloadFromGDrive_Request\x1a+.outlet.backend.daemon.grpc.generated.Empty\x12z\n\x0e\x64\x65lete_subtree\x12;.outlet.backend.daemon.grpc.generated.DeleteSubtree_Request\x1a+.outlet.backend.daemon.grpc.generated.EmptyB2\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protoP\x00\x62\x06proto3'
   ,
   dependencies=[outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Node__pb2.DESCRIPTOR,],
   public_dependencies=[outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Node__pb2.DESCRIPTOR,])
@@ -54,6 +54,166 @@ _EMPTY = _descriptor.Descriptor(
 )
 
 
+_CONFIGENTRY = _descriptor.Descriptor(
+  name='ConfigEntry',
+  full_name='outlet.backend.daemon.grpc.generated.ConfigEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='outlet.backend.daemon.grpc.generated.ConfigEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='val', full_name='outlet.backend.daemon.grpc.generated.ConfigEntry.val', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=149,
+  serialized_end=188,
+)
+
+
+_GETCONFIG_REQUEST = _descriptor.Descriptor(
+  name='GetConfig_Request',
+  full_name='outlet.backend.daemon.grpc.generated.GetConfig_Request',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='config_key_list', full_name='outlet.backend.daemon.grpc.generated.GetConfig_Request.config_key_list', index=0,
+      number=1, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=190,
+  serialized_end=234,
+)
+
+
+_GETCONFIG_RESPONSE = _descriptor.Descriptor(
+  name='GetConfig_Response',
+  full_name='outlet.backend.daemon.grpc.generated.GetConfig_Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='config_list', full_name='outlet.backend.daemon.grpc.generated.GetConfig_Response.config_list', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=236,
+  serialized_end=328,
+)
+
+
+_PUTCONFIG_REQUEST = _descriptor.Descriptor(
+  name='PutConfig_Request',
+  full_name='outlet.backend.daemon.grpc.generated.PutConfig_Request',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='config_list', full_name='outlet.backend.daemon.grpc.generated.PutConfig_Request.config_list', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=330,
+  serialized_end=421,
+)
+
+
+_PUTCONFIG_RESPONSE = _descriptor.Descriptor(
+  name='PutConfig_Response',
+  full_name='outlet.backend.daemon.grpc.generated.PutConfig_Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=423,
+  serialized_end=443,
+)
+
+
 _GETLASTPENDINGOP_REQUEST = _descriptor.Descriptor(
   name='GetLastPendingOp_Request',
   full_name='outlet.backend.daemon.grpc.generated.GetLastPendingOp_Request',
@@ -81,8 +241,8 @@ _GETLASTPENDINGOP_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=149,
-  serialized_end=193,
+  serialized_start=445,
+  serialized_end=489,
 )
 
 
@@ -120,8 +280,8 @@ _DOWNLOADFROMGDRIVE_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=195,
-  serialized_end=263,
+  serialized_start=491,
+  serialized_end=559,
 )
 
 
@@ -152,8 +312,8 @@ _GETLASTPENDINGOP_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=265,
-  serialized_end=355,
+  serialized_start=561,
+  serialized_end=651,
 )
 
 
@@ -177,8 +337,8 @@ _SUBSCRIBE_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=357,
-  serialized_end=376,
+  serialized_start=653,
+  serialized_end=672,
 )
 
 
@@ -202,8 +362,8 @@ _GETOPEXECPLAYSTATE_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=378,
-  serialized_end=406,
+  serialized_start=674,
+  serialized_end=702,
 )
 
 
@@ -234,8 +394,8 @@ _TOGGLEUIENABLEMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=408,
-  serialized_end=444,
+  serialized_start=704,
+  serialized_end=740,
 )
 
 
@@ -287,8 +447,8 @@ _GENERATEMERGETREE_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=447,
-  serialized_end=676,
+  serialized_start=743,
+  serialized_end=972,
 )
 
 
@@ -347,8 +507,8 @@ _DRAGDROP_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=679,
-  serialized_end=897,
+  serialized_start=975,
+  serialized_end=1193,
 )
 
 
@@ -386,8 +546,8 @@ _REFRESHSUBTREE_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=899,
-  serialized_end=1019,
+  serialized_start=1195,
+  serialized_end=1315,
 )
 
 
@@ -425,8 +585,8 @@ _REFRESHSUBTREESTATS_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1021,
-  serialized_end=1085,
+  serialized_start=1317,
+  serialized_end=1381,
 )
 
 
@@ -457,8 +617,8 @@ _DELETESUBTREE_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1087,
-  serialized_end=1133,
+  serialized_start=1383,
+  serialized_end=1429,
 )
 
 
@@ -496,8 +656,8 @@ _ERROROCCURRED = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1135,
-  serialized_end=1186,
+  serialized_start=1431,
+  serialized_end=1482,
 )
 
 
@@ -528,8 +688,8 @@ _UIDCONTAINER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1188,
-  serialized_end=1215,
+  serialized_start=1484,
+  serialized_end=1511,
 )
 
 
@@ -567,8 +727,8 @@ _STARTDIFFTREES_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1217,
-  serialized_end=1286,
+  serialized_start=1513,
+  serialized_end=1582,
 )
 
 
@@ -606,8 +766,8 @@ _STARTDIFFTREES_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1288,
-  serialized_end=1358,
+  serialized_start=1584,
+  serialized_end=1654,
 )
 
 
@@ -631,8 +791,8 @@ _DRAGDROP_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1360,
-  serialized_end=1379,
+  serialized_start=1656,
+  serialized_end=1675,
 )
 
 
@@ -738,8 +898,8 @@ _SIGNALMSG = _descriptor.Descriptor(
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=1382,
-  serialized_end=2116,
+  serialized_start=1678,
+  serialized_end=2412,
 )
 
 
@@ -770,8 +930,8 @@ _DOWNLOADMSG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2118,
-  serialized_end=2149,
+  serialized_start=2414,
+  serialized_end=2445,
 )
 
 
@@ -802,8 +962,8 @@ _STATUSMSG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2151,
-  serialized_end=2175,
+  serialized_start=2447,
+  serialized_end=2471,
 )
 
 
@@ -827,8 +987,8 @@ _SENDSIGNALRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2177,
-  serialized_end=2197,
+  serialized_start=2473,
+  serialized_end=2493,
 )
 
 
@@ -873,8 +1033,8 @@ _GETCHILDLIST_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2200,
-  serialized_end=2383,
+  serialized_start=2496,
+  serialized_end=2679,
 )
 
 
@@ -905,8 +1065,8 @@ _GETCHILDLIST_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2385,
-  serialized_end=2471,
+  serialized_start=2681,
+  serialized_end=2767,
 )
 
 
@@ -944,8 +1104,8 @@ _GETANCESTORLIST_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2473,
-  serialized_end=2588,
+  serialized_start=2769,
+  serialized_end=2884,
 )
 
 
@@ -976,8 +1136,8 @@ _GETANCESTORLIST_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2590,
-  serialized_end=2679,
+  serialized_start=2886,
+  serialized_end=2975,
 )
 
 
@@ -1008,8 +1168,8 @@ _PLAYSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2681,
-  serialized_end=2712,
+  serialized_start=2977,
+  serialized_end=3008,
 )
 
 
@@ -1040,8 +1200,8 @@ _STARTSUBTREELOAD_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2714,
-  serialized_end=2757,
+  serialized_start=3010,
+  serialized_end=3053,
 )
 
 
@@ -1065,8 +1225,8 @@ _STARTSUBTREELOAD_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2759,
-  serialized_end=2786,
+  serialized_start=3055,
+  serialized_end=3082,
 )
 
 
@@ -1139,8 +1299,8 @@ _DISPLAYTREEUISTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2789,
-  serialized_end=3018,
+  serialized_start=3085,
+  serialized_end=3314,
 )
 
 
@@ -1206,8 +1366,8 @@ _REQUESTDISPLAYTREE_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3021,
-  serialized_end=3222,
+  serialized_start=3317,
+  serialized_end=3518,
 )
 
 
@@ -1238,8 +1398,8 @@ _REQUESTDISPLAYTREE_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3224,
-  serialized_end=3342,
+  serialized_start=3520,
+  serialized_end=3638,
 )
 
 
@@ -1270,8 +1430,8 @@ _SINGLENODE_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3344,
-  serialized_end=3423,
+  serialized_start=3640,
+  serialized_end=3719,
 )
 
 
@@ -1309,8 +1469,8 @@ _GETUIDFORLOCALPATH_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3425,
-  serialized_end=3496,
+  serialized_start=3721,
+  serialized_end=3792,
 )
 
 
@@ -1341,8 +1501,8 @@ _GETUIDFORLOCALPATH_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3498,
-  serialized_end=3540,
+  serialized_start=3794,
+  serialized_end=3836,
 )
 
 
@@ -1380,8 +1540,8 @@ _GETNODEFORUID_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3542,
-  serialized_end=3597,
+  serialized_start=3838,
+  serialized_end=3893,
 )
 
 
@@ -1412,8 +1572,8 @@ _GETNODEFORLOCALPATH_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3599,
-  serialized_end=3647,
+  serialized_start=3895,
+  serialized_end=3943,
 )
 
 
@@ -1437,8 +1597,8 @@ _GETNEXTUID_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3649,
-  serialized_end=3669,
+  serialized_start=3945,
+  serialized_end=3965,
 )
 
 
@@ -1469,10 +1629,12 @@ _GETNEXTUID_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3671,
-  serialized_end=3705,
+  serialized_start=3967,
+  serialized_end=4001,
 )
 
+_GETCONFIG_RESPONSE.fields_by_name['config_list'].message_type = _CONFIGENTRY
+_PUTCONFIG_REQUEST.fields_by_name['config_list'].message_type = _CONFIGENTRY
 _GETLASTPENDINGOP_RESPONSE.fields_by_name['user_op'].message_type = outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Node__pb2._USEROP
 _GENERATEMERGETREE_REQUEST.fields_by_name['change_list_left'].message_type = outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Node__pb2._SPIDNODEPAIR
 _GENERATEMERGETREE_REQUEST.fields_by_name['change_list_right'].message_type = outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Node__pb2._SPIDNODEPAIR
@@ -1525,6 +1687,11 @@ _REQUESTDISPLAYTREE_REQUEST.fields_by_name['spid'].message_type = outlet_dot_bac
 _REQUESTDISPLAYTREE_RESPONSE.fields_by_name['display_tree_ui_state'].message_type = _DISPLAYTREEUISTATE
 _SINGLENODE_RESPONSE.fields_by_name['node'].message_type = outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Node__pb2._NODE
 DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
+DESCRIPTOR.message_types_by_name['ConfigEntry'] = _CONFIGENTRY
+DESCRIPTOR.message_types_by_name['GetConfig_Request'] = _GETCONFIG_REQUEST
+DESCRIPTOR.message_types_by_name['GetConfig_Response'] = _GETCONFIG_RESPONSE
+DESCRIPTOR.message_types_by_name['PutConfig_Request'] = _PUTCONFIG_REQUEST
+DESCRIPTOR.message_types_by_name['PutConfig_Response'] = _PUTCONFIG_RESPONSE
 DESCRIPTOR.message_types_by_name['GetLastPendingOp_Request'] = _GETLASTPENDINGOP_REQUEST
 DESCRIPTOR.message_types_by_name['DownloadFromGDrive_Request'] = _DOWNLOADFROMGDRIVE_REQUEST
 DESCRIPTOR.message_types_by_name['GetLastPendingOp_Response'] = _GETLASTPENDINGOP_RESPONSE
@@ -1570,6 +1737,41 @@ Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), {
   # @@protoc_insertion_point(class_scope:outlet.backend.daemon.grpc.generated.Empty)
   })
 _sym_db.RegisterMessage(Empty)
+
+ConfigEntry = _reflection.GeneratedProtocolMessageType('ConfigEntry', (_message.Message,), {
+  'DESCRIPTOR' : _CONFIGENTRY,
+  '__module__' : 'outlet.backend.daemon.grpc.generated.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.backend.daemon.grpc.generated.ConfigEntry)
+  })
+_sym_db.RegisterMessage(ConfigEntry)
+
+GetConfig_Request = _reflection.GeneratedProtocolMessageType('GetConfig_Request', (_message.Message,), {
+  'DESCRIPTOR' : _GETCONFIG_REQUEST,
+  '__module__' : 'outlet.backend.daemon.grpc.generated.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.backend.daemon.grpc.generated.GetConfig_Request)
+  })
+_sym_db.RegisterMessage(GetConfig_Request)
+
+GetConfig_Response = _reflection.GeneratedProtocolMessageType('GetConfig_Response', (_message.Message,), {
+  'DESCRIPTOR' : _GETCONFIG_RESPONSE,
+  '__module__' : 'outlet.backend.daemon.grpc.generated.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.backend.daemon.grpc.generated.GetConfig_Response)
+  })
+_sym_db.RegisterMessage(GetConfig_Response)
+
+PutConfig_Request = _reflection.GeneratedProtocolMessageType('PutConfig_Request', (_message.Message,), {
+  'DESCRIPTOR' : _PUTCONFIG_REQUEST,
+  '__module__' : 'outlet.backend.daemon.grpc.generated.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.backend.daemon.grpc.generated.PutConfig_Request)
+  })
+_sym_db.RegisterMessage(PutConfig_Request)
+
+PutConfig_Response = _reflection.GeneratedProtocolMessageType('PutConfig_Response', (_message.Message,), {
+  'DESCRIPTOR' : _PUTCONFIG_RESPONSE,
+  '__module__' : 'outlet.backend.daemon.grpc.generated.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.backend.daemon.grpc.generated.PutConfig_Response)
+  })
+_sym_db.RegisterMessage(PutConfig_Response)
 
 GetLastPendingOp_Request = _reflection.GeneratedProtocolMessageType('GetLastPendingOp_Request', (_message.Message,), {
   'DESCRIPTOR' : _GETLASTPENDINGOP_REQUEST,
@@ -1840,8 +2042,8 @@ _OUTLET = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=3708,
-  serialized_end=6435,
+  serialized_start=4004,
+  serialized_end=6989,
   methods=[
   _descriptor.MethodDescriptor(
     name='subscribe_to_signals',
@@ -1864,9 +2066,29 @@ _OUTLET = _descriptor.ServiceDescriptor(
     create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
+    name='get_config',
+    full_name='outlet.backend.daemon.grpc.generated.Outlet.get_config',
+    index=2,
+    containing_service=None,
+    input_type=_GETCONFIG_REQUEST,
+    output_type=_GETCONFIG_RESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='put_config',
+    full_name='outlet.backend.daemon.grpc.generated.Outlet.put_config',
+    index=3,
+    containing_service=None,
+    input_type=_PUTCONFIG_REQUEST,
+    output_type=_PUTCONFIG_RESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
     name='get_node_for_uid',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_node_for_uid',
-    index=2,
+    index=4,
     containing_service=None,
     input_type=_GETNODEFORUID_REQUEST,
     output_type=_SINGLENODE_RESPONSE,
@@ -1876,7 +2098,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_node_for_local_path',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_node_for_local_path',
-    index=3,
+    index=5,
     containing_service=None,
     input_type=_GETNODEFORLOCALPATH_REQUEST,
     output_type=_SINGLENODE_RESPONSE,
@@ -1886,7 +2108,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_child_list_for_node',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_child_list_for_node',
-    index=4,
+    index=6,
     containing_service=None,
     input_type=_GETCHILDLIST_REQUEST,
     output_type=_GETCHILDLIST_RESPONSE,
@@ -1896,7 +2118,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_ancestor_list_for_spid',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_ancestor_list_for_spid',
-    index=5,
+    index=7,
     containing_service=None,
     input_type=_GETANCESTORLIST_REQUEST,
     output_type=_GETANCESTORLIST_RESPONSE,
@@ -1906,7 +2128,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='request_display_tree_ui_state',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.request_display_tree_ui_state',
-    index=6,
+    index=8,
     containing_service=None,
     input_type=_REQUESTDISPLAYTREE_REQUEST,
     output_type=_REQUESTDISPLAYTREE_RESPONSE,
@@ -1916,7 +2138,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='start_subtree_load',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.start_subtree_load',
-    index=7,
+    index=9,
     containing_service=None,
     input_type=_STARTSUBTREELOAD_REQUEST,
     output_type=_STARTSUBTREELOAD_RESPONSE,
@@ -1926,7 +2148,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_op_exec_play_state',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_op_exec_play_state',
-    index=8,
+    index=10,
     containing_service=None,
     input_type=_GETOPEXECPLAYSTATE_REQUEST,
     output_type=_PLAYSTATE,
@@ -1936,7 +2158,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='start_diff_trees',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.start_diff_trees',
-    index=9,
+    index=11,
     containing_service=None,
     input_type=_STARTDIFFTREES_REQUEST,
     output_type=_STARTDIFFTREES_RESPONSE,
@@ -1946,7 +2168,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='refresh_subtree',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.refresh_subtree',
-    index=10,
+    index=12,
     containing_service=None,
     input_type=_REFRESHSUBTREE_REQUEST,
     output_type=_EMPTY,
@@ -1956,7 +2178,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='refresh_subtree_stats',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.refresh_subtree_stats',
-    index=11,
+    index=13,
     containing_service=None,
     input_type=_REFRESHSUBTREESTATS_REQUEST,
     output_type=_EMPTY,
@@ -1966,7 +2188,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_next_uid',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_next_uid',
-    index=12,
+    index=14,
     containing_service=None,
     input_type=_GETNEXTUID_REQUEST,
     output_type=_GETNEXTUID_RESPONSE,
@@ -1976,7 +2198,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_uid_for_local_path',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_uid_for_local_path',
-    index=13,
+    index=15,
     containing_service=None,
     input_type=_GETUIDFORLOCALPATH_REQUEST,
     output_type=_GETUIDFORLOCALPATH_RESPONSE,
@@ -1986,7 +2208,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='generate_merge_tree',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.generate_merge_tree',
-    index=14,
+    index=16,
     containing_service=None,
     input_type=_GENERATEMERGETREE_REQUEST,
     output_type=_EMPTY,
@@ -1996,7 +2218,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='drop_dragged_nodes',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.drop_dragged_nodes',
-    index=15,
+    index=17,
     containing_service=None,
     input_type=_DRAGDROP_REQUEST,
     output_type=_DRAGDROP_RESPONSE,
@@ -2006,7 +2228,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_last_pending_op_for_node',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.get_last_pending_op_for_node',
-    index=16,
+    index=18,
     containing_service=None,
     input_type=_GETLASTPENDINGOP_REQUEST,
     output_type=_GETLASTPENDINGOP_RESPONSE,
@@ -2016,7 +2238,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='download_file_from_gdrive',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.download_file_from_gdrive',
-    index=17,
+    index=19,
     containing_service=None,
     input_type=_DOWNLOADFROMGDRIVE_REQUEST,
     output_type=_EMPTY,
@@ -2026,7 +2248,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='delete_subtree',
     full_name='outlet.backend.daemon.grpc.generated.Outlet.delete_subtree',
-    index=18,
+    index=20,
     containing_service=None,
     input_type=_DELETESUBTREE_REQUEST,
     output_type=_EMPTY,

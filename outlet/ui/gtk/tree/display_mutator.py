@@ -38,7 +38,7 @@ class DisplayMutator(HasLifecycle):
     TODO: when does the number of display nodes start to slow down? -> add config for live node maximum
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, config, controller=None):
+    def __init__(self, controller=None):
         HasLifecycle.__init__(self)
         self.con = controller
         self.use_empty_nodes = True
@@ -60,7 +60,7 @@ class DisplayMutator(HasLifecycle):
         """Do post-wiring stuff like connect listeners."""
         HasLifecycle.start(self)
 
-        self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
+        self.use_empty_nodes = self.con.backend.get_config('display.diff_tree.use_empty_nodes')
         self._connect_node_listeners()
         logger.debug(f'[{self.con.tree_id}] DisplayMutator started')
 

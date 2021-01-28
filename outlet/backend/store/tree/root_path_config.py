@@ -45,14 +45,13 @@ class RootPathConfigPersister:
         self._root_offending_path_config_key = make_root_offending_path_config_key(tree_id)
         self._tree_id = tree_id
         self.backend = backend
-        self._config = backend.config
         self.root_path_meta = None
 
     def read_from_config(self) -> RootPathMeta:
         logger.debug(f'Attempting to read root path info from config: {self._tree_id}')
-        tree_type = self._config.get(self._tree_type_config_key)
-        root_path = self._config.get(self._root_path_config_key)
-        root_uid = self._config.get(self._root_uid_config_key)
+        tree_type = self.backend.get_config(self._tree_type_config_key)
+        root_path = self.backend.get_config(self._root_path_config_key)
+        root_uid = self.backend.get_config(self._root_uid_config_key)
         try:
             if not isinstance(root_uid, int):
                 root_uid = int(root_uid)
@@ -63,8 +62,8 @@ class RootPathConfigPersister:
                                                                                                     path_list=root_path, uid=root_uid,
                                                                                                     must_be_single_path=True)
 
-        root_exists = ensure_bool(self._config.get(self._root_exists_config_key))
-        offending_path = self._config.get(self._root_offending_path_config_key)
+        root_exists = ensure_bool(self.backend.get_config(self._root_exists_config_key))
+        offending_path = self.backend.get_config(self._root_offending_path_config_key)
         if offending_path == '':
             offending_path = None
 
@@ -77,13 +76,13 @@ class RootPathConfigPersister:
                          f'= {new_root.tree_type}, {self._root_path_config_key} = "{new_root.get_single_path()}", '
                          f'{self._root_uid_config_key} = "{new_root.uid}"')
             # Root changed. Invalidate the current tree contents
-            self._config.write(json_path=self._tree_type_config_key, value=new_root.tree_type)
-            self._config.write(json_path=self._root_path_config_key, value=new_root.get_single_path())
-            self._config.write(json_path=self._root_uid_config_key, value=new_root.uid)
-            self._config.write(json_path=self._root_exists_config_key, value=new_root_meta.root_exists)
+            self.backend.put_config(json_path=self._tree_type_config_key, value=new_root.tree_type)
+            self.backend.put_config(json_path=self._root_path_config_key, value=new_root.get_single_path())
+            self.backend.put_config(json_path=self._root_uid_config_key, value=new_root.uid)
+            self.backend.put_config(json_path=self._root_exists_config_key, value=new_root_meta.root_exists)
             offending_path = new_root_meta.offending_path
             if not offending_path:
                 offending_path = ''
-            self._config.write(json_path=self._root_offending_path_config_key, value=offending_path)
+            self.backend.put_config(json_path=self._root_offending_path_config_key, value=offending_path)
         # always, just to be safe
         self.root_path_meta = new_root_meta

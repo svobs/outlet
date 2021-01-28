@@ -55,7 +55,7 @@ class TreeFactory:
         else:
             gtk_selection_mode = Gtk.SelectionMode.SINGLE
 
-        treeview_meta = TreeViewMeta(config=self.parent_win.config,
+        treeview_meta = TreeViewMeta(backend=self.parent_win.backend,
                                      tree_id=self.tree.tree_id,
                                      can_modify_tree=self.can_modify_tree,
                                      has_checkboxes=self.has_checkboxes,

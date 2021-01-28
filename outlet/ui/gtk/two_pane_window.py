@@ -39,8 +39,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # Restore previous window location:
         self.x_loc_cfg_path = f'ui_state.{self.win_id}.x'
         self.y_loc_cfg_path = f'ui_state.{self.win_id}.y'
-        self.x_loc = self.app.config.get(self.x_loc_cfg_path, 50)
-        self.y_loc = self.app.config.get(self.y_loc_cfg_path, 50)
+        self.x_loc = self.backend.get_config(self.x_loc_cfg_path, 50)
+        self.y_loc = self.backend.get_config(self.y_loc_cfg_path, 50)
         self.move(x=self.x_loc, y=self.y_loc)
 
         self.set_hide_titlebar_when_maximized(True)
@@ -49,8 +49,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.width_cfg_path = f'ui_state.{self.win_id}.width'
         self.height_cfg_path = f'ui_state.{self.win_id}.height'
 
-        width = self.app.config.get(self.width_cfg_path, 1200)
-        height = self.app.config.get(self.height_cfg_path, 500)
+        width = self.backend.get_config(self.width_cfg_path, 1200)
+        height = self.backend.get_config(self.height_cfg_path, 500)
         allocation = Gdk.Rectangle()
         allocation.width = width
         allocation.height = height
@@ -70,12 +70,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        tree = self.app.backend.create_display_tree_from_config(tree_id=ID_LEFT_TREE, is_startup=True)
+        tree = self.backend.create_display_tree_from_config(tree_id=ID_LEFT_TREE, is_startup=True)
         self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree=tree)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        tree = self.app.backend.create_display_tree_from_config(tree_id=ID_RIGHT_TREE, is_startup=True)
+        tree = self.backend.create_display_tree_from_config(tree_id=ID_RIGHT_TREE, is_startup=True)
         self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree=tree)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
@@ -97,7 +97,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
         self.play_pause_btn = Gtk.ToolButton()
 
-        self._is_playing = self.app.backend.get_op_execution_play_state()
+        self._is_playing = self.backend.get_op_execution_play_state()
         self._update_play_pause_btn(sender=self.win_id, is_enabled=self._is_playing)
 
         self.play_pause_btn.connect('clicked', self._on_play_pause_btn_clicked)
@@ -113,7 +113,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # listen_for = [ID_LEFT_TREE, ID_RIGHT_TREE,
         #               self.win_id, ID_GLOBAL_CACHE, ID_COMMAND_EXECUTOR]
         # Remember to hold a reference to this, for signals!
-        # self.proress_bar_component = ProgressBar(self.config, listen_for)
+        # self.proress_bar_component = ProgressBar(self.backend, listen_for)
         # self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, False, 0)
         # Give progress bar exactly half of the window width:
         # self.bottom_panel.set_homogeneous(True)
@@ -184,7 +184,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             logger.debug(f'Diff btn clicked! Sending diff request to BE')
             # Disable button bar immediately:
             GlobalActions.disable_ui(sender=self.win_id)
-            self.app.backend.start_diff_trees(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id)
+            self.backend.start_diff_trees(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id)
             # We will be notified asynchronously when it is done/failed. If successful, the old tree_ids will be notified and supplied the new IDs
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", _on_diff_btn_clicked)
@@ -235,15 +235,15 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         if self._remembered_size.equal(curr):  # == doesn't work here
             # logger.debug('RESIZING FINISHED')
 
-            self.app.config.write(self.width_cfg_path, curr.width)
-            self.app.config.write(self.height_cfg_path, curr.height)
+            self.backend.put_config(self.width_cfg_path, curr.width)
+            self.backend.put_config(self.height_cfg_path, curr.height)
 
             # Store position also
             x, y = self.get_position()
             if x != self.x_loc or y != self.y_loc:
                 # logger.debug(f'Win position changed to {x}, {y}')
-                self.app.config.write(self.x_loc_cfg_path, x)
-                self.app.config.write(self.y_loc_cfg_path, y)
+                self.backend.put_config(self.x_loc_cfg_path, x)
+                self.backend.put_config(self.y_loc_cfg_path, y)
                 self.x_loc = x
                 self.y_loc = y
 
@@ -272,7 +272,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         GlobalActions.disable_ui(sender=self.win_id)
 
-        self.app.backend.generate_merge_tree(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id,
+        self.backend.generate_merge_tree(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id,
                                              selected_changes_left=selected_changes_left, selected_changes_right=selected_changes_right)
 
     # SIGNAL LISTENERS begin
@@ -372,5 +372,5 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     def _reload_tree(self, tree_con):
         """Reload the given tree in regular mode. This will tell the backend to discard the diff information, and in turn the
         backend will provide us with our old tree_id"""
-        new_tree = self.app.backend.create_existing_display_tree(tree_con.tree_id, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+        new_tree = self.backend.create_existing_display_tree(tree_con.tree_id, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         tree_con.reload(new_tree)

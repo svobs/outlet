@@ -48,8 +48,8 @@ from util.two_level_dict import TwoLevelDict
 logger = logging.getLogger(__name__)
 
 
-def ensure_cache_dir_path(config):
-    cache_dir_path = get_resource_path(config.get('cache.cache_dir_path'))
+def ensure_cache_dir_path(backend):
+    cache_dir_path = get_resource_path(backend.get_config('cache.cache_dir_path'))
     if not os.path.exists(cache_dir_path):
         logger.info(f'Cache directory does not exist; attempting to create: "{cache_dir_path}"')
     os.makedirs(name=cache_dir_path, exist_ok=True)
@@ -82,21 +82,21 @@ class CacheManager(HasLifecycle):
         HasLifecycle.__init__(self)
         self.backend = backend
 
-        self.cache_dir_path = ensure_cache_dir_path(self.backend.config)
+        self.cache_dir_path = ensure_cache_dir_path(self.backend)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
 
         self.change_tree_uid_mapper = UidChangeTreeMapper(self.backend)
 
         self._caches_by_type: CacheInfoByType = CacheInfoByType()
 
-        self.enable_load_from_disk = backend.config.get(CFG_ENABLE_LOAD_FROM_DISK)
-        self.enable_save_to_disk = backend.config.get('cache.enable_cache_save')
-        self.load_all_caches_on_startup = backend.config.get('cache.load_all_caches_on_startup')
-        self.load_caches_for_displayed_trees_at_startup = backend.config.get('cache.load_caches_for_displayed_trees_on_startup')
-        self.sync_from_local_disk_on_cache_load = backend.config.get('cache.sync_from_local_disk_on_cache_load')
-        self.sync_from_gdrive_on_cache_load = backend.config.get('cache.sync_from_gdrive_on_cache_load')
-        self.reload_tree_on_root_path_update = backend.config.get('cache.load_cache_when_tree_root_selected')
-        self.cancel_all_pending_ops_on_startup = backend.config.get('cache.cancel_all_pending_ops_on_startup')
+        self.enable_load_from_disk = backend.get_config(CFG_ENABLE_LOAD_FROM_DISK)
+        self.enable_save_to_disk = backend.get_config('cache.enable_cache_save')
+        self.load_all_caches_on_startup = backend.get_config('cache.load_all_caches_on_startup')
+        self.load_caches_for_displayed_trees_at_startup = backend.get_config('cache.load_caches_for_displayed_trees_on_startup')
+        self.sync_from_local_disk_on_cache_load = backend.get_config('cache.sync_from_local_disk_on_cache_load')
+        self.sync_from_gdrive_on_cache_load = backend.get_config('cache.sync_from_gdrive_on_cache_load')
+        self.reload_tree_on_root_path_update = backend.get_config('cache.load_cache_when_tree_root_selected')
+        self.cancel_all_pending_ops_on_startup = backend.get_config('cache.cancel_all_pending_ops_on_startup')
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')

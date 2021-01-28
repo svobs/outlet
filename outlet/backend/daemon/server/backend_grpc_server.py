@@ -24,13 +24,12 @@ class OutletDaemon(BackendIntegrated):
     """
 
     def __init__(self, config):
-        self.config = config
         BackendIntegrated.__init__(self, config)
 
         self._grpc_service = OutletGRPCService(self)
         """Contains the gRPC client code"""
 
-        self.use_zeroconf: bool = not ensure_bool(self.config.get('grpc.use_fixed_address'))
+        self.use_zeroconf: bool = not ensure_bool(self.get_config('grpc.use_fixed_address'))
         self.zeroconf = None
         self.local_ip = None
         self.zc_info = None
@@ -51,7 +50,7 @@ class OutletDaemon(BackendIntegrated):
         if self.use_zeroconf:
             port = 0
         else:
-            port = ensure_int(self.config.get('grpc.fixed_port'))
+            port = ensure_int(self.get_config('grpc.fixed_port'))
             logger.debug(f'Config specifies fixed port = {port}')
         port = server.add_insecure_port(f'[::]:{port}')
 

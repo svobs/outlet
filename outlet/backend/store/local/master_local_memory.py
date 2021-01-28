@@ -19,13 +19,13 @@ class LocalDiskMemoryStore:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend):
-        self.use_md5 = backend.config.get('cache.enable_md5_lookup')
+        self.use_md5 = backend.get_config('cache.enable_md5_lookup')
         if self.use_md5:
             self.md5_dict: Optional[Md5BeforeUidDict] = Md5BeforeUidDict()
         else:
             self.md5_dict: Optional[Md5BeforeUidDict] = None
 
-        self.use_sha256 = backend.config.get('cache.enable_sha256_lookup')
+        self.use_sha256 = backend.get_config('cache.enable_sha256_lookup')
         if self.use_sha256:
             self.sha256_dict: Optional[Sha256BeforeUidDict] = Sha256BeforeUidDict()
         else:

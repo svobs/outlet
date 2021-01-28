@@ -24,6 +24,16 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.FromString,
                 )
+        self.get_config = channel.unary_unary(
+                '/outlet.backend.daemon.grpc.generated.Outlet/get_config',
+                request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.FromString,
+                )
+        self.put_config = channel.unary_unary(
+                '/outlet.backend.daemon.grpc.generated.Outlet/put_config',
+                request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
+                )
         self.get_node_for_uid = channel.unary_unary(
                 '/outlet.backend.daemon.grpc.generated.Outlet/get_node_for_uid',
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
@@ -121,6 +131,18 @@ class OutletServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def send_signal(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_config(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def put_config(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -240,6 +262,16 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.send_signal,
                     request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.FromString,
                     response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.SerializeToString,
+            ),
+            'get_config': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_config,
+                    request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.SerializeToString,
+            ),
+            'put_config': grpc.unary_unary_rpc_method_handler(
+                    servicer.put_config,
+                    request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.SerializeToString,
             ),
             'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_node_for_uid,
@@ -367,6 +399,40 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/send_signal',
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_config(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/get_config',
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.SerializeToString,
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def put_config(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/put_config',
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

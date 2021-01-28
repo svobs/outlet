@@ -1,6 +1,7 @@
 syntax = "proto3";
 
-import public "outlet/backend/daemon/grpc/generated/Node.proto";
+import public "outlet/backend/daemon/grpc/generated/Node.proto"; // Python
+//import public "Node.proto"; // Swift
 
 option java_package = "com.msvoboda.outlet";
 option go_package = "msvoboda.com/outlet/proto";
@@ -9,6 +10,27 @@ option java_multiple_files = true;
 package outlet.backend.daemon.grpc.generated;
 
 message Empty {
+	// nothing
+}
+
+message ConfigEntry {
+	string key = 1;
+	string val = 2;
+}
+
+message GetConfig_Request {
+	repeated string config_key_list = 1;
+}
+
+message GetConfig_Response {
+	repeated ConfigEntry config_list = 1;
+}
+
+message PutConfig_Request {
+	repeated ConfigEntry config_list = 1;
+}
+
+message PutConfig_Response {
 	// nothing
 }
 
@@ -205,6 +227,9 @@ message GetNextUid_Response {
 service Outlet {
 	rpc subscribe_to_signals(Subscribe_Request) returns (stream SignalMsg);
 	rpc send_signal(SignalMsg) returns (SendSignalResponse);
+
+	rpc get_config(GetConfig_Request) returns (GetConfig_Response);
+	rpc put_config(PutConfig_Request) returns (PutConfig_Response);
 
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);

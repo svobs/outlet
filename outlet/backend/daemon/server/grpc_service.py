@@ -12,12 +12,14 @@ from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from constants import SUPER_DEBUG
 from backend.daemon.grpc.conversion import GRPCConverter
-from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, GenerateMergeTree_Request, \
+from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
+    GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
-    GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
+    GetConfig_Request, GetConfig_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
-    GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, SingleNode_Response, \
+    GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, \
+    SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UserOp
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
@@ -94,6 +96,21 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         with self._cv_has_signal:
             self._cv_has_signal.notifyAll()
+
+    def get_config(self, request: GetConfig_Request, context):
+        response = GetConfig_Response()
+        for config_key in request.config_key_list:
+            config_val = self.backend.get_config(config_key, "")
+            config = ConfigEntry(key=config_key, val=config_val)
+            response.config_list.append(config)
+
+        return response
+
+    def put_config(self, request: PutConfig_Request, context):
+        for config in request.config_list:
+            self.backend.put_config(config_key=config.key, config_val=config.val)
+
+        return PutConfig_Response()
 
     def get_node_for_uid(self, request: GetNodeForUid_Request, context):
         response = SingleNode_Response()

@@ -18,7 +18,10 @@ class BaseDialog:
     """
     def __init__(self, app):
         self.app = app
-        self.config: AppConfig = app.config
+
+    @property
+    def backend(self):
+        return self.app.backend
 
     def show_error_ui(self, msg: str, secondary_msg: str = None):
         """Same as show_error_msg() but on UI thread"""

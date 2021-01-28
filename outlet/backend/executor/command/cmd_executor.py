@@ -18,7 +18,7 @@ class CommandExecutor:
     """
     def __init__(self, backend):
         self.backend = backend
-        val = self.backend.config.get('staging_dir')
+        val = self.backend.get_config('staging_dir')
         self.staging_dir: str = file_util.get_resource_path(val)
         logger.debug(f'Staging dir: "{self.staging_dir}"')
         # TODO: optionally clean staging dir at startup

@@ -41,7 +41,7 @@ class TreePanelController(HasLifecycle):
 
         self._display_tree: DisplayTree = display_tree
 
-        self.display_mutator = DisplayMutator(config=self.parent_win.config, controller=self)
+        self.display_mutator = DisplayMutator(controller=self)
         self.treeview_meta = treeview_meta
         self.display_store = DisplayStore(self, treeview_meta)
         """Cached in controller, in case treeview_meta goes away"""
@@ -54,7 +54,7 @@ class TreePanelController(HasLifecycle):
         self.status_bar_container = None
         self.content_box = None
 
-        self.tree_ui_listeners = TreeUiListeners(config=self.parent_win.config, controller=self)
+        self.tree_ui_listeners = TreeUiListeners(controller=self)
         self.tree_actions = TreeActions(controller=self)
 
     def start(self):
@@ -154,7 +154,7 @@ class TreePanelController(HasLifecycle):
                                                                           f' does not match tree ({self.get_tree().tree_id})'
 
             # Send signal to backend to load the subtree. When it's ready, it will notify us
-            self.app.backend.start_subtree_load(self.tree_id)
+            self.backend.start_subtree_load(self.tree_id)
 
         GLib.idle_add(_reload)
 
@@ -182,6 +182,10 @@ class TreePanelController(HasLifecycle):
                               sn.node.delegate)
         return sn
 
+    @property
+    def backend(self):
+        return self.app.backend
+
     def get_tree(self) -> DisplayTree:
         return self._display_tree
 
@@ -194,11 +198,6 @@ class TreePanelController(HasLifecycle):
 
     # CONVENIENCE METHODS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    @property
-    def config(self):
-        """Convenience method. Retreives the tree_id from the app"""
-        return self.app.config
 
     def get_root_spid(self) -> SinglePathNodeIdentifier:
         return self._display_tree.get_root_spid()
