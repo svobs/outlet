@@ -1,6 +1,5 @@
 import logging
 import threading
-import time
 
 from pydispatch import dispatcher
 
@@ -81,36 +80,35 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 logger.error('Server disconnected! Bailing...')
                 return
 
-    def _relay_signal_locally(self, signal: SignalMsg):
+    def _relay_signal_locally(self, signal_msg: SignalMsg):
         """Take the signal (received from server) and dispatch it to our UI process"""
-        sig = Signal(signal.sig_int)
+        signal = Signal(signal_msg.sig_int)
         kwargs = {}
         # TODO: convert this long conditional list into an action dict
-        if signal.sig_int == Signal.DISPLAY_TREE_CHANGED \
-                or signal.sig_int == Signal.GENERATE_MERGE_TREE_DONE:
+        if signal == Signal.DISPLAY_TREE_CHANGED or signal == Signal.GENERATE_MERGE_TREE_DONE:
             display_tree_ui_state = GRPCConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
-        elif signal.sig_int == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
-            kwargs['is_enabled'] = signal.play_state.is_enabled
-        elif signal.sig_int == Signal.TOGGLE_UI_ENABLEMENT:
-            kwargs['enable'] = signal.ui_enablement.enable
-        elif signal.sig_int == Signal.ERROR_OCCURRED:
-            kwargs['msg'] = signal.error_occurred.msg
-            kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
-        elif signal.sig_int == Signal.NODE_UPSERTED:
-            kwargs['node'] = GRPCConverter.node_from_grpc(signal.node)
-        elif signal.sig_int == Signal.NODE_REMOVED:
-            kwargs['node'] = GRPCConverter.node_from_grpc(signal.node)
-        elif signal.sig_int == Signal.NODE_MOVED:
-            kwargs['src_node'] = GRPCConverter.node_from_grpc(signal.src_dst_node_list.src_node)
-            kwargs['dst_node'] = GRPCConverter.node_from_grpc(signal.src_dst_node_list.dst_node)
-        elif signal.sig_int == Signal.SET_STATUS:
-            kwargs['status_msg'] = signal.status_msg.msg
-        elif signal.sig_int == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
-            kwargs['filename'] = signal.download_msg.filename
-        logger.info(f'Relaying locally: signal="{sig.name}" sender="{signal.sender}" args={kwargs}')
-        kwargs['signal'] = sig
-        kwargs['sender'] = signal.sender
+        elif signal == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
+            kwargs['is_enabled'] = signal_msg.play_state.is_enabled
+        elif signal == Signal.TOGGLE_UI_ENABLEMENT:
+            kwargs['enable'] = signal_msg.ui_enablement.enable
+        elif signal == Signal.ERROR_OCCURRED:
+            kwargs['msg'] = signal_msg.error_occurred.msg
+            kwargs['secondary_msg'] = signal_msg.error_occurred.secondary_msg
+        elif signal == Signal.NODE_UPSERTED:
+            kwargs['node'] = GRPCConverter.node_from_grpc(signal_msg.node)
+        elif signal == Signal.NODE_REMOVED:
+            kwargs['node'] = GRPCConverter.node_from_grpc(signal_msg.node)
+        elif signal == Signal.NODE_MOVED:
+            kwargs['src_node'] = GRPCConverter.node_from_grpc(signal_msg.src_dst_node_list.src_node)
+            kwargs['dst_node'] = GRPCConverter.node_from_grpc(signal_msg.src_dst_node_list.dst_node)
+        elif signal == Signal.SET_STATUS:
+            kwargs['status_msg'] = signal_msg.status_msg.msg
+        elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
+            kwargs['filename'] = signal_msg.download_msg.filename
+        logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')
+        kwargs['signal'] = signal
+        kwargs['sender'] = signal_msg.sender
         # IMPORTANT: Do not be tempted to use PyDispatcher's "named" argument for kwargs. It seems to fail in unexpected ways
         dispatcher.send(**kwargs)

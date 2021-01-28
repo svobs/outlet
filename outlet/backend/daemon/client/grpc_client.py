@@ -122,10 +122,6 @@ class BackendGRPCClient(OutletBackend):
     def _send_complete_merge_signal(self, sender: str):
         self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.COMPLETE_MERGE, sender=sender))
 
-    def send_signal_to_server(self, signal: str, sender: str):
-        """General-use method for signals with no additional args"""
-        self.grpc_stub.send_signal(SignalMsg(sig_int=signal, sender_name=sender))
-
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._fe_task_runner.enqueue(task_func, *args)
 

@@ -310,6 +310,9 @@ class GDriveDatabase(MetaDatabase):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_node_with_uid(self, uid: UID) -> Optional[GDriveNode]:
+        if not self.table_gdrive_file.has_rows():
+            return None
+
         node: Optional[GDriveNode] = self.table_gdrive_file.select_object_for_uid(uid)
         if not node:
             node = self.table_gdrive_folder.select_object_for_uid(uid)
