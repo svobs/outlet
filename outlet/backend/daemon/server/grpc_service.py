@@ -101,7 +101,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response = GetConfig_Response()
         for config_key in request.config_key_list:
             config_val = self.backend.get_config(config_key, "")
-            config = ConfigEntry(key=config_key, val=config_val)
+            config = ConfigEntry(key=config_key, val=str(config_val))
             response.config_list.append(config)
 
         return response

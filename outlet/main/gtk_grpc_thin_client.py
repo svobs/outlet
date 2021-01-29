@@ -23,6 +23,8 @@ def main():
         daemon_util.launch_daemon_if_needed(kill_existing=kill_existing)
 
     backend = BackendGRPCClient(config)
+    backend.start()
+
     app = OutletApplication(backend)
     try:
         exit_status = app.run(sys.argv)

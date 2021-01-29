@@ -49,6 +49,7 @@ class BackendGRPCClient(OutletBackend):
         self._config = cfg
         self.connection_timeout_sec = int(self._config.get('thin_client.connection_timeout_sec'))
 
+        self._started = False
         self.channel = None
         self.grpc_stub: Optional[Outlet_pb2_grpc.OutletStub] = None
         self.signal_thread: SignalReceiverThread = SignalReceiverThread(self)
@@ -57,6 +58,10 @@ class BackendGRPCClient(OutletBackend):
         """Only needed to generate UIDs which are unique to drag & drop"""
 
     def start(self):
+        if self._started:
+            logger.debug('Already started. Ignoring call to start()')
+            return
+
         logger.debug('Starting up BackendGRPCClient')
         OutletBackend.start(self)
 
@@ -93,6 +98,7 @@ class BackendGRPCClient(OutletBackend):
         if not self._wait_for_connect():
             raise RuntimeError(f'gRPC failed to connect to server (timeout={self.connection_timeout_sec})')
 
+        self._started = True
         self.signal_thread.start()
 
     def shutdown(self):
@@ -150,7 +156,7 @@ class BackendGRPCClient(OutletBackend):
 
     def put_config(self, config_key: str, config_val: str):
         request = PutConfig_Request()
-        config = ConfigEntry(key=config_key, val=config_val)
+        config = ConfigEntry(key=config_key, val=str(config_val))
         request.config_list.append(config)
         response: GetConfig_Response = self.grpc_stub.get_config(request)
         assert len(response.config_list) == 1, f'Expected exactly 1 entry in response but found {len(response.config_list)} for key "{config_key}"'

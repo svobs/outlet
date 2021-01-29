@@ -12,6 +12,7 @@ from model.node.node import SPIDNodePair
 from ui.gtk.dialog.base_dialog import BaseDialog
 from ui.gtk.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.gtk.tree import tree_factory
+from util.ensure import ensure_int
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
@@ -39,8 +40,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # Restore previous window location:
         self.x_loc_cfg_path = f'ui_state.{self.win_id}.x'
         self.y_loc_cfg_path = f'ui_state.{self.win_id}.y'
-        self.x_loc = self.backend.get_config(self.x_loc_cfg_path, 50)
-        self.y_loc = self.backend.get_config(self.y_loc_cfg_path, 50)
+        self.x_loc = ensure_int(self.backend.get_config(self.x_loc_cfg_path, 50))
+        self.y_loc = ensure_int(self.backend.get_config(self.y_loc_cfg_path, 50))
         self.move(x=self.x_loc, y=self.y_loc)
 
         self.set_hide_titlebar_when_maximized(True)
@@ -49,8 +50,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.width_cfg_path = f'ui_state.{self.win_id}.width'
         self.height_cfg_path = f'ui_state.{self.win_id}.height'
 
-        width = self.backend.get_config(self.width_cfg_path, 1200)
-        height = self.backend.get_config(self.height_cfg_path, 500)
+        width = ensure_int(self.backend.get_config(self.width_cfg_path, 1200))
+        height = ensure_int(self.backend.get_config(self.height_cfg_path, 500))
         allocation = Gdk.Rectangle()
         allocation.width = width
         allocation.height = height

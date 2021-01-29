@@ -76,13 +76,13 @@ class RootPathConfigPersister:
                          f'= {new_root.tree_type}, {self._root_path_config_key} = "{new_root.get_single_path()}", '
                          f'{self._root_uid_config_key} = "{new_root.uid}"')
             # Root changed. Invalidate the current tree contents
-            self.backend.put_config(json_path=self._tree_type_config_key, value=new_root.tree_type)
-            self.backend.put_config(json_path=self._root_path_config_key, value=new_root.get_single_path())
-            self.backend.put_config(json_path=self._root_uid_config_key, value=new_root.uid)
-            self.backend.put_config(json_path=self._root_exists_config_key, value=new_root_meta.root_exists)
+            self.backend.put_config(config_key=self._tree_type_config_key, config_val=new_root.tree_type)
+            self.backend.put_config(config_key=self._root_path_config_key, config_val=new_root.get_single_path())
+            self.backend.put_config(config_key=self._root_uid_config_key, config_val=new_root.uid)
+            self.backend.put_config(config_key=self._root_exists_config_key, config_val=new_root_meta.root_exists)
             offending_path = new_root_meta.offending_path
             if not offending_path:
                 offending_path = ''
-            self.backend.put_config(json_path=self._root_offending_path_config_key, value=offending_path)
+            self.backend.put_config(config_key=self._root_offending_path_config_key, config_val=offending_path)
         # always, just to be safe
         self.root_path_meta = new_root_meta
