@@ -34,6 +34,15 @@ message PutConfig_Response {
 	// nothing
 }
 
+message UpdateFilter_Request {
+	string tree_id = 1;
+	FilterCriteria filter_criteria = 2;
+}
+
+message UpdateFilter_Response {
+	// nothing
+}
+
 message GetLastPendingOp_Request {
 	uint32 node_uid = 1;
 }
@@ -235,6 +244,7 @@ service Outlet {
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);
 	rpc get_child_list_for_node(GetChildList_Request) returns (GetChildList_Response);
 	rpc get_ancestor_list_for_spid(GetAncestorList_Request) returns (GetAncestorList_Response);
+	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
 
 	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);

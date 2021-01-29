@@ -21,7 +21,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, \
     SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
-    StartSubtreeLoad_Response, Subscribe_Request, UserOp
+    StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response, UserOp
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
@@ -100,6 +100,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def get_config(self, request: GetConfig_Request, context):
         response = GetConfig_Response()
         for config_key in request.config_key_list:
+            logger.debug(f'Getting config "{config_key}"')
             config_val = self.backend.get_config(config_key, "")
             config = ConfigEntry(key=config_key, val=str(config_val))
             response.config_list.append(config)
@@ -108,6 +109,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def put_config(self, request: PutConfig_Request, context):
         for config in request.config_list:
+            logger.debug(f'Putting config "{config.key}" = "{config.val}"')
             self.backend.put_config(config_key=config.key, config_val=config.val)
 
         return PutConfig_Response()
@@ -368,8 +370,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return Empty()
 
     def delete_subtree(self, request: DeleteSubtree_Request, context):
-        try:
-            self.cacheman.delete_subtree(request.node_uid_list)
-            return Empty()
-        except RuntimeError:
-            logger.exception('ERROR MATT')
+        self.cacheman.delete_subtree(request.node_uid_list)
+        return Empty()
+
+    def update_filter(self, request: UpdateFilter_Request, context):
+        filter_criteria = GRPCConverter.filter_criteria_from_grpc(request.filter_criteria)
+        self.cacheman.update_filter_criteria(request.tree_id, filter_criteria)
+        return UpdateFilter_Response()

@@ -44,12 +44,12 @@ class HasParentList(ABC):
             self._parent_uids = None
         elif isinstance(parent_uids, list):
             if len(parent_uids) == 1:
-                assert isinstance(parent_uids[0], UID), f'Found instead: {parent_uids[0]}, type={type(parent_uids[0])}'
+                assert isinstance(parent_uids[0], UID), f'set_parent_uids(): Found instead: {parent_uids[0]}, type={type(parent_uids[0])}'
                 self._parent_uids = parent_uids[0]
             else:
                 self._parent_uids = parent_uids
         else:
-            assert isinstance(parent_uids, UID), f'Found instead: {parent_uids}, type={type(parent_uids)}'
+            assert isinstance(parent_uids, UID), f'set_parent_uids(): Found instead: {parent_uids}, type={type(parent_uids)}'
             self._parent_uids = parent_uids
 
     def add_parent(self, parent_uid: UID):

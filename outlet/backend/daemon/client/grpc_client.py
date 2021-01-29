@@ -18,7 +18,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
     PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
-    SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request
+    SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
 from constants import SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
@@ -134,6 +134,7 @@ class BackendGRPCClient(OutletBackend):
         self._fe_task_runner.enqueue(task_func, *args)
 
     def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
+        logger.debug(f'Getting config "{config_key}"')
         request = GetConfig_Request()
         request.config_key_list.append(config_key)
         response: GetConfig_Response = self.grpc_stub.get_config(request)
@@ -155,19 +156,18 @@ class BackendGRPCClient(OutletBackend):
         return config_dict
 
     def put_config(self, config_key: str, config_val: str):
+        logger.debug(f'Putting config "{config_key}" = "{config_val}"')
         request = PutConfig_Request()
         config = ConfigEntry(key=config_key, val=str(config_val))
         request.config_list.append(config)
-        response: GetConfig_Response = self.grpc_stub.get_config(request)
-        assert len(response.config_list) == 1, f'Expected exactly 1 entry in response but found {len(response.config_list)} for key "{config_key}"'
-        return response.config_list[0].val
+        self.grpc_stub.put_config(request)
 
     def put_config_list(self, config_dict: Dict[str, str]):
         request = PutConfig_Request()
         for config_key, config_val in config_dict:
             config = ConfigEntry(key=config_key, val=config_val)
             request.config_list.append(config)
-        self.grpc_stub.get_config(request)
+        self.grpc_stub.put_config(request)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         request = GetNodeForUid_Request()
@@ -322,3 +322,9 @@ class BackendGRPCClient(OutletBackend):
         for node_uid in node_uid_list:
             request.node_uid_list.append(node_uid)
         self.grpc_stub.delete_subtree(request)
+
+    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+        request = UpdateFilter_Request()
+        request.tree_id = tree_id
+        GRPCConverter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)
+        self.grpc_stub.update_filter(request)

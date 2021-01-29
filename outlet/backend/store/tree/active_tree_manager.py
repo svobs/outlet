@@ -6,11 +6,13 @@ from typing import Dict, List, Optional
 from pydispatch import dispatcher
 
 from backend.store.tree.change_tree import ChangeTree
+from backend.store.tree.filter_state import FilterState
 from constants import GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from backend.store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -117,7 +119,9 @@ class ActiveTreeManager(HasLifecycle):
             change_display_tree.print_tree_contents_debug()
             change_display_tree.print_op_structs_debug()
 
-        meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state)
+        filter_state = FilterState.from_config(self.backend, change_display_tree.tree_id)
+
+        meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state, filter_state)
         meta.change_tree = change_display_tree
         meta.src_tree_id = src_tree_id
         self._display_tree_dict[change_display_tree.tree_id] = meta
@@ -136,6 +140,16 @@ class ActiveTreeManager(HasLifecycle):
 
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
+
+    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+        meta = self.get_active_display_tree_meta(tree_id)
+        if not meta:
+            raise RuntimeError(f'update_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
+
+        # replace FilterState for the given tree
+        meta.filter_state = FilterState(filter_criteria)
+        # write to disk
+        meta.filter_state.write_to_config(self.backend, tree_id)
 
     def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
         sender_tree_id = request.tree_id
@@ -236,7 +250,10 @@ class ActiveTreeManager(HasLifecycle):
             display_tree_meta.state = state
             assert display_tree_meta.state.tree_id == response_tree_id, f'TreeID "{response_tree_id}" != {display_tree_meta.state.tree_id}'
         else:
-            display_tree_meta = ActiveDisplayTreeMeta(self.backend, state)
+            logger.debug(f'[{sender_tree_id}] Reading FilterCriteria from config')
+            filter_state = FilterState.from_config(self.backend, sender_tree_id)
+
+            display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)
             self._display_tree_dict[response_tree_id] = display_tree_meta
 
         if root_path_persister:

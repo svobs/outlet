@@ -6,6 +6,7 @@ from model.node.container_node import CategoryNode
 from model.node.node import Node
 from signal_constants import Signal
 from model.display_tree.filter_criteria import FilterCriteria
+from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -48,15 +49,15 @@ class TreeViewMeta(HasLifecycle):
 
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
-        self.use_dir_tree = backend.get_config('display.diff_tree.use_dir_tree')
+        self.use_dir_tree: bool = ensure_bool(backend.get_config('display.diff_tree.use_dir_tree'))
 
-        self.show_modify_ts_col: bool = backend.get_config('display.diff_tree.show_modify_ts_col')
-        self.show_change_ts_col: bool = backend.get_config('display.diff_tree.show_change_ts_col')
-        self.show_etc_col: bool = backend.get_config('display.diff_tree.show_etc_col')
+        self.show_modify_ts_col: bool = ensure_bool(backend.get_config('display.diff_tree.show_modify_ts_col'))
+        self.show_change_ts_col: bool = ensure_bool(backend.get_config('display.diff_tree.show_change_ts_col'))
+        self.show_etc_col: bool = ensure_bool(backend.get_config('display.diff_tree.show_etc_col'))
 
         self.datetime_format = backend.get_config('display.diff_tree.datetime_format')
-        self.extra_indent: int = backend.get_config('display.diff_tree.extra_indent')
-        self.row_height: int = backend.get_config('display.diff_tree.row_height')
+        self.extra_indent: int = ensure_int(backend.get_config('display.diff_tree.extra_indent'))
+        self.row_height: int = ensure_int(backend.get_config('display.diff_tree.row_height'))
 
         self.filter_criteria: Optional[FilterCriteria] = None
 
@@ -146,19 +147,6 @@ class TreeViewMeta(HasLifecycle):
             return False
         return self.lazy_load
 
-    def read_filter_criteria_from_config(self):
-        # FIXME
-        logger.debug(f'[{self.tree_id}] Reading FilterCriteria from config')
-        self.filter_criteria = FilterCriteria.read_filter_criteria_from_config(self.config, self.tree_id)
-
-    def write_filter_criteria_to_config(self):
-        # FIXME
-        if self.filter_criteria:
-            logger.debug(f'[{self.tree_id}] Writing FilterCriteria to config')
-            self.filter_criteria.write_filter_criteria_to_config(config=self.config, tree_id=self.tree_id)
-        else:
-            logger.debug(f'[{self.tree_id}] No FilterCriteria to write')
-
     def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: Node, is_expanded: bool):
         if sender != self.tree_id:
             return
@@ -167,7 +155,7 @@ class TreeViewMeta(HasLifecycle):
             assert isinstance(node, CategoryNode)
             logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.op_type.name} = {is_expanded}')
             cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.op_type.name}'
-            self.config.write(cfg_path, is_expanded)
+            self.backend.put_config(cfg_path, is_expanded)
         # Allow other listeners to handle this also:
         return False
 
@@ -175,7 +163,7 @@ class TreeViewMeta(HasLifecycle):
         if self.is_display_persisted:
             assert isinstance(node, CategoryNode)
             cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.op_type.name}'
-            return self.config.get(cfg_path, True)
+            return ensure_bool(self.backend.get_config(cfg_path, True))
 
         # Default if no config:
         return True

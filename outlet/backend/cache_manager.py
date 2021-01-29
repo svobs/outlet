@@ -441,6 +441,9 @@ class CacheManager(HasLifecycle):
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._active_tree_manager.get_active_display_tree_meta(tree_id)
 
+    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+        self._active_tree_manager.update_filter_criteria(tree_id, filter_criteria)
+
     def is_manual_load_required(self, spid: SinglePathNodeIdentifier, is_startup: bool) -> bool:
         cache_info = self.get_cache_info_for_subtree(spid)
         if cache_info:

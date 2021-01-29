@@ -168,8 +168,6 @@ class TreeFilterPanel(HasLifecycle):
         filter_criteria = self._latest_filter_criteria
         if filter_criteria:
             dispatcher.send(signal=Signal.FILTER_UI_TREE, sender=self.con.tree_id, filter_criteria=filter_criteria)
-            # FIXME: move this to BE
-            filter_criteria.write_filter_criteria_to_config(self.con.config, self.con.tree_id)
 
     def update_filter_criteria(self, widget=None):
         logger.debug(f'[{self.con.tree_id}] Updating filter criteria')

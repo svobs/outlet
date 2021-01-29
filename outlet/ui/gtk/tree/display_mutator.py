@@ -244,15 +244,12 @@ class DisplayMutator(HasLifecycle):
 
     def filter_tree(self, filter_criteria: FilterCriteria):
         try:
-            # TODO: send filter_criteria to BE to be stored there instead
-            if filter_criteria:
-                self.con.treeview_meta.filter_criteria = filter_criteria
-            else:
-                self.con.treeview_meta.filter_criteria = None
-
+            # Update backend
+            self.con.backend.update_filter_criteria(self.con.tree_id, filter_criteria)
+            # Now that backend has returned, repopulate tree
             self.populate_root()
         except RuntimeError as err:
-            msg = f'[{self.con.tree_id}] Failed to populate the tree using filter_criteria {filter_criteria}'
+            msg = f'[{self.con.tree_id}] Failed to repopulate the tree using filter_criteria {filter_criteria}'
             logger.exception(msg)
             GlobalActions.display_error_in_ui(msg, repr(err))
 

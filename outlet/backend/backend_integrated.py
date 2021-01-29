@@ -132,3 +132,6 @@ class BackendIntegrated(OutletBackend):
 
     def delete_subtree(self, node_uid_list: List[UID]):
         self.cacheman.delete_subtree(node_uid_list)
+
+    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+        self.cacheman.update_filter_criteria(tree_id, filter_criteria)

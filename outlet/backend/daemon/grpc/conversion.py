@@ -9,6 +9,8 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 import logging
+
+from model.uid import UID
 from outlet.backend.daemon.grpc.generated import Outlet_pb2
 
 from model.node.trait import HasDirectoryStats
@@ -162,14 +164,14 @@ class GRPCConverter:
             node = GDriveFile(node_identifier, meta.goog_id, meta.name, meta.mime_type_uid, grpc_node.trashed, meta.drive_id,
                               meta.version, meta.md5, grpc_node.is_shared, meta.create_ts, meta.modify_ts, meta.size_bytes,
                               meta.owner_uid, meta.shared_by_user_uid, meta.sync_ts)
-            node.set_parent_uids(meta.parent_uid_list)
+            node.set_parent_uids([UID(uid) for uid in meta.parent_uid_list])
         elif grpc_node.HasField("gdrive_folder_meta"):
             meta = grpc_node.gdrive_folder_meta
             assert isinstance(node_identifier, GDriveIdentifier)
             node = GDriveFolder(node_identifier, meta.goog_id, meta.name, grpc_node.trashed, meta.create_ts, meta.modify_ts,
                                 meta.owner_uid, meta.drive_id, grpc_node.is_shared, meta.shared_by_user_uid, meta.sync_ts,
                                 meta.all_children_fetched)
-            node.set_parent_uids(meta.parent_uid_list)
+            node.set_parent_uids([UID(uid) for uid in meta.parent_uid_list])
             GRPCConverter._dir_meta_from_grpc(node, meta.dir_meta)
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)

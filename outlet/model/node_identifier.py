@@ -56,14 +56,14 @@ class NodeIdentifier(ABC):
             self._path_list = None
         elif isinstance(path_list, list):
             if len(path_list) == 1:
-                assert isinstance(path_list[0], str), f'Found instead: {path_list[0]}, type={type(path_list[0])}'
+                assert isinstance(path_list[0], str), f'set_path_list(): Found instead: {path_list[0]}, type={type(path_list[0])}'
                 self._path_list = path_list[0]
             else:
                 self._path_list = path_list
                 # Need this for equals operator to function properly
                 self._path_list.sort()
         else:
-            assert isinstance(path_list, str), f'Found instead: {path_list}, type={type(path_list)}'
+            assert isinstance(path_list, str), f'set_path_list(): Found instead: {path_list}, type={type(path_list)}'
             self._path_list = path_list
 
     def add_path_if_missing(self, single_path: str):

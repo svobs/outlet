@@ -66,8 +66,6 @@ class TreeFactory:
                                      is_display_persisted=self.display_persisted,
                                      is_ignored_func=is_ignored_func)
 
-        treeview_meta.read_filter_criteria_from_config()
-
         # The controller holds all the components in memory. Important for listeners especially,
         # since they rely on weak references.
         controller = TreePanelController(self.parent_win, self.tree, treeview_meta)

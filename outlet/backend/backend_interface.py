@@ -149,3 +149,7 @@ class OutletBackend(HasLifecycle, ABC):
     @abstractmethod
     def delete_subtree(self, node_uid_list: List[UID]):
         pass
+
+    @abstractmethod
+    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+        pass
