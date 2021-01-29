@@ -7,7 +7,6 @@ from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from model.display_tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -136,12 +135,12 @@ class DisplayTree(HasGetChildren):
 
         return path_list.startswith(self.root_path)
 
-    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
-        return self.get_children(self.get_root_node(), filter_criteria)
+    def get_children_for_root(self) -> Iterable[Node]:
+        return self.get_children(self.get_root_node())
 
-    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children(self, parent: Node) -> Iterable[Node]:
         assert parent, 'Arg "parent" cannot be null!'
-        return self.backend.get_children(parent, self.tree_id, filter_criteria)
+        return self.backend.get_children(parent, self.tree_id)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         return self.backend.get_ancestor_list(spid, stop_at_path=self.root_path)
@@ -193,8 +192,8 @@ class NullDisplayTree(DisplayTree):
         super().__init__(backend, state)
         assert not state.root_exists, f'For state: {state}'
 
-    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children_for_root(self) -> Iterable[Node]:
         return []
 
-    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children(self, parent: Node) -> Iterable[Node]:
         return []

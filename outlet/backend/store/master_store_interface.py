@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from backend.store.tree.filter_state import FilterState
 from model.has_get_children import HasGetChildren
 from model.uid import UID
 from model.node.node import Node
@@ -8,7 +9,7 @@ from model.node_identifier import NodeIdentifier
 from util.has_lifecycle import HasLifecycle
 
 
-class MasterStore(HasLifecycle, HasGetChildren, ABC):
+class MasterStore(HasLifecycle, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ABSTRACT CLASS MasterStore
@@ -29,7 +30,7 @@ class MasterStore(HasLifecycle, HasGetChildren, ABC):
         pass
 
     @abstractmethod
-    def get_children(self, node: Node) -> List[Node]:
+    def get_children(self, node: Node, filter_state: FilterState) -> List[Node]:
         pass
 
     @abstractmethod

@@ -8,6 +8,7 @@ from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
+from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -16,7 +17,6 @@ from model.user_op import UserOp
 from backend.store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from backend.diff.task.tree_diff_merge_task import TreeDiffMergeTask
 from signal_constants import ID_CENTRAL_EXEC, Signal
-from model.display_tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +101,8 @@ class BackendIntegrated(OutletBackend):
     def get_op_execution_play_state(self) -> bool:
         return self.executor.enable_op_execution_thread
 
-    def get_children(self, parent: Node, tree_id: Optional[str], filter_criteria: Optional[FilterCriteria] = None) -> Iterable[Node]:
-        return self.cacheman.get_children(parent, tree_id, filter_criteria)
+    def get_children(self, parent: Node, tree_id: str) -> Iterable[Node]:
+        return self.cacheman.get_children(parent, tree_id)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         return self.cacheman.get_ancestor_list_for_spid(spid, stop_at_path=stop_at_path)
@@ -132,6 +132,9 @@ class BackendIntegrated(OutletBackend):
 
     def delete_subtree(self, node_uid_list: List[UID]):
         self.cacheman.delete_subtree(node_uid_list)
+
+    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
+        self.cacheman.get_filter_criteria(tree_id)
 
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
         self.cacheman.update_filter_criteria(tree_id, filter_criteria)

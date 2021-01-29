@@ -62,27 +62,26 @@ class TreeFilterPanel(HasLifecycle):
         if self.supports_shared_status:
             self.is_shared_btn = self._add_toolbar_toggle_btn('Is shared', IconId.ICON_IS_SHARED)
 
-        filter_criteria: FilterCriteria = self.con.treeview_meta.filter_criteria
-        if filter_criteria:
-            if not self.supports_shared_status:
-                if filter_criteria.is_shared != Ternary.NOT_SPECIFIED:
-                    logger.info(f'[{self.con.tree_id}] Overriding previous filter for is_shared ({filter_criteria.is_shared}) '
-                                f'because tree does not support shared status')
-                    # Override this. Since we're missing the button, having anything but NOT_SPECIFIED can result in unexpected behavior
-                    filter_criteria.is_shared = Ternary.NOT_SPECIFIED
+        filter_criteria: FilterCriteria = self.parent_win.backend.get_filter_criteria(self.con.tree_id)
+        if not self.supports_shared_status:
+            if filter_criteria.is_shared != Ternary.NOT_SPECIFIED:
+                logger.info(f'[{self.con.tree_id}] Overriding previous filter for is_shared ({filter_criteria.is_shared}) '
+                            f'because tree does not support shared status')
+                # Override this. Since we're missing the button, having anything but NOT_SPECIFIED can result in unexpected behavior
+                filter_criteria.is_shared = Ternary.NOT_SPECIFIED
 
-            if filter_criteria.search_query:
-                self.search_entry.set_text(filter_criteria.search_query)
+        if filter_criteria.search_query:
+            self.search_entry.set_text(filter_criteria.search_query)
 
-            if not filter_criteria.ignore_case:
-                self.match_case_btn.set_active(True)
+        if not filter_criteria.ignore_case:
+            self.match_case_btn.set_active(True)
 
-            self._update_trashed_btn(filter_criteria)
+        self._update_trashed_btn(filter_criteria)
 
-            self._update_shared_btn(filter_criteria)
+        self._update_shared_btn(filter_criteria)
 
-            if filter_criteria.show_subtrees_of_matches:
-                self.show_ancestors_btn.set_active(True)
+        if filter_criteria.show_subtrees_of_matches:
+            self.show_ancestors_btn.set_active(True)
 
         self._latest_filter_criteria: FilterCriteria = filter_criteria
 
@@ -181,10 +180,8 @@ class TreeFilterPanel(HasLifecycle):
 
         # The tri-state buttons do not contain enough information to be derived from the UI, and must be inferred by a combination
         # of prev state and user action:
-        prev_filter_criteria: Optional[FilterCriteria] = self.con.treeview_meta.filter_criteria
-        if prev_filter_criteria:
-            filter_criteria.is_trashed = prev_filter_criteria.is_trashed
-            filter_criteria.is_shared = prev_filter_criteria.is_shared
+        filter_criteria.is_trashed = self._latest_filter_criteria.is_trashed
+        filter_criteria.is_shared = self._latest_filter_criteria.is_shared
 
         if widget == self.is_trashed_btn:
             logger.debug(f'[{self.con.tree_id}] IsTrashed button clicked')

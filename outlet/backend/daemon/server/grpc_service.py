@@ -15,7 +15,7 @@ from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
-    GetConfig_Request, GetConfig_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
+    GetConfig_Request, GetConfig_Response, GetFilter_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, \
@@ -290,21 +290,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def get_child_list_for_node(self, request, context):
         parent_node = GRPCConverter.node_from_grpc(request.parent_node)
-        if request.HasField('filter_criteria'):
-            filter_criteria = GRPCConverter.filter_criteria_from_grpc(request.filter_criteria)
-        else:
-            filter_criteria = None
 
-        if request.tree_id:
-            tree_id = request.tree_id
-        else:
-            tree_id = None
-
-        child_list = self.cacheman.get_children(parent_node, tree_id, filter_criteria)
+        child_list = self.cacheman.get_children(parent_node, request.tree_id)
         response = GetChildList_Response()
         GRPCConverter.node_list_to_grpc(child_list, response.node_list)
 
-        logger.debug(f'Relaying {len(child_list)} children for: {parent_node.node_identifier}, {filter_criteria}')
+        logger.debug(f'[{request.tree_id}] Relaying {len(child_list)} children for: {parent_node.node_identifier}')
         return response
 
     def get_ancestor_list_for_spid(self, request, context):
@@ -372,6 +363,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def delete_subtree(self, request: DeleteSubtree_Request, context):
         self.cacheman.delete_subtree(request.node_uid_list)
         return Empty()
+
+    def get_filter(self, request, context):
+        filter_criteria = self.cacheman.get_filter_criteria(request.tree_id)
+
+        response = GetFilter_Response()
+        GRPCConverter.filter_criteria_to_grpc(filter_criteria, response.filter_criteria)
+
+        return response
 
     def update_filter(self, request: UpdateFilter_Request, context):
         filter_criteria = GRPCConverter.filter_criteria_from_grpc(request.filter_criteria)

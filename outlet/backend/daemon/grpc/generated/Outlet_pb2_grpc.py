@@ -54,6 +54,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.FromString,
                 )
+        self.get_filter = channel.unary_unary(
+                '/outlet.backend.daemon.grpc.generated.Outlet/get_filter',
+                request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.FromString,
+                )
         self.update_filter = channel.unary_unary(
                 '/outlet.backend.daemon.grpc.generated.Outlet/update_filter',
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
@@ -172,6 +177,12 @@ class OutletServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def get_ancestor_list_for_spid(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_filter(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -303,6 +314,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.get_ancestor_list_for_spid,
                     request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.SerializeToString,
+            ),
+            'get_filter': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_filter,
+                    request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.SerializeToString,
             ),
             'update_filter': grpc.unary_unary_rpc_method_handler(
                     servicer.update_filter,
@@ -517,6 +533,23 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/get_ancestor_list_for_spid',
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_filter(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/get_filter',
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.SerializeToString,
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

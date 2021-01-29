@@ -12,7 +12,6 @@ from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, format
 from util.stopwatch_sec import Stopwatch
 
@@ -421,15 +420,12 @@ class GDriveWholeTree(HasGetChildren):
         # Pseudo-root GDRIVE_ROOT_UID has the root nodes as its children:
         return self.parent_child_dict.get(GDRIVE_ROOT_UID, [])
 
-    def get_children(self, node: GDriveNode, filter_criteria: FilterCriteria = None) -> List[Node]:
-        if filter_criteria:
-            return filter_criteria.get_filtered_child_list(node, self)
+    def get_children(self, node: GDriveNode) -> List[Node]:
+        if node.uid == GDRIVE_ROOT_UID:
+            child_list = self.get_children_for_root()
         else:
-            if node.uid == GDRIVE_ROOT_UID:
-                child_list = self.get_children_for_root()
-            else:
-                child_list = self.parent_child_dict.get(node.uid, [])
-            return child_list
+            child_list = self.parent_child_dict.get(node.uid, [])
+        return child_list
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""

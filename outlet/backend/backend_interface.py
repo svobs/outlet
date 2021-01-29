@@ -75,7 +75,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_children(self, parent: Node, tree_id: Optional[str], filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children(self, parent: Node, tree_id: str) -> Iterable[Node]:
         pass
 
     @abstractmethod
@@ -148,6 +148,10 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def delete_subtree(self, node_uid_list: List[UID]):
+        pass
+
+    @abstractmethod
+    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
         pass
 
     @abstractmethod

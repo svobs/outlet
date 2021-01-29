@@ -148,7 +148,7 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.uid} ("{node.name}")')
                 to_expand.append(node.uid)
 
-                child_list = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
+                child_list = self.con.get_tree().get_children(node)
                 for child in child_list:
                     node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, to_expand)
 
@@ -228,7 +228,7 @@ class DisplayMutator(HasLifecycle):
         node = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        children: List[Node] = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
+        children: List[Node] = self.con.get_tree().get_children(node)
 
         if expand_all:
             # populate all descendants
@@ -265,8 +265,7 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                # TODO: allow filter_criteria to be stored in BE instead; do not send here
-                top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root(self.con.treeview_meta.filter_criteria)
+                top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root()
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top level nodes for root')
         finally:
             self._enable_node_signals = True
@@ -282,20 +281,16 @@ class DisplayMutator(HasLifecycle):
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
 
-                # TODO: put this logic in BE instead. Allow errors to bubble up from BE
-                if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria() \
-                        and not self.con.treeview_meta.filter_criteria.show_subtrees_of_matches:
-                    logger.debug(f'[{self.con.tree_id}] Populating via FilterCriteria')
-                    # not lazy: just one big list
-                    if len(top_level_node_list) > LARGE_NUMBER_OF_CHILDREN:
-                        logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
-                        self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', IconId.ICON_ALERT)
-                    else:
-                        logger.debug(f'[{self.con.tree_id}] Populating {len(top_level_node_list)} linear list of nodes for filter criteria')
-                        for node in top_level_node_list:
-                            self._append_file_node(root_iter, node)
+                if len(top_level_node_list) > LARGE_NUMBER_OF_CHILDREN:
+                    logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
+                    self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', IconId.ICON_ALERT)
 
-                        logger.debug(f'[{self.con.tree_id}] Done populating linear list of nodes')
+                # if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria() \
+                #     and not self.con.treeview_meta.filter_criteria.show_subtrees_of_matches:
+                #     for node in top_level_node_list:
+                #         self._append_file_node(root_iter, node)
+                #
+                #     logger.debug(f'[{self.con.tree_id}] Done populating linear list of nodes')
 
                 elif self.con.treeview_meta.lazy_load:
                     logger.debug(f'[{self.con.tree_id}] Populating via lazy load')
@@ -426,7 +421,7 @@ class DisplayMutator(HasLifecycle):
                 if is_expanded:
                     self.con.display_store.remove_loading_node(parent_iter)
 
-                    children = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
+                    children = self.con.get_tree().get_children(node)
                     self._append_children(children=children, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,

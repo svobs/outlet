@@ -1,11 +1,10 @@
 import logging
-from typing import Callable, Optional
+from typing import Callable
 
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from signal_constants import Signal
-from model.display_tree.filter_criteria import FilterCriteria
 from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
 
@@ -24,7 +23,6 @@ class TreeViewMeta(HasLifecycle):
                                               has_checkboxes=has_checkboxes, can_change_root=self.can_change_root,
                                               tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
                                               is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
-        new_inst.filter_criteria = self.filter_criteria
         return new_inst
 
     def __init__(self, backend, tree_id: str, can_modify_tree: bool, has_checkboxes: bool, can_change_root: bool,
@@ -58,8 +56,6 @@ class TreeViewMeta(HasLifecycle):
         self.datetime_format = backend.get_config('display.diff_tree.datetime_format')
         self.extra_indent: int = ensure_int(backend.get_config('display.diff_tree.extra_indent'))
         self.row_height: int = ensure_int(backend.get_config('display.diff_tree.row_height'))
-
-        self.filter_criteria: Optional[FilterCriteria] = None
 
         # Search for "TREE_VIEW_COLUMNS":
 
@@ -140,12 +136,6 @@ class TreeViewMeta(HasLifecycle):
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
-
-    def is_lazy_load(self):
-        # If no subtree, then we are hard working:
-        if self.filter_criteria and not self.filter_criteria.show_subtrees_of_matches:
-            return False
-        return self.lazy_load
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: Node, is_expanded: bool):
         if sender != self.tree_id:

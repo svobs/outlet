@@ -13,7 +13,6 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import get_uid_for_op_and_tree_type, DISPLAYED_USER_OP_TYPES, UserOp, UserOpType
-from model.display_tree.filter_criteria import FilterCriteria
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 
 logger = logging.getLogger(__name__)
@@ -56,16 +55,12 @@ class ChangeTree(DisplayTree):
     def get_root_node(self) -> Node:
         return self._category_tree.get_root_node()
 
-    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
-        return self.get_children(self.get_root_node(), filter_criteria)
+    def get_children_for_root(self) -> Iterable[Node]:
+        return self.get_children(self.get_root_node())
 
-    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children(self, parent: Node) -> Iterable[Node]:
         try:
-            if filter_criteria:
-                return filter_criteria.get_filtered_child_list(parent, self)
-            else:
-                child_list = self._category_tree.get_child_list(parent.uid)
-                return child_list
+            return self._category_tree.get_child_list(parent.uid)
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
                 self.print_tree_contents_debug()

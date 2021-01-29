@@ -441,6 +441,9 @@ class CacheManager(HasLifecycle):
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._active_tree_manager.get_active_display_tree_meta(tree_id)
 
+    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
+        return self._active_tree_manager.get_filter_criteria(tree_id)
+
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
         self._active_tree_manager.update_filter_criteria(tree_id, filter_criteria)
 
@@ -711,25 +714,25 @@ class CacheManager(HasLifecycle):
     def get_gdrive_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
-    def get_children(self, node: Node, tree_id: Optional[str] = None, filter_criteria: Optional[FilterCriteria] = None):
+    def get_children(self, node: Node, tree_id: str):
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_children() for tree_id={tree_id}, node = {node}, filter_criteria={filter_criteria}')
+            logger.debug(f'Entered get_children() for tree_id={tree_id}, node = {node}')
 
-        if tree_id:
-            display_tree = self.get_active_display_tree_meta(tree_id)
-            if not display_tree:
-                raise RuntimeError(f'DisplayTree not registered: {tree_id}')
-            # Is change tree? Follow separate code path:
-            if display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-                return display_tree.change_tree.get_children(node, filter_criteria)
-            else:
-                logger.debug(f'Found active display tree for {tree_id} but its TreeDisplayMode is {display_tree.state.tree_display_mode.name}')
+        display_tree = self.get_active_display_tree_meta(tree_id)
+        if not display_tree:
+            raise RuntimeError(f'DisplayTree not registered: {tree_id}')
+        # Is change tree? Follow separate code path:
+        if display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            return display_tree.change_tree.get_children(node)
+        else:
+            logger.debug(f'Found active display tree for {tree_id} with TreeDisplayMode: {display_tree.state.tree_display_mode.name}')
+        filter_state = display_tree.filter_state
 
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            child_list = self._master_gdrive.get_children(node, filter_criteria)
+            child_list = self._master_gdrive.get_children(node, filter_state)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            child_list = self._master_local.get_children(node, filter_criteria)
+            child_list = self._master_local.get_children(node, filter_state)
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
 

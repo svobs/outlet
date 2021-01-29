@@ -6,6 +6,7 @@ from typing import Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
+from backend.store.tree.filter_state import FilterState
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
 from global_actions import GlobalActions
 from model.gdrive_meta import GDriveUser, MimeType
@@ -26,7 +27,6 @@ from backend.store.sqlite.gdrive_db import CurrentDownload
 from backend.store.uid.uid_mapper import UidGoogIdMapper
 from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE
-from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
 
@@ -421,9 +421,12 @@ class GDriveMasterStore(MasterStore):
     def get_whole_tree_summary(self):
         return self._memstore.master_tree.get_summary()
 
-    def get_children(self, node: Node, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
+    def get_children(self, node: Node, filter_state: FilterState = None) -> List[Node]:
         assert isinstance(node, GDriveNode)
-        return self._memstore.master_tree.get_children(node, filter_criteria)
+        if filter_state:
+            return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
+        else:
+            return self._memstore.master_tree.get_children(node)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)

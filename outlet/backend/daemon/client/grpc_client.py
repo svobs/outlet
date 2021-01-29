@@ -11,7 +11,7 @@ from backend.daemon.grpc.generated import Outlet_pb2_grpc
 from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
     GenerateMergeTree_Request, \
     GetAncestorList_Request, GetChildList_Request, \
-    GetConfig_Request, GetConfig_Response, GetLastPendingOp_Request, \
+    GetConfig_Request, GetConfig_Response, GetFilter_Request, GetFilter_Response, GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForLocalPath_Request, \
     GetNodeForUid_Request, \
@@ -228,16 +228,14 @@ class BackendGRPCClient(OutletBackend):
         logger.debug(f'Got op execution state from backend server: is_playing={response.is_enabled}')
         return response.is_enabled
 
-    def get_children(self, parent: Node, tree_id: str, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children(self, parent: Node, tree_id: str) -> Iterable[Node]:
         if SUPER_DEBUG:
-            logger.debug(f'[{tree_id}] Entered get_children(): parent={parent} filter_criteria={filter_criteria}')
+            logger.debug(f'[{tree_id}] Entered get_children(): parent={parent}')
+        assert tree_id, f'GRPCClient.get_children(): No tree_id provided!'
 
         request = GetChildList_Request()
-        if tree_id:
-            request.tree_id = tree_id
+        request.tree_id = tree_id
         GRPCConverter.node_to_grpc(parent, request.parent_node)
-        if filter_criteria:
-            GRPCConverter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)
 
         response = self.grpc_stub.get_child_list_for_node(request)
         return GRPCConverter.node_list_from_grpc(response.node_list)
@@ -322,6 +320,12 @@ class BackendGRPCClient(OutletBackend):
         for node_uid in node_uid_list:
             request.node_uid_list.append(node_uid)
         self.grpc_stub.delete_subtree(request)
+
+    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
+        request = GetFilter_Request()
+        request.tree_id = tree_id
+        response: GetFilter_Response = self.grpc_stub.get_filter(request)
+        return GRPCConverter.filter_criteria_from_grpc(response.filter_criteria)
 
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
         request = UpdateFilter_Request()

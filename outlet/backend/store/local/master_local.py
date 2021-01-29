@@ -8,10 +8,12 @@ from typing import List, Optional, Tuple
 from backend.store.local.local_disk_scanner import LocalDiskScanner
 from backend.store.local.master_local_disk import LocalDiskDiskStore
 from backend.store.sqlite.local_db import LocalDiskDatabase
+from backend.store.tree.filter_state import FilterState
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from backend.store.local.local_disk_tree import LocalDiskTree
 from model.cache_info import PersistedCacheInfo
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from backend.store.local.local_sig_calc_thread import SignatureCalcThread
 from backend.store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
@@ -20,7 +22,6 @@ from backend.store.master_store_interface import MasterStore
 from backend.store.uid.uid_generator import UID
 from backend.store.uid.uid_mapper import UidPathMapper
 from signal_constants import ID_GLOBAL_CACHE
-from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, time_util
 from util.simple_tree import NodeNotPresentError
 from util.stopwatch_sec import Stopwatch
@@ -488,11 +489,11 @@ class LocalDiskMasterStore(MasterStore):
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
-    def get_children(self, node: LocalNode, filter_criteria: FilterCriteria = None) -> List[LocalNode]:
+    def get_children(self, node: Node, filter_state: FilterState = None) -> List[Node]:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_children(): node={node.node_identifier} filter_criteria={filter_criteria} locked={self._struct_lock.locked()}')
-        if filter_criteria:
-            return filter_criteria.get_filtered_child_list(node, self)
+            logger.debug(f'Entered get_children(): node={node.node_identifier} filter_state={filter_state} locked={self._struct_lock.locked()}')
+        if filter_state:
+            return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
         else:
             with self._struct_lock:
                 child_nodes = self._memstore.master_tree.get_child_list(node.uid)

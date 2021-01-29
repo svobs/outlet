@@ -428,12 +428,15 @@ class DisplayStore:
         with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
         tree_path = self.ensure_tree_path(tree_path)
 
-        if self.treeview_meta.filter_criteria and self.treeview_meta.filter_criteria.has_criteria():
-            # FIXME: this may choose a less correct path when a filter is applied
-            logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter!'
-                           f'Will arbitrarily choose the first path in list')
-            node = self.get_node_data(tree_path)
-            return node.get_path_list()[0]
+        # FIXME!
+        logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter!'
+                       f'Will arbitrarily choose the first path in list')
+        # if self.treeview_meta.filter_criteria and self.treeview_meta.filter_criteria.has_criteria():
+        #     # FIXME: this may choose a less correct path when a filter is applied
+        #     logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter!'
+        #                    f'Will arbitrarily choose the first path in list')
+        #     node = self.get_node_data(tree_path)
+        #     return node.get_path_list()[0]
         # don't mess up the caller; make a copy before modifying:
         tree_path_copy = tree_path.copy()
 
