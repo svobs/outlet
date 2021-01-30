@@ -141,10 +141,11 @@ class ActiveTreeManager(HasLifecycle):
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
 
-    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
+    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
         meta = self.get_active_display_tree_meta(tree_id)
         if not meta:
-            raise RuntimeError(f'get_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
+            logger.error(f'get_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
+            return None
         return meta.filter_state.filter
 
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):

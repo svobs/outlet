@@ -441,7 +441,7 @@ class CacheManager(HasLifecycle):
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._active_tree_manager.get_active_display_tree_meta(tree_id)
 
-    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
+    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
         return self._active_tree_manager.get_filter_criteria(tree_id)
 
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):

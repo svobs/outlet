@@ -321,11 +321,14 @@ class BackendGRPCClient(OutletBackend):
             request.node_uid_list.append(node_uid)
         self.grpc_stub.delete_subtree(request)
 
-    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
+    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
         request = GetFilter_Request()
         request.tree_id = tree_id
         response: GetFilter_Response = self.grpc_stub.get_filter(request)
-        return GRPCConverter.filter_criteria_from_grpc(response.filter_criteria)
+        if response.HasField('filter_criteria'):
+            return GRPCConverter.filter_criteria_from_grpc(response.filter_criteria)
+        else:
+            return None
 
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
         request = UpdateFilter_Request()

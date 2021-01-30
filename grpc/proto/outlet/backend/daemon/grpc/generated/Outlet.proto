@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import public "outlet/backend/daemon/grpc/generated/Node.proto"; // Python
+import public "outlet/backend/daemon/grpc/generated/Node.proto"; // PYTHON
 //import public "Node.proto"; // Swift
 
 option java_package = "com.msvoboda.outlet";

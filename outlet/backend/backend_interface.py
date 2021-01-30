@@ -151,7 +151,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_filter_criteria(self, tree_id: str) -> FilterCriteria:
+    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
         pass
 
     @abstractmethod
