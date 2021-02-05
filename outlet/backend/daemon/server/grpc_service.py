@@ -122,11 +122,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
             context.add_callback(on_rpc_done)
             thread_id: int = threading.get_ident()
-            logger.info(f'Adding a subscriber with ThreadID {thread_id}')
+            logger.info(f'Adding a signal subscriber with ThreadID {thread_id}')
             with self._queue_lock:
                 signal_queue = self._thread_signal_queues.get(thread_id, None)
                 if signal_queue:
-                    logger.warning(f'Found an existing gRPC queue for ThreadID: {thread_id} Will overwrite')
+                    logger.warning(f'Found an existing gRPC signal queue for ThreadID: {thread_id} Will overwrite')
                 self._thread_signal_queues[thread_id] = deque()
 
             while not self._shutdown:
@@ -136,7 +136,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                         logger.debug(f'Checking signal queue for ThreadID {thread_id}')
                         signal_queue: Optional[Deque] = self._thread_signal_queues.get(thread_id, None)
                         if signal_queue is None:
-                            logger.debug(f'Looks like  ThreadID {thread_id} subscription ended (queue is not there). Cleaning up our end.')
+                            logger.debug(f'Looks like  ThreadID {thread_id} signal subscription ended (queue is not there). Cleaning up our end.')
                             return
                         if len(signal_queue) > 0:
                             signal: Optional[SignalMsg] = signal_queue.popleft()
@@ -149,13 +149,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
                 logger.debug(f'Signal queue for ThreadID {thread_id} emptied. Will wait for more signals')
                 with self._cv_has_signal:
-                    self._cv_has_signal.wait(2)
-                    logger.debug(f'Timed out waiting for new signals for ThreadID {thread_id}')
+                    self._cv_has_signal.wait()
 
             with self._queue_lock:
                 del self._thread_signal_queues[thread_id]
         except RuntimeError:
-            logger.exception('Unexpected error in add_subscriber()')
+            logger.exception('Unexpected error processing signal subscription')
 
     # Short-lived async (non-streaming) client requests
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
