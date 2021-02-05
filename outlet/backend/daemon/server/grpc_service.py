@@ -84,7 +84,17 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         HasLifecycle.shutdown(self)
         self._shutdown = True
 
-    def send_signal_to_all(self, signal_grpc: SignalMsg):
+    # Server -> client signaling via always-open gRPC stream
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def _send_signal_to_all_clients(self, signal: Signal, sender: str):
+        """Convenience method to create a simple gRPC SignalMsg and then enqueue it to be sent to all connected clients"""
+        assert sender, f'Sender is required for signal {signal.name}'
+        self._send_grpc_signal_to_all_clients(SignalMsg(sig_int=signal, sender=sender))
+
+    def _send_grpc_signal_to_all_clients(self, signal_grpc: SignalMsg):
+        """Sends the gRPC signal to all connected clients (well, it actually passively enqueues it to be picked up by each of their threads,
+        but the whole process should happen very quickly)"""
         if self._shutdown:
             return
 
@@ -96,6 +106,66 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         with self._cv_has_signal:
             self._cv_has_signal.notifyAll()
+
+    def subscribe_to_signals(self, request: Subscribe_Request, context):
+        """This method should be called by gRPC when it is handling a request. The calling thread will be used to process the stream
+        and so will be tied up. NOTE: originally I attempted to put this logic into its own class, but that resulted in bizarre errors."""
+        try:
+            def on_rpc_done():
+                logger.info(f'Client cancelled signal subscription (ThreadID {thread_id})')
+                # remove data structs for client:
+                with self._queue_lock:
+                    del self._thread_signal_queues[thread_id]
+                # notify the thread so it will stop waiting
+                with self._cv_has_signal:
+                    self._cv_has_signal.notifyAll()
+
+            context.add_callback(on_rpc_done)
+            thread_id: int = threading.get_ident()
+            logger.info(f'Adding a subscriber with ThreadID {thread_id}')
+            with self._queue_lock:
+                signal_queue = self._thread_signal_queues.get(thread_id, None)
+                if signal_queue:
+                    logger.warning(f'Found an existing gRPC queue for ThreadID: {thread_id} Will overwrite')
+                self._thread_signal_queues[thread_id] = deque()
+
+            while not self._shutdown:
+
+                while True:  # empty the queue
+                    with self._queue_lock:
+                        logger.debug(f'Checking signal queue for ThreadID {thread_id}')
+                        signal_queue: Optional[Deque] = self._thread_signal_queues.get(thread_id, None)
+                        if signal_queue is None:
+                            logger.debug(f'Looks like  ThreadID {thread_id} subscription ended (queue is not there). Cleaning up our end.')
+                            return
+                        if len(signal_queue) > 0:
+                            signal: Optional[SignalMsg] = signal_queue.popleft()
+                        else:
+                            break
+
+                    if signal:
+                        logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
+                        yield signal
+
+                logger.debug(f'Signal queue for ThreadID {thread_id} emptied. Will wait for more signals')
+                with self._cv_has_signal:
+                    self._cv_has_signal.wait(2)
+                    logger.debug(f'Timed out waiting for new signals for ThreadID {thread_id}')
+
+            with self._queue_lock:
+                del self._thread_signal_queues[thread_id]
+        except RuntimeError:
+            logger.exception('Unexpected error in add_subscriber()')
+
+    # Short-lived async (non-streaming) client requests
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def send_signal(self, request, context):
+        """This is a request from the CLIENT to relay a Signal to the server"""
+        sig = Signal(request.sig_int)
+        logger.info(f'Relaying signal from gRPC: "{sig.name}" from sender "{request.sender}"')
+        dispatcher.send(signal=sig, sender=request.sender)
+        return SendSignalResponse()
 
     def get_config(self, request: GetConfig_Request, context):
         response = GetConfig_Response()
@@ -138,51 +208,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
         return response
 
-    def send_signal(self, request, context):
-        sig = Signal(request.sig_int)
-        logger.info(f'Relaying signal from gRPC: "{sig.name}" from sender "{request.sender}"')
-        dispatcher.send(signal=sig, sender=request.sender)
-        return SendSignalResponse()
-
-    def subscribe_to_signals(self, request: Subscribe_Request, context):
-        """This method should be called by gRPC when it is handling a request. The calling thread will be used
-                to process the stream and so will be tied up."""
-        try:
-            thread_id: int = threading.get_ident()
-            logger.info(f'Adding a subscriber with ThreadID {thread_id}')
-            with self._queue_lock:
-                signal_queue = self._thread_signal_queues.get(thread_id, None)
-                if signal_queue:
-                    logger.warning(f'Found an existing gRPC queue for ThreadID: {thread_id} Will overwrite')
-                self._thread_signal_queues[thread_id] = deque()
-
-            while not self._shutdown:
-
-                while True:  # empty the queue
-                    with self._queue_lock:
-                        logger.debug(f'Checking signal queue for ThreadID {thread_id}')
-                        signal_queue: Deque = self._thread_signal_queues.get(thread_id, None)
-                        if len(signal_queue) > 0:
-                            signal: Optional[SignalMsg] = signal_queue.popleft()
-                        else:
-                            break
-
-                    if signal:
-                        logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
-                        yield signal
-
-                with self._cv_has_signal:
-                    self._cv_has_signal.wait()
-
-            with self._queue_lock:
-                del self._thread_signal_queues[thread_id]
-        except RuntimeError:
-            logger.exception('Unexpected error in add_subscriber()')
-
-    def send_signal_via_grpc(self, signal: Signal, sender: str):
-        assert sender, f'Sender is required for signal {signal.name}'
-        self.send_signal_to_all(SignalMsg(sig_int=signal, sender=sender))
-
     def request_display_tree_ui_state(self, grpc_req, context):
         if grpc_req.HasField('spid'):
             spid = GRPCConverter.node_identifier_from_grpc(grpc_req.spid)
@@ -205,80 +230,80 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return StartSubtreeLoad_Response()
 
     def _on_subtree_load_started(self, sender: str):
-        self.send_signal_via_grpc(Signal.LOAD_SUBTREE_STARTED, sender)
+        self._send_signal_to_all_clients(Signal.LOAD_SUBTREE_STARTED, sender)
 
     def _on_subtree_load_done(self, sender: str):
-        self.send_signal_via_grpc(Signal.LOAD_SUBTREE_DONE, sender)
+        self._send_signal_to_all_clients(Signal.LOAD_SUBTREE_DONE, sender)
 
     def _on_diff_failed(self, sender: str):
-        self.send_signal_via_grpc(Signal.DIFF_TREES_FAILED, sender)
+        self._send_signal_to_all_clients(Signal.DIFF_TREES_FAILED, sender)
 
     def _on_generate_merge_tree_failed(self, sender: str):
-        self.send_signal_via_grpc(Signal.GENERATE_MERGE_TREE_FAILED, sender)
+        self._send_signal_to_all_clients(Signal.GENERATE_MERGE_TREE_FAILED, sender)
 
     def _on_diff_done(self, sender: str):
-        self.send_signal_via_grpc(Signal.DIFF_TREES_DONE, sender)
+        self._send_signal_to_all_clients(Signal.DIFF_TREES_DONE, sender)
 
     def _on_refresh_stats_done(self, sender: str):
-        self.send_signal_via_grpc(Signal.REFRESH_SUBTREE_STATS_DONE, sender)
+        self._send_signal_to_all_clients(Signal.REFRESH_SUBTREE_STATS_DONE, sender)
 
     def _on_set_status(self, sender: str, status_msg: str):
         signal = SignalMsg(sig_int=Signal.SET_STATUS, sender=sender)
         signal.status_msg.msg = status_msg
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_gdrive_download_done(self, sender, filename: str):
         signal = SignalMsg(sig_int=Signal.DOWNLOAD_FROM_GDRIVE_DONE, sender=sender)
         signal.download_msg.filename = filename
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_node_upserted(self, sender: str, node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)
         GRPCConverter.node_to_grpc(node, signal.node)
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_node_removed(self, sender: str, node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_REMOVED, sender=sender)
         GRPCConverter.node_to_grpc(node, signal.node)
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_node_moved(self, sender: str, src_node: Node, dst_node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_MOVED, sender=sender)
         GRPCConverter.node_to_grpc(src_node, signal.src_dst_node_list.src_node)
         GRPCConverter.node_to_grpc(dst_node, signal.src_dst_node_list.dst_node)
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
         signal = SignalMsg(sig_int=Signal.ERROR_OCCURRED, sender=sender)
         signal.error_occurred.msg = msg
         if secondary_msg:
             signal.error_occurred.secondary_msg = secondary_msg
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_ui_enablement_toggled(self, sender: str, enable: bool):
         signal = SignalMsg(sig_int=Signal.TOGGLE_UI_ENABLEMENT, sender=sender)
         signal.ui_enablement.enable = enable
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_display_tree_changed_grpcserver(self, sender: str, tree: DisplayTree):
         signal = SignalMsg(sig_int=Signal.DISPLAY_TREE_CHANGED, sender=sender)
         GRPCConverter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
         logger.debug(f'Relaying signal across gRPC: "{Signal.DISPLAY_TREE_CHANGED.name}", sender={sender}, tree={tree}')
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_generate_merge_tree_done(self, sender: str, tree: DisplayTree):
         signal = SignalMsg(sig_int=Signal.GENERATE_MERGE_TREE_DONE, sender=sender)
         GRPCConverter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
         logger.debug(f'Relaying signal across gRPC: "{Signal.GENERATE_MERGE_TREE_DONE.name}", sender={sender}, tree={tree}')
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_op_exec_play_state_changed(self, sender: str, is_enabled: bool):
         signal = SignalMsg(sig_int=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=sender)
         signal.play_state.is_enabled = is_enabled
         logger.debug(f'Relaying signal across gRPC: "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}", sender={sender}, is_enabled={is_enabled}')
-        self.send_signal_to_all(signal)
+        self._send_grpc_signal_to_all_clients(signal)
 
     def get_op_exec_play_state(self, request, context):
         response = PlayState()

@@ -44,6 +44,7 @@ class OutletDaemon(BackendIntegrated):
         self._grpc_service.shutdown()
 
     def serve(self):
+        # See note about GRPC_SERVER_MAX_WORKER_THREADS
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=GRPC_SERVER_MAX_WORKER_THREADS))
         Outlet_pb2_grpc.add_OutletServicer_to_server(self._grpc_service, server)
 

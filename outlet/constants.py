@@ -10,7 +10,9 @@ VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp
 
 CACHE_LOAD_TIMEOUT_SEC = 3000
 
-GRPC_SERVER_MAX_WORKER_THREADS = 5
+# IMPORTANT: Each client will require 2 worker threads: 1 is for receiving signals asynchronously and is always open;
+# and 1 is for all other requests to the backend.
+GRPC_SERVER_MAX_WORKER_THREADS = 2
 
 TASK_RUNNER_MAX_WORKERS = 1
 
