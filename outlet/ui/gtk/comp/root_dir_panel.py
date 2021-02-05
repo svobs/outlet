@@ -49,9 +49,9 @@ class RootDirPanel(HasLifecycle):
             self.change_btn.set_popup(self.source_menu)
 
             def on_key_pressed(widget, event):
-                if self._ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
+                if self._ui_enabled and event.keyval == Gdk.KEY_Escape and self.path_entry:
                     # cancel
-                    logger.debug(f'Escape pressed! Cancelling root path entry box')
+                    logger.debug(f'Escape pressed! Cancelling root path path_entry box')
                     self._redraw_root_display()
                     return True
                 return False
@@ -74,7 +74,7 @@ class RootDirPanel(HasLifecycle):
         self.alert_image.set_from_file(self.parent_win.app.assets.get_path(IconId.ICON_ALERT))
 
         self.entry_box_focus_eid = None
-        self.entry = None
+        self.path_entry = None
         self.label_event_box = None
         self.label = None
         self.toolbar = None
@@ -100,8 +100,8 @@ class RootDirPanel(HasLifecycle):
 
         # Disconnect GTK3 listeners:
         if self.entry_box_focus_eid:
-            if self.entry:
-                self.entry.disconnect(self.entry_box_focus_eid)
+            if self.path_entry:
+                self.path_entry.disconnect(self.entry_box_focus_eid)
                 self.entry_box_focus_eid = None
 
         if self.key_press_event_eid:
@@ -114,16 +114,6 @@ class RootDirPanel(HasLifecycle):
 
         self.parent_win = None
 
-    def _on_display_tree_changed_rootpanel(self, sender: str, tree: Optional[DisplayTree]):
-        """Callback for Signal.DISPLAY_TREE_CHANGED"""
-        if sender != self.con.tree_id:
-            return
-        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_spid()}')
-
-        # Send the new tree directly to _redraw_root_display(). Do not allow it to fall back to querying the controller for the tree,
-        # because that would be a race condition:
-        GLib.idle_add(self._redraw_root_display, tree)
-
     def _redraw_root_display(self, new_tree=None):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
@@ -133,13 +123,13 @@ class RootDirPanel(HasLifecycle):
             new_tree: DisplayTree = self.con.get_tree()
         new_root = new_tree.get_root_spid()
         logger.debug(f'[{self.con.tree_id}] Redrawing root display for new_root={new_root}')
-        if self.entry:
+        if self.path_entry:
             if self.entry_box_focus_eid:
-                self.entry.disconnect(self.entry_box_focus_eid)
+                self.path_entry.disconnect(self.entry_box_focus_eid)
                 self.entry_box_focus_eid = None
-            # Remove entry box (we were probably called by it to do cleanup in fact)
-            self.path_box.remove(self.entry)
-            self.entry = None
+            # Remove path_entry box (we were probably called by it to do cleanup in fact)
+            self.path_box.remove(self.path_entry)
+            self.path_entry = None
         elif self.label_event_box:
             # Remove label even if it's found. Simpler just to redraw the whole thing
             self.path_box.remove(self.label_event_box)
@@ -206,11 +196,11 @@ class RootDirPanel(HasLifecycle):
         self._set_label_markup(pre, color, root_part_regular, root_part_bold)
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
-        if self.entry and self.entry_box_focus_eid:
-            self.entry.disconnect(self.entry_box_focus_eid)
+        if self.path_entry and self.entry_box_focus_eid:
+            self.path_entry.disconnect(self.entry_box_focus_eid)
             self.entry_box_focus_eid = None
-        # Triggered when the user submits a root via the text entry box
-        new_root_path: str = self.entry.get_text()
+        # Triggered when the user submits a root via the text path_entry box
+        new_root_path: str = self.path_entry.get_text()
         logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
 
         # Call into backend to update display tree. We'll get updated via the dispatcher
@@ -222,7 +212,7 @@ class RootDirPanel(HasLifecycle):
         return True
 
     def _on_label_clicked(self, widget, event):
-        """User clicked on the root label: toggle it to show the text entry box"""
+        """User clicked on the root label: toggle it to show the text path_entry box"""
         if not self._ui_enabled:
             logger.debug('Ignoring button press - UI is disabled')
             return False
@@ -231,48 +221,35 @@ class RootDirPanel(HasLifecycle):
             # Left click only
             return False
 
-        # Remove alert image if present; only show entry box
+        # Remove alert image if present; only show path_entry box
         if len(self.alert_image_box.get_children()) > 0:
             self.alert_image_box.remove(self.alert_image)
 
-        self.entry = Gtk.Entry()
+        self.path_entry = Gtk.Entry()
 
         root_spid: SinglePathNodeIdentifier = self.con.get_tree().get_root_spid()
         path = root_spid.get_single_path()
         if root_spid.tree_type == TREE_TYPE_GDRIVE:
             path = GDRIVE_PATH_PREFIX + path
-        self.entry.set_text(path)
-        self.entry.connect('activate', self._on_root_text_entry_submitted, self.con.tree_id)
+        self.path_entry.set_text(path)
+        self.path_entry.connect('activate', self._on_root_text_entry_submitted, self.con.tree_id)
         self.path_box.remove(self.label_event_box)
         if self.toolbar:
             self.path_box.remove(self.toolbar)
             self.toolbar = None
-        self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
+        self.path_box.pack_start(self.path_entry, expand=True, fill=True, padding=0)
 
         def cancel_edit(widget, event):
-            if self.entry and self.entry_box_focus_eid:
-                self.entry.disconnect(self.entry_box_focus_eid)
+            if self.path_entry and self.entry_box_focus_eid:
+                self.path_entry.disconnect(self.entry_box_focus_eid)
                 self.entry_box_focus_eid = None
-            logger.debug(f'Focus lost! Cancelling root path entry box')
+            logger.debug(f'Focus lost! Cancelling root path path_entry box')
             self._redraw_root_display()
 
-        self.entry_box_focus_eid = self.entry.connect('focus-out-event', cancel_edit)
-        self.entry.show()
-        self.entry.grab_focus()
+        self.entry_box_focus_eid = self.path_entry.connect('focus-out-event', cancel_edit)
+        self.path_entry.show()
+        self.path_entry.grab_focus()
         return False
-
-    def _on_enable_ui_toggled(self, sender, enable):
-        # Callback for Signal.TOGGLE_UI_ENABLEMENT
-        if not self.can_change_root:
-            self._ui_enabled = False
-            return
-
-        self._ui_enabled = enable
-        # TODO: what if root text entry is showing?
-
-        def change_button():
-            self.change_btn.set_sensitive(enable)
-        GLib.idle_add(change_button)
 
     def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):
         """Sets the content of the label only. Expected to be called from the UI thread"""
@@ -326,6 +303,22 @@ class RootDirPanel(HasLifecycle):
 
         GLib.idle_add(send_load_signal)
 
+    # PyDispatch listeners
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def _on_enable_ui_toggled(self, sender, enable):
+        # Callback for Signal.TOGGLE_UI_ENABLEMENT
+        if not self.can_change_root:
+            assert not self._ui_enabled
+            return
+
+        self._ui_enabled = enable
+        # TODO: what if root text path_entry is showing?
+
+        def change_button():
+            self.change_btn.set_sensitive(enable)
+        GLib.idle_add(change_button)
+
     def _on_load_started(self, sender):
         if sender != self.con.tree_id:
             return
@@ -335,3 +328,13 @@ class RootDirPanel(HasLifecycle):
             self.con.get_tree().set_needs_manual_load(False)
             # Hide Refresh button
             GLib.idle_add(self._redraw_root_display)
+
+    def _on_display_tree_changed_rootpanel(self, sender: str, tree: Optional[DisplayTree]):
+        """Callback for Signal.DISPLAY_TREE_CHANGED"""
+        if sender != self.con.tree_id:
+            return
+        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_spid()}')
+
+        # Send the new tree directly to _redraw_root_display(). Do not allow it to fall back to querying the controller for the tree,
+        # because that would be a race condition:
+        GLib.idle_add(self._redraw_root_display, tree)
