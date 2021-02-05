@@ -45,7 +45,20 @@ class OutletDaemon(BackendIntegrated):
 
     def serve(self):
         # See note about GRPC_SERVER_MAX_WORKER_THREADS
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=GRPC_SERVER_MAX_WORKER_THREADS))
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=GRPC_SERVER_MAX_WORKER_THREADS), options=(
+                                                            ('grpc.keepalive_time_ms', 10000),
+                                                            # send keepalive ping every 10 seconds, default is 2 hours
+                                                            ('grpc.keepalive_timeout_ms', 5000),
+                                                            # keepalive ping time out after 5 seconds, default is 20 seoncds
+                                                            ('grpc.keepalive_permit_without_calls', True),
+                                                            # allow keepalive pings when there's no gRPC calls
+                                                            ('grpc.http2.max_pings_without_data', 0),
+                                                            # allow unlimited amount of keepalive pings without data
+                                                            ('grpc.http2.min_time_between_pings_ms', 10000),
+                                                            # allow grpc pings from client every 10 seconds
+                                                            ('grpc.http2.min_ping_interval_without_data_ms', 5000),
+                                                            # allow grpc pings from client without data every 5 seconds
+                                                        ))
         Outlet_pb2_grpc.add_OutletServicer_to_server(self._grpc_service, server)
 
         if self.use_zeroconf:
