@@ -77,7 +77,6 @@ class GDriveMasterStore(MasterStore):
         self._diskstore.start()
         self.gdrive_client.start()
         self.connect_dispatch_listener(signal=Signal.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
-        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
 
     def shutdown(self):
         # disconnects all listeners:
@@ -125,6 +124,20 @@ class GDriveMasterStore(MasterStore):
 
     # Tree-wide stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def download_all_gdrive_data(self, sender):
+        """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
+        self.backend.executor.submit_async_task(self._download_all_gdrive_meta, sender)
+
+    def _download_all_gdrive_meta(self, tree_id):
+        """See above. Executed by Task Runner. NOT UI thread"""
+        logger.debug(f'Downloading all GDrive meta')
+        try:
+            """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
+            self.load_and_sync_master_tree(invalidate_cache=True)
+        except Exception as err:
+            logger.exception(err)
+            GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
 
     def _load_master_cache(self, invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
@@ -187,23 +200,6 @@ class GDriveMasterStore(MasterStore):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES.name}"')
         self.backend.executor.submit_async_task(self.load_and_sync_master_tree)
-
-    def _on_download_all_gdrive_meta_requested(self, sender):
-        """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        logger.debug(f'Received signal: "{Signal.DOWNLOAD_ALL_GDRIVE_META.name}"')
-        self.backend.executor.submit_async_task(self._download_all_gdrive_meta_in_ui, sender)
-
-    def _download_all_gdrive_meta_in_ui(self, tree_id):
-        """See above. Executed by Task Runner. NOT UI thread"""
-        GlobalActions.disable_ui(sender=tree_id)
-        try:
-            """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-            self.load_and_sync_master_tree(invalidate_cache=True)
-        except Exception as err:
-            logger.exception(err)
-            GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
-        finally:
-            GlobalActions.enable_ui(sender=self)
 
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

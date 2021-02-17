@@ -129,6 +129,7 @@ class CacheManager(HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
+        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._download_all_gdrive_meta)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -362,7 +363,7 @@ class CacheManager(HasLifecycle):
                 f'Expected GDrive root ({NodeIdentifierFactory.get_root_constant_gdrive_identifier()}) but found: {existing_disk_cache.subtree_root}'
             self._master_gdrive.load_and_sync_master_tree()
 
-    # Action listener callbacks
+    # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _on_command_completed(self, sender, command: Command):
@@ -384,13 +385,8 @@ class CacheManager(HasLifecycle):
             for deleted_node in result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
 
-    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
-        logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
-        self.backend.executor.submit_async_task(self._refresh_subtree, node_identifier, tree_id)
-
-    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
-        logger.info(f'[{tree_id}] Enqueuing task to refresh stats')
-        self.backend.executor.submit_async_task(self._refresh_stats, root_uid, tree_id)
+    def _download_all_gdrive_meta(self, sender):
+        self._master_gdrive.download_all_gdrive_data(sender)
 
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -461,6 +457,14 @@ class CacheManager(HasLifecycle):
         if not is_startup and self.reload_tree_on_root_path_update:
             return False
         return True
+
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+        logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
+        self.backend.executor.submit_async_task(self._refresh_subtree, node_identifier, tree_id)
+
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+        logger.info(f'[{tree_id}] Enqueuing task to refresh stats')
+        self.backend.executor.submit_async_task(self._refresh_stats, root_uid, tree_id)
 
     # PersistedCacheInfo stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

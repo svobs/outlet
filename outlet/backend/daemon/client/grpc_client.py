@@ -66,6 +66,7 @@ class BackendGRPCClient(OutletBackend):
         OutletBackend.start(self)
 
         self.connect_dispatch_listener(signal=Signal.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
+        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_gdrive_download_meta_requested)
 
         # Some requests are so simple that they can be encapsulated by a single signal:
         self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._send_pause_op_exec_signal)
@@ -132,6 +133,9 @@ class BackendGRPCClient(OutletBackend):
 
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._fe_task_runner.enqueue(task_func, *args)
+
+    def _on_gdrive_download_meta_requested(self, sender):
+        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.DOWNLOAD_ALL_GDRIVE_META, sender=sender))
 
     def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
         logger.debug(f'Getting config "{config_key}"')
