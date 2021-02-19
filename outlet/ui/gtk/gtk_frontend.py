@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 from backend.backend_interface import OutletBackend
 from backend.store.uid.uid_generator import SimpleUidGenerator
 from signal_constants import Signal
-from signal_constants import ID_DIFF_WINDOW
+from signal_constants import ID_MAIN_WINDOW
 from ui.gtk.tree.controller import TreePanelController
 from ui.gtk.two_pane_window import TwoPanelWindow
 
@@ -69,7 +69,7 @@ class OutletApplication(Gtk.Application):
             self.start()
 
             logger.debug(f'Creating main window')
-            self.window = TwoPanelWindow(app=self, win_id=ID_DIFF_WINDOW)
+            self.window = TwoPanelWindow(app=self, win_id=ID_MAIN_WINDOW)
             self.window.show_all()
             logger.debug(f'Finished window.show_all()')
 

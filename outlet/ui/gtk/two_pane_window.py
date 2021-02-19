@@ -155,7 +155,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         """Overrides Gtk.Window.close()"""
         logger.debug(f'TwoPanelWindow.shutdown() called')
 
-        dispatcher.send(Signal.SHUTDOWN_APP, sender=ID_MAIN_WINDOW)
+        dispatcher.send(Signal.SHUTDOWN_APP, sender=self.win_id)
 
         # Clean up:
         self.tree_con_left = None
