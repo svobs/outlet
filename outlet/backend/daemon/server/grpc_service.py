@@ -80,6 +80,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.GENERATE_MERGE_TREE_FAILED, receiver=self._on_generate_merge_tree_failed)
         self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
 
+        logger.debug("OutletGRPCService started")
+
     def shutdown(self):
         HasLifecycle.shutdown(self)
         self._shutdown = True
@@ -306,7 +308,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def get_op_exec_play_state(self, request, context):
         response = PlayState()
-        response.is_enabled = self.executor.enable_op_execution_thread
+        response.is_enabled = self.executor.enable_op_execution
 
         if SUPER_DEBUG:
             logger.debug(f'Relaying op_execution_state.is_enabled = {response.is_enabled}')

@@ -190,7 +190,7 @@ class OpTestBase(unittest.TestCase):
         backend = BackendIntegrated(config)
         self.app = OutletApplication(config, backend)
         # Disable execution so we can study the state of the OpGraph:
-        self.backend.executor.enable_op_execution_thread = False
+        self.backend.executor.enable_op_execution = False
 
         load_left_done = threading.Event()
         load_right_done = threading.Event()

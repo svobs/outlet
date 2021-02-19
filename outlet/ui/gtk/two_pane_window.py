@@ -199,7 +199,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
 
     # GTK LISTENERS begin
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _on_play_pause_btn_clicked(self, widget):
         if self._is_playing:
@@ -274,7 +274,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         GlobalActions.disable_ui(sender=self.win_id)
 
         self.backend.generate_merge_tree(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id,
-                                             selected_changes_left=selected_changes_left, selected_changes_right=selected_changes_right)
+                                         selected_changes_left=selected_changes_left, selected_changes_right=selected_changes_right)
 
     # SIGNAL LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

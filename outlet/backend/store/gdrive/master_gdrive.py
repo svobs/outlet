@@ -437,13 +437,13 @@ class GDriveMasterStore(MasterStore):
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:
-        if SUPER_DEBUG:
-            logger.debug(f'Entered get_gdrive_user_for_permission_id()')
+        # if SUPER_DEBUG:
+        #     logger.debug(f'Entered get_gdrive_user_for_permission_id()')
         return self._memstore.get_gdrive_user_for_permission_id(permission_id)
 
     def get_gdrive_user_for_user_uid(self, uid: UID) -> GDriveUser:
-        if SUPER_DEBUG:
-            logger.debug(f'Entered get_gdrive_user_for_user_uid()')
+        # if SUPER_DEBUG:
+        #     logger.debug(f'Entered get_gdrive_user_for_user_uid()')
         return self._memstore.get_gdrive_user_for_user_uid(uid)
 
     def create_gdrive_user(self, user: GDriveUser):

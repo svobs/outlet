@@ -99,7 +99,7 @@ class BackendIntegrated(OutletBackend):
         self.cacheman.enqueue_load_tree_task(tree_id, send_signals=True)
 
     def get_op_execution_play_state(self) -> bool:
-        return self.executor.enable_op_execution_thread
+        return self.executor.enable_op_execution
 
     def get_children(self, parent: Node, tree_id: str) -> Iterable[Node]:
         return self.cacheman.get_children(parent, tree_id)
