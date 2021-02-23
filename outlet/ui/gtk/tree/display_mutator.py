@@ -266,7 +266,7 @@ class DisplayMutator(HasLifecycle):
             self._enable_node_signals = False
             with self._lock:
                 top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root()
-            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top level nodes for root')
+            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top-level nodes for root')
         finally:
             self._enable_node_signals = True
 

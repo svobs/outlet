@@ -1,10 +1,4 @@
 {
-    "main_win": {
-        "height": 746,
-        "width": 1440,
-        "x": 106,
-        "y": 174
-    },
     "gdrive_dir_select": {
         "expanded_rows": "10751706,10751162",
         "filter": {
@@ -16,7 +10,7 @@
         }
     },
     "global": {
-        "last_uid": 11210622
+        "last_uid": 11677980
     },
     "left_tree": {
         "expanded_rows": "9959708,9959709",
@@ -35,18 +29,16 @@
             "show_subtrees": false
         },
         "offending_path": "",
-        "root_exists": true,
+        "root_exists": false,
         "root_path": "/home/msvoboda/LocalDevel/outlet/test/ChangeTest/Left-Root",
-        "root_uid": 2596889,
+        "root_uid": 11677026,
         "tree_type": 2
     },
-    "left_tree_diff": {
-        "expanded_rows": "10634988,10671054,10602000,10671056,10672050,10701108,21,22,10701110,24,10662045,10673085,10701150,10639007",
-        "expanded_state": {
-            "CP": true,
-            "MV": true,
-            "RM": true
-        }
+    "main_win": {
+        "height": 746,
+        "width": 1440,
+        "x": 106,
+        "y": 174
     },
     "merge_tree": {
         "filter": {
@@ -77,7 +69,7 @@
         "offending_path": "",
         "root_exists": true,
         "root_path": "/My Drive",
-        "root_uid": 10751162,
+        "root_uid": 11214632,
         "tree_type": 3
     },
     "right_tree_diff": {

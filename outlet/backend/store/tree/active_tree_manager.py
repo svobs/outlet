@@ -286,7 +286,7 @@ class ActiveTreeManager(HasLifecycle):
         if return_async:
             # notify clients asynchronously
             tree = state.to_display_tree(self.backend)
-            logger.debug(f'[{sender_tree_id}] Firing signal: {Signal.DISPLAY_TREE_CHANGED}')
+            logger.debug(f'[{sender_tree_id}] Firing signal: {Signal.DISPLAY_TREE_CHANGED.name}')
             dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=sender_tree_id, tree=tree)
             return None
         else:

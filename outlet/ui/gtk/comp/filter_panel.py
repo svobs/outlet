@@ -113,6 +113,8 @@ class TreeFilterPanel(HasLifecycle):
         GLib.idle_add(self._redraw_panel, tree)
 
     def _redraw_panel(self, new_tree=None):
+        # TODO: reset panel for new display tree
+
         pass
         # TODO: toggle filter panel on/off
 

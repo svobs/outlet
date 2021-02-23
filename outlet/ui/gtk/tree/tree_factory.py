@@ -4,7 +4,7 @@ import gi
 
 from constants import SUPER_DEBUG, TreeDisplayMode
 from ui.gtk.comp.filter_panel import TreeFilterPanel
-from ui.gtk.comp.root_dir_panel import RootDirPanel
+from ui.gtk.comp.root_path_panel import RootPathPanel
 from ui.gtk.dialog.base_dialog import BaseDialog
 from ui.gtk.tree import tree_factory_templates
 from ui.gtk.tree.controller import TreePanelController
@@ -74,7 +74,7 @@ class TreeFactory:
 
         controller.tree_view = tree_factory_templates.build_treeview(controller.display_store, controller.parent_win.app.assets)
 
-        controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
+        controller.root_dir_panel = RootPathPanel(parent_win=self.parent_win,
                                                  controller=controller,
                                                  can_change_root=treeview_meta.can_change_root)
 

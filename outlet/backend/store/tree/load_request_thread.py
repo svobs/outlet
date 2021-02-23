@@ -18,6 +18,9 @@ class LoadRequest:
         self.tree_id = tree_id
         self.send_signals = send_signals
 
+    def __repr__(self):
+        return f'LoadRequest(tree_id={self.tree_id} send_signals={self.send_signals}'
+
 
 class LoadRequestThread(QThread):
     """
