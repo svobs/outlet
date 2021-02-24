@@ -15,10 +15,14 @@ from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
-    GetConfig_Request, GetConfig_Response, GetFilter_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
+    GetConfig_Request, GetConfig_Response, GetExpandedRowSet_Request, GetExpandedRowSet_Response, GetFilter_Response, GetLastPendingOp_Request, \
+    GetLastPendingOp_Response, \
+    GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
-    GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, \
+    GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, RemoveExpandedRow_Response, \
+    RequestDisplayTree_Response, \
+    SendSignalResponse, SignalMsg, \
     SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response, UserOp
@@ -402,3 +406,15 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         filter_criteria = GRPCConverter.filter_criteria_from_grpc(request.filter_criteria)
         self.cacheman.update_filter_criteria(request.tree_id, filter_criteria)
         return UpdateFilter_Response()
+
+    def remove_expanded_row(self, request: RemoveExpandedRow_Request, context):
+        self.cacheman.remove_expanded_row(request.node_uid, request.tree_id)
+        return RemoveExpandedRow_Response()
+
+    def get_expanded_row_set(self, request: GetExpandedRowSet_Request, context):
+        row_set: set[UID] = self.cacheman.get_expanded_row_set(tree_id=request.tree_id)
+        response = GetExpandedRowSet_Response()
+        for uid in row_set:
+            response.node_uid_set.append(uid)
+
+        return response

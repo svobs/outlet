@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from pydispatch import dispatcher
 import logging
@@ -106,6 +106,13 @@ class BackendIntegrated(OutletBackend):
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         return self.cacheman.get_ancestor_list_for_spid(spid, stop_at_path=stop_at_path)
+
+    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+        """AKA collapsing a row on the frontend"""
+        self.cacheman.remove_expanded_row(row_uid, tree_id)
+
+    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
+        return self.cacheman.get_expanded_row_set(tree_id)
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)

@@ -3,7 +3,7 @@ import os
 import pathlib
 import threading
 from collections import deque
-from typing import Deque, Dict, Iterable, List, Optional, Tuple
+from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
@@ -724,7 +724,11 @@ class CacheManager(HasLifecycle):
 
         display_tree = self.get_active_display_tree_meta(tree_id)
         if not display_tree:
-            raise RuntimeError(f'DisplayTree not registered: {tree_id}')
+            raise RuntimeError(f'get_children(): DisplayTree not registered: {tree_id}')
+
+        # We assume that whenever get_children() is called, this represents a row expansion
+        self._active_tree_manager.add_expanded_row(node.uid, tree_id)
+
         # Is change tree? Follow separate code path:
         if display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             return display_tree.change_tree.get_children(node)
@@ -746,6 +750,16 @@ class CacheManager(HasLifecycle):
         if SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {node}')
         return child_list
+
+    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+        """AKA collapsing a row on the frontend"""
+        self._active_tree_manager.remove_expanded_row(row_uid, tree_id)
+
+    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
+        display_tree = self.get_active_display_tree_meta(tree_id)
+        if not display_tree:
+            raise RuntimeError(f'get_expanded_row_set(): DisplayTree not registered: {tree_id}')
+        return display_tree.expanded_rows
 
     def _update_node_icon(self, node: Node):
         icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.uid)

@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 from datetime import datetime
-from typing import Deque, Iterable, List
+from typing import Deque, Iterable, List, Set
 
 import humanfriendly
 from pydispatch import dispatcher
@@ -257,8 +257,11 @@ class DisplayMutator(HasLifecycle):
         """START HERE.
         More like "repopulate" - clears model before populating.
         Draws from the undelying data store as needed, to populate the display store."""
+
+        expanded_rows: Set[UID] = self.con.backend.get_expanded_row_set(self.con.tree_id)
+
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
-                     f' expanded_rows={self.con.display_store.expanded_rows}')
+                     f' expanded_rows={expanded_rows}')
 
         # This may be a long task
         try:

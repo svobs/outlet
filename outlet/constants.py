@@ -84,6 +84,8 @@ DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
 OPEN = 1
 SHOW = 2
 
+CONFIG_DELIMITER = ','
+
 # --- FE + BE SHARED ---
 
 ROOT_PATH = '/'

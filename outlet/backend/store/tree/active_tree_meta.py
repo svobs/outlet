@@ -1,10 +1,11 @@
 import logging
-from typing import Optional
+from typing import Optional, Set
 
 from backend.store.tree.change_tree import ChangeTree
 from backend.store.tree.filter_state import FilterState
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.store.tree.root_path_config import RootPathConfigPersister
+from model.uid import UID
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,12 @@ class ActiveDisplayTreeMeta:
         self.filter_state: FilterState = filter_state
 
         self.change_tree: Optional[ChangeTree] = None
-        """For order > 0 only"""
+        """For order > 1 only"""
         self.src_tree_id: Optional[str] = None
-        """For order > 0 only"""
+        """For order > 1 only"""
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
+        self.expanded_rows: Set[UID] = set()
 
         logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
 

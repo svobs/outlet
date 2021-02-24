@@ -130,6 +130,8 @@ class TreeViewMeta(HasLifecycle):
     def start(self):
         logger.debug(f'[{self.tree_id}] TreeViewMeta init is_persisted={self.is_display_persisted}')
         HasLifecycle.start(self)
+
+        # TODO: remove this listener entirely, after verifying that DisplayMutator covers Category nodes.
         # Hook up persistence of expanded state (if configured):
         if self.is_display_persisted:
             self.connect_dispatch_listener(signal=Signal.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)

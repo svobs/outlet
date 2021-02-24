@@ -9,15 +9,11 @@ from model.uid import UID
 
 import gi
 
-from util.ensure import ensure_uid
-
 gi.require_version("Gtk", "3.0")
 from gi.repository.Gtk import TreeIter, TreePath
 from gi.repository import Gtk, GLib
 
 logger = logging.getLogger(__name__)
-
-CONFIG_DELIMITER = ','
 
 
 class DisplayStore:
@@ -53,27 +49,6 @@ class DisplayStore:
         self.inconsistent_rows: Dict[UID, Node] = {}
         self.displayed_rows: Dict[UID, Node] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
-
-        self.expanded_rows: Set[UID] = set()
-        self.load_expanded_rows_from_config()
-
-    def load_expanded_rows_from_config(self):
-        try:
-            self.expanded_rows: Set[UID] = set()
-            expanded_rows_str: Optional[str] = self.con.backend.get_config(DisplayStore._make_expanded_rows_config_key(self.tree_id))
-            if expanded_rows_str:
-                for uid in expanded_rows_str.split(CONFIG_DELIMITER):
-                    self.expanded_rows.add(ensure_uid(uid))
-        except RuntimeError:
-            logger.exception(f'[{self.tree_id}] Failed to load expanded rows from config')
-
-    def save_expanded_rows_to_config(self):
-        expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in self.expanded_rows)
-        self.con.backend.put_config(DisplayStore._make_expanded_rows_config_key(self.tree_id), expanded_rows_str)
-
-    @staticmethod
-    def _make_expanded_rows_config_key(tree_id: str) -> str:
-        return f'ui_state.{tree_id}.expanded_rows'
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> Node:
         """

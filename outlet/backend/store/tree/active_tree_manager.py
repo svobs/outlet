@@ -1,13 +1,13 @@
 import errno
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from pydispatch import dispatcher
 
 from backend.store.tree.change_tree import ChangeTree
 from backend.store.tree.filter_state import FilterState
-from constants import GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
+from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
@@ -18,9 +18,11 @@ from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePat
 from model.node_identifier_factory import NodeIdentifierFactory
 from backend.realtime.live_monitor import LiveMonitor
 from backend.store.tree.active_tree_meta import ActiveDisplayTreeMeta
+from model.uid import UID
 from signal_constants import Signal
 from backend.store.tree.root_path_config import RootPathConfigPersister
 from util import file_util
+from util.ensure import ensure_uid
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
 
@@ -158,6 +160,7 @@ class ActiveTreeManager(HasLifecycle):
         # write to disk
         meta.filter_state.write_to_config(self.backend, tree_id)
 
+    # TODO: make this wayyyy less complicated by just making each tree_id represent a set of persisted configs. Minimize DisplayTreeRequest
     def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
         sender_tree_id = request.tree_id
         spid = request.spid
@@ -199,7 +202,7 @@ class ActiveTreeManager(HasLifecycle):
                     # Exiting diff mode -> look up prev tree
                     assert display_tree_meta.src_tree_id, f'Expected not-null src_tree_id for {display_tree_meta.tree_id}'
                     response_tree_id = display_tree_meta.src_tree_id
-                    display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(response_tree_id)
+                    display_tree_meta = self.get_active_display_tree_meta(response_tree_id)
 
                     if self._display_tree_dict.pop(sender_tree_id):
                         logger.debug(f'Discarded meta for tree: {sender_tree_id}')
@@ -261,6 +264,9 @@ class ActiveTreeManager(HasLifecycle):
             filter_state = FilterState.from_config(self.backend, sender_tree_id)
 
             display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)
+
+            self._load_expanded_rows_from_config(display_tree_meta)
+
             self._display_tree_dict[response_tree_id] = display_tree_meta
 
         if root_path_persister:
@@ -350,3 +356,47 @@ class ActiveTreeManager(HasLifecycle):
 
         logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
         return root_path_meta
+
+    # Row expansion state tracking
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def add_expanded_row(self, row_uid: UID, tree_id: str):
+        """AKA expanding a row on the frontend"""
+        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+        if not display_tree_meta:
+            raise RuntimeError(f'Tree not found in memory: {tree_id}')
+
+        display_tree_meta.expanded_rows.add(row_uid)
+        # TODO: use a timer for this. Make into backend API. Also write selection to file
+        self._save_expanded_rows_to_config(display_tree_meta)
+
+    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+        """AKA collapsing a row on the frontend"""
+        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+        if not display_tree_meta:
+            raise RuntimeError(f'Tree not found in memory: {tree_id}')
+
+        display_tree_meta.expanded_rows.remove(row_uid)
+        # TODO: use a timer for this. Make into backend API. Also write selection to file
+        self._save_expanded_rows_to_config(display_tree_meta)
+
+    def _load_expanded_rows_from_config(self, display_tree_meta: ActiveDisplayTreeMeta):
+        """Loads the Set of expanded rows from config file into ActiveDisplayTreeMeta"""
+        logger.debug(f'[{display_tree_meta.tree_id}] Loading expanded rows from config')
+        try:
+            expanded_rows: Set[UID] = set()
+            expanded_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(display_tree_meta.tree_id))
+            if expanded_rows_str:
+                for uid in expanded_rows_str.split(CONFIG_DELIMITER):
+                    expanded_rows.add(ensure_uid(uid))
+            display_tree_meta.expanded_rows = expanded_rows
+        except RuntimeError:
+            logger.exception(f'[{display_tree_meta.tree_id}] Failed to load expanded rows from config')
+
+    def _save_expanded_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
+        expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in display_tree_meta.expanded_rows)
+        self.backend.put_config(ActiveTreeManager._make_expanded_rows_config_key(display_tree_meta.tree_id), expanded_rows_str)
+
+    @staticmethod
+    def _make_expanded_rows_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.expanded_rows'

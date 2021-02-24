@@ -1,7 +1,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from pydispatch import dispatcher
 
@@ -80,6 +80,14 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+        pass
+
+    @abstractmethod
+    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+        pass
+
+    @abstractmethod
+    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
         pass
 
     def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:
