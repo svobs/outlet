@@ -30,6 +30,7 @@ class ActiveDisplayTreeMeta:
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
         self.expanded_rows: Set[UID] = set()
+        self.selected_rows: Set[UID] = set()
 
         logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
 

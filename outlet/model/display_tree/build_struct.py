@@ -1,5 +1,8 @@
+from typing import Set
+
 from constants import TreeDisplayMode
 from model.node_identifier import SinglePathNodeIdentifier
+from model.uid import UID
 
 
 class DiffResultTreeIds:
@@ -13,6 +16,19 @@ class DiffResultTreeIds:
     def __init__(self, tree_id_left: str, tree_id_right: str):
         self.tree_id_left = tree_id_left
         self.tree_id_right = tree_id_right
+
+
+class RowsOfInterest:
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS RowsOfInterest
+
+    Container for sets of UIDs which specify the rows of the tree which are selected and expanded.
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+    def __init__(self):
+        self.expanded: Set[UID] = set()
+        self.selected: Set[UID] = set()
 
 
 class DisplayTreeRequest:

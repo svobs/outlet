@@ -60,12 +60,13 @@ message RemoveExpandedRow_Response {
 	// nothing
 }
 
-message GetExpandedRowSet_Request {
+message GetRowsOfInterest_Request {
 	string tree_id = 1;
 }
 
-message GetExpandedRowSet_Response {
-	repeated uint32 node_uid_set = 1;
+message GetRowsOfInterest_Response {
+	repeated uint32 expanded_row_uid_set = 1;
+	repeated uint32 selected_row_uid_set = 2;
 }
 
 message GetLastPendingOp_Request {
@@ -272,7 +273,7 @@ service Outlet {
 	rpc get_filter(GetFilter_Request) returns (GetFilter_Response);
 	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
 	rpc remove_expanded_row(RemoveExpandedRow_Request) returns (RemoveExpandedRow_Response);
-	rpc get_expanded_row_set(GetExpandedRowSet_Request) returns (GetExpandedRowSet_Response);
+	rpc get_rows_of_interest(GetRowsOfInterest_Request) returns (GetRowsOfInterest_Response);
 
 	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);

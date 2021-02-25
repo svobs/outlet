@@ -6,7 +6,7 @@ import logging
 from backend.backend_interface import OutletBackend
 from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
-from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
+from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, SPIDNodePair
@@ -111,8 +111,8 @@ class BackendIntegrated(OutletBackend):
         """AKA collapsing a row on the frontend"""
         self.cacheman.remove_expanded_row(row_uid, tree_id)
 
-    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
-        return self.cacheman.get_expanded_row_set(tree_id)
+    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+        return self.cacheman.get_rows_of_interest(tree_id)
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)

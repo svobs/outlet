@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set
 from pydispatch import dispatcher
 
 from constants import TreeDisplayMode
-from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
+from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
@@ -87,7 +87,8 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
+    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+        """I really could not think of a better name for this."""
         pass
 
     def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:

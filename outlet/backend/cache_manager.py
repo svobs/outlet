@@ -20,7 +20,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_
 from backend.diff.change_maker import ChangeMaker
 from error import InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
-from model.display_tree.build_struct import DisplayTreeRequest
+from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.gdrive_node import GDriveNode
@@ -755,8 +755,8 @@ class CacheManager(HasLifecycle):
         """AKA collapsing a row on the frontend"""
         self._active_tree_manager.remove_expanded_row(row_uid, tree_id)
 
-    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
-        return self._active_tree_manager.get_expanded_row_set(tree_id)
+    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+        return self._active_tree_manager.get_rows_of_interest(tree_id)
 
     def _update_node_icon(self, node: Node):
         icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.uid)

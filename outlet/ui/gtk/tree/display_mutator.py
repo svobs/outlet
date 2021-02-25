@@ -10,6 +10,7 @@ from pydispatch import dispatcher
 
 from constants import IconId, LARGE_NUMBER_OF_CHILDREN, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG, TreeDisplayMode
 from global_actions import GlobalActions
+from model.display_tree.build_struct import RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.container_node import CategoryNode
@@ -257,10 +258,10 @@ class DisplayMutator(HasLifecycle):
         More like "repopulate" - clears model before populating.
         Draws from the undelying data store as needed, to populate the display store."""
 
-        expanded_row_uid_set: Set[UID] = self.con.backend.get_expanded_row_set(self.con.tree_id)
+        rows: RowsOfInterest = self.con.backend.get_rows_of_interest(self.con.tree_id)
 
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
-                     f' expanded_rows={expanded_row_uid_set}')
+                     f' expanded_rows={rows.expanded} selected_rows={rows.selected}')
 
         # This may be a long task
         try:
@@ -291,9 +292,9 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Populating via lazy load')
                     # Recursively add child nodes for dir nodes which need expanding. We can only expand after we have nodes, due to GTK3 limitation
                     for node in top_level_node_list:
-                        self._populate_and_restore_expanded_state(root_iter, node, node_count, expanded_row_uid_set)
+                        self._populate_and_restore_expanded_state(root_iter, node, node_count, rows.expanded)
 
-                    for uid in expanded_row_uid_set:
+                    for uid in rows.expanded:
                         logger.debug(f'[{self.con.tree_id}] Expanding: {uid}')
                         try:
                             tree_iter = self.con.display_store.find_uid_in_tree(uid)
@@ -302,7 +303,7 @@ class DisplayMutator(HasLifecycle):
                             # non-fatal error
                             logger.error(f'[{self.con.tree_id}] Failed to expand row: {uid}: {e}')
 
-                    logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(expanded_row_uid_set)} dir nodes')
+                    logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(rows.expanded)} dir nodes')
 
                 else:
                     logger.debug(f'[{self.con.tree_id}] Populating recursively')

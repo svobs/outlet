@@ -11,7 +11,7 @@ from backend.daemon.grpc.generated import Outlet_pb2_grpc
 from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
     GenerateMergeTree_Request, \
     GetAncestorList_Request, GetChildList_Request, \
-    GetConfig_Request, GetConfig_Response, GetExpandedRowSet_Request, GetFilter_Request, GetFilter_Response, GetLastPendingOp_Request, \
+    GetConfig_Request, GetConfig_Response, GetRowsOfInterest_Request, GetFilter_Request, GetFilter_Response, GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForLocalPath_Request, \
     GetNodeForUid_Request, \
@@ -20,7 +20,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
 from constants import SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
-from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
+from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node
@@ -251,14 +251,16 @@ class BackendGRPCClient(OutletBackend):
         request.tree_id = tree_id
         self.grpc_stub.remove_expanded_row(request)
 
-    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
-        request = GetExpandedRowSet_Request()
+    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+        request = GetRowsOfInterest_Request()
         request.tree_id = tree_id
-        response = self.grpc_stub.get_expanded_row_set(request)
-        row_set = set()
-        for uid in response.node_uid_set:
-            row_set.add(uid)
-        return row_set
+        response = self.grpc_stub.get_rows_of_interest(request)
+        rows = RowsOfInterest()
+        for uid in response.expanded_row_uid_set:
+            rows.expanded.add(uid)
+        for uid in response.selected_row_uid_set:
+            rows.selected.add(uid)
+        return rows
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         request = GetAncestorList_Request()

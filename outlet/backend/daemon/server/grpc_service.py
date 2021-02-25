@@ -15,7 +15,7 @@ from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
-    GetConfig_Request, GetConfig_Response, GetExpandedRowSet_Request, GetExpandedRowSet_Response, GetFilter_Response, GetLastPendingOp_Request, \
+    GetConfig_Request, GetConfig_Response, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetFilter_Response, GetLastPendingOp_Request, \
     GetLastPendingOp_Response, \
     GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
@@ -26,7 +26,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response, UserOp
-from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
+from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
 from model.uid import UID
@@ -412,10 +412,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.cacheman.remove_expanded_row(request.node_uid, request.tree_id)
         return RemoveExpandedRow_Response()
 
-    def get_expanded_row_set(self, request: GetExpandedRowSet_Request, context):
-        row_set: set[UID] = self.cacheman.get_expanded_row_set(tree_id=request.tree_id)
-        response = GetExpandedRowSet_Response()
-        for uid in row_set:
-            response.node_uid_set.append(uid)
+    def get_rows_of_interest(self, request: GetRowsOfInterest_Request, context):
+        rows: RowsOfInterest = self.cacheman.get_rows_of_interest(tree_id=request.tree_id)
+        response = GetRowsOfInterest_Response()
+        for uid in rows.expanded:
+            response.expanded_row_uid_set.append(uid)
+        for uid in rows.selected:
+            response.selected_row_uid_set.append(uid)
 
         return response

@@ -69,10 +69,10 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.FromString,
                 )
-        self.get_expanded_row_set = channel.unary_unary(
-                '/outlet.backend.daemon.grpc.generated.Outlet/get_expanded_row_set',
-                request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetExpandedRowSet_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetExpandedRowSet_Response.FromString,
+        self.get_rows_of_interest = channel.unary_unary(
+                '/outlet.backend.daemon.grpc.generated.Outlet/get_rows_of_interest',
+                request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
                 )
         self.request_display_tree_ui_state = channel.unary_unary(
                 '/outlet.backend.daemon.grpc.generated.Outlet/request_display_tree_ui_state',
@@ -210,7 +210,7 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def get_expanded_row_set(self, request, context):
+    def get_rows_of_interest(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -352,10 +352,10 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.SerializeToString,
             ),
-            'get_expanded_row_set': grpc.unary_unary_rpc_method_handler(
-                    servicer.get_expanded_row_set,
-                    request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetExpandedRowSet_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetExpandedRowSet_Response.SerializeToString,
+            'get_rows_of_interest': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_rows_of_interest,
+                    request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.SerializeToString,
             ),
             'request_display_tree_ui_state': grpc.unary_unary_rpc_method_handler(
                     servicer.request_display_tree_ui_state,
@@ -620,7 +620,7 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def get_expanded_row_set(request,
+    def get_rows_of_interest(request,
             target,
             options=(),
             channel_credentials=None,
@@ -630,9 +630,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/get_expanded_row_set',
-            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetExpandedRowSet_Request.SerializeToString,
-            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetExpandedRowSet_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/get_rows_of_interest',
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
