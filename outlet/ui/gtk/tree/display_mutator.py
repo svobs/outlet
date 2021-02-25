@@ -124,7 +124,7 @@ class DisplayMutator(HasLifecycle):
         node_count += 1
         return node_count
 
-    def _populate_and_restore_expanded_state(self, parent_iter, node: Node, node_count: int, to_expand: List[UID]) -> int:
+    def _populate_and_restore_expanded_state(self, parent_iter, node: Node, node_count: int, expanded_row_uid_set: Set[UID]) -> int:
         if SUPER_DEBUG:
             logger.debug(f'[{self.con.tree_id}] Populating node {node.node_identifier}')
 
@@ -135,7 +135,7 @@ class DisplayMutator(HasLifecycle):
             if type(node) == CategoryNode and self.con.treeview_meta.is_display_persisted and self.con.treeview_meta.is_category_node_expanded(node):
                 logger.debug(f'[{self.con.tree_id}] Category node {node.name} is expanded')
                 is_expand = True
-            elif node.uid in self.con.display_store.expanded_rows:
+            elif node.uid in expanded_row_uid_set:
                 if SUPER_DEBUG:
                     logger.debug(f'[{self.con.tree_id}] Found uid "{node.uid}" in expanded_rows"')
                 is_expand = True
@@ -146,11 +146,10 @@ class DisplayMutator(HasLifecycle):
 
                 if SUPER_DEBUG:
                     logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.uid} ("{node.name}")')
-                to_expand.append(node.uid)
 
                 child_list = self.con.get_tree().get_children(node)
                 for child in child_list:
-                    node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, to_expand)
+                    node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, expanded_row_uid_set)
 
             else:
                 if SUPER_DEBUG:
@@ -258,10 +257,10 @@ class DisplayMutator(HasLifecycle):
         More like "repopulate" - clears model before populating.
         Draws from the undelying data store as needed, to populate the display store."""
 
-        expanded_rows: Set[UID] = self.con.backend.get_expanded_row_set(self.con.tree_id)
+        expanded_row_uid_set: Set[UID] = self.con.backend.get_expanded_row_set(self.con.tree_id)
 
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
-                     f' expanded_rows={expanded_rows}')
+                     f' expanded_rows={expanded_row_uid_set}')
 
         # This may be a long task
         try:
@@ -288,26 +287,22 @@ class DisplayMutator(HasLifecycle):
                     logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
                     self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', IconId.ICON_ALERT)
 
-                # if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria() \
-                #     and not self.con.treeview_meta.filter_criteria.show_subtrees_of_matches:
-                #     for node in top_level_node_list:
-                #         self._append_file_node(root_iter, node)
-                #
-                #     logger.debug(f'[{self.con.tree_id}] Done populating linear list of nodes')
-
                 elif self.con.treeview_meta.lazy_load:
                     logger.debug(f'[{self.con.tree_id}] Populating via lazy load')
                     # Recursively add child nodes for dir nodes which need expanding. We can only expand after we have nodes, due to GTK3 limitation
-                    to_expand: List[UID] = []
                     for node in top_level_node_list:
-                        self._populate_and_restore_expanded_state(root_iter, node, node_count, to_expand)
+                        self._populate_and_restore_expanded_state(root_iter, node, node_count, expanded_row_uid_set)
 
-                    for uid in to_expand:
+                    for uid in expanded_row_uid_set:
                         logger.debug(f'[{self.con.tree_id}] Expanding: {uid}')
-                        tree_iter = self.con.display_store.find_uid_in_tree(uid)
-                        self._expand_row_without_event_firing(tree_path=tree_iter, expand_all=False)
+                        try:
+                            tree_iter = self.con.display_store.find_uid_in_tree(uid)
+                            self._expand_row_without_event_firing(tree_path=tree_iter, expand_all=False)
+                        except RuntimeError as e:
+                            # non-fatal error
+                            logger.error(f'[{self.con.tree_id}] Failed to expand row: {uid}: {e}')
 
-                    logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(to_expand)} dir nodes')
+                    logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(expanded_row_uid_set)} dir nodes')
 
                 else:
                     logger.debug(f'[{self.con.tree_id}] Populating recursively')
@@ -397,22 +392,6 @@ class DisplayMutator(HasLifecycle):
         assert self.con.treeview_meta.lazy_load
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
-        # Still want to keep track of which nodes are expanded:
-        if is_expanded:
-            logger.debug(f'[{self.con.tree_id}] Added uid "{node.uid}" to expanded_rows')
-            self.con.display_store.expanded_rows.add(node.uid)
-        else:
-            def remove_from_expanded_rows(tree_iter: Gtk.TreeIter):
-                n = self.con.display_store.get_node_data(tree_iter)
-                if n.is_dir():
-                    self.con.display_store.expanded_rows.discard(n.uid)
-                    logger.debug(f'[{self.con.tree_id}] Removed uid "{n.uid}" from expanded_rows')
-
-            self.con.display_store.do_for_self_and_descendants(parent_path, remove_from_expanded_rows)
-
-        # TODO: use a timer for this. Make into backend API. Also write selection to file
-        self.con.display_store.save_expanded_rows_to_config()
-
         if not self._enable_expand_state_listeners or not self._enable_node_signals:
             if SUPER_DEBUG:
                 logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_EXPANSION_TOGGLED.name}": listeners disabled')
@@ -424,6 +403,7 @@ class DisplayMutator(HasLifecycle):
                 if is_expanded:
                     self.con.display_store.remove_loading_node(parent_iter)
 
+                    # This will also add the node to the backend set of expanded nodes:
                     children = self.con.get_tree().get_children(node)
                     self._append_children(children=children, parent_iter=parent_iter)
 
@@ -433,6 +413,9 @@ class DisplayMutator(HasLifecycle):
                     # and set it to expanded again.
                     self._expand_row_without_event_firing(tree_path=parent_path, expand_all=False)
                 else:
+                    # Report the collapsed row to the backend, which is tracking expanded nodes:
+                    self.con.backend.remove_expanded_row(row_uid=node.uid, tree_id=self.con.tree_id)
+
                     # Collapsed:
                     self.con.display_store.remove_all_children(parent_iter)
                     # Always have at least a dummy node:

@@ -99,6 +99,7 @@ class FilterState:
                f'{int(self.filter.is_shared)}:{self.filter.search_query}'
 
     def get_filtered_child_list(self, parent_node: Node, parent_tree: HasGetChildren) -> List[Node]:
+        assert parent_tree, 'parent_tree cannot be None!'
         if not self.filter.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
             return parent_tree.get_children(parent_node)

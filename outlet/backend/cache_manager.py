@@ -756,10 +756,7 @@ class CacheManager(HasLifecycle):
         self._active_tree_manager.remove_expanded_row(row_uid, tree_id)
 
     def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
-        display_tree = self.get_active_display_tree_meta(tree_id)
-        if not display_tree:
-            raise RuntimeError(f'get_expanded_row_set(): DisplayTree not registered: {tree_id}')
-        return display_tree.expanded_rows
+        return self._active_tree_manager.get_expanded_row_set(tree_id)
 
     def _update_node_icon(self, node: Node):
         icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.uid)

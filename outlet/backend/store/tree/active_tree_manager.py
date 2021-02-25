@@ -1,7 +1,8 @@
 import errno
 import logging
 import os
-from typing import Dict, List, Optional, Set
+from collections import deque
+from typing import Deque, Dict, List, Optional, Set
 
 from pydispatch import dispatcher
 
@@ -25,6 +26,7 @@ from util import file_util
 from util.ensure import ensure_uid
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -265,8 +267,7 @@ class ActiveTreeManager(HasLifecycle):
 
             display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)
 
-            self._load_expanded_rows_from_config(display_tree_meta)
-
+            # Store in dict here:
             self._display_tree_dict[response_tree_id] = display_tree_meta
 
         if root_path_persister:
@@ -360,11 +361,28 @@ class ActiveTreeManager(HasLifecycle):
     # Row expansion state tracking
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def get_expanded_row_set(self, tree_id: str) -> Set[UID]:
+        meta = self.get_active_display_tree_meta(tree_id)
+        if not meta:
+            raise RuntimeError(f'get_expanded_row_set(): DisplayTree not registered: {tree_id}')
+
+        # Lazy-load expanded rows from disk, then do lots of work to get it up-to-date:
+        if not meta.expanded_rows:
+            # NOTE: the purge process will actually end up populating the expanded_rows in the display_tree_meta, but we will just overwrite it
+            expanded_rows = self._load_expanded_rows_from_config(meta.tree_id)
+            meta.expanded_rows = self._purge_dead_expanded_rows(expanded_rows, meta)
+
+        return meta.expanded_rows
+
     def add_expanded_row(self, row_uid: UID, tree_id: str):
         """AKA expanding a row on the frontend"""
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
+
+        if display_tree_meta.root_sn.spid.uid == row_uid:
+            # ignore root
+            return
 
         display_tree_meta.expanded_rows.add(row_uid)
         # TODO: use a timer for this. Make into backend API. Also write selection to file
@@ -380,18 +398,18 @@ class ActiveTreeManager(HasLifecycle):
         # TODO: use a timer for this. Make into backend API. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
-    def _load_expanded_rows_from_config(self, display_tree_meta: ActiveDisplayTreeMeta):
+    def _load_expanded_rows_from_config(self, tree_id: str) -> Set[UID]:
         """Loads the Set of expanded rows from config file into ActiveDisplayTreeMeta"""
-        logger.debug(f'[{display_tree_meta.tree_id}] Loading expanded rows from config')
+        logger.debug(f'[{tree_id}] Loading expanded rows from config')
         try:
             expanded_rows: Set[UID] = set()
-            expanded_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(display_tree_meta.tree_id))
+            expanded_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id))
             if expanded_rows_str:
                 for uid in expanded_rows_str.split(CONFIG_DELIMITER):
                     expanded_rows.add(ensure_uid(uid))
-            display_tree_meta.expanded_rows = expanded_rows
+            return expanded_rows
         except RuntimeError:
-            logger.exception(f'[{display_tree_meta.tree_id}] Failed to load expanded rows from config')
+            logger.exception(f'[{tree_id}] Failed to load expanded rows from config')
 
     def _save_expanded_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
         expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in display_tree_meta.expanded_rows)
@@ -400,3 +418,26 @@ class ActiveTreeManager(HasLifecycle):
     @staticmethod
     def _make_expanded_rows_config_key(tree_id: str) -> str:
         return f'ui_state.{tree_id}.expanded_rows'
+
+    def _purge_dead_expanded_rows(self, expanded_cached: Set[UID], display_tree_meta: ActiveDisplayTreeMeta) -> Set[UID]:
+        if not display_tree_meta.root_exists:
+            return expanded_cached
+
+        stopwatch = Stopwatch()
+
+        expanded_verified: Set[UID] = set()
+
+        processing_queue: Deque[Node] = deque()
+
+        for node in self.backend.get_children(parent=display_tree_meta.state.root_sn.node, tree_id=display_tree_meta.tree_id):
+            processing_queue.append(node)
+
+        while len(processing_queue) > 0:
+            node: Node = processing_queue.popleft()
+            if node.uid in expanded_cached:
+                expanded_verified.add(node.uid)
+                for node in self.backend.get_children(parent=node, tree_id=display_tree_meta.tree_id):
+                    processing_queue.append(node)
+
+        logger.debug(f'[{display_tree_meta.tree_id}] {stopwatch} Verified {len(expanded_verified)} of {len(expanded_cached)} expanded rows')
+        return expanded_verified
