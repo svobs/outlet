@@ -164,6 +164,7 @@ class DisplayMutator(HasLifecycle):
 
     def _expand_row_without_event_firing(self, tree_path, expand_all):
         assert self.con.treeview_meta.lazy_load
+        assert tree_path, 'tree_path is empty!'
         tree_path = self.con.display_store.ensure_tree_path(tree_path)
 
         self._enable_expand_state_listeners = False
@@ -294,7 +295,10 @@ class DisplayMutator(HasLifecycle):
                         logger.debug(f'[{self.con.tree_id}] Expanding: {uid}')
                         try:
                             tree_iter = self.con.display_store.find_uid_in_tree(uid)
-                            self._expand_row_without_event_firing(tree_path=tree_iter, expand_all=False)
+                            if tree_iter:
+                                self._expand_row_without_event_firing(tree_path=tree_iter, expand_all=False)
+                            else:
+                                logger.warning(f'[{self.con.tree_id}] Could not expand row because it was not found: {uid}')
                         except RuntimeError as e:
                             # non-fatal error
                             logger.error(f'[{self.con.tree_id}] Failed to expand row: {uid}: {e}')
