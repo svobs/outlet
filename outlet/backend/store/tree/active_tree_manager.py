@@ -380,6 +380,16 @@ class ActiveTreeManager(HasLifecycle):
         rows_of_interest.selected = meta.selected_rows
         return rows_of_interest
 
+    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+        if not display_tree_meta:
+            raise RuntimeError(f'Tree not found in memory: {tree_id}')
+
+        logger.debug(f'[{tree_id}] Storing selection: {selected}')
+        display_tree_meta.selected_rows = selected
+        # TODO: use a timer for this
+        self._save_selected_rows_to_config(display_tree_meta)
+
     def add_expanded_row(self, row_uid: UID, tree_id: str):
         """AKA expanding a row on the frontend"""
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
@@ -391,7 +401,7 @@ class ActiveTreeManager(HasLifecycle):
             return
 
         display_tree_meta.expanded_rows.add(row_uid)
-        # TODO: use a timer for this. Make into backend API. Also write selection to file
+        # TODO: use a timer for this. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
     def remove_expanded_row(self, row_uid: UID, tree_id: str):
@@ -402,7 +412,7 @@ class ActiveTreeManager(HasLifecycle):
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
         display_tree_meta.expanded_rows.remove(row_uid)
-        # TODO: use a timer for this. Make into backend API. Also write selection to file
+        # TODO: use a timer for this. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
     def _load_expanded_rows_from_config(self, tree_id: str) -> Set[UID]:

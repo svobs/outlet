@@ -4,7 +4,7 @@ import threading
 from pydispatch import dispatcher
 
 from collections import deque
-from typing import Deque, Dict, Optional
+from typing import Deque, Dict, Optional, Set
 
 from backend.backend_integrated import BackendIntegrated
 from backend.daemon.grpc.generated.Outlet_pb2_grpc import OutletServicer
@@ -22,7 +22,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, RemoveExpandedRow_Response, \
     RequestDisplayTree_Response, \
-    SendSignalResponse, SignalMsg, \
+    SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
     SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response, UserOp
@@ -407,6 +407,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         filter_criteria = GRPCConverter.filter_criteria_from_grpc(request.filter_criteria)
         self.cacheman.update_filter_criteria(request.tree_id, filter_criteria)
         return UpdateFilter_Response()
+
+    def set_selected_row_set(self, request: SetSelectedRowSet_Request, context):
+        selected: Set[UID] = set()
+        for uid in request.selected_row_uid_set:
+            selected.add(uid)
+        self.cacheman.set_selected_rows(request.tree_id, selected)
+
+        return SetSelectedRowSet_Response()
 
     def remove_expanded_row(self, request: RemoveExpandedRow_Request, context):
         self.cacheman.remove_expanded_row(request.node_uid, request.tree_id)

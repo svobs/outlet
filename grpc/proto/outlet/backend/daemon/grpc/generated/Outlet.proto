@@ -51,6 +51,15 @@ message UpdateFilter_Response {
 	// nothing
 }
 
+message SetSelectedRowSet_Request {
+	repeated uint32 selected_row_uid_set = 1;
+	string tree_id = 2;
+}
+
+message SetSelectedRowSet_Response {
+	// nothing
+}
+
 message RemoveExpandedRow_Request {
 	uint32 node_uid = 1;
 	string tree_id = 2;
@@ -272,6 +281,7 @@ service Outlet {
 	rpc get_ancestor_list_for_spid(GetAncestorList_Request) returns (GetAncestorList_Response);
 	rpc get_filter(GetFilter_Request) returns (GetFilter_Response);
 	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
+	rpc set_selected_row_set(SetSelectedRowSet_Request) returns (SetSelectedRowSet_Response);
 	rpc remove_expanded_row(RemoveExpandedRow_Request) returns (RemoveExpandedRow_Response);
 	rpc get_rows_of_interest(GetRowsOfInterest_Request) returns (GetRowsOfInterest_Response);
 

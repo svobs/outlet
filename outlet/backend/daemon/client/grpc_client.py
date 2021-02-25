@@ -17,7 +17,8 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
-    PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, SignalMsg, \
+    PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
+    SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
 from constants import SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -73,6 +74,8 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
         self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._send_complete_merge_signal)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_gdrive_download_meta_requested)
+
+        self.connect_dispatch_listener(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_tree_selection_changed)
 
         # TODO: hmm...looks like a chicken & egg problem here. Ideally we should get the config from the server
         use_fixed_address = ensure_bool(self._config.get('grpc.use_fixed_address'))
@@ -137,6 +140,14 @@ class BackendGRPCClient(OutletBackend):
 
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._fe_task_runner.enqueue(task_func, *args)
+
+    def _on_tree_selection_changed(self, sender, selected_nodes: [Node]):
+        selected: Set[UID] = set()
+        for node in selected_nodes:
+            selected.add(node.uid)
+
+        # Report to the backend
+        self.set_selected_rows(tree_id=sender, selected=selected)
 
     def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
         logger.debug(f'Getting config "{config_key}"')
@@ -244,6 +255,13 @@ class BackendGRPCClient(OutletBackend):
 
         response = self.grpc_stub.get_child_list_for_node(request)
         return GRPCConverter.node_list_from_grpc(response.node_list)
+
+    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+        request = SetSelectedRowSet_Request()
+        for uid in selected:
+            request.selected_row_uid_set.add(uid)
+        request.tree_id = tree_id
+        self.grpc_stub.set_selected_row_set(request)
 
     def remove_expanded_row(self, row_uid: UID, tree_id: str):
         request = RemoveExpandedRow_Request()

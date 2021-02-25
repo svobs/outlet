@@ -275,10 +275,6 @@ class DisplayMutator(HasLifecycle):
 
         def _update_ui():
             with self._lock:
-                # retain selection (if any)
-                prev_selection: List[Node] = self.con.display_store.get_multiple_selection()
-                logger.debug(f'[{self.con.tree_id}] Found {len(prev_selection)} previously selected rows')
-
                 # Wipe out existing items:
                 logger.debug(f'[{self.con.tree_id}] Clearing model')
                 root_iter = self.con.display_store.clear_model()
@@ -317,11 +313,11 @@ class DisplayMutator(HasLifecycle):
                     assert not self.con.treeview_meta.lazy_load
                     self.con.tree_view.expand_all()
 
-                if prev_selection:
-                    logger.debug(f'[{self.con.tree_id}] Attempting to restore {len(prev_selection)} previously selected rows')
+                if rows.selected:
+                    logger.debug(f'[{self.con.tree_id}] Attempting to restore {len(rows.selected)} previously selected rows')
                 try:
-                    for prev_node in prev_selection:
-                        self.select_uid(prev_node.uid)
+                    for prev_uid in rows.selected:
+                        self.select_uid(prev_uid)
                 except RuntimeError:
                     logger.exception(f'[{self.con.tree_id}] Failed to restore selection')
 

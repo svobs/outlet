@@ -107,6 +107,9 @@ class BackendIntegrated(OutletBackend):
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         return self.cacheman.get_ancestor_list_for_spid(spid, stop_at_path=stop_at_path)
 
+    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+        self.cacheman.set_selected_rows(tree_id, selected)
+
     def remove_expanded_row(self, row_uid: UID, tree_id: str):
         """AKA collapsing a row on the frontend"""
         self.cacheman.remove_expanded_row(row_uid, tree_id)

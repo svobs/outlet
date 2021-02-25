@@ -751,6 +751,10 @@ class CacheManager(HasLifecycle):
             logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {node}')
         return child_list
 
+    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+        """Saves the selected rows from the UI for the given tree"""
+        self._active_tree_manager.set_selected_rows(tree_id, selected)
+
     def remove_expanded_row(self, row_uid: UID, tree_id: str):
         """AKA collapsing a row on the frontend"""
         self._active_tree_manager.remove_expanded_row(row_uid, tree_id)

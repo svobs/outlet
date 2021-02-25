@@ -64,6 +64,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.FromString,
                 )
+        self.set_selected_row_set = channel.unary_unary(
+                '/outlet.backend.daemon.grpc.generated.Outlet/set_selected_row_set',
+                request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.FromString,
+                )
         self.remove_expanded_row = channel.unary_unary(
                 '/outlet.backend.daemon.grpc.generated.Outlet/remove_expanded_row',
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.SerializeToString,
@@ -199,6 +204,12 @@ class OutletServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def update_filter(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def set_selected_row_set(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -346,6 +357,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.update_filter,
                     request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.SerializeToString,
+            ),
+            'set_selected_row_set': grpc.unary_unary_rpc_method_handler(
+                    servicer.set_selected_row_set,
+                    request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.SerializeToString,
             ),
             'remove_expanded_row': grpc.unary_unary_rpc_method_handler(
                     servicer.remove_expanded_row,
@@ -599,6 +615,23 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/update_filter',
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def set_selected_row_set(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/set_selected_row_set',
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.SerializeToString,
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

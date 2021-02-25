@@ -238,7 +238,7 @@ class TreeUiListeners(HasLifecycle):
 
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()
-        selected_nodes = []
+        selected_nodes: [Node] = []
         if treeiter is not None:
             if len(treeiter) == 1:
                 node = self.con.display_store.get_node_data(treeiter)

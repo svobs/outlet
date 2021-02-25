@@ -83,6 +83,10 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
+    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+        pass
+
+    @abstractmethod
     def remove_expanded_row(self, row_uid: UID, tree_id: str):
         pass
 
