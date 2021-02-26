@@ -6,7 +6,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import OPEN, SHOW
+from constants import DATE_REGEX, OPEN, SHOW
 from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile
 from model.node.local_disk_node import LocalNode
@@ -119,6 +119,7 @@ class TreeActions(HasLifecycle):
     def _show_in_nautilus(self, sender, full_path):
         if os.path.exists(full_path):
             logger.info(f'[{self.con.tree_id}] Opening in Nautilus: {full_path}')
+            # FIXME: this occasionally gets a catastrophic error which corrupts the whole UI!
             subprocess.run(["nautilus", "--browser", full_path])
         else:
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {full_path}')
