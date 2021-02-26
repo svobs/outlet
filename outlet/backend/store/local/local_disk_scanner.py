@@ -55,7 +55,7 @@ class LocalDiskScanner(LocalTreeRecurser):
     """
     def __init__(self, backend, root_node_identifer: LocalNodeIdentifier, tree_id=None):
         LocalTreeRecurser.__init__(self, Path(root_node_identifer.get_single_path()), valid_suffixes=None)
-        assert isinstance(root_node_identifer, LocalNodeIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
+        assert root_node_identifer.is_spid(), f'type={type(root_node_identifer)}, for {root_node_identifer}'
         self.backend = backend
         self.cacheman = backend.cacheman
         self.root_node_identifier: LocalNodeIdentifier = root_node_identifer

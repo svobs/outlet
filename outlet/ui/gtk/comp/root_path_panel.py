@@ -277,6 +277,7 @@ class RootPathPanel(HasLifecycle):
         def open_dialog():
             try:
                 # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
+                # Dialog will display itself when ready
                 GDriveDirChooserDialog(self.parent_win, current_selection=spid, target_tree_id=self.con.tree_id)
             except Exception as err:
                 self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))

@@ -73,13 +73,13 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             self.con.shutdown()
             self.con = None
 
+        dispatcher.disconnect(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_selected_changed)
+        dispatcher.disconnect(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_backend_ready)
+        dispatcher.disconnect(signal=Signal.POPULATE_UI_TREE_DONE, receiver=self._on_populate_complete)
+
         # call super method to destroy dialog
         Gtk.Dialog.destroy(self)
-
-    def destroy(self):
-        """Overrides Gtk.Dialog.destroy()"""
-        logger.debug(f'GDriveDirChooserDialog.destroy() called')
-        self.shutdown()
+        self.close()
 
     def _on_backend_ready(self, sender):
         if sender != self.tree_id:
@@ -122,6 +122,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
                         return
                 if spid:
                     self.on_ok_clicked(spid)
+
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:
@@ -131,8 +132,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             else:
                 logger.debug(f'Unexpected response_id: {response_id}')
 
-            dialog.close()
-            dialog.destroy()
+            self.shutdown()
         except FileNotFoundError as err:
             self.show_error_ui('File not found: ' + err.filename)
             raise

@@ -94,6 +94,7 @@ class TreePanelController(HasLifecycle):
             self.display_mutator.shutdown()
         if self.treeview_meta:
             self.treeview_meta.shutdown()
+        self.tree_view = None
 
     @property
     def tree_id(self) -> str:

@@ -99,7 +99,7 @@ class OutletBackend(HasLifecycle, ABC):
         spid = NodeIdentifierFactory.get_root_constant_gdrive_spid()
         request = DisplayTreeRequest(tree_id=ID_GDRIVE_DIR_SELECT, return_async=False, spid=spid,
                                      tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
-        return self.create_display_tree_from_spid(request)
+        return self.request_display_tree(request)
 
     def create_display_tree_from_config(self, tree_id: str, is_startup: bool = False) -> Optional[DisplayTree]:
         # no arguments will be recognized by CacheMan as needing to read from config

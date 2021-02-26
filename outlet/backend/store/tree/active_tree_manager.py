@@ -109,7 +109,7 @@ class ActiveTreeManager(HasLifecycle):
             self.request_display_tree_ui_state(request)
 
     def _deregister_display_tree(self, sender: str):
-        logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
+        logger.warning(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
         display_tree = self._display_tree_dict.pop(sender, None)
         if display_tree:
             logger.debug(f'[{sender}] Display tree de-registered in backend')
@@ -368,6 +368,8 @@ class ActiveTreeManager(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+        logger.debug(f'[{tree_id}] Getting rows of interest')
+
         meta = self.get_active_display_tree_meta(tree_id)
         if not meta:
             raise RuntimeError(f'get_rows_of_interest(): DisplayTree not registered: {tree_id}')
@@ -384,6 +386,7 @@ class ActiveTreeManager(HasLifecycle):
         rows_of_interest = RowsOfInterest()
         rows_of_interest.expanded = meta.expanded_rows
         rows_of_interest.selected = meta.selected_rows
+        logger.debug(f'[{tree_id}] get_rows_of_interest(): returning {meta.expanded_rows} expanded & {meta.selected_rows} selected')
         return rows_of_interest
 
     def set_selected_rows(self, tree_id: str, selected: Set[UID]):
