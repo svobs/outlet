@@ -404,7 +404,7 @@ class DisplayStore:
         tree_path = self.ensure_tree_path(tree_path)
 
         # FIXME!
-        logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter!'
+        logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter! '
                        f'Will arbitrarily choose the first path in list')
         # if self.treeview_meta.filter_criteria and self.treeview_meta.filter_criteria.has_criteria():
         #     # FIXME: this may choose a less correct path when a filter is applied

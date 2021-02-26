@@ -109,7 +109,7 @@ class ActiveTreeManager(HasLifecycle):
             self.request_display_tree_ui_state(request)
 
     def _deregister_display_tree(self, sender: str):
-        logger.warning(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
+        logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
         display_tree = self._display_tree_dict.pop(sender, None)
         if display_tree:
             logger.debug(f'[{sender}] Display tree de-registered in backend')

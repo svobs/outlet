@@ -127,7 +127,7 @@ class DisplayMutator(HasLifecycle):
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
-            for child in self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria):
+            for child in self.con.get_tree().get_children(node):
                 node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, node)

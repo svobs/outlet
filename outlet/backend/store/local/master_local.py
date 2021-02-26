@@ -479,10 +479,15 @@ class LocalDiskMasterStore(MasterStore):
             # Very important to check this. If we ask the UID mapper to return a UID for a path it is not familiar with, it will generate
             # a new one, which will conflict with the one in the cache.
             cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(full_path)
-            if cache_info and not cache_info.is_loaded:
+            if cache_info and not cache_info.is_loaded and self._cache_exists(cache_info):
                 raise RuntimeError(f'Cache containing path: "{full_path}" is not loaded!')
 
         return self.uid_mapper.get_uid_for_path(full_path, uid_suggestion)
+
+    @staticmethod
+    def _cache_exists(cache_info: PersistedCacheInfo):
+        """Check for the uncommon case of a cache being listed but failing to be created"""
+        return os.path.exists(cache_info.cache_location) and os.stat(cache_info.cache_location).st_size > 0
 
     def get_node_for_domain_id(self, domain_id: str) -> LocalNode:
         """AKA get_node_for_full_path()"""
