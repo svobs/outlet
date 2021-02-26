@@ -75,8 +75,6 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._send_complete_merge_signal)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_gdrive_download_meta_requested)
 
-        self.connect_dispatch_listener(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_tree_selection_changed)
-
         # TODO: hmm...looks like a chicken & egg problem here. Ideally we should get the config from the server
         use_fixed_address = ensure_bool(self._config.get('grpc.use_fixed_address'))
         if use_fixed_address:
@@ -140,14 +138,6 @@ class BackendGRPCClient(OutletBackend):
 
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._fe_task_runner.enqueue(task_func, *args)
-
-    def _on_tree_selection_changed(self, sender, selected_nodes: [Node]):
-        selected: Set[UID] = set()
-        for node in selected_nodes:
-            selected.add(node.uid)
-
-        # Report to the backend
-        self.set_selected_rows(tree_id=sender, selected=selected)
 
     def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
         logger.debug(f'Getting config "{config_key}"')

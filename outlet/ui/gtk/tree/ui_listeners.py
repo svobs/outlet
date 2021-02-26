@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from pydispatch import dispatcher
 
@@ -255,8 +255,21 @@ class TreeUiListeners(HasLifecycle):
                     node = self.con.display_store.get_node_data(i)
                     selected_nodes.append(node)
 
+            def report_tree_selection():
+                self._report_tree_selection(selected_nodes)
+
+            # Do this async so that there's no chance of blocking the user:
+            dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=self.con.tree_id, task_func=report_tree_selection)
             dispatcher.send(signal=Signal.TREE_SELECTION_CHANGED, sender=self.con.tree_id, node_list=selected_nodes)
         return False
+
+    def _report_tree_selection(self, selected_nodes: [Node]):
+        selected: Set[UID] = set()
+        for node in selected_nodes:
+            selected.add(node.uid)
+
+        # Report to the backend
+        self.con.backend.set_selected_rows(tree_id=self.con.tree_id, selected=selected)
 
     def _on_row_activated(self, tree_view, tree_path, col, tree_id):
         if not self._ui_enabled:
