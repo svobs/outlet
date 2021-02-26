@@ -74,9 +74,8 @@ class TreeFactory:
 
         controller.tree_view = tree_factory_templates.build_treeview(controller.display_store, controller.parent_win.app.assets)
 
-        controller.root_dir_panel = RootPathPanel(parent_win=self.parent_win,
-                                                 controller=controller,
-                                                 can_change_root=treeview_meta.can_change_root)
+        controller.root_dir_panel = RootPathPanel(parent_win=self.parent_win, controller=controller,
+                                                  can_change_root=treeview_meta.can_change_root)
 
         controller.filter_panel = TreeFilterPanel(parent_win=self.parent_win,
                                                   controller=controller)
@@ -97,7 +96,8 @@ class TreeFactory:
         # 3. Start everything
         controller.start()
 
-        # Even if the backend already loaded the tree, ask it to send a notification again so we know it's finished loading:
+        # Load tree and send us a notification once it's finished loading. We can't call this until we have started
+        # listening for the response (via controller.start())
         self.parent_win.app.backend.start_subtree_load(self.tree.tree_id)
         return controller
 

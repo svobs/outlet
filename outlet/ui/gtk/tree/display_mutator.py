@@ -103,8 +103,18 @@ class DisplayMutator(HasLifecycle):
             self.expand_all(tree_path)
 
     def _on_filter_ui_tree_requested(self, sender: str, filter_criteria: FilterCriteria):
-        if sender == self.con.tree_id:
-            self.filter_tree(filter_criteria)
+        if sender != self.con.tree_id:
+            return
+
+        try:
+            # Update backend
+            self.con.backend.update_filter_criteria(self.con.tree_id, filter_criteria)
+            # Now that backend has returned, repopulate tree
+            self.populate_root()
+        except RuntimeError as err:
+            msg = f'[{self.con.tree_id}] Failed to repopulate the tree using filter_criteria {filter_criteria}'
+            logger.exception(msg)
+            GlobalActions.display_error_in_ui(msg, repr(err))
 
     def _populate_ui_tree_async(self, sender):
         """Just populates the tree with nodes. Executed asyncly via Signal.LOAD_SUBTREE_DONE"""
@@ -242,17 +252,6 @@ class DisplayMutator(HasLifecycle):
             self._append_children(children=children, parent_iter=parent_iter)
 
         self._expand_row_without_event_firing(tree_path=tree_path, expand_all=expand_all)
-
-    def filter_tree(self, filter_criteria: FilterCriteria):
-        try:
-            # Update backend
-            self.con.backend.update_filter_criteria(self.con.tree_id, filter_criteria)
-            # Now that backend has returned, repopulate tree
-            self.populate_root()
-        except RuntimeError as err:
-            msg = f'[{self.con.tree_id}] Failed to repopulate the tree using filter_criteria {filter_criteria}'
-            logger.exception(msg)
-            GlobalActions.display_error_in_ui(msg, repr(err))
 
     def populate_root(self):
         """START HERE.

@@ -396,9 +396,14 @@ class CacheManager(HasLifecycle):
         self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
 
     def load_data_for_display_tree(self, load_request: LoadRequest):
-        """Executed asyncly via the LoadRequestThread."""
+        """
+        Executed asyncly via the LoadRequestThread.
+        If sending signals:
+            1. We send LOAD_SUBTREE_STARTED first
+            2. We send LOAD_SUBTREE_DONE when done
+        """
         tree_id: str = load_request.tree_id
-        logger.debug(f'Loading data for display tree: {tree_id}')
+        logger.debug(f'Loading data for display tree: {tree_id} (send_signals={load_request.send_signals})')
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             logger.info(f'Display tree is no longer tracked; discarding data load: {tree_id}')
@@ -410,7 +415,7 @@ class CacheManager(HasLifecycle):
 
         if not display_tree_meta.is_first_order():
             logger.info(f'DisplayTree is higher-order and thus is already loaded: {tree_id}')
-        elif display_tree_meta.root_exists:
+        else:
             spid = display_tree_meta.root_sn.spid
             if spid.tree_type == TREE_TYPE_LOCAL_DISK:
                 self._master_local.load_subtree(spid, tree_id)
@@ -952,11 +957,16 @@ class CacheManager(HasLifecycle):
         """Called async via task exec (cacheman.enqueue_refresh_subtree_stats_task()) """
 
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
+        if not tree_meta:
+            raise RuntimeError(f'_refresh_stats(): DisplayTree not registered: {tree_id}')
+
+        subtree_root_node: Optional[Node] = None
+
         if tree_meta.change_tree:
             logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the stats')
             tree_meta.change_tree.refresh_stats()
             subtree_root_node: Node = tree_meta.change_tree.get_root_node()
-        else:
+        elif tree_meta.state.root_exists:
             # get up-to-date object:
             subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
 
@@ -976,11 +986,11 @@ class CacheManager(HasLifecycle):
     def _get_tree_summary(self, tree_id: str, root_node: Node):
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if tree_meta.change_tree:
-            logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the summary')
+            logger.debug(f'[{tree_id}] This is a ChangeTree: it will provide the summary')
             return tree_meta.change_tree.get_summary()
 
         if not root_node:
-            logger.debug(f'No summary (tree does not exist)')
+            logger.debug(f'[{tree_id}] No summary (tree does not exist)')
             return 'Tree does not exist'
         elif not root_node.is_stats_loaded():
             logger.debug(f'No summary (stats not loaded): {root_node.node_identifier}')
