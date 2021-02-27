@@ -8,7 +8,7 @@ from typing import Deque, Iterable, List, Set
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import IconId, LARGE_NUMBER_OF_CHILDREN, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG, TreeDisplayMode
+from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG, TreeDisplayMode
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -81,7 +81,7 @@ class DisplayMutator(HasLifecycle):
             self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
         # FIXME: figure out why the 'sender' arg fails when relayed from gRPC!
-        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._populate_ui_tree_async)
+        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_load_subtree_done)
         self.connect_dispatch_listener(signal=Signal.FILTER_UI_TREE, receiver=self._on_filter_ui_tree_requested)
         self.connect_dispatch_listener(signal=Signal.EXPAND_ALL, receiver=self._on_expand_all_requested)
         self.connect_dispatch_listener(signal=Signal.EXPAND_AND_SELECT_NODE, receiver=self._expand_and_select_node)
@@ -116,7 +116,7 @@ class DisplayMutator(HasLifecycle):
             logger.exception(msg)
             GlobalActions.display_error_in_ui(msg, repr(err))
 
-    def _populate_ui_tree_async(self, sender):
+    def _on_load_subtree_done(self, sender):
         """Just populates the tree with nodes. Executed asyncly via Signal.LOAD_SUBTREE_DONE"""
         if sender == self.con.tree_id:
             logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}". Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
@@ -280,7 +280,7 @@ class DisplayMutator(HasLifecycle):
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
 
-                if len(top_level_node_list) > LARGE_NUMBER_OF_CHILDREN:
+                if len(top_level_node_list) > MAX_NUMBER_DISPLAYABLE_CHILD_NODES:
                     logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
                     self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', IconId.ICON_ALERT)
 
@@ -631,7 +631,7 @@ class DisplayMutator(HasLifecycle):
     def _append_children(self, children: List[Node], parent_iter: Gtk.TreeIter):
         if children:
             logger.debug(f'[{self.con.tree_id}] Appending {len(children)} child display nodes')
-            if len(children) > LARGE_NUMBER_OF_CHILDREN:
+            if len(children) > MAX_NUMBER_DISPLAYABLE_CHILD_NODES:
                 logger.error(f'[{self.con.tree_id}] Too many children to display! Count = {len(children)}')
                 self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})', IconId.ICON_ALERT)
                 return

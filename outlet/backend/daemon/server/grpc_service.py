@@ -320,6 +320,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def get_child_list_for_node(self, request, context):
         # TODO: refactor this to only send node UID in request. Backend should look up the node on its own
+
+        # FIXME: set a limit on number of nodes returned, and send only an EphemeralNode instead
         parent_node = GRPCConverter.node_from_grpc(request.parent_node)
 
         child_list = self.cacheman.get_children(parent_node, request.tree_id)
