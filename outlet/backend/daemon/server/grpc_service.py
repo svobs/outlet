@@ -249,8 +249,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def _on_diff_done(self, sender: str):
         self._send_signal_to_all_clients(Signal.DIFF_TREES_DONE, sender)
 
-    def _on_refresh_stats_done(self, sender: str):
-        self._send_signal_to_all_clients(Signal.REFRESH_SUBTREE_STATS_DONE, sender)
+    def _on_refresh_stats_done(self, sender: str, status_msg: str):
+        signal = SignalMsg(sig_int=Signal.REFRESH_SUBTREE_STATS_DONE, sender=sender)
+        logger.info(status_msg)
+        signal.stats_update.status_msg = status_msg
+        self._send_grpc_signal_to_all_clients(signal)
 
     def _on_set_status(self, sender: str, status_msg: str):
         signal = SignalMsg(sig_int=Signal.SET_STATUS, sender=sender)

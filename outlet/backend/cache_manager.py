@@ -979,9 +979,9 @@ class CacheManager(HasLifecycle):
             else:
                 assert False
 
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         summary_msg: str = self._get_tree_summary(tree_id, subtree_root_node)
-        dispatcher.send(signal=Signal.SET_STATUS, sender=tree_id, status_msg=summary_msg)
+        logger.debug(f'[{tree_id}] Summary msg = "{summary_msg}"')
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=summary_msg)
 
     def _get_tree_summary(self, tree_id: str, root_node: Node):
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)

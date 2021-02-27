@@ -155,6 +155,16 @@ message DragDrop_Response {
 	// nothing
 }
 
+message DirMetaUpdate {
+	uint32 uid = 1;
+	DirMeta dir_meta = 2;
+}
+
+message StatsUpdate {
+	repeated DirMetaUpdate dir_meta_list = 1;
+	string status_msg = 2;
+}
+
 message SignalMsg {
 	uint32 sig_int = 1;
 	string sender = 2;
@@ -169,6 +179,7 @@ message SignalMsg {
 		SrcDstNodeList src_dst_node_list = 16;
 		StatusMsg status_msg = 17;
 		DownloadMsg download_msg = 18;
+		StatsUpdate stats_update = 19;
 	}
 }
 

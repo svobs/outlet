@@ -170,7 +170,14 @@ class HasDirectoryStats(ABC):
     def get_etc(self) -> str:
         if not self.is_stats_loaded():
             return ''
+
         files = self.file_count + self.trashed_file_count
+        if files == 1:
+            multi = ''
+        else:
+            multi = 's'
+        files_str = f'{files:n} file{multi}'
+
         folders = self.trashed_dir_count + self.dir_count
         if folders:
             if folders == 1:
@@ -180,11 +187,8 @@ class HasDirectoryStats(ABC):
             folders_str = f', {folders:n} folder{multi}'
         else:
             folders_str = ''
-        if files == 1:
-            multi = ''
-        else:
-            multi = 's'
-        return f'{files:n} file{multi}{folders_str}'
+
+        return f'{files_str}{folders_str}'
 
     def get_summary(self) -> str:
         if not self.is_stats_loaded():
