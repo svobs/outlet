@@ -170,6 +170,20 @@ class ActiveTreeManager(HasLifecycle):
 
     # TODO: make this wayyyy less complicated by just making each tree_id represent a set of persisted configs. Minimize DisplayTreeRequest
     def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
+        """
+        Gets the following into memory (if not already):
+        1. Root SPID
+        2. Root node (if exists)
+        3. Previous filter state
+
+        Then:
+        1. Start or update (or stop) live capture of the affected subtree
+        2. Return tree meta:
+           a. If async==true, send via DISPLAY_TREE_CHANGED signal
+           b. Else return the tree directly.
+
+        Note: this does not actually load the tree's nodes beyond the root. To do that, the FE must send the
+        """
         sender_tree_id = request.tree_id
         spid = request.spid
         logger.debug(f'[{sender_tree_id}] Got request to load display tree (user_path="{request.user_path}", spid={spid}, '
@@ -374,20 +388,25 @@ class ActiveTreeManager(HasLifecycle):
         if not meta:
             raise RuntimeError(f'get_rows_of_interest(): DisplayTree not registered: {tree_id}')
 
-        # Lazy-load expanded rows from disk, then do lots of work to get it up-to-date:
-        if not meta.expanded_rows:
-            # NOTE: the purge process will actually end up populating the expanded_rows in the display_tree_meta, but we will just overwrite it
-            expanded_rows = self._load_expanded_rows_from_config(meta.tree_id)
-            selected_rows = self._load_selected_rows_from_config(meta.tree_id)
-            rows_of_interest = self._purge_dead_rows(expanded_rows, selected_rows, meta)
-            meta.expanded_rows = rows_of_interest.expanded
-            meta.selected_rows = rows_of_interest.selected
-
         rows_of_interest = RowsOfInterest()
         rows_of_interest.expanded = meta.expanded_rows
         rows_of_interest.selected = meta.selected_rows
         logger.debug(f'[{tree_id}] get_rows_of_interest(): returning {meta.expanded_rows} expanded & {meta.selected_rows} selected')
         return rows_of_interest
+
+    def load_rows_of_interest(self, tree_id: str):
+        logger.debug(f'[{tree_id}] Loading rows of interest')
+
+        meta = self.get_active_display_tree_meta(tree_id)
+        if not meta:
+            raise RuntimeError(f'load_rows_of_interest(): DisplayTree not registered: {tree_id}')
+
+        # NOTE: the purge process will actually end up populating the expanded_rows in the display_tree_meta, but we will just overwrite it
+        expanded_rows = self._load_expanded_rows_from_config(meta.tree_id)
+        selected_rows = self._load_selected_rows_from_config(meta.tree_id)
+        rows_of_interest = self._purge_dead_rows(expanded_rows, selected_rows, meta)
+        meta.expanded_rows = rows_of_interest.expanded
+        meta.selected_rows = rows_of_interest.selected
 
     def set_selected_rows(self, tree_id: str, selected: Set[UID]):
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)

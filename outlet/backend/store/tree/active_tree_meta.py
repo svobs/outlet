@@ -1,10 +1,11 @@
 import logging
-from typing import Optional, Set
+from typing import Dict, Optional, Set
 
 from backend.store.tree.change_tree import ChangeTree
 from backend.store.tree.filter_state import FilterState
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.store.tree.root_path_config import RootPathConfigPersister
+from model.node.trait import HasDirectoryStats
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,9 @@ class ActiveDisplayTreeMeta:
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
         self.expanded_rows: Set[UID] = set()
         self.selected_rows: Set[UID] = set()
+
+        self.summary_msg: Optional[str] = None
+        self.dir_stats: Dict[UID, HasDirectoryStats] = {}
 
         logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
 

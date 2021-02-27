@@ -160,6 +160,9 @@ message DirMetaUpdate {
 	DirMeta dir_meta = 2;
 }
 
+// StatsUpdate is sent:
+// 1. Some period of time after node added / modified / removed from tree (not after *every* update)
+// 2. If the FE requests it (DEPRECATED behavior)
 message StatsUpdate {
 	repeated DirMetaUpdate dir_meta_list = 1;
 	string status_msg = 2;

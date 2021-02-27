@@ -12,7 +12,7 @@ from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from constants import SUPER_DEBUG
 from backend.daemon.grpc.conversion import GRPCConverter
-from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
+from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DirMetaUpdate, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
     GetConfig_Request, GetConfig_Response, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetFilter_Response, GetLastPendingOp_Request, \
@@ -249,10 +249,16 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def _on_diff_done(self, sender: str):
         self._send_signal_to_all_clients(Signal.DIFF_TREES_DONE, sender)
 
-    def _on_refresh_stats_done(self, sender: str, status_msg: str):
+    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats: Dict):
         signal = SignalMsg(sig_int=Signal.REFRESH_SUBTREE_STATS_DONE, sender=sender)
         logger.info(status_msg)
         signal.stats_update.status_msg = status_msg
+
+        for uid, dir_meta in dir_stats.items():
+            dir_meta_grpc: DirMetaUpdate = signal.stats_update.dir_meta_list.add()
+            dir_meta_grpc.uid = uid
+            GRPCConverter.dir_meta_to_grpc(dir_meta, dir_meta_grpc.dir_meta)
+
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_set_status(self, sender: str, status_msg: str):

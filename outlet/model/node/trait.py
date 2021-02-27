@@ -95,13 +95,13 @@ class HasParentList(ABC):
         return not self._parent_uids
 
 
-# ABSTRACT CLASS HasDirectoryStats
+# CLASS HasDirectoryStats
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class HasDirectoryStats(ABC):
+class HasDirectoryStats:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    TRAIT HasDirectoryStats
+    CLASS HasDirectoryStats
 
     Represents a generic directory (i.e. not an LocalFileNode or domain object) which contains metadeta about its
     enclosed descendants.

@@ -1,11 +1,14 @@
 import logging
 import threading
+from typing import Dict
 
 from pydispatch import dispatcher
 
 from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
 from model.display_tree.display_tree import DisplayTree
+from model.node.trait import HasDirectoryStats
+from model.uid import UID
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
 
@@ -103,6 +106,14 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['dst_node'] = GRPCConverter.node_from_grpc(signal_msg.src_dst_node_list.dst_node)
         elif signal == Signal.SET_STATUS:
             kwargs['status_msg'] = signal_msg.status_msg.msg
+        elif signal == Signal.REFRESH_SUBTREE_STATS_DONE:
+            kwargs['status_msg'] = signal_msg.stats_update.status_msg
+            dir_stats_dict: Dict[UID, HasDirectoryStats] = {}
+            for dir_meta_grpc in signal_msg.stats_update.dir_meta_list:
+                dir_stats = HasDirectoryStats()
+                GRPCConverter.dir_meta_from_grpc(dir_stats, dir_meta_grpc.dir_meta)
+                dir_stats_dict[dir_meta_grpc.uid] = dir_stats
+            kwargs['dir_stats'] = dir_stats_dict
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
         logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')

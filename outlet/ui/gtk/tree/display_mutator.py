@@ -574,7 +574,7 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Requesting subtree stats refresh')
         self.con.app.backend.enqueue_refresh_subtree_stats_task(root_uid=self.con.get_tree().root_uid, tree_id=self.con.tree_id)
 
-    def _on_refresh_stats_done(self, sender: str, status_msg: str):
+    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats: Dict):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
         if sender != self.con.tree_id:

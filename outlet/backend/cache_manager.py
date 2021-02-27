@@ -23,7 +23,7 @@ from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
-from model.node.gdrive_node import GDriveNode
+from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node.trait import HasDirectoryStats
@@ -392,20 +392,23 @@ class CacheManager(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def enqueue_load_tree_task(self, tree_id: str, send_signals: bool):
+        """Called from START_SUBTREE_LOAD signal"""
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
         self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
 
     def load_data_for_display_tree(self, load_request: LoadRequest):
         """
         Executed asyncly via the LoadRequestThread.
-        If sending signals:
             1. We send LOAD_SUBTREE_STARTED first
-            2. We send LOAD_SUBTREE_DONE when done
+            2. Ensure the primary meta is loaded from disk for all nodes in the subtree
+            3. Ensure UI state of the tree is loaded and up-to-date (expanded rows, selected)
+            4. Ensure dir stats & summary msg are up-to-date
+            5. We send LOAD_SUBTREE_DONE when done
         """
         tree_id: str = load_request.tree_id
         logger.debug(f'Loading data for display tree: {tree_id} (send_signals={load_request.send_signals})')
-        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
-        if not display_tree_meta:
+        tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+        if not tree_meta:
             logger.info(f'Display tree is no longer tracked; discarding data load: {tree_id}')
             return
 
@@ -413,10 +416,11 @@ class CacheManager(HasLifecycle):
             # This will be carried across gRPC if needed
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
-        if not display_tree_meta.is_first_order():
-            logger.info(f'DisplayTree is higher-order and thus is already loaded: {tree_id}')
-        else:
-            spid = display_tree_meta.root_sn.spid
+        subtree_root_node: Optional[Node] = None
+
+        if tree_meta.is_first_order():
+            # Load meta for all nodes:
+            spid = tree_meta.root_sn.spid
             if spid.tree_type == TREE_TYPE_LOCAL_DISK:
                 self._master_local.load_subtree(spid, tree_id)
             elif spid.tree_type == TREE_TYPE_GDRIVE:
@@ -429,22 +433,61 @@ class CacheManager(HasLifecycle):
             else:
                 raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
+            if tree_meta.state.root_exists:
+                # get up-to-date root node:
+                subtree_root_node: Node = self.get_node_for_uid(spid.uid)
+
+                # Calculate stats for all dir nodes:
+                logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
+
+                if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+                    assert isinstance(subtree_root_node, LocalDirNode)
+                    # FIXME
+                    tree_meta.dir_stats = self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
+                elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
+                    assert isinstance(subtree_root_node, GDriveFolder)
+                    # FIXME
+                    tree_meta.dir_stats = self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
+                else:
+                    assert False
+
+        else:
+            assert not tree_meta.is_first_order()
+            logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the stats')
+            # FIXME
+            tree_meta.dir_stats = tree_meta.change_tree.refresh_stats()
+            subtree_root_node: Node = tree_meta.change_tree.get_root_node()
+
+        # Now that we have all the stats, we can calculate the summary:
+        tree_meta.summary_msg = self._get_tree_summary(tree_id, subtree_root_node)
+        logger.debug(f'[{tree_id}] Summary msg = "{tree_meta.summary_msg}"')
+
+        # Load and bring up-to-date expanded & selected rows:
+        self._active_tree_manager.load_rows_of_interest(tree_id)
+
         if load_request.send_signals:
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
             dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
 
-    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: str):
-        self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
-
     def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
+        """The FE needs to first call this to ensure the given tree_id has a ActiveDisplayTreeMeta loaded into memory.
+        Afterwards, the FE should send the START_SUBTREE_LOAD signal, which will call enqueue_load_tree_task(),
+        which will then asynchronously call load_data_for_display_tree()"""
         return self._active_tree_manager.request_display_tree_ui_state(request)
 
+    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: str):
+        """Kinda similar to request_display_tree_ui_state(), but for change trees"""
+        self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
+
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
+        """Gets an existing ActiveDisplayTreeMeta. The FE should not call this directly."""
         return self._active_tree_manager.get_active_display_tree_meta(tree_id)
 
+    # used by the filter panel:
     def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
         return self._active_tree_manager.get_filter_criteria(tree_id)
 
+    # used by the filter panel:
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
         self._active_tree_manager.update_filter_criteria(tree_id, filter_criteria)
 
@@ -468,6 +511,7 @@ class CacheManager(HasLifecycle):
         self.backend.executor.submit_async_task(self._refresh_subtree, node_identifier, tree_id)
 
     def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+        """DEPRECATED"""
         logger.info(f'[{tree_id}] Enqueuing task to refresh stats')
         self.backend.executor.submit_async_task(self._refresh_stats, root_uid, tree_id)
 
@@ -954,34 +998,13 @@ class CacheManager(HasLifecycle):
             assert False
 
     def _refresh_stats(self, subtree_root_uid: UID, tree_id: str):
-        """Called async via task exec (cacheman.enqueue_refresh_subtree_stats_task()) """
+        """Called async via task exec (See: CacheManager.enqueue_refresh_subtree_stats_task()) """
 
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if not tree_meta:
             raise RuntimeError(f'_refresh_stats(): DisplayTree not registered: {tree_id}')
 
-        subtree_root_node: Optional[Node] = None
-
-        if tree_meta.change_tree:
-            logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the stats')
-            tree_meta.change_tree.refresh_stats()
-            subtree_root_node: Node = tree_meta.change_tree.get_root_node()
-        elif tree_meta.state.root_exists:
-            # get up-to-date object:
-            subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
-
-            logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
-
-            if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-                self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
-            elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
-                self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
-            else:
-                assert False
-
-        summary_msg: str = self._get_tree_summary(tree_id, subtree_root_node)
-        logger.debug(f'[{tree_id}] Summary msg = "{summary_msg}"')
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=summary_msg)
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats=tree_meta.dir_stats)
 
     def _get_tree_summary(self, tree_id: str, root_node: Node):
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
