@@ -3,8 +3,9 @@ import logging
 
 from collections import deque
 from constants import TrashStatus, TREE_TYPE_GDRIVE
-from model.has_get_children import HasGetChildren
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
+from model.has_get_children import HasGetChildren
+from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.uid import UID
 from util.ensure import ensure_bool
@@ -24,8 +25,11 @@ class FilterState:
 
     def __init__(self, filter_criteria: FilterCriteria):
         self.filter: FilterCriteria = filter_criteria
+        self.cached_node_dict: Dict[UID, List[Node]] = {}
+        self.cached_dir_stats: Dict[UID, DirectoryStats] = {}
 
-        self._cached_filter: Dict[str, Dict[UID, List[Node]]] = {}
+    def has_criteria(self) -> bool:
+        return self.filter.has_criteria()
 
     def _matches_search_query(self, node) -> bool:
         return not self.filter.search_query or (self.filter.ignore_case and self.filter.search_query.lower() in node.name.lower()) \
@@ -59,8 +63,10 @@ class FilterState:
         return True
 
     def _build_node_dict(self, parent_tree: HasGetChildren, subtree_root_node: Node):
+        assert self.filter.show_ancestors_of_matches
         logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
         node_dict: Dict[UID, List[Node]] = {}
+        dir_stats_dict: Dict[UID, DirectoryStats] = {}
 
         dir_queue: Deque[Node] = deque()
         second_pass_stack: Deque[Node] = deque()
@@ -73,64 +79,76 @@ class FilterState:
         while len(dir_queue) > 0:
             node: Node = dir_queue.popleft()
 
-            children = parent_tree.get_children(node)
+            children = parent_tree.get_child_list(node)
             if children:
                 for child in children:
                     if child.is_dir():
                         dir_queue.append(child)
                         second_pass_stack.append(child)
 
+        # Second pass: go back up the tree, and add entries for ancestors with matching descendants:
         while len(second_pass_stack) > 0:
             parent_node = second_pass_stack.pop()
-            child_list = parent_tree.get_children(parent_node)
+            child_list = parent_tree.get_child_list(parent_node)
             filtered_child_list = []
             for child in child_list:
-                # include dirs if any of their children are included, or if they match. Include non-dirs only if they match:
+                # Include dirs if any of their children are included, or if they match. Include non-dirs only if they match:
                 if (child.is_dir() and child.uid in node_dict) or self.matches(child):
                     filtered_child_list.append(child)
+
+                    # Calculate stats also:
+                    dir_stats = dir_stats_dict.get(parent_node.uid, None)
+                    if not dir_stats:
+                        dir_stats = DirectoryStats()
+                        dir_stats_dict[parent_node.uid] = dir_stats
+
+                    dir_stats.add_meta_metrics(child, dir_stats_dict)
             if filtered_child_list:
                 node_dict[parent_node.uid] = filtered_child_list
 
         logger.debug(f'Built filtered node dict with {len(node_dict)} entries')
-        return node_dict
+        return node_dict, dir_stats_dict
 
     def _hash_current_filter(self) -> str:
-        return f'{int(self.filter.show_subtrees_of_matches)}:{int(self.filter.ignore_case)}:{int(self.filter.is_trashed)}:' \
+        return f'{int(self.filter.show_ancestors_of_matches)}:{int(self.filter.ignore_case)}:{int(self.filter.is_trashed)}:' \
                f'{int(self.filter.is_shared)}:{self.filter.search_query}'
 
     def get_filtered_child_list(self, parent_node: Node, parent_tree: HasGetChildren) -> List[Node]:
         assert parent_tree, 'parent_tree cannot be None!'
         if not self.filter.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
-            return parent_tree.get_children(parent_node)
+            return parent_tree.get_child_list(parent_node)
 
-        filtered_list: List[Node] = []
+        if not self.cached_node_dict:
+            if self.filter.show_ancestors_of_matches:
+                self.cached_node_dict, self.cached_dir_stats = self._build_node_dict(parent_tree, parent_node)
+            else:
+                filtered_list: List[Node] = []
+                dir_stats = DirectoryStats()
+                queue: Deque[Node] = deque()
+                for node in parent_tree.get_child_list(parent_node):
+                    queue.append(node)
 
-        if self.filter.show_subtrees_of_matches:
-            # TODO: it's pretty rickety to assume the first call will be the topmost level. Put cache in a better spot
-            hash_val = self._hash_current_filter()
-            cached_tree = self._cached_filter.get(hash_val, None)
-            if not cached_tree:
-                cached_tree = self._build_node_dict(parent_tree, parent_node)
-                self._cached_filter[hash_val] = cached_tree
+                while len(queue) > 0:
+                    node: Node = queue.popleft()
 
-            return cached_tree.get(parent_node.uid, [])
-        else:
-            queue: Deque[Node] = deque()
-            for node in parent_tree.get_children(parent_node):
-                queue.append(node)
+                    if self.matches(node):
+                        filtered_list.append(node)
+                        dir_stats.add_meta_metrics(node)
 
-            while len(queue) > 0:
-                node: Node = queue.popleft()
+                    if node.is_dir():
+                        for child_node in parent_tree.get_child_list(node):
+                            queue.append(child_node)
 
-                if self.matches(node):
-                    filtered_list.append(node)
+                # This will be the only entry in the dict:
+                self.cached_node_dict[parent_node.uid] = filtered_list
+                self.cached_dir_stats[parent_node.uid] = dir_stats
 
-                if node.is_dir():
-                    for child_node in parent_tree.get_children(node):
-                        queue.append(child_node)
+        return self.cached_node_dict.get(parent_node.uid, [])
 
-        return filtered_list
+    def get_dir_stats(self) -> Dict[UID, DirectoryStats]:
+        assert self.cached_dir_stats is not None
+        return self.cached_dir_stats
 
     @staticmethod
     def _make_search_query_config_key(tree_id: str) -> str:
@@ -165,7 +183,7 @@ class FilterState:
 
         backend.put_config(FilterState._make_is_shared_config_key(tree_id), self.filter.is_shared)
 
-        backend.put_config(FilterState._make_show_subtree_config_key(tree_id), self.filter.show_subtrees_of_matches)
+        backend.put_config(FilterState._make_show_subtree_config_key(tree_id), self.filter.show_ancestors_of_matches)
 
     @staticmethod
     def from_config(backend, tree_id: str):
@@ -187,10 +205,10 @@ class FilterState:
         is_shared = Ternary(is_shared)
         filter_criteria.is_shared = is_shared
 
-        show_subtrees_of_matches = ensure_bool(backend.get_config(FilterState._make_show_subtree_config_key(tree_id)))
-        filter_criteria.show_subtrees_of_matches = show_subtrees_of_matches
+        show_ancestors_of_matches = ensure_bool(backend.get_config(FilterState._make_show_subtree_config_key(tree_id)))
+        filter_criteria.show_ancestors_of_matches = show_ancestors_of_matches
 
         if filter_criteria.has_criteria():
             logger.debug(f'[{tree_id}] Read FilterCriteria: ignore_case={filter_criteria.ignore_case} is_trashed={filter_criteria.is_trashed}'
-                         f' is_shared={filter_criteria.is_shared} show_subtrees={filter_criteria.show_subtrees_of_matches}')
+                         f' is_shared={filter_criteria.is_shared} show_subtrees={filter_criteria.show_ancestors_of_matches}')
         return FilterState(filter_criteria)

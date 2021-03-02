@@ -1,50 +1,16 @@
+import logging
 from collections import deque
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
+from error import NodeAlreadyPresentError, NodeNotPresentError
+from model.node.node import BaseNode
 from model.uid import UID
+from util.base_tree import BaseTree
+
+logger = logging.getLogger(__name__)
 
 
-class NodeNotPresentError(RuntimeError):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS NodeNotPresentError
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-    def __init__(self, msg: str = None):
-        if not msg:
-            msg = f'Node already present!'
-        super(NodeNotPresentError, self).__init__(msg)
-
-
-class NodeAlreadyPresentError(RuntimeError):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS NodeAlreadyPresentError
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-    def __init__(self, msg: str = None):
-        if not msg:
-            msg = f'Node already present!'
-        super(NodeAlreadyPresentError, self).__init__(msg)
-
-
-class BaseNode:
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS BaseNode
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-    def __init__(self, identifier):
-        self.identifier = identifier
-
-    def get_tag(self) -> str:
-        return ''
-
-    def __lt__(self, other):
-        return self.identifier < other.identifier
-
-
-class SimpleTree:
+class SimpleTree(BaseTree):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS SimpleTree
@@ -62,8 +28,8 @@ class SimpleTree:
     def __len__(self):
         return len(self._node_dict)
 
-    def get_node(self, nid: Any) -> Optional[BaseNode]:
-        return self._node_dict.get(nid, None)
+    def get_node_for_uid(self, uid: Any) -> Optional[BaseNode]:
+        return self._node_dict.get(uid, None)
 
     def get_root_node(self) -> Optional[BaseNode]:
         return self._root_node
@@ -92,15 +58,15 @@ class SimpleTree:
         self._node_dict[node.identifier] = node
 
     @staticmethod
-    def _remove_node_with_identifier(node_list: List[BaseNode], nid: Any):
+    def _remove_node_with_identifier(node_list: List[BaseNode], uid: Any):
         for node in node_list:
-            if node.identifier == nid:
+            if node.identifier == uid:
                 node_list.remove(node)
                 return node
         return None
 
-    def remove_node(self, nid: Any) -> int:
-        if self._root_node and self._root_node.identifier == nid:
+    def remove_node(self, uid: UID) -> int:
+        if self._root_node and self._root_node.identifier == uid:
             self._root_node = None
             count_removed: int = len(self._node_dict)
             self._node_dict.clear()
@@ -108,19 +74,19 @@ class SimpleTree:
             self._child_parent_dict.clear()
             return count_removed
 
-        node = self._node_dict.get(nid, None)
+        node = self._node_dict.get(uid, None)
         if not node:
-            raise NodeNotPresentError(f'Cannot remove node: identifier "{nid}" not found in tree!')
+            raise NodeNotPresentError(f'Cannot remove node: identifier "{uid}" not found in tree!')
 
         nid_queue: Deque[Any] = deque()
-        nid_queue.append(nid)
+        nid_queue.append(uid)
 
         # Remove target node from parent's child list
-        parent = self.get_parent(nid)
+        parent = self.get_parent(uid)
         if parent:
             child_list: List[BaseNode] = self._parent_child_list_dict.get(parent.identifier, None)
             if child_list:
-                SimpleTree._remove_node_with_identifier(child_list, nid)
+                SimpleTree._remove_node_with_identifier(child_list, uid)
 
         # Now loop and remove target node and all its descendants:
         count_removed = 0
@@ -138,17 +104,17 @@ class SimpleTree:
 
         return count_removed
 
-    def paste(self, parent_nid: Any, new_tree):
+    def paste(self, parent_uid: UID, new_tree):
         root_to_insert = new_tree.get_root_node()
         if not root_to_insert:
             return
 
-        if not parent_nid:
-            raise RuntimeError('nid not provided')
+        if not parent_uid:
+            raise RuntimeError('uid not provided')
 
-        parent_node = self.get_node(parent_nid)
+        parent_node = self.get_node_for_uid(parent_uid)
         if not parent_node:
-            raise NodeNotPresentError(f'Node with nid "{parent_nid}" is not in this tree')
+            raise NodeNotPresentError(f'Node with uid "{parent_uid}" is not in this tree')
 
         node_queue: Deque[Tuple[BaseNode, BaseNode]] = deque()
         node_queue.append((root_to_insert, parent_node))
@@ -158,74 +124,26 @@ class SimpleTree:
             node, parent = node_queue.popleft()
             self.add_node(node, parent)
             count_added += 1
-            for child in new_tree.get_child_list(node.identifier):
+            for child in new_tree.get_child_list_for_uid(node.identifier):
                 node_queue.append((child, node))
         return count_added
 
-    def get_child_list(self, parent_nid: Any) -> List[BaseNode]:
-        if parent_nid not in self._node_dict:
-            raise NodeNotPresentError(f'Cannot get children: parent "{parent_nid}" is not in the tree!')
-        return self._parent_child_list_dict.get(parent_nid, [])
+    def get_child_list(self, node) -> List:
+        return self.get_child_list_for_uid(node.uid)
 
-    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[BaseNode] = None):
-        parent_queue: Deque[BaseNode] = deque()
-        if not subtree_root_node:
-            subtree_root_node = self.get_root_node()
-            if not subtree_root_node:
-                return
-
-        action_func(subtree_root_node)
-
-        if self.get_child_list(subtree_root_node.identifier):
-            parent_queue.append(subtree_root_node)
-
-        while len(parent_queue) > 0:
-            node: BaseNode = parent_queue.popleft()
-
-            children = self.get_child_list(node.identifier)
-            if children:
-                for child in children:
-                    action_func(child)
-
-                    if self.get_child_list(child.identifier):
-                        parent_queue.append(child)
-
-    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[BaseNode]:
-        """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
-        of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
-        """
-        if not subtree_root_uid:
-            root_node = self.get_root_node()
-            if not root_node:
-                return []
-            subtree_root_uid = root_node.identifier
-
-        if not self.contains(subtree_root_uid):
-            return []
-
-        node = self.get_node(nid=subtree_root_uid)
-
-        bfs_list: List[BaseNode] = []
-
-        node_queue: Deque = deque()
-        node_queue.append(node)
-
-        while len(node_queue) > 0:
-            node = node_queue.popleft()
-            bfs_list.append(node)
-            for child in self.get_child_list(node.identifier):
-                node_queue.append(child)
-
-        return bfs_list
+    def get_child_list_for_uid(self, parent_uid: UID) -> List[BaseNode]:
+        if parent_uid not in self._node_dict:
+            raise NodeNotPresentError(f'Cannot get children: parent "{parent_uid}" is not in the tree!')
+        return self._parent_child_list_dict.get(parent_uid, [])
 
     def get_parent(self, child_nid: Any) -> Optional[BaseNode]:
         return self._child_parent_dict.get(child_nid, None)
 
-    def contains(self, nid: Any) -> bool:
-        return nid in self._node_dict
+    def contains(self, uid: Any) -> bool:
+        return uid in self._node_dict
 
     # The following garbage was copied from treelib.Tree. Should clean this up if there's time
-    def show(self, nid=None, level=0, filter_func=None,
+    def show(self, uid=None, level=0, filter_func=None,
              key=None, reverse=False, line_type='ascii-ex', show_identifier=False):
         """
         Print the tree structure in hierarchy style.
@@ -237,7 +155,7 @@ class SimpleTree:
 
         * Version >= 1.2.7a*: you can also specify the ``line_type`` parameter, such as 'ascii' (default), 'ascii-ex', 'ascii-exr', 'ascii-em', 'ascii-emv', 'ascii-emh') to the change graphical form.
 
-        :param nid: the reference node to start expanding.
+        :param uid: the reference node to start expanding.
         :param level: the node level in the tree (root as level 0).
         :param filter_func: the function of one variable to act on the :class:`Node` object.
             When this parameter is specified, the traversing will not continue to following
@@ -254,14 +172,14 @@ class SimpleTree:
             self._reader += line.decode('utf-8') + "\n"
 
         try:
-            self.__print_backend(nid, level, filter_func,
+            self.__print_backend(uid, level, filter_func,
                                  key, reverse, line_type, show_identifier, func=write)
         except NodeNotPresentError:
             print('Tree is empty')
 
         return self._reader
 
-    def __print_backend(self, nid=None, level=0, filter_func=None,
+    def __print_backend(self, uid=None, level=0, filter_func=None,
                         key=None, reverse=False, line_type='ascii-ex',
                         show_identifier=False, func=print):
         """
@@ -302,11 +220,11 @@ class SimpleTree:
                 return node
 
         # iter with func
-        for pre, node in self.__get(nid, level, filter_func, key, reverse, line_type):
+        for pre, node in self.__get(uid, level, filter_func, key, reverse, line_type):
             label = get_label(node)
             func(f'{pre}{label}'.encode('utf-8'))
 
-    def __get(self, nid, level, filter_, key, reverse, line_type):
+    def __get(self, uid, level, filter_, key, reverse, line_type):
         # default filter
         if filter_ is None:
             def filter_(node):
@@ -322,16 +240,16 @@ class SimpleTree:
             'ascii-emh': ('\u2502', '\u255e\u2550\u2550 ', '\u2558\u2550\u2550 '),
         }[line_type]
 
-        return self.__get_iter(nid, level, filter_, key, reverse, dt, [])
+        return self.__get_iter(uid, level, filter_, key, reverse, dt, [])
 
-    def __get_iter(self, nid, level, filter_, key, reverse, dt, is_last):
+    def __get_iter(self, uid, level, filter_, key, reverse, dt, is_last):
         dt_vline, dt_line_box, dt_line_cor = dt
 
-        nid = self.get_root_node().identifier if (nid is None) else nid
-        if not self.contains(nid):
-            raise NodeNotPresentError("Node '%s' is not in the tree" % nid)
+        uid = self.get_root_node().identifier if (uid is None) else uid
+        if not self.contains(uid):
+            raise NodeNotPresentError("Node '%s' is not in the tree" % uid)
 
-        node = self.get_node(nid)
+        node = self.get_node_for_uid(uid)
 
         if level == 0:
             yield "", node
@@ -342,7 +260,7 @@ class SimpleTree:
             yield leading + lasting, node
 
         if filter_(node):
-            children = [self.get_node(i.identifier) for i in self.get_child_list(node.identifier) if filter_(self.get_node(i.identifier))]
+            children = [self.get_node_for_uid(i.identifier) for i in self.get_child_list_for_uid(node.identifier) if filter_(self.get_node_for_uid(i.identifier))]
             idxlast = len(children) - 1
             if key:
                 children.sort(key=key, reverse=reverse)

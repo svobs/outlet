@@ -3,7 +3,7 @@ import logging
 import os
 import pathlib
 import threading
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from backend.store.local.local_disk_scanner import LocalDiskScanner
 from backend.store.local.master_local_disk import LocalDiskDiskStore
@@ -11,7 +11,9 @@ from backend.store.sqlite.local_db import LocalDiskDatabase
 from backend.store.tree.filter_state import FilterState
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from backend.store.local.local_disk_tree import LocalDiskTree
+from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
+from model.node.directory_stats import DirectoryStats
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
@@ -23,7 +25,6 @@ from backend.store.uid.uid_generator import UID
 from backend.store.uid.uid_mapper import UidPathMapper
 from signal_constants import ID_GLOBAL_CACHE
 from util import file_util, time_util
-from util.simple_tree import NodeNotPresentError
 from util.stopwatch_sec import Stopwatch
 from backend.store.local import content_hasher
 
@@ -134,7 +135,7 @@ class LocalDiskMasterStore(MasterStore):
                 remove_node_list: List[LocalNode] = []
 
                 for existing_node in self._memstore.master_tree.get_subtree_bfs(subtree_root.uid):
-                    if not fresh_tree.get_node(existing_node.uid):
+                    if not fresh_tree.get_node_for_uid(existing_node.uid):
                         if existing_node.is_live():
                             remove_node_list.append(existing_node)
                         else:
@@ -313,9 +314,9 @@ class LocalDiskMasterStore(MasterStore):
         assert isinstance(node_identifier, LocalNodeIdentifier)
         self._get_display_tree(node_identifier, tree_id, is_live_refresh=True)
 
-    def refresh_subtree_stats(self, subtree_root_node: LocalNode, tree_id: str):
+    def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: str) -> Dict[UID, DirectoryStats]:
         with self._struct_lock:
-            self._memstore.master_tree.refresh_stats(subtree_root_node, tree_id)
+            return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
 
     # Cache CRUD operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -389,7 +390,7 @@ class LocalDiskMasterStore(MasterStore):
                         logger.error(f'MV ("{src_full_path}" -> "{dst_full_path}"): was expecting dst = "{expected_move_dst}"!')
 
             src_uid: UID = self.get_uid_for_path(src_full_path)
-            src_node: LocalNode = self._memstore.master_tree.get_node(src_uid)
+            src_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
             if src_node:
                 src_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(src_node.uid)
                 src_subtree: LocalSubtree = LocalSubtree(src_node.node_identifier, remove_node_list=[], upsert_node_list=src_nodes)
@@ -402,7 +403,7 @@ class LocalDiskMasterStore(MasterStore):
             dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, path_list=dst_full_path)
             dst_subtree: LocalSubtree = LocalSubtree(dst_node_identifier, [], [])
 
-            existing_dst_node: LocalNode = self._memstore.master_tree.get_node(dst_uid)
+            existing_dst_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
             if existing_dst_node:
                 logger.debug(f'Node already exists at MV dst; will remove: {existing_dst_node.node_identifier}')
                 existing_dst_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(dst_uid)
@@ -486,21 +487,21 @@ class LocalDiskMasterStore(MasterStore):
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
-    def get_children(self, node: Node, filter_state: FilterState = None) -> List[Node]:
+    def get_child_list(self, node: Node, filter_state: FilterState = None) -> List[Node]:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_children(): node={node.node_identifier} filter_state={filter_state} locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_child_list(): node={node.node_identifier} filter_state={filter_state} locked={self._struct_lock.locked()}')
         if filter_state:
             return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
         else:
             with self._struct_lock:
-                child_nodes = self._memstore.master_tree.get_child_list(node.uid)
+                child_nodes = self._memstore.master_tree.get_child_list(node)
         return child_nodes
 
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
         with self._struct_lock:
-            return self._memstore.master_tree.get_node(uid)
+            return self._memstore.master_tree.get_node_for_uid(uid)
 
     def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
         parent_node = self.get_single_parent_for_node(node)
@@ -520,7 +521,7 @@ class LocalDiskMasterStore(MasterStore):
                     # parent not found in tree... maybe we can derive it however
                     parent_path: str = node.derive_parent_path()
                     parent_uid: UID = self.get_uid_for_path(parent_path)
-                    parent = self._memstore.master_tree.get_node(parent_uid)
+                    parent = self._memstore.master_tree.get_node_for_uid(parent_uid)
                     if not parent:
                         logger.debug(f'Parent not found for node ({node.uid})')
                         return None

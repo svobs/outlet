@@ -80,7 +80,7 @@ class TreeFilterPanel(HasLifecycle):
 
         self._update_shared_btn(filter_criteria)
 
-        if filter_criteria.show_subtrees_of_matches:
+        if filter_criteria.show_ancestors_of_matches:
             self.show_ancestors_btn.set_active(True)
 
         self._latest_filter_criteria: FilterCriteria = filter_criteria
@@ -178,7 +178,7 @@ class TreeFilterPanel(HasLifecycle):
 
         filter_criteria.ignore_case = not self.match_case_btn.get_active()
 
-        filter_criteria.show_subtrees_of_matches = self.show_ancestors_btn.get_active()
+        filter_criteria.show_ancestors_of_matches = self.show_ancestors_btn.get_active()
 
         # The tri-state buttons do not contain enough information to be derived from the UI, and must be inferred by a combination
         # of prev state and user action:

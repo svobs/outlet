@@ -234,10 +234,10 @@ class BackendGRPCClient(OutletBackend):
         logger.debug(f'Got op execution state from backend server: is_playing={response.is_enabled}')
         return response.is_enabled
 
-    def get_children(self, parent: Node, tree_id: str) -> Iterable[Node]:
+    def get_child_list(self, parent: Node, tree_id: str) -> Iterable[Node]:
         if SUPER_DEBUG:
-            logger.debug(f'[{tree_id}] Entered get_children(): parent={parent}')
-        assert tree_id, f'GRPCClient.get_children(): No tree_id provided!'
+            logger.debug(f'[{tree_id}] Entered get_child_list(): parent={parent}')
+        assert tree_id, f'GRPCClient.get_child_list(): No tree_id provided!'
 
         request = GetChildList_Request()
         request.tree_id = tree_id

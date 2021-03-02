@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from backend.store.tree.filter_state import FilterState
-from model.has_get_children import HasGetChildren
+from model.node.directory_stats import DirectoryStats
 from model.uid import UID
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
@@ -30,7 +30,7 @@ class MasterStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_children(self, node: Node, filter_state: FilterState) -> List[Node]:
+    def get_child_list(self, node: Node, filter_state: FilterState) -> List[Node]:
         pass
 
     @abstractmethod
@@ -57,7 +57,7 @@ class MasterStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def refresh_subtree_stats(self, subtree_root_node: Node, tree_id: str):
+    def generate_dir_stats(self, subtree_root_node: Node, tree_id: str) -> Dict[UID, DirectoryStats]:
         pass
 
     # UID <-> DomainID mapping

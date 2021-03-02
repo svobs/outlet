@@ -5,6 +5,7 @@ from constants import IconId, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.decorator_node import DecoNode, decorate_node
+from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
@@ -13,7 +14,6 @@ import logging
 from model.uid import UID
 from outlet.backend.daemon.grpc.generated import Outlet_pb2
 
-from model.node.trait import HasDirectoryStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.filter_criteria import Ternary, FilterCriteria
@@ -133,7 +133,7 @@ class GRPCConverter:
         return grpc_node
 
     @staticmethod
-    def _dir_meta_to_grpc(node: HasDirectoryStats, dir_meta_parent):
+    def _dir_meta_to_grpc(node: DirectoryStats, dir_meta_parent):
         if node.is_stats_loaded():
             dir_meta_parent.dir_meta.has_data = True
             dir_meta_parent.dir_meta.file_count = node.file_count
@@ -205,7 +205,7 @@ class GRPCConverter:
         return node
 
     @staticmethod
-    def dir_meta_from_grpc(dir_stats: HasDirectoryStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> HasDirectoryStats:
+    def dir_meta_from_grpc(dir_stats: DirectoryStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
         assert dir_stats, 'dir_stats param cannot be null!'
         if dir_meta.has_data:
             dir_stats.file_count = dir_meta.file_count
@@ -219,7 +219,7 @@ class GRPCConverter:
         return dir_stats
 
     @staticmethod
-    def dir_meta_to_grpc(dir_stats: HasDirectoryStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> HasDirectoryStats:
+    def dir_meta_to_grpc(dir_stats: DirectoryStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
         assert dir_stats, 'dir_stats param cannot be null!'
         if dir_stats.is_stats_loaded():
             dir_meta.file_count = dir_stats.file_count
@@ -296,7 +296,7 @@ class GRPCConverter:
         grpc_filter_criteria.is_trashed = filter_criteria.is_trashed
         grpc_filter_criteria.is_shared = filter_criteria.is_shared
         grpc_filter_criteria.is_ignore_case = filter_criteria.ignore_case
-        grpc_filter_criteria.show_subtrees_of_matches = filter_criteria.show_subtrees_of_matches
+        grpc_filter_criteria.show_subtrees_of_matches = filter_criteria.show_ancestors_of_matches
 
     @staticmethod
     def filter_criteria_from_grpc(grpc_filter_criteria: backend.daemon.grpc.generated.Node_pb2.FilterCriteria) -> FilterCriteria:
@@ -306,7 +306,7 @@ class GRPCConverter:
         filter_criteria.is_trashed = Ternary(grpc_filter_criteria.is_trashed)
         filter_criteria.is_shared = Ternary(grpc_filter_criteria.is_shared)
         filter_criteria.ignore_case = grpc_filter_criteria.is_ignore_case
-        filter_criteria.show_subtrees_of_matches = grpc_filter_criteria.show_subtrees_of_matches
+        filter_criteria.show_ancestors_of_matches = grpc_filter_criteria.show_subtrees_of_matches
         return filter_criteria
 
     # DisplayTreeUiState

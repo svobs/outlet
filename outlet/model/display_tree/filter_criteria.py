@@ -36,7 +36,7 @@ class FilterCriteria:
         self.is_trashed: Ternary = is_trashed
         self.is_shared: Ternary = is_shared
 
-        self.show_subtrees_of_matches: bool = False
+        self.show_ancestors_of_matches: bool = False
 
         self._cached_filter: Dict[str, Dict[UID, List[Node]]] = {}
 

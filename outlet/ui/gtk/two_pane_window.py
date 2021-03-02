@@ -168,7 +168,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             app.quit()
 
     def replace_bottom_button_panel(self, *buttons):
-        for child in self.bottom_button_panel.get_children():
+        for child in self.bottom_button_panel.get_child_list():
             self.bottom_button_panel.remove(child)
 
         for button in buttons:
@@ -282,7 +282,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     def _on_enable_ui_toggled(self, sender, enable):
         """Callback for TOGGLE_UI_ENABLEMENT"""
         def toggle_ui():
-            for button in self.bottom_button_panel.get_children():
+            for button in self.bottom_button_panel.get_child_list():
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
 

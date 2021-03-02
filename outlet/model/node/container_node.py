@@ -2,7 +2,6 @@ import os
 from typing import List
 
 from error import InvalidOperationError
-from model.node.trait import HasDirectoryStats
 from model.uid import UID
 from model.user_op import DISPLAYED_USER_OP_TYPES, UserOpType
 from constants import IconId, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -10,7 +9,7 @@ from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 
 
-class ContainerNode(HasDirectoryStats, Node):
+class ContainerNode(Node):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS ContainerNode
@@ -21,10 +20,8 @@ class ContainerNode(HasDirectoryStats, Node):
     def __init__(self, node_identifier: SinglePathNodeIdentifier):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
         Node.__init__(self, node_identifier)
-        HasDirectoryStats.__init__(self)
 
     def update_from(self, other_node):
-        HasDirectoryStats.update_from(self, other_node)
         Node.update_from(self, other_node)
 
     def get_parent_uids(self) -> List[UID]:
@@ -79,7 +76,7 @@ class ContainerNode(HasDirectoryStats, Node):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'ContainerNode(node_id="{self.node_identifier}" {self.get_summary()})'
+        return f'ContainerNode(node_id="{self.node_identifier}")'
 
 
 class CategoryNode(ContainerNode):

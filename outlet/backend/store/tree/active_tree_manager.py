@@ -497,7 +497,7 @@ class ActiveTreeManager(HasLifecycle):
 
         processing_queue: Deque[Node] = deque()
 
-        for node in self.backend.get_children(parent=display_tree_meta.state.root_sn.node, tree_id=display_tree_meta.tree_id):
+        for node in self.backend.get_child_list(parent=display_tree_meta.state.root_sn.node, tree_id=display_tree_meta.tree_id):
             processing_queue.append(node)
 
         while len(processing_queue) > 0:
@@ -507,7 +507,7 @@ class ActiveTreeManager(HasLifecycle):
 
             if node.uid in expanded_cached:
                 verified.expanded.add(node.uid)
-                for node in self.backend.get_children(parent=node, tree_id=display_tree_meta.tree_id):
+                for node in self.backend.get_child_list(parent=node, tree_id=display_tree_meta.tree_id):
                     processing_queue.append(node)
 
         logger.debug(f'[{display_tree_meta.tree_id}] {stopwatch} Verified {len(verified.expanded)} of {len(expanded_cached)} expanded rows '

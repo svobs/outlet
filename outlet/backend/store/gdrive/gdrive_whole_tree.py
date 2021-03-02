@@ -6,19 +6,18 @@ from constants import COUNT_MULTIPLE_GDRIVE_PARENTS, FIND_DUPLICATE_GDRIVE_NODE_
     TREE_TYPE_GDRIVE
 from error import GDriveItemNotFoundError
 from model.gdrive_meta import GDriveUser
-from model.has_get_children import HasGetChildren
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from util import file_util, format
-from util.stopwatch_sec import Stopwatch
+from util.base_tree import BaseTree
 
 logger = logging.getLogger(__name__)
 
 
-class GDriveWholeTree(HasGetChildren):
+class GDriveWholeTree(BaseTree):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS GDriveWholeTree
@@ -35,8 +34,8 @@ class GDriveWholeTree(HasGetChildren):
         """ Forward lookup table: nodes are indexed by UID"""
 
         # It's a lot cleaner to have a single root node, even if it does not map to anything in GDrive:
-        root = GDriveWholeTree.get_super_root()
-        self.uid_dict[root.uid] = root
+        self.root = GDriveWholeTree.get_super_root()
+        self.uid_dict[self.root.uid] = self.root
 
         self.parent_child_dict: Dict[UID, List[GDriveNode]] = {}
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
@@ -51,6 +50,9 @@ class GDriveWholeTree(HasGetChildren):
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
         return GDriveFolder(NodeIdentifierFactory.get_root_constant_gdrive_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
                             None, None, None, None, None, False)
+
+    def get_root_node(self) -> Optional[GDriveNode]:
+        return self.root
 
     @property
     def node_identifier(self):
@@ -153,7 +155,7 @@ class GDriveWholeTree(HasGetChildren):
             self.recompute_path_list_for_uid(node.uid)
 
         if node.is_dir():
-            child_list = self.get_children(node)
+            child_list = self.get_child_list(node)
             if child_list:
                 if fail_if_children_present:
                     raise RuntimeError(f'Cannot remove non-empty folder: {node}')
@@ -206,7 +208,7 @@ class GDriveWholeTree(HasGetChildren):
         node.add_parent(parent_uid)
 
     def _remove_root(self, node: GDriveNode):
-        root_list = self.get_children_for_root()
+        root_list = self.get_child_list_for_root()
         for root in root_list:
             if root.uid == node.uid:
                 root_list.remove(root)
@@ -214,7 +216,7 @@ class GDriveWholeTree(HasGetChildren):
         return None
 
     def _upsert_root(self, node: GDriveNode):
-        root_list = self.get_children_for_root()
+        root_list = self.get_child_list_for_root()
         for root in root_list:
             if root.uid == node.uid:
                 # already present: do nothing
@@ -253,7 +255,7 @@ class GDriveWholeTree(HasGetChildren):
             if node.is_dir():
                 assert isinstance(node, GDriveFolder)
                 folder_list.append(node)
-                for child in self.get_children(node):
+                for child in self.get_child_list(node):
                     assert isinstance(child, GDriveNode)
                     queue.append(child)
             else:
@@ -307,7 +309,7 @@ class GDriveWholeTree(HasGetChildren):
             except StopIteration:
                 seg = ''
         path_so_far = '/' + seg
-        current_seg_nodes: List[GDriveNode] = [x for x in self.get_children_for_root() if x.name.lower() == seg.lower()]
+        current_seg_nodes: List[GDriveNode] = [x for x in self.get_child_list_for_root() if x.name.lower() == seg.lower()]
         next_seg_nodes: List[GDriveNode] = []
         path_found = '/'
         if current_seg_nodes:
@@ -317,7 +319,7 @@ class GDriveWholeTree(HasGetChildren):
             path_so_far = path_so_far + '/' + name_seg
             for current in current_seg_nodes:
                 current_id: UID = current.uid
-                children: List[Node] = self.get_children(current)
+                children: List[Node] = self.get_child_list(current)
                 if not children:
                     if SUPER_DEBUG:
                         logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
@@ -416,22 +418,14 @@ class GDriveWholeTree(HasGetChildren):
     def tree_type(self) -> int:
         return TREE_TYPE_GDRIVE
 
-    def get_children_for_root(self) -> List[GDriveNode]:
-        # Pseudo-root GDRIVE_ROOT_UID has the root nodes as its children:
-        return self.parent_child_dict.get(GDRIVE_ROOT_UID, [])
-
-    def get_children(self, node: GDriveNode) -> List[Node]:
-        if node.uid == GDRIVE_ROOT_UID:
-            child_list = self.get_children_for_root()
-        else:
-            child_list = self.parent_child_dict.get(node.uid, [])
-        return child_list
+    def get_child_list(self, node: GDriveNode) -> List[Node]:
+        return self.parent_child_dict.get(node.uid, [])
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
         parent = self.get_node_for_uid(parent_uid)
         if parent:
-            children = self.get_children(parent)
+            children = self.get_child_list(parent)
             if children:
                 for child in children:
                     assert isinstance(child, GDriveNode)
@@ -444,37 +438,13 @@ class GDriveWholeTree(HasGetChildren):
         This roughly matches the logic used to search for an node in Google Drive when we are unsure about its goog_id."""
         parent = self.get_node_for_uid(parent_uid)
         if parent:
-            children = self.get_children(parent)
+            children = self.get_child_list(parent)
             if children:
                 for child in children:
                     assert isinstance(child, GDriveNode)
                     if child.name == name:
                         return child
         return None
-
-    def get_subtree_bfs(self, subtree_root: GDriveNode) -> List[GDriveNode]:
-        """Returns all nodes in the subtree in BFS order"""
-        queue: Deque[GDriveNode] = deque()
-        bfs_list: List[GDriveNode] = []
-
-        queue.append(subtree_root)
-        bfs_list.append(subtree_root)
-
-        # everything else ...
-        while len(queue) > 0:
-            node: GDriveNode = queue.popleft()
-
-            children = self.get_children(node)
-            if children:
-                for child in children:
-                    assert isinstance(child, GDriveNode)
-                    bfs_list.append(child)
-
-                    if child.is_dir():
-                        assert isinstance(child, GDriveNode)
-                        queue.append(child)
-
-        return bfs_list
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         assert uid
@@ -551,6 +521,12 @@ class GDriveWholeTree(HasGetChildren):
         return path_list
 
     def get_summary(self) -> str:
+        if FIND_DUPLICATE_GDRIVE_NODE_NAMES:
+            self.find_duplicate_node_names()
+
+        if COUNT_MULTIPLE_GDRIVE_PARENTS:
+            self.count_multiple_parents()
+
         # FIXME: this is broken
         super_root_node = self.get_node_for_uid(GDRIVE_ROOT_UID)
         if super_root_node.is_stats_loaded():
@@ -560,7 +536,7 @@ class GDriveWholeTree(HasGetChildren):
             dir_count = 0
             trashed_file_count = 0
             trashed_dir_count = 0
-            for root in self.get_children_for_root():
+            for root in self.get_child_list_for_root():
                 if root.get_trashed_status() == TrashStatus.NOT_TRASHED:
                     if root.get_size_bytes():
                         size_bytes += root.get_size_bytes()
@@ -607,7 +583,7 @@ class GDriveWholeTree(HasGetChildren):
         duplicates: List[List[GDriveNode]] = []
 
         # roots ...
-        for root in self.get_children_for_root():
+        for root in self.get_child_list_for_root():
             if root.is_dir():
                 queue.append(root)
             child_dict[root.name].append(root)
@@ -621,7 +597,7 @@ class GDriveWholeTree(HasGetChildren):
             node: GDriveNode = queue.popleft()
             child_dict: DefaultDict[str, List[GDriveNode]] = defaultdict(list)
 
-            children = self.get_children(node)
+            children = self.get_child_list(node)
             if children:
                 for child in children:
                     if child.is_dir():
@@ -648,81 +624,6 @@ class GDriveWholeTree(HasGetChildren):
 
         for num_parents, node_count in counter.items():
             logger.info(f'Nodes with {num_parents} parents: {node_count}')
-
-    def for_each_node_breadth_first(self, action_func: Callable[[GDriveNode], None], subtree_root_uid: Optional[UID] = None):
-        dir_queue: Deque[GDriveFolder] = deque()
-        if subtree_root_uid:
-            # Partial
-            subtree_root = self.get_node_for_uid(subtree_root_uid)
-            if not subtree_root:
-                return
-
-            action_func(subtree_root)
-
-            if subtree_root.is_dir():
-                assert isinstance(subtree_root, GDriveFolder)
-                dir_queue.append(subtree_root)
-        else:
-            for root in self.get_children_for_root():
-                if root.is_dir():
-                    assert isinstance(root, GDriveFolder)
-                    dir_queue.append(root)
-                action_func(root)
-
-        while len(dir_queue) > 0:
-            node: GDriveFolder = dir_queue.popleft()
-
-            children = self.get_children(node)
-            if children:
-                for child in children:
-                    if child.is_dir():
-                        assert isinstance(child, GDriveFolder)
-                        dir_queue.append(child)
-                    action_func(child)
-
-    def refresh_stats(self, subtree_root: Optional[GDriveFolder] = None, tree_id: str = None):
-        # FIXME: this is broken
-        # Calculates the stats for all the directories
-        logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree (subtree={subtree_root})')
-        stats_sw = Stopwatch()
-        second_pass_stack: Deque[GDriveFolder] = deque()
-
-        if subtree_root:
-            subtree_root_uid = subtree_root.uid
-        else:
-            subtree_root_uid = None
-
-        def zero_out_stats_and_add_dirs_to_stack(n):
-            if n.is_dir():
-                assert isinstance(n, GDriveFolder)
-                n.zero_out_stats()
-                second_pass_stack.append(n)
-
-        self.for_each_node_breadth_first(action_func=zero_out_stats_and_add_dirs_to_stack, subtree_root_uid=subtree_root_uid)
-
-        # 2nd pass:
-        while len(second_pass_stack) > 0:
-            node = second_pass_stack.pop()
-            assert node.is_dir()
-
-            children = self.get_children(node)
-            if children:
-                for child in children:
-                    node.add_meta_metrics(child)
-            else:
-                node.set_stats_for_no_children()
-
-            # if SUPER_DEBUG:
-            #     logger.debug(f'Folder node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
-
-        # TODO: make use of this later
-        if FIND_DUPLICATE_GDRIVE_NODE_NAMES:
-            self.find_duplicate_node_names()
-
-        if COUNT_MULTIPLE_GDRIVE_PARENTS:
-            self.count_multiple_parents()
-
-        logger.debug(f'{stats_sw} Refreshed stats for Google Drive tree')
 
     def show_tree(self, subroot_uid: UID) -> str:
         # TODO

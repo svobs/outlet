@@ -48,7 +48,7 @@ class LocalDiskMemoryStore:
         Will raise an exception if trying to remove a non-empty directory."""
         logger.debug(f'Removing LocalNode from memory cache: {node}')
 
-        existing: Node = self.master_tree.get_node(node.uid)
+        existing: Node = self.master_tree.get_node_for_uid(node.uid)
         if existing:
             if existing.is_dir():
                 children = self.master_tree.get_child_list(existing.identifier)
@@ -77,7 +77,7 @@ class LocalDiskMemoryStore:
         if not node.uid:
             raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
 
-        existing_node: LocalNode = self.master_tree.get_node(node.uid)
+        existing_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
         if existing_node:
             if existing_node.is_live() and not node.is_live():
                 # In the future, let's close this hole with more elegant logic

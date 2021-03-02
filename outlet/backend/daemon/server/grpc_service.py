@@ -333,7 +333,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         # FIXME: set a limit on number of nodes returned, and send only an EphemeralNode instead
         parent_node = GRPCConverter.node_from_grpc(request.parent_node)
 
-        child_list = self.cacheman.get_children(parent_node, request.tree_id)
+        child_list = self.cacheman.get_child_list(parent_node, request.tree_id)
         response = GetChildList_Response()
         GRPCConverter.node_list_to_grpc(child_list, response.node_list)
 

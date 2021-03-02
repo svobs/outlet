@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
 from model.display_tree.display_tree import DisplayTree
-from model.node.trait import HasDirectoryStats
+from model.node.directory_stats import DirectoryStats
 from model.uid import UID
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
@@ -108,9 +108,9 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['status_msg'] = signal_msg.status_msg.msg
         elif signal == Signal.REFRESH_SUBTREE_STATS_DONE:
             kwargs['status_msg'] = signal_msg.stats_update.status_msg
-            dir_stats_dict: Dict[UID, HasDirectoryStats] = {}
+            dir_stats_dict: Dict[UID, DirectoryStats] = {}
             for dir_meta_grpc in signal_msg.stats_update.dir_meta_list:
-                dir_stats = HasDirectoryStats()
+                dir_stats = DirectoryStats()
                 GRPCConverter.dir_meta_from_grpc(dir_stats, dir_meta_grpc.dir_meta)
                 dir_stats_dict[dir_meta_grpc.uid] = dir_stats
             kwargs['dir_stats'] = dir_stats_dict

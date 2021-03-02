@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from error import InvalidOperationError
-from model.node.trait import HasDirectoryStats
+from model.node.directory_stats import DirectoryStats
 from model.uid import UID
 from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
@@ -127,7 +127,7 @@ class GDriveNode(Node, ABC):
         pass
 
 
-class GDriveFolder(HasDirectoryStats, GDriveNode):
+class GDriveFolder(GDriveNode):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
         CLASS GDriveFolder
@@ -137,7 +137,7 @@ class GDriveFolder(HasDirectoryStats, GDriveNode):
                  is_shared, shared_by_user_uid, sync_ts, all_children_fetched):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
-        HasDirectoryStats.__init__(self)
+        self.dir_stats: DirectoryStats = None
 
         self.all_children_fetched: bool = all_children_fetched
         """If true, all its children have been fetched from Google"""
@@ -151,7 +151,7 @@ class GDriveFolder(HasDirectoryStats, GDriveNode):
         if not isinstance(other_node, GDriveFolder):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         GDriveNode.update_from(self, other_node)
-        HasDirectoryStats.update_from(self, other_node)
+        self.dir_stats = other_node.dir_stats
         self.all_children_fetched = other_node.all_children_fetched
 
     @classmethod
@@ -193,10 +193,13 @@ class GDriveFolder(HasDirectoryStats, GDriveNode):
         return IconId.ICON_DIR_TRASHED
 
     def get_summary(self) -> str:
-        if not self._size_bytes and not self.file_count and not self.dir_count:
+        if not self.dir_stats or (not self.dir_stats.file_count and not self.dir_stats.dir_count):
             return '0 items'
-        size = format.humanfriendlier_size(self._size_bytes)
-        return f'{size} in {self.file_count:n} files and {self.dir_count:n} folders'
+        size = format.humanfriendlier_size(self.dir_stats.size_bytes)
+        return f'{size} in {self.dir_stats.file_count:n} files and {self.dir_stats.dir_count:n} folders'
+
+    def is_stats_loaded(self) -> bool:
+        return self.dir_stats is not None
 
     def __eq__(self, other):
         if not isinstance(other, GDriveFolder):

@@ -174,7 +174,7 @@ class GDriveTreeLoader:
                 continue
 
             if not item.get_parent_uids():
-                tree.get_children_for_root().append(item)
+                tree.get_child_list_for_root().append(item)
 
             if item.uid >= max_uid:
                 max_uid = item.uid
@@ -211,7 +211,7 @@ class GDriveTreeLoader:
         path_count: int = 0
 
         queue = deque()
-        for root in tree.get_children_for_root():
+        for root in tree.get_child_list_for_root():
             root.node_identifier.set_path_list(f'/{root.name}')
             queue.append(root)
             item_count += 1

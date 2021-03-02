@@ -3,7 +3,6 @@ from typing import Tuple
 
 from constants import IconId, TrashStatus
 from model.node.node import Node
-from model.node.trait import HasDirectoryStats
 from model.node_identifier import NodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_uid
@@ -219,29 +218,9 @@ class DecoNode(Node):
         return self.delegate.get_single_parent()
 
 
-class DecoDirNode(HasDirectoryStats, DecoNode):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS DecoDirNode
-
-    HasDirectoryStats takes precedence over DecoNode
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-    def __init__(self, uid: UID, parent_uid: UID, delegate_node):
-        DecoNode.__init__(self, uid, parent_uid, delegate_node)
-        HasDirectoryStats.__init__(self)
-
-    def update_from(self, other_node):
-        HasDirectoryStats.update_from(self, other_node)
-        self.delegate.update_from(other_node)
-
-
 def decorate_node(uid: UID, parent_uid: UID, delegate_node: Node):
     assert not delegate_node.is_decorator()
     uid = ensure_uid(uid)
     parent_uid = ensure_uid(parent_uid)
 
-    if delegate_node.is_dir():
-        return DecoDirNode(uid, parent_uid, delegate_node)
-    else:
-        return DecoNode(uid, parent_uid, delegate_node)
+    return DecoNode(uid, parent_uid, delegate_node)

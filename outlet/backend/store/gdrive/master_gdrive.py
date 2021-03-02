@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 from collections import deque
-from typing import Deque, List, Optional, Tuple
+from typing import Deque, Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -10,6 +10,7 @@ from backend.store.tree.filter_state import FilterState
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
 from global_actions import GlobalActions
 from model.gdrive_meta import GDriveUser, MimeType
+from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
@@ -211,10 +212,10 @@ class GDriveMasterStore(MasterStore):
         """This will sync the latest changes before returning."""
         self._load_master_cache(sync_latest_changes=True, invalidate_cache=invalidate_cache)
 
-    def refresh_subtree_stats(self, subtree_root_node: GDriveFolder, tree_id: str):
+    def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: str) -> Dict[UID, DirectoryStats]:
         logger.debug(f'refresh_subtree_stats(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
-            self._memstore.master_tree.refresh_stats(subtree_root_node, tree_id)
+            return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
 
     def refresh_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
@@ -301,7 +302,7 @@ class GDriveMasterStore(MasterStore):
             if SUPER_DEBUG:
                 logger.debug(f'remove_subtree(): locked={self._struct_lock.locked()}')
             with self._struct_lock:
-                subtree_nodes: List[GDriveNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root)
+                subtree_nodes: List[GDriveNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root.uid)
                 logger.info(f'Removing subtree with {len(subtree_nodes)} nodes (to_trash={to_trash})')
                 self._execute_write_op(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
         else:
@@ -417,12 +418,12 @@ class GDriveMasterStore(MasterStore):
     def get_whole_tree_summary(self):
         return self._memstore.master_tree.get_summary()
 
-    def get_children(self, node: Node, filter_state: FilterState = None) -> List[Node]:
+    def get_child_list(self, node: Node, filter_state: FilterState = None) -> List[Node]:
         assert isinstance(node, GDriveNode)
         if filter_state:
             return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
         else:
-            return self._memstore.master_tree.get_children(node)
+            return self._memstore.master_tree.get_child_list(node)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)

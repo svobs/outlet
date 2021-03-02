@@ -6,9 +6,9 @@ from typing import Deque, Dict, Iterable, List, Optional
 from constants import ROOT_PATH, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
-from backend.store.local.local_disk_tree import LocalDiskTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.decorator_node import DecoDirNode, DecoNode
+from model.node.decorator_node import DecoNode
+from model.node.directory_stats import DirectoryStats
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
@@ -55,12 +55,12 @@ class ChangeTree(DisplayTree):
     def get_root_node(self) -> Node:
         return self._category_tree.get_root_node()
 
-    def get_children_for_root(self) -> Iterable[Node]:
-        return self.get_children(self.get_root_node())
+    def get_child_list_for_root(self) -> Iterable[Node]:
+        return self.get_child_list(self.get_root_node())
 
-    def get_children(self, parent: Node) -> Iterable[Node]:
+    def get_child_list(self, parent: Node) -> Iterable[Node]:
         try:
-            return self._category_tree.get_child_list(parent.uid)
+            return self._category_tree.get_child_list(parent)
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
                 self.print_tree_contents_debug()
@@ -110,7 +110,7 @@ class ChangeTree(DisplayTree):
         assert tree_type != TREE_TYPE_MIXED, f'For {sn.spid}'
 
         cat_node_nid: UID = get_uid_for_op_and_tree_type(op_type, tree_type)
-        cat_node = self._category_tree.get_node(cat_node_nid)
+        cat_node = self._category_tree.get_node_for_uid(cat_node_nid)
         if cat_node:
             logger.debug(f'[{self.tree_id}] Found existing CategoryNode with OpType={op_type.name} nid="{cat_node_nid}"')
             assert isinstance(cat_node, ContainerNode)
@@ -123,7 +123,7 @@ class ChangeTree(DisplayTree):
         if self.show_whole_forest:
             # Create tree type root (e.g. 'GDrive' or 'Local Disk')
             nid = self._build_tree_nid(tree_type, None, None)
-            treetype_node = self._category_tree.get_node(nid)
+            treetype_node = self._category_tree.get_node_for_uid(nid)
             if not treetype_node:
                 # see UID to root_UID of relevant tree
                 treetype_node = RootTypeNode(node_identifier=SinglePathNodeIdentifier(UID(tree_type), ROOT_PATH, tree_type))
@@ -158,7 +158,7 @@ class ChangeTree(DisplayTree):
             if full_path == self.root_path:
                 break
             nid = self._build_tree_nid(tree_type, full_path, op_type)
-            ancestor = self._category_tree.get_node(nid=nid)
+            ancestor = self._category_tree.get_node_for_uid(nid=nid)
             if ancestor:
                 break
             else:
@@ -197,7 +197,7 @@ class ChangeTree(DisplayTree):
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
         parent_nid: UID = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type_for_display)
-        parent: Node = self._category_tree.get_node(nid=parent_nid)
+        parent: Node = self._category_tree.get_node_for_uid(nid=parent_nid)
         if parent:
             logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}')
         else:
@@ -211,15 +211,12 @@ class ChangeTree(DisplayTree):
                 logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} to parent {parent.node_identifier}')
 
             nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_path(), op_type_for_display)
-            if sn.node.is_dir():
-                deco_node = DecoDirNode(nid, parent_uid=parent.uid, delegate_node=sn.node)
-            else:
-                deco_node = DecoNode(nid, parent_uid=parent.uid, delegate_node=sn.node)
+            deco_node = DecoNode(nid, parent_uid=parent.uid, delegate_node=sn.node)
 
             self._category_tree.add_node(node=deco_node, parent=parent)
         except NodeAlreadyPresentError:
             # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
-            conflict_node: Node = self._category_tree.get_node(deco_node.uid)
+            conflict_node: Node = self._category_tree.get_node_for_uid(deco_node.uid)
             if conflict_node.md5 == sn.node.md5:
                 self.count_conflict_warnings += 1
                 if SUPER_DEBUG:
@@ -260,7 +257,7 @@ class ChangeTree(DisplayTree):
             cat_map = ChangeTree._make_cat_map()
         else:
             cat_map = {}
-        for cat_node in self._category_tree.get_child_list(uid):
+        for cat_node in self._category_tree.get_child_list_for_uid(uid):
             cat_count += 1
             assert isinstance(cat_node, CategoryNode), f'Not a CategoryNode: {cat_node}'
             cat_map[cat_node.op_type] = f'{cat_node.name}: {cat_node.get_summary()}'
@@ -275,7 +272,7 @@ class ChangeTree(DisplayTree):
             type_summaries = []
             type_map = {}
             cat_count = 0
-            for child in self._category_tree.get_child_list(self.get_root_node().uid):
+            for child in self._category_tree.get_child_list(self.get_root_node()):
                 assert isinstance(child, RootTypeNode), f'For {child}'
                 cat_map = self._build_summary_cat_map(child.uid)
                 if cat_map:
@@ -294,7 +291,8 @@ class ChangeTree(DisplayTree):
                 return 'Contents are identical'
             return self._build_cat_summaries_str(cat_map)
 
-    def refresh_stats(self):
+    def generate_dir_stats(self) -> Dict[UID, DirectoryStats]:
         logger.debug(f'[{self.tree_id}] Refreshing stats for change tree')
-        LocalDiskTree.refresh_stats_for_tree(self._category_tree)
+        stats = self._category_tree.generate_dir_stats(self.tree_id, self.get_root_node())
         logger.debug(f'[{self.tree_id}] Done refreshing stats for change tree')
+        return stats

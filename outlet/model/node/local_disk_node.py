@@ -6,7 +6,6 @@ from typing import Optional, Tuple
 
 from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node
-from model.node.trait import HasDirectoryStats
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_bool, ensure_int
@@ -52,7 +51,7 @@ class LocalNode(Node, ABC):
         return self._parent_uids
 
 
-class LocalDirNode(HasDirectoryStats, LocalNode):
+class LocalDirNode(LocalNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDirNode
@@ -62,12 +61,10 @@ class LocalDirNode(HasDirectoryStats, LocalNode):
     """
 
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool):
-        HasDirectoryStats.__init__(self)
         LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
-        HasDirectoryStats.update_from(self, other_node)
         LocalNode.update_from(self, other_node)
 
     def is_parent_of(self, potential_child_node: Node):
@@ -105,6 +102,11 @@ class LocalDirNode(HasDirectoryStats, LocalNode):
         # Local dirs are not currently synced to disk
         return None
 
+    def is_stats_loaded(self) -> bool:
+        # FIXME: deprecate this
+        return False
+        # return self.dir_stats is not None
+
     def __eq__(self, other):
         if not isinstance(other, LocalDirNode):
             return False
@@ -117,7 +119,7 @@ class LocalDirNode(HasDirectoryStats, LocalNode):
 
     def __repr__(self):
         return f'LocalDirNode({self.node_identifier} parent_uid={self._parent_uids} trashed={self._trashed} is_live={self.is_live()} ' \
-               f'size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'
+               f'size_bytes={self.get_size_bytes()}")'
 
 
 class LocalFileNode(LocalNode):

@@ -135,22 +135,22 @@ class DisplayTree(HasGetChildren):
 
         return path_list.startswith(self.root_path)
 
-    def get_children_for_root(self) -> Iterable[Node]:
-        return self.get_children(self.get_root_node())
+    def get_child_list_for_root(self) -> Iterable[Node]:
+        return self.get_child_list(self.get_root_node())
 
-    def get_children(self, parent: Node) -> Iterable[Node]:
+    def get_child_list(self, parent: Node) -> Iterable[Node]:
         assert parent, 'Arg "parent" cannot be null!'
-        return self.backend.get_children(parent, self.tree_id)
+        return self.backend.get_child_list(parent, self.tree_id)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         return self.backend.get_ancestor_list(spid, stop_at_path=self.root_path)
 
     def get_child_sn_list_for_root(self) -> Iterable[SPIDNodePair]:
-        child_node_list: Iterable[Node] = self.get_children_for_root()
+        child_node_list: Iterable[Node] = self.get_child_list_for_root()
         return self._make_child_sn_list(child_node_list, self.root_path)
 
     def get_child_sn_list(self, parent: SPIDNodePair) -> Iterable[SPIDNodePair]:
-        child_node_list: Iterable[Node] = self.get_children(parent.node)
+        child_node_list: Iterable[Node] = self.get_child_list(parent.node)
         return self._make_child_sn_list(child_node_list, parent.spid.get_single_path())
 
     @staticmethod
@@ -192,8 +192,8 @@ class NullDisplayTree(DisplayTree):
         super().__init__(backend, state)
         assert not state.root_exists, f'For state: {state}'
 
-    def get_children_for_root(self) -> Iterable[Node]:
+    def get_child_list_for_root(self) -> Iterable[Node]:
         return []
 
-    def get_children(self, parent: Node) -> Iterable[Node]:
+    def get_child_list(self, parent: Node) -> Iterable[Node]:
         return []

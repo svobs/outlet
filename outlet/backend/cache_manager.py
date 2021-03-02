@@ -26,7 +26,6 @@ from model.display_tree.filter_criteria import FilterCriteria
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
-from model.node.trait import HasDirectoryStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -442,24 +441,22 @@ class CacheManager(HasLifecycle):
 
                 if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
                     assert isinstance(subtree_root_node, LocalDirNode)
-                    # FIXME
-                    tree_meta.dir_stats = self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
+                    tree_meta.dir_stats = self._master_local.generate_dir_stats(subtree_root_node, tree_id)
                 elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
                     assert isinstance(subtree_root_node, GDriveFolder)
-                    # FIXME
-                    tree_meta.dir_stats = self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
+                    tree_meta.dir_stats = self._master_gdrive.generate_dir_stats(subtree_root_node, tree_id)
                 else:
                     assert False
 
         else:
             assert not tree_meta.is_first_order()
             logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the stats')
-            # FIXME
-            tree_meta.dir_stats = tree_meta.change_tree.refresh_stats()
+            tree_meta.dir_stats = tree_meta.change_tree.generate_dir_stats()
             subtree_root_node: Node = tree_meta.change_tree.get_root_node()
 
         # Now that we have all the stats, we can calculate the summary:
-        tree_meta.summary_msg = self._get_tree_summary(tree_id, subtree_root_node)
+        # FIXME: rewrite this
+        tree_meta.summary_msg = "TODO" # self._get_tree_summary(tree_id, subtree_root_node)
         logger.debug(f'[{tree_id}] Summary msg = "{tree_meta.summary_msg}"')
 
         # Load and bring up-to-date expanded & selected rows:
@@ -767,29 +764,29 @@ class CacheManager(HasLifecycle):
     def get_gdrive_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
-    def get_children(self, node: Node, tree_id: str):
+    def get_child_list(self, node: Node, tree_id: str) -> List:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_children() for tree_id={tree_id}, node = {node}')
+            logger.debug(f'Entered get_child_list() for tree_id={tree_id}, node = {node}')
 
         display_tree = self.get_active_display_tree_meta(tree_id)
         if not display_tree:
-            raise RuntimeError(f'get_children(): DisplayTree not registered: {tree_id}')
+            raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
 
-        # We assume that whenever get_children() is called, this represents a row expansion
+        # We assume that whenever get_child_list() is called, this represents a row expansion
         self._active_tree_manager.add_expanded_row(node.uid, tree_id)
 
         # Is change tree? Follow separate code path:
         if display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            return display_tree.change_tree.get_children(node)
+            return display_tree.change_tree.get_child_list(node)
         else:
             logger.debug(f'Found active display tree for {tree_id} with TreeDisplayMode: {display_tree.state.tree_display_mode.name}')
         filter_state = display_tree.filter_state
 
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            child_list = self._master_gdrive.get_children(node, filter_state)
+            child_list = self._master_gdrive.get_child_list(node, filter_state)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            child_list = self._master_local.get_children(node, filter_state)
+            child_list = self._master_local.get_child_list(node, filter_state)
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
 
@@ -1004,7 +1001,12 @@ class CacheManager(HasLifecycle):
         if not tree_meta:
             raise RuntimeError(f'_refresh_stats(): DisplayTree not registered: {tree_id}')
 
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats=tree_meta.dir_stats)
+        if tree_meta.filter_state.has_criteria():
+            dir_stats = tree_meta.filter_state.get_dir_stats()
+        else:
+            dir_stats = tree_meta.dir_stats
+
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats=dir_stats)
 
     def _get_tree_summary(self, tree_id: str, root_node: Node):
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
@@ -1025,7 +1027,7 @@ class CacheManager(HasLifecycle):
                     return self._master_gdrive.get_whole_tree_summary()
                 else:
                     logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
-                    assert isinstance(root_node, HasDirectoryStats)
+                    assert root_node.dir_stats
                     size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
                     trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
                     return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \

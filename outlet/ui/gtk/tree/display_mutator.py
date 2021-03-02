@@ -127,7 +127,7 @@ class DisplayMutator(HasLifecycle):
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
-            for child in self.con.get_tree().get_children(node):
+            for child in self.con.get_tree().get_child_list(node):
                 node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, node)
@@ -158,7 +158,7 @@ class DisplayMutator(HasLifecycle):
                 if SUPER_DEBUG:
                     logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.uid} ("{node.name}")')
 
-                child_list = self.con.get_tree().get_children(node)
+                child_list = self.con.get_tree().get_child_list(node)
                 for child in child_list:
                     node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, expanded_row_uid_set)
 
@@ -239,7 +239,7 @@ class DisplayMutator(HasLifecycle):
         node = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        children: List[Node] = self.con.get_tree().get_children(node)
+        children: List[Node] = self.con.get_tree().get_child_list(node)
 
         if expand_all:
             # populate all descendants
@@ -268,7 +268,7 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root()
+                top_level_node_list: List[Node] = self.con.get_tree().get_child_list_for_root()
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top-level nodes for root')
         finally:
             self._enable_node_signals = True
@@ -404,7 +404,7 @@ class DisplayMutator(HasLifecycle):
                     self.con.display_store.remove_loading_node(parent_iter)
 
                     # This will also add the node to the backend set of expanded nodes:
-                    children = self.con.get_tree().get_children(node)
+                    children = self.con.get_tree().get_child_list(node)
                     self._append_children(children=children, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,

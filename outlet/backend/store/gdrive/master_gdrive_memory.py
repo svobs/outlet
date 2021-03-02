@@ -86,7 +86,7 @@ class GDriveMemoryStore:
             raise RuntimeError(f'Not supported: to_trash=true!')
 
         if node.is_dir():
-            children: List[GDriveNode] = self.master_tree.get_children(node)
+            children: List[GDriveNode] = self.master_tree.get_child_list(node)
             if children:
                 raise RuntimeError(f'Cannot remove GDrive folder from cache: it contains {len(children)} children!')
 

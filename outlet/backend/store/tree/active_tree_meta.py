@@ -5,7 +5,7 @@ from backend.store.tree.change_tree import ChangeTree
 from backend.store.tree.filter_state import FilterState
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.store.tree.root_path_config import RootPathConfigPersister
-from model.node.trait import HasDirectoryStats
+from model.node.directory_stats import DirectoryStats
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,10 @@ class ActiveDisplayTreeMeta:
         self.selected_rows: Set[UID] = set()
 
         self.summary_msg: Optional[str] = None
-        self.dir_stats: Dict[UID, HasDirectoryStats] = {}
+        self.dir_stats: Dict[UID, DirectoryStats] = {}
+        """A map containing the current stats for each dir node (with no filter applied)"""
+        self.dir_stats_filtered: Dict[UID, DirectoryStats] = {}
+        """A map containing the current stats for each dir node, with the current filter applied"""
 
         logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
 

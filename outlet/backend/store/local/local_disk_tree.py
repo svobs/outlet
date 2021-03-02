@@ -1,16 +1,16 @@
+import logging
 import os
 from collections import deque
-from typing import Callable, Deque, List, Optional, Tuple
-import logging
+from typing import Deque, Dict, List, Optional, Tuple
 
 from constants import SUPER_DEBUG, TrashStatus
-from model.node.trait import HasDirectoryStats
+from model.node.directory_stats import DirectoryStats
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.node import Node
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from model.uid import UID
 from util import file_util
-from model.node.node import Node
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from util.simple_tree import BaseNode, SimpleTree
+from util.simple_tree import SimpleTree
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -31,13 +31,13 @@ class LocalDiskTree(SimpleTree):
     def can_add_without_mkdir(self, node: LocalNode) -> bool:
         parent_path: str = node.derive_parent_path()
         uid = self.backend.cacheman.get_uid_for_local_path(parent_path)
-        return self.get_node(uid) is not None
+        return self.get_node_for_uid(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
         root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.get_single_path()
-        parent: LocalNode = self.get_node(root_node_identifier.uid)
+        parent: LocalNode = self.get_node_for_uid(root_node_identifier.uid)
 
         # A trailing '/' will really screw us up:
         assert file_util.is_normalized(root_node_identifier.get_single_path()), f'Path: {root_node_identifier.get_single_path()}'
@@ -52,7 +52,7 @@ class LocalDiskTree(SimpleTree):
                 path_so_far: str = os.path.join(path_so_far, dir_name)
                 # TODO: Should not be using override_load_check=True here
                 uid = self.backend.cacheman.get_uid_for_local_path(path_so_far, override_load_check=True)
-                child: LocalNode = self.get_node(nid=uid)
+                child: LocalNode = self.get_node_for_uid(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
                     child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid),
@@ -65,7 +65,7 @@ class LocalDiskTree(SimpleTree):
                 parent = child
 
         # Finally, add the node itself:
-        child: Node = self.get_node(nid=node.uid)
+        child: Node = self.get_node_for_uid(nid=node.uid)
         if child:
             if child.is_dir() and node.is_dir():
                 # Just update
@@ -113,54 +113,10 @@ class LocalDiskTree(SimpleTree):
                 file_list.append(node)
 
         if subtree_root:
-            subtree_root_node = self.get_node(subtree_root.uid)
+            subtree_root_uid = subtree_root.uid
         else:
-            subtree_root_node = None
-        self.for_each_node_breadth_first(action_func=add_to_lists, subtree_root_node=subtree_root_node)
+            subtree_root_uid = None
+        self.for_each_node_breadth_first(action_func=add_to_lists, subtree_root_uid=subtree_root_uid)
 
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
-
-    def get_children(self, node: LocalNode) -> List[LocalNode]:
-        return self.get_child_list(node.identifier)
-
-    def refresh_stats(self, subtree_root_node: LocalNode, tree_id: str):
-        logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root: {subtree_root_node.node_identifier}')
-        stats_sw = Stopwatch()
-        LocalDiskTree.refresh_stats_for_tree(self, subtree_root_node)
-        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for local tree ("{subtree_root_node.node_identifier}")')
-
-    # TODO: find a home for this
-    @staticmethod
-    def refresh_stats_for_tree(tree, subtree_root_node: Optional[Node] = None):
-        if not subtree_root_node:
-            subtree_root_node = tree.get_root_node()
-
-        second_pass_stack: Deque[Node] = deque()
-        second_pass_stack.append(subtree_root_node)
-
-        def zero_out_stats_and_add_dirs_to_stack(n):
-            if n.is_dir():
-                if SUPER_DEBUG:
-                    logger.debug(f'Zeroing out stats for node: {n}')
-                assert isinstance(n, HasDirectoryStats) and isinstance(n, Node)
-                n.zero_out_stats()
-
-                second_pass_stack.append(n)
-
-        # go down tree, zeroing out existing stats and adding children to stack
-        tree.for_each_node_breadth_first(action_func=zero_out_stats_and_add_dirs_to_stack, subtree_root_node=subtree_root_node)
-
-        # now go back up the tree by popping the stack and building stats as we go:
-        while len(second_pass_stack) > 0:
-            node = second_pass_stack.pop()
-            assert node.is_dir() and isinstance(node, HasDirectoryStats)
-            node.set_stats_for_no_children()
-
-            children = tree.get_child_list(node.identifier)
-            if children:
-                for child in children:
-                    node.add_meta_metrics(child)
-
-            if SUPER_DEBUG:
-                logger.debug(f'Dir node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')

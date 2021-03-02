@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from model.node.node import Node
-
 
 class HasGetChildren(ABC):
     """
@@ -12,5 +10,5 @@ class HasGetChildren(ABC):
     """
 
     @abstractmethod
-    def get_children(self, node: Node) -> List[Node]:
+    def get_child_list(self, node) -> List:
         pass
