@@ -158,7 +158,7 @@ class ChangeTree(DisplayTree):
             if full_path == self.root_path:
                 break
             nid = self._build_tree_nid(tree_type, full_path, op_type)
-            ancestor = self._category_tree.get_node_for_uid(nid=nid)
+            ancestor = self._category_tree.get_node_for_uid(uid=nid)
             if ancestor:
                 break
             else:
@@ -197,7 +197,7 @@ class ChangeTree(DisplayTree):
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
         parent_nid: UID = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type_for_display)
-        parent: Node = self._category_tree.get_node_for_uid(nid=parent_nid)
+        parent: Node = self._category_tree.get_node_for_uid(uid=parent_nid)
         if parent:
             logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}')
         else:

@@ -102,7 +102,7 @@ class LocalDiskDiskStore(HasLifecycle):
         checks that at least registry & memory match. If UID is not in memory, guarantees that it will be stored with the value from registry.
         This method should only be called for the subtree root of display trees being loaded"""
         existing_uid = subtree_root.uid
-        new_uid = self.backend.cacheman.get_uid_for_local_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
+        new_uid = self.backend.cacheman.get_uid_for_local_path(subtree_root.get_single_path(), existing_uid)
         if existing_uid != new_uid:
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.uid = new_uid

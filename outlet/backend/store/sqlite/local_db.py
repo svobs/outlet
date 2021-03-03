@@ -56,7 +56,7 @@ class LocalDiskDatabase(MetaDatabase):
 
     def _get_parent_uid(self, full_path: str) -> UID:
         parent_path = str(pathlib.Path(full_path).parent)
-        return self.cacheman.get_uid_for_local_path(parent_path, override_load_check=True)
+        return self.cacheman.get_uid_for_local_path(parent_path)
 
     # LOCAL_FILE operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -65,7 +65,7 @@ class LocalDiskDatabase(MetaDatabase):
         uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
         # make sure we call get_uid_for_local_path() for both the node's path and its parent's path, so that UID mapper has a chance to store it
-        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
+        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
         parent_uid: UID = self._get_parent_uid(full_path)
@@ -104,7 +104,7 @@ class LocalDiskDatabase(MetaDatabase):
 
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
         full_path = row[1]
-        uid = self.cacheman.get_uid_for_local_path(full_path, row[0], override_load_check=True)
+        uid = self.cacheman.get_uid_for_local_path(full_path, row[0])
         assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
         parent_uid: UID = self._get_parent_uid(full_path)
         return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid, row[2], bool(row[3]))

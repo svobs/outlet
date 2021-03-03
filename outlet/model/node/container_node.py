@@ -1,7 +1,8 @@
 import os
-from typing import List
+from typing import List, Optional
 
 from error import InvalidOperationError
+from model.node.directory_stats import DirectoryStats
 from model.uid import UID
 from model.user_op import DISPLAYED_USER_OP_TYPES, UserOpType
 from constants import IconId, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -19,10 +20,12 @@ class ContainerNode(Node):
     """
     def __init__(self, node_identifier: SinglePathNodeIdentifier):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
+        self.dir_stats: Optional[DirectoryStats] = None
         Node.__init__(self, node_identifier)
 
     def update_from(self, other_node):
         Node.update_from(self, other_node)
+        self.dir_stats = other_node.dir_stats
 
     def get_parent_uids(self) -> List[UID]:
         raise InvalidOperationError
@@ -42,6 +45,16 @@ class ContainerNode(Node):
     @classmethod
     def get_obj_type(cls):
         return OBJ_TYPE_DIR
+
+    def get_size_bytes(self):
+        if self.dir_stats:
+            return self.dir_stats.get_size_bytes()
+        return None
+
+    def get_etc(self):
+        if self.dir_stats:
+            return self.dir_stats.get_etc()
+        return None
 
     @classmethod
     def is_dir(cls):

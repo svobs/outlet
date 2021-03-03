@@ -255,7 +255,7 @@ class LocalDiskMasterStore(MasterStore):
         checks that at least registry & memory match. If UID is not in memory, guarantees that it will be stored with the value from registry.
         This method should only be called for the subtree root of display trees being loaded"""
         existing_uid = subtree_root.uid
-        new_uid = self.get_uid_for_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
+        new_uid = self.get_uid_for_path(subtree_root.get_single_path(), existing_uid)
         if existing_uid != new_uid:
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.uid = new_uid
@@ -473,7 +473,7 @@ class LocalDiskMasterStore(MasterStore):
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self.get_uid_for_path(domain_id, uid_suggestion)
 
-    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
+    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         assert isinstance(full_path, str)
         return self.uid_mapper.get_uid_for_path(full_path, uid_suggestion)
 

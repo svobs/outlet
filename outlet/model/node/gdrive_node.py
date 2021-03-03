@@ -137,7 +137,7 @@ class GDriveFolder(GDriveNode):
                  is_shared, shared_by_user_uid, sync_ts, all_children_fetched):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
-        self.dir_stats: DirectoryStats = None
+        self.dir_stats: Optional[DirectoryStats] = None
 
         self.all_children_fetched: bool = all_children_fetched
         """If true, all its children have been fetched from Google"""
@@ -168,6 +168,16 @@ class GDriveFolder(GDriveNode):
             return self.uid in potential_child_node.get_parent_uids()
         return False
 
+    def get_size_bytes(self):
+        if self.dir_stats:
+            return self.dir_stats.get_size_bytes()
+        return None
+
+    def get_etc(self):
+        if self.dir_stats:
+            return self.dir_stats.get_etc()
+        return None
+
     @property
     def mime_type_uid(self) -> UID:
         return GDRIVE_FOLDER_MIME_TYPE_UID
@@ -192,14 +202,12 @@ class GDriveFolder(GDriveNode):
                 return IconId.ICON_DIR_MK
         return IconId.ICON_DIR_TRASHED
 
-    def get_summary(self) -> str:
-        if not self.dir_stats or (not self.dir_stats.file_count and not self.dir_stats.dir_count):
+    @staticmethod
+    def get_summary(dir_stats) -> str:
+        if not dir_stats or (not dir_stats.file_count and not dir_stats.dir_count):
             return '0 items'
-        size = format.humanfriendlier_size(self.dir_stats.size_bytes)
-        return f'{size} in {self.dir_stats.file_count:n} files and {self.dir_stats.dir_count:n} folders'
-
-    def is_stats_loaded(self) -> bool:
-        return self.dir_stats is not None
+        size = format.humanfriendlier_size(dir_stats.size_bytes)
+        return f'{size} in {dir_stats.file_count:n} files and {dir_stats.dir_count:n} folders'
 
     def __eq__(self, other):
         if not isinstance(other, GDriveFolder):

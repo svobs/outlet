@@ -257,7 +257,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         for uid, dir_meta in dir_stats.items():
             dir_meta_grpc: DirMetaUpdate = signal.stats_update.dir_meta_list.add()
             dir_meta_grpc.uid = uid
-            GRPCConverter.dir_meta_to_grpc(dir_meta, dir_meta_grpc.dir_meta)
+            GRPCConverter.dir_stats_to_grpc(dir_meta, dir_meta_grpc)
 
         self._send_grpc_signal_to_all_clients(signal)
 

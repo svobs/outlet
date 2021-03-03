@@ -64,17 +64,17 @@ class GRPCConverter:
         if isinstance(node, ContainerNode):
             # ContainerNode or subclass
             if isinstance(node, CategoryNode):
-                GRPCConverter._dir_meta_to_grpc(node, grpc_node.category_meta)
+                GRPCConverter.dir_stats_to_grpc(node.dir_stats, grpc_node.category_meta)
                 grpc_node.category_meta.op_type = node.op_type
             elif isinstance(node, RootTypeNode):
-                GRPCConverter._dir_meta_to_grpc(node, grpc_node.root_type_meta)
+                GRPCConverter.dir_stats_to_grpc(node.dir_stats, grpc_node.root_type_meta)
             else:
                 # plain ContainerNode
-                GRPCConverter._dir_meta_to_grpc(node, grpc_node.container_meta)
+                GRPCConverter.dir_stats_to_grpc(node.dir_stats, grpc_node.container_meta)
         elif node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             if node.is_dir():
                 assert isinstance(node, LocalDirNode)
-                GRPCConverter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
+                GRPCConverter.dir_stats_to_grpc(node.dir_stats, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
                 grpc_node.local_dir_meta.parent_uid = node.get_single_parent()
             else:
@@ -96,7 +96,7 @@ class GRPCConverter:
             # GDriveNode
             if node.is_dir():
                 assert isinstance(node, GDriveFolder)
-                GRPCConverter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
+                GRPCConverter.dir_stats_to_grpc(node.dir_stats, grpc_node.gdrive_folder_meta)
                 grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched
                 meta = grpc_node.gdrive_folder_meta
             else:
@@ -133,19 +133,6 @@ class GRPCConverter:
         return grpc_node
 
     @staticmethod
-    def _dir_meta_to_grpc(node: DirectoryStats, dir_meta_parent):
-        if node.is_stats_loaded():
-            dir_meta_parent.dir_meta.has_data = True
-            dir_meta_parent.dir_meta.file_count = node.file_count
-            dir_meta_parent.dir_meta.dir_count = node.dir_count
-            dir_meta_parent.dir_meta.trashed_file_count = node.trashed_file_count
-            dir_meta_parent.dir_meta.trashed_dir_count = node.trashed_dir_count
-            dir_meta_parent.dir_meta.size_bytes = node.get_size_bytes()
-            dir_meta_parent.dir_meta.trashed_bytes = node.trashed_bytes
-        else:
-            dir_meta_parent.dir_meta.has_data = False
-
-    @staticmethod
     def optional_node_from_grpc_container(node_container) -> Optional[Node]:
         if not node_container.HasField('node'):
             return None
@@ -172,11 +159,11 @@ class GRPCConverter:
                                 meta.owner_uid, meta.drive_id, grpc_node.is_shared, meta.shared_by_user_uid, meta.sync_ts,
                                 meta.all_children_fetched)
             node.set_parent_uids([UID(uid) for uid in meta.parent_uid_list])
-            GRPCConverter.dir_meta_from_grpc(node, meta.dir_meta)
+            node.dir_stats = GRPCConverter.dir_stats_from_grpc(meta.dir_meta)
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)
             node = LocalDirNode(node_identifier, grpc_node.local_dir_meta.parent_uid, grpc_node.trashed, grpc_node.local_dir_meta.is_live)
-            GRPCConverter.dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
+            node.dir_stats = GRPCConverter.dir_stats_from_grpc(grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta
             assert isinstance(node_identifier, LocalNodeIdentifier)
@@ -185,15 +172,15 @@ class GRPCConverter:
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = ContainerNode(node_identifier)
-            GRPCConverter.dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
+            node.dir_stats = GRPCConverter.dir_stats_from_grpc(grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("category_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = CategoryNode(node_identifier, grpc_node.category_meta.op_type)
-            GRPCConverter.dir_meta_from_grpc(node, grpc_node.category_meta.dir_meta)
+            node.dir_stats = GRPCConverter.dir_stats_from_grpc(grpc_node.category_meta.dir_meta)
         elif grpc_node.HasField("root_type_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = RootTypeNode(node_identifier)
-            GRPCConverter.dir_meta_from_grpc(node, grpc_node.root_type_meta.dir_meta)
+            node.dir_stats = GRPCConverter.dir_stats_from_grpc(grpc_node.root_type_meta.dir_meta)
         else:
             raise RuntimeError('Could not parse GRPC node!')
 
@@ -205,8 +192,8 @@ class GRPCConverter:
         return node
 
     @staticmethod
-    def dir_meta_from_grpc(dir_stats: DirectoryStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
-        assert dir_stats, 'dir_stats param cannot be null!'
+    def dir_stats_from_grpc(dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
+        dir_stats = DirectoryStats()
         if dir_meta.has_data:
             dir_stats.file_count = dir_meta.file_count
             dir_stats.dir_count = dir_meta.dir_count
@@ -219,18 +206,17 @@ class GRPCConverter:
         return dir_stats
 
     @staticmethod
-    def dir_meta_to_grpc(dir_stats: DirectoryStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
-        assert dir_stats, 'dir_stats param cannot be null!'
-        if dir_stats.is_stats_loaded():
-            dir_meta.file_count = dir_stats.file_count
-            dir_meta.dir_count = dir_stats.dir_count
-            dir_meta.trashed_file_count = dir_stats.trashed_file_count
-            dir_meta.trashed_dir_count = dir_stats.trashed_dir_count
-            dir_meta.size_bytes = dir_stats.get_size_bytes()
-            dir_meta.trashed_bytes = dir_stats.trashed_bytes
+    def dir_stats_to_grpc(dir_stats: DirectoryStats, dir_meta_parent):
+        if dir_stats:
+            dir_meta_parent.dir_meta.has_data = True
+            dir_meta_parent.dir_meta.file_count = dir_stats.file_count
+            dir_meta_parent.dir_meta.dir_count = dir_stats.dir_count
+            dir_meta_parent.dir_meta.trashed_file_count = dir_stats.trashed_file_count
+            dir_meta_parent.dir_meta.trashed_dir_count = dir_stats.trashed_dir_count
+            dir_meta_parent.dir_meta.size_bytes = dir_stats.get_size_bytes()
+            dir_meta_parent.dir_meta.trashed_bytes = dir_stats.trashed_bytes
         else:
-            dir_meta.has_data = False
-        return dir_stats
+            dir_meta_parent.dir_meta.has_data = False
 
     # List[Node]
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

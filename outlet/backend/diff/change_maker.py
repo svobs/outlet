@@ -173,7 +173,7 @@ class OneSide:
                 new_ancestor_uid = self.backend.uid_generator.next_uid()
                 folder_name = os.path.basename(parent_path)
                 new_ancestor_node = GDriveFolder(GDriveIdentifier(uid=new_ancestor_uid, path_list=parent_path), goog_id=None, node_name=folder_name,
-                                                 trashed=False, create_ts=None, modify_ts=None, owner_uid=None,
+                                                 trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None,
                                                  drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')

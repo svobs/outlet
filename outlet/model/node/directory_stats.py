@@ -64,9 +64,6 @@ class DirectoryStats:
                 self.trashed_bytes += child_node.get_size_bytes()
 
     def get_etc(self) -> str:
-        if not self.is_stats_loaded():
-            return ''
-
         files = self.file_count + self.trashed_file_count
         if files == 1:
             multi = ''
@@ -87,8 +84,6 @@ class DirectoryStats:
         return f'{files_str}{folders_str}'
 
     def get_summary(self) -> str:
-        if not self.is_stats_loaded():
-            return ''
         if not self.file_count and not self.dir_count:
             return '0 items'
         size = format.humanfriendlier_size(self._size_bytes)
@@ -99,6 +94,3 @@ class DirectoryStats:
 
     def set_size_bytes(self, size_bytes: int):
         self._size_bytes = size_bytes
-
-    def is_stats_loaded(self):
-        return self._size_bytes is not None

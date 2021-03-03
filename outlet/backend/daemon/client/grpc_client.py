@@ -195,7 +195,7 @@ class BackendGRPCClient(OutletBackend):
         grpc_response = self.grpc_stub.get_next_uid(request)
         return UID(grpc_response.uid)
 
-    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
+    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         request = GetUidForLocalPath_Request()
         request.full_path = full_path
         request.uid_suggestion = uid_suggestion

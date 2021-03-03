@@ -5,6 +5,7 @@ from abc import ABC
 from typing import Optional, Tuple
 
 from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
+from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
@@ -62,10 +63,12 @@ class LocalDirNode(LocalNode):
 
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool):
         LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
+        self.dir_stats: Optional[DirectoryStats] = None
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
         LocalNode.update_from(self, other_node)
+        self.dir_stats = other_node.dir_stats
 
     def is_parent_of(self, potential_child_node: Node):
         if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
@@ -74,6 +77,16 @@ class LocalDirNode(LocalNode):
                 rel_path = rel_path[1:]
             return rel_path == potential_child_node.name
         return False
+
+    def get_size_bytes(self):
+        if self.dir_stats:
+            return self.dir_stats.get_size_bytes()
+        return None
+
+    def get_etc(self):
+        if self.dir_stats:
+            return self.dir_stats.get_etc()
+        return None
 
     @classmethod
     def has_tuple(cls) -> bool:
@@ -101,11 +114,6 @@ class LocalDirNode(LocalNode):
     def sync_ts(self):
         # Local dirs are not currently synced to disk
         return None
-
-    def is_stats_loaded(self) -> bool:
-        # FIXME: deprecate this
-        return False
-        # return self.dir_stats is not None
 
     def __eq__(self, other):
         if not isinstance(other, LocalDirNode):

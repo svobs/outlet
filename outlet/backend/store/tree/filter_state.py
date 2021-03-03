@@ -102,7 +102,11 @@ class FilterState:
                         dir_stats = DirectoryStats()
                         dir_stats_dict[parent_node.uid] = dir_stats
 
-                    dir_stats.add_meta_metrics(child, dir_stats_dict)
+                    if child.is_dir():
+                        child_stats = dir_stats_dict[child.uid]
+                        dir_stats.add_dir_stats(child_stats, child.get_trashed_status() == TrashStatus.NOT_TRASHED)
+                    else:
+                        dir_stats.add_file_node(child)
             if filtered_child_list:
                 node_dict[parent_node.uid] = filtered_child_list
 
@@ -124,7 +128,7 @@ class FilterState:
                 self.cached_node_dict, self.cached_dir_stats = self._build_node_dict(parent_tree, parent_node)
             else:
                 filtered_list: List[Node] = []
-                dir_stats = DirectoryStats()
+                dir_stats = DirectoryStats()  # Treat the whole list like one dir
                 queue: Deque[Node] = deque()
                 for node in parent_tree.get_child_list(parent_node):
                     queue.append(node)
@@ -133,8 +137,14 @@ class FilterState:
                     node: Node = queue.popleft()
 
                     if self.matches(node):
+                        # Add to node_dict:
                         filtered_list.append(node)
-                        dir_stats.add_meta_metrics(node)
+
+                        # Add to dir_stats:
+                        if node.get_trashed_status() == TrashStatus.NOT_TRASHED:
+                            dir_stats.trashed_dir_count += 1
+                        else:
+                            dir_stats.dir_count += 1
 
                     if node.is_dir():
                         for child_node in parent_tree.get_child_list(node):

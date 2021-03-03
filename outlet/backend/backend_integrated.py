@@ -81,7 +81,7 @@ class BackendIntegrated(OutletBackend):
     def next_uid(self) -> UID:
         return self.uid_generator.next_uid()
 
-    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
+    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self.cacheman.get_uid_for_local_path(full_path, uid_suggestion)
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:

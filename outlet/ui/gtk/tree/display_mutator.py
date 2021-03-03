@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 from datetime import datetime
-from typing import Deque, Iterable, List, Set
+from typing import Deque, Dict, Iterable, List, Set
 
 import humanfriendly
 from pydispatch import dispatcher
@@ -14,6 +14,7 @@ from model.display_tree.build_struct import RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.container_node import CategoryNode
+from model.node.directory_stats import DirectoryStats
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
@@ -574,7 +575,7 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Requesting subtree stats refresh')
         self.con.app.backend.enqueue_refresh_subtree_stats_task(root_uid=self.con.get_tree().root_uid, tree_id=self.con.tree_id)
 
-    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats: Dict):
+    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats: Dict[UID, DirectoryStats]):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
         if sender != self.con.tree_id:
@@ -594,15 +595,16 @@ class DisplayMutator(HasLifecycle):
                 logger.error(f'[{self.con.tree_id}] No node for child of {par_node}')
                 return
             assert node, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
-            if node.is_ephemereal():
+            if node.is_ephemereal() or not node.is_dir():
                 return
 
-            if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; tree_path="{ds.model.get_path(tree_iter)}"; '
-                             f'size={node.get_size_bytes()} etc={node.get_etc()}')
-            ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
-            ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
-            ds.model[tree_iter][self.con.treeview_meta.col_num_data] = node
+            dir_stats_for_node = dir_stats.get(node.uid, None)
+            if dir_stats_for_node:
+                if SUPER_DEBUG:
+                    logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; tree_path="{ds.model.get_path(tree_iter)}"; '
+                                 f'size={dir_stats_for_node.get_size_bytes()} etc={dir_stats_for_node.get_etc()}')
+                ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(dir_stats_for_node)
+                ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = dir_stats_for_node.get_etc()
 
             redraw_displayed_node.nodes_redrawn += 1
 
@@ -767,9 +769,9 @@ class DisplayMutator(HasLifecycle):
             row_values.append(inconsistent)  # Inconsistent
 
 
-def _format_size_bytes(node: Node):
+def _format_size_bytes(node):
     # remember that 0 and None mean different things here:
-    if node.get_size_bytes() is None:
+    if not node or node.get_size_bytes() is None:
         return None
     else:
         return humanfriendly.format_size(node.get_size_bytes())

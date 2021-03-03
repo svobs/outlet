@@ -34,10 +34,8 @@ class ActiveDisplayTreeMeta:
         self.selected_rows: Set[UID] = set()
 
         self.summary_msg: Optional[str] = None
-        self.dir_stats: Dict[UID, DirectoryStats] = {}
-        """A map containing the current stats for each dir node (with no filter applied)"""
-        self.dir_stats_filtered: Dict[UID, DirectoryStats] = {}
-        """A map containing the current stats for each dir node, with the current filter applied"""
+        self.dir_stats_unfiltered: Dict[UID, DirectoryStats] = {}
+        """A map containing the current stats for each dir node (with NO filter applied)"""
 
         logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
 

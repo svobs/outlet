@@ -268,7 +268,7 @@ class OpDatabase(MetaDatabase):
 
     def _get_parent_uid(self, full_path: str) -> UID:
         parent_path = str(pathlib.Path(full_path).parent)
-        return self.cacheman.get_uid_for_local_path(parent_path, override_load_check=True)
+        return self.cacheman.get_uid_for_local_path(parent_path)
 
     def _verify_goog_id_consistency(self, goog_id: str, obj_uid: UID):
         if goog_id:
@@ -317,7 +317,7 @@ class OpDatabase(MetaDatabase):
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
         action_uid_int, uid_int, full_path, is_live = row
 
-        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
+        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         parent_uid: UID = self._get_parent_uid(full_path)
         obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid, TrashStatus.NOT_TRASHED, bool(is_live))
@@ -330,7 +330,7 @@ class OpDatabase(MetaDatabase):
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
         action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
-        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
+        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
         parent_uid: UID = self._get_parent_uid(full_path)

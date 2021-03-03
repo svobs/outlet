@@ -1,17 +1,13 @@
 import logging
 import os
-from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import List, Tuple
 
-from constants import SUPER_DEBUG, TrashStatus
-from model.node.directory_stats import DirectoryStats
+from constants import TrashStatus
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from model.uid import UID
 from util import file_util
 from util.simple_tree import SimpleTree
-from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +46,7 @@ class LocalDiskTree(SimpleTree):
         if path_segments:
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
-                # TODO: Should not be using override_load_check=True here
-                uid = self.backend.cacheman.get_uid_for_local_path(path_so_far, override_load_check=True)
+                uid = self.backend.cacheman.get_uid_for_local_path(path_so_far)
                 child: LocalNode = self.get_node_for_uid(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
