@@ -75,7 +75,8 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_child_list(self, parent: Node, tree_id: str) -> Iterable[Node]:
+    def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> Iterable[Node]:
+        """If max_results is 0, unlimited nodes are returned. If nonzero and actual node count exceeds this, ResultsExceededError is raised"""
         pass
 
     @abstractmethod

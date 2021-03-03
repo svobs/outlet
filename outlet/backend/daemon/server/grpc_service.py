@@ -26,6 +26,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response, UserOp
+from error import ResultsExceededError
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
@@ -328,16 +329,18 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def get_child_list_for_node(self, request, context):
-        # TODO: refactor this to only send node UID in request. Backend should look up the node on its own
+        max_results = request.max_results
 
-        # FIXME: set a limit on number of nodes returned, and send only an EphemeralNode instead
-        parent_node = GRPCConverter.node_from_grpc(request.parent_node)
-
-        child_list = self.cacheman.get_child_list(parent_node, request.tree_id)
         response = GetChildList_Response()
-        GRPCConverter.node_list_to_grpc(child_list, response.node_list)
+        try:
+            child_list = self.cacheman.get_child_list(request.parent_uid, request.tree_id, max_results)
+            GRPCConverter.node_list_to_grpc(child_list, response.node_list)
+            logger.debug(f'[{request.tree_id}] Relaying {len(child_list)} children for node {request.parent_uid}')
+        except ResultsExceededError as err:
+            response.result_exceeded_count = err.actual_count
+            logger.debug(f'[{request.tree_id}] Too many children ({response.result_exceeded_count}) for node {request.parent_uid}'
+                         f' (max was {max_results})')
 
-        logger.debug(f'[{request.tree_id}] Relaying {len(child_list)} children for: {parent_node.node_identifier}')
         return response
 
     def get_ancestor_list_for_spid(self, request, context):

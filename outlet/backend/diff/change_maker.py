@@ -261,7 +261,7 @@ class ChangeMaker:
             sn: SPIDNodePair = queue.popleft()
             if sn.node.is_live():  # avoid pending op nodes
                 if sn.node.is_dir():
-                    child_list = self.backend.cacheman.get_child_list(sn.node, tree_id=tree_id)
+                    child_list = self.backend.cacheman.get_child_list(sn.node.uid, tree_id=tree_id)
                     if child_list:
                         for child in child_list:
                             if child.node_identifier.is_spid():

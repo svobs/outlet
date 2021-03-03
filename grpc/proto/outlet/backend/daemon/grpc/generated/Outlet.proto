@@ -199,13 +199,14 @@ message SendSignalResponse {
 }
 
 message GetChildList_Request {
-	Node parent_node = 1;
-	FilterCriteria filter_criteria = 2;
-	string tree_id = 3;
+	uint32 parent_uid = 1;
+	string tree_id = 2;
+	uint32 max_results = 3; // 0=unlimited
 }
 
 message GetChildList_Response {
 	repeated Node node_list = 1;
+	uint32 result_exceeded_count = 2; // if max_results exceeded, node_list is empty and this indicates result count
 }
 
 message GetAncestorList_Request {

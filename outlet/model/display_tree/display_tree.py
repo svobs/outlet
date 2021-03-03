@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Deque, Iterable, List, Optional, Union
 
-from constants import TreeDisplayMode
+from constants import MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode
 from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
@@ -140,7 +140,7 @@ class DisplayTree(HasGetChildren):
 
     def get_child_list(self, parent: Node) -> Iterable[Node]:
         assert parent, 'Arg "parent" cannot be null!'
-        return self.backend.get_child_list(parent, self.tree_id)
+        return self.backend.get_child_list(parent.uid, self.tree_id, max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         return self.backend.get_ancestor_list(spid, stop_at_path=self.root_path)

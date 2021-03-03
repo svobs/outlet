@@ -9,6 +9,7 @@ import humanfriendly
 from pydispatch import dispatcher
 
 from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG, TreeDisplayMode
+from error import ResultsExceededError
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -254,6 +255,21 @@ class DisplayMutator(HasLifecycle):
 
         self._expand_row_without_event_firing(tree_path=tree_path, expand_all=expand_all)
 
+
+
+
+
+
+    # TODO TODO
+    def _get_child_list_or_exceeded_count(self, uid: UID):
+        try:
+            with self._lock:
+                top_level_node_list: List[Node] = self.con.get_tree().get_child_list_for_root()
+            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top-level nodes for root')
+        except ResultsExceededError as err:
+            too_many_results = True
+            count_results = err.actual_count
+
     def populate_root(self):
         """START HERE.
         More like "repopulate" - clears model before populating.
@@ -264,13 +280,21 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
                      f' expanded_rows={rows.expanded} selected_rows={rows.selected}')
 
+        too_many_results: bool = False
+        count_results: int = 0
+
         # This may be a long task
         try:
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
-            with self._lock:
-                top_level_node_list: List[Node] = self.con.get_tree().get_child_list_for_root()
-            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top-level nodes for root')
+            try:
+                with self._lock:
+                    top_level_node_list: List[Node] = self.con.get_tree().get_child_list_for_root()
+                logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top-level nodes for root')
+            except ResultsExceededError as err:
+                too_many_results = True
+                count_results = err.actual_count
+
         finally:
             self._enable_node_signals = True
 
@@ -281,9 +305,9 @@ class DisplayMutator(HasLifecycle):
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
 
-                if len(top_level_node_list) > MAX_NUMBER_DISPLAYABLE_CHILD_NODES:
-                    logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
-                    self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', IconId.ICON_ALERT)
+                if too_many_results:
+                    logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {count_results}')
+                    self._append_empty_child(root_iter, f'ERROR: too many items to display ({count_results:n})', IconId.ICON_ALERT)
 
                 elif self.con.treeview_meta.lazy_load:
                     logger.debug(f'[{self.con.tree_id}] Populating via lazy load')

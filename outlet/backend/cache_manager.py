@@ -19,7 +19,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_
     SUPER_DEBUG, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK, TreeDisplayMode, UID_PATH_FILE_NAME
 from backend.diff.change_maker import ChangeMaker
-from error import InvalidOperationError
+from error import InvalidOperationError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTreeUiState
@@ -765,31 +765,39 @@ class CacheManager(HasLifecycle):
     def get_gdrive_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
-    def get_child_list(self, node: Node, tree_id: str, max_results: int = 0) -> List:
+    def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> List:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_child_list() for tree_id={tree_id}, node = {node}')
+            logger.debug(f'Entered get_child_list() for tree_id={tree_id}, parent_uid = {parent_uid}')
+
+        node: Node = self.get_node_for_uid(parent_uid)
+        if not node:
+            raise RuntimeError(f'get_child_list(): could not find parent node with UID {parent_uid}')
 
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
 
         # We assume that whenever get_child_list() is called, this represents a row expansion
-        self._active_tree_manager.add_expanded_row(node.uid, tree_id)
+        self._active_tree_manager.add_expanded_row(parent_uid, tree_id)
 
         # Is change tree? Follow separate code path:
         if tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            return tree_meta.change_tree.get_child_list(node)
+            child_list = tree_meta.change_tree.get_child_list(node)
+            # FIXME: are we not filtering change trees?
         else:
             logger.debug(f'Found active display tree for {tree_id} with TreeDisplayMode: {tree_meta.state.tree_display_mode.name}')
-        filter_state = tree_meta.filter_state
+            filter_state = tree_meta.filter_state
 
-        tree_type: int = node.node_identifier.tree_type
-        if tree_type == TREE_TYPE_GDRIVE:
-            child_list = self._master_gdrive.get_child_list(node, filter_state)
-        elif tree_type == TREE_TYPE_LOCAL_DISK:
-            child_list = self._master_local.get_child_list(node, filter_state)
-        else:
-            raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
+            tree_type: int = node.node_identifier.tree_type
+            if tree_type == TREE_TYPE_GDRIVE:
+                child_list = self._master_gdrive.get_child_list(node, filter_state)
+            elif tree_type == TREE_TYPE_LOCAL_DISK:
+                child_list = self._master_local.get_child_list(node, filter_state)
+            else:
+                raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
+
+        if max_results and (len(child_list) > max_results):
+            raise ResultsExceededError(len(child_list))
 
         self._fill_in_dir_stats(child_list, tree_meta)
 

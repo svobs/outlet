@@ -21,6 +21,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
 from constants import SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
+from error import ResultsExceededError
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
@@ -234,16 +235,23 @@ class BackendGRPCClient(OutletBackend):
         logger.debug(f'Got op execution state from backend server: is_playing={response.is_enabled}')
         return response.is_enabled
 
-    def get_child_list(self, parent: Node, tree_id: str) -> Iterable[Node]:
+    def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> Iterable[Node]:
         if SUPER_DEBUG:
-            logger.debug(f'[{tree_id}] Entered get_child_list(): parent={parent}')
+            logger.debug(f'[{tree_id}] Entered get_child_list(): parent_uid={parent_uid}')
         assert tree_id, f'GRPCClient.get_child_list(): No tree_id provided!'
+        assert max_results >= 0, f'Bad value for max_results: {max_results}'
 
         request = GetChildList_Request()
+        request.parent_uid = parent_uid
         request.tree_id = tree_id
-        GRPCConverter.node_to_grpc(parent, request.parent_node)
+        request.max_results = max_results
 
         response = self.grpc_stub.get_child_list_for_node(request)
+
+        if response.result_exceeded_count > 0:
+            # Convert to exception on this side
+            assert max_results > 0, f'Got nonzero result_exceeded_count ({response.result_exceeded_count}) but max_results was 0!'
+            raise ResultsExceededError(response.result_exceeded_count)
         return GRPCConverter.node_list_from_grpc(response.node_list)
 
     def set_selected_rows(self, tree_id: str, selected: Set[UID]):

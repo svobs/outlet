@@ -50,7 +50,7 @@ class NodeNotPresentError(RuntimeError):
     """
     def __init__(self, msg: str = None):
         if not msg:
-            msg = f'Node already present!'
+            msg = f'Node not present!'
         super(NodeNotPresentError, self).__init__(msg)
 
 
@@ -67,3 +67,17 @@ class NodeAlreadyPresentError(RuntimeError):
             msg = f'Node already present!'
         super(NodeAlreadyPresentError, self).__init__(msg)
 
+
+class ResultsExceededError(RuntimeError):
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS ResultsExceededError
+
+    Thrown by BE's get_child_list() when max_results was nonzero and was exceeded
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+    def __init__(self, actual_count: int, msg: str = None):
+        self.actual_count: int = actual_count
+        if not msg:
+            msg = f'Result count ({actual_count}) exceeded max allowed!'
+        super(ResultsExceededError, self).__init__(msg)
