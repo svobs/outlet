@@ -1,5 +1,4 @@
 from constants import TrashStatus
-from util import format
 from typing import Optional
 
 
@@ -82,12 +81,6 @@ class DirectoryStats:
             folders_str = ''
 
         return f'{files_str}{folders_str}'
-
-    def get_summary(self) -> str:
-        if not self.file_count and not self.dir_count:
-            return '0 items'
-        size = format.humanfriendlier_size(self._size_bytes)
-        return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
 
     def get_size_bytes(self) -> Optional[int]:
         return self._size_bytes

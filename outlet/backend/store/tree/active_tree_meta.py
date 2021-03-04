@@ -35,7 +35,8 @@ class ActiveDisplayTreeMeta:
 
         self.summary_msg: Optional[str] = None
         self.dir_stats_unfiltered: Dict[UID, DirectoryStats] = {}
-        """A map containing the current stats for each dir node (with NO filter applied)"""
+        """A map containing the current stats for each dir node (with NO filter applied).
+        See the filter_state for a map of stats WITH the filter applied"""
 
         logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
 

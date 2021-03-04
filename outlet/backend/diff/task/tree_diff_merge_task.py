@@ -62,8 +62,6 @@ class TreeDiffMergeTask:
 
             dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_DONE, sender=sender, tree=merged_changes_tree)
             logger.debug(f'{sw} Finished generating merge tree')
-
-            logger.info(f'Generated merge preview tree: {merged_changes_tree.get_summary()}')
         except Exception as err:
             logger.exception(err)
             dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_FAILED, sender=sender)

@@ -1,8 +1,8 @@
 import logging
 from collections import Counter, defaultdict, deque
-from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union
+from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
-from constants import COUNT_MULTIPLE_GDRIVE_PARENTS, FIND_DUPLICATE_GDRIVE_NODE_NAMES, GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TrashStatus, \
+from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TrashStatus, \
     TREE_TYPE_GDRIVE
 from error import GDriveItemNotFoundError
 from model.gdrive_meta import GDriveUser
@@ -11,7 +11,7 @@ from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from util import file_util, format
+from util import file_util
 from util.base_tree import BaseTree
 
 logger = logging.getLogger(__name__)
@@ -520,61 +520,7 @@ class GDriveWholeTree(BaseTree):
         current_node.node_identifier.set_path_list(path_list)
         return path_list
 
-    def get_summary(self) -> str:
-        if FIND_DUPLICATE_GDRIVE_NODE_NAMES:
-            self.find_duplicate_node_names()
-
-        if COUNT_MULTIPLE_GDRIVE_PARENTS:
-            self.count_multiple_parents()
-
-        # FIXME: this is broken
-        super_root_node = self.get_node_for_uid(GDRIVE_ROOT_UID)
-        if super_root_node.is_stats_loaded():
-            size_bytes = 0
-            trashed_bytes = 0
-            file_count = 0
-            dir_count = 0
-            trashed_file_count = 0
-            trashed_dir_count = 0
-            for root in self.get_child_list_for_root():
-                if root.get_trashed_status() == TrashStatus.NOT_TRASHED:
-                    if root.get_size_bytes():
-                        size_bytes += root.get_size_bytes()
-
-                        if root.is_dir():
-                            assert isinstance(root, GDriveFolder)
-                            dir_count += root.dir_count + 1
-                            file_count += root.file_count
-                        else:
-                            file_count += 1
-                else:
-                    # trashed:
-                    if root.is_dir():
-                        assert isinstance(root, GDriveFolder)
-                        if root.get_size_bytes():
-                            trashed_bytes += root.get_size_bytes()
-                        if root.trashed_bytes:
-                            trashed_bytes += root.trashed_bytes
-                        trashed_dir_count += root.dir_count + root.trashed_dir_count + 1
-                        trashed_file_count += root.file_count + root.trashed_file_count
-                    else:
-                        trashed_file_count += 1
-                        if root.get_size_bytes():
-                            trashed_bytes += root.get_size_bytes()
-
-                if root.is_dir():
-                    trashed_bytes += root.trashed_bytes
-                    file_count += root.file_count
-                else:
-                    file_count += 1
-
-            size_hf = format.humanfriendlier_size(size_bytes)
-            trashed_size_hf = format.humanfriendlier_size(trashed_bytes)
-            return f'{size_hf} total in {file_count:n} files & {dir_count:n} folders (including {trashed_size_hf} in ' \
-                   f'{trashed_file_count:n} files & {trashed_dir_count:n} folders trashed) in Google Drive'
-        else:
-            return 'Loading stats...'
-
+    # TODO: make use of this
     def find_duplicate_node_names(self):
         """Finds and builds a list of all nodes which have the same name inside the same folder"""
         queue: Deque[GDriveNode] = deque()
@@ -615,6 +561,7 @@ class GDriveWholeTree(BaseTree):
 
         logger.info(f'Tree contains {len(duplicates)} filename conflicts')
 
+    # TODO: make use of this
     def count_multiple_parents(self):
         counter: Counter = Counter()
         for uid, node in self.uid_dict.items():

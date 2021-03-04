@@ -202,13 +202,6 @@ class GDriveFolder(GDriveNode):
                 return IconId.ICON_DIR_MK
         return IconId.ICON_DIR_TRASHED
 
-    @staticmethod
-    def get_summary(dir_stats) -> str:
-        if not dir_stats or (not dir_stats.file_count and not dir_stats.dir_count):
-            return '0 items'
-        size = format.humanfriendlier_size(dir_stats.size_bytes)
-        return f'{size} in {dir_stats.file_count:n} files and {dir_stats.dir_count:n} folders'
-
     def __eq__(self, other):
         if not isinstance(other, GDriveFolder):
             return False

@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 import pathlib
@@ -8,23 +7,28 @@ from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
-import util.format
+from backend.diff.change_maker import ChangeMaker
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_ledger import OpLedger
 from backend.store.gdrive.master_gdrive import GDriveMasterStore
+from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
+from backend.store.local.master_local import LocalDiskMasterStore
 from backend.store.sqlite.cache_registry_db import CacheRegistry
+from backend.store.tree.active_tree_manager import ActiveTreeManager
+from backend.store.tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.store.tree.change_tree import ChangeTree
-from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
+from backend.store.tree.load_request_thread import LoadRequest, LoadRequestThread
+from backend.store.uid.uid_mapper import UidChangeTreeMapper
+from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK, TreeDisplayMode, UID_PATH_FILE_NAME
-from backend.diff.change_maker import ChangeMaker
 from error import InvalidOperationError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
-from model.node.directory_stats import DirectoryStats
+from model.display_tree.summary import TreeSummarizer
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
@@ -32,12 +36,6 @@ from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIde
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
-from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
-from backend.store.local.master_local import LocalDiskMasterStore
-from backend.store.tree.active_tree_manager import ActiveTreeManager
-from backend.store.tree.active_tree_meta import ActiveDisplayTreeMeta
-from backend.store.tree.load_request_thread import LoadRequest, LoadRequestThread
-from backend.store.uid.uid_mapper import UidChangeTreeMapper
 from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.ensure import ensure_list
@@ -443,21 +441,24 @@ class CacheManager(HasLifecycle):
                 if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
                     assert isinstance(subtree_root_node, LocalDirNode)
                     tree_meta.dir_stats_unfiltered = self._master_local.generate_dir_stats(subtree_root_node, tree_id)
+                    self._master_local.populate_filter(tree_meta.filter_state)
                 elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
                     assert isinstance(subtree_root_node, GDriveFolder)
                     tree_meta.dir_stats_unfiltered = self._master_gdrive.generate_dir_stats(subtree_root_node, tree_id)
+                    self._master_gdrive.populate_filter(tree_meta.filter_state)
                 else:
                     assert False
 
         else:
+            # ChangeTree
             assert not tree_meta.is_first_order()
-            logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the stats')
+            logger.debug(f'Tree "{tree_id}" is a ChangeTree; loading its dir stats')
             tree_meta.dir_stats_unfiltered = tree_meta.change_tree.generate_dir_stats()
+            tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
             subtree_root_node: Node = tree_meta.change_tree.get_root_node()
 
         # Now that we have all the stats, we can calculate the summary:
-        # FIXME: rewrite this
-        tree_meta.summary_msg = "TODO" # self._get_tree_summary(tree_id, subtree_root_node)
+        tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_id, subtree_root_node, tree_meta)
         logger.debug(f'[{tree_id}] Summary msg = "{tree_meta.summary_msg}"')
 
         # Load and bring up-to-date expanded & selected rows:
@@ -511,7 +512,7 @@ class CacheManager(HasLifecycle):
     def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
         """DEPRECATED"""
         logger.info(f'[{tree_id}] Enqueuing task to refresh stats')
-        self.backend.executor.submit_async_task(self._refresh_stats, root_uid, tree_id)
+        self.backend.executor.submit_async_task(self._refresh_stats, tree_id)
 
     # PersistedCacheInfo stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -780,10 +781,12 @@ class CacheManager(HasLifecycle):
         # We assume that whenever get_child_list() is called, this represents a row expansion
         self._active_tree_manager.add_expanded_row(parent_uid, tree_id)
 
-        # Is change tree? Follow separate code path:
         if tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            child_list = tree_meta.change_tree.get_child_list(node)
-            # FIXME: are we not filtering change trees?
+            # Change trees have their own storage of nodes (not in master caches)
+            if tree_meta.filter_state and tree_meta.filter_state.has_criteria():
+                child_list = tree_meta.filter_state.get_filtered_child_list(node, tree_meta.change_tree)
+            else:
+                child_list = tree_meta.change_tree.get_child_list(node)
         else:
             logger.debug(f'Found active display tree for {tree_id} with TreeDisplayMode: {tree_meta.state.tree_display_mode.name}')
             filter_state = tree_meta.filter_state
@@ -1015,7 +1018,7 @@ class CacheManager(HasLifecycle):
         else:
             assert False
 
-    def _refresh_stats(self, subtree_root_uid: UID, tree_id: str):
+    def _refresh_stats(self, tree_id: str):
         """Called async via task exec (See: CacheManager.enqueue_refresh_subtree_stats_task()) """
 
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
@@ -1028,36 +1031,6 @@ class CacheManager(HasLifecycle):
             dir_stats = tree_meta.dir_stats_unfiltered
 
         dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats=dir_stats)
-
-    def _get_tree_summary(self, tree_id: str, root_node: Node):
-        tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
-        if tree_meta.change_tree:
-            logger.debug(f'[{tree_id}] This is a ChangeTree: it will provide the summary')
-            return tree_meta.change_tree.get_summary()
-
-        if not root_node:
-            logger.debug(f'[{tree_id}] No summary (tree does not exist)')
-            return 'Tree does not exist'
-        elif not root_node.is_stats_loaded():
-            logger.debug(f'No summary (stats not loaded): {root_node.node_identifier}')
-            return 'Loading stats...'
-        else:
-            if root_node.get_tree_type() == TREE_TYPE_GDRIVE:
-                if root_node.uid == GDRIVE_ROOT_UID:
-                    logger.debug('Generating summary for whole GDrive master tree')
-                    return self._master_gdrive.get_whole_tree_summary()
-                else:
-                    logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
-                    assert root_node.dir_stats_unfiltered  # TODO
-                    size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
-                    trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
-                    return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
-                           f'{root_node.trashed_file_count:n} trashed)'
-            else:
-                assert root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK
-                logger.debug(f'Generating summary for LocalDisk tree: {root_node.node_identifier}')
-                size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
-                return f'{size_hf} total in {root_node.file_count:n} files and {root_node.dir_count:n} dirs'
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         return self._op_ledger.get_last_pending_op_for_node(node_uid)

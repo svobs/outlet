@@ -3,7 +3,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import ROOT_PATH, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import ROOT_PATH, SUPER_DEBUG, TREE_TYPE_MIXED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -12,7 +12,7 @@ from model.node.directory_stats import DirectoryStats
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import get_uid_for_op_and_tree_type, DISPLAYED_USER_OP_TYPES, UserOp, UserOpType
+from model.user_op import get_uid_for_op_and_tree_type, UserOp, UserOpType
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 
 logger = logging.getLogger(__name__)
@@ -232,67 +232,7 @@ class ChangeTree(DisplayTree):
             self.print_tree_contents_debug()
 
     def __repr__(self):
-        return f'ChangeTree(tree_id=[{self.tree_id}], {self.get_summary()})'
-
-    @staticmethod
-    def _make_cat_map():
-        cm = {}
-        for op_type, disp_str in DISPLAYED_USER_OP_TYPES.items():
-            cm[op_type] = f'{disp_str}: 0'
-        return cm
-
-    @staticmethod
-    def _build_cat_summaries_str(cat_map) -> str:
-        cat_summaries = []
-        for op_type in DISPLAYED_USER_OP_TYPES.keys():
-            summary = cat_map.get(op_type, None)
-            if summary:
-                cat_summaries.append(summary)
-        return ', '.join(cat_summaries)
-
-    def _build_summary_cat_map(self, uid):
-        include_empty_op_types = False
-        cat_count = 0
-        if include_empty_op_types:
-            cat_map = ChangeTree._make_cat_map()
-        else:
-            cat_map = {}
-        for cat_node in self._category_tree.get_child_list_for_uid(uid):
-            cat_count += 1
-            assert isinstance(cat_node, CategoryNode), f'Not a CategoryNode: {cat_node}'
-            cat_map[cat_node.op_type] = f'{cat_node.name}: {cat_node.get_summary()}'
-        if cat_count:
-            return cat_map
-        else:
-            return None
-
-    def get_summary(self) -> str:
-        if self.show_whole_forest:
-            # need to preserve ordering...
-            type_summaries = []
-            type_map = {}
-            cat_count = 0
-            for child in self._category_tree.get_child_list(self.get_root_node()):
-                assert isinstance(child, RootTypeNode), f'For {child}'
-                cat_map = self._build_summary_cat_map(child.uid)
-                if cat_map:
-                    cat_count += 1
-                    type_map[child.node_identifier.tree_type] = cat_map
-            if cat_count == 0:
-                return 'Contents are identical'
-            for tree_type, tree_type_name in (TREE_TYPE_LOCAL_DISK, 'Local Disk'), (TREE_TYPE_GDRIVE, 'Google Drive'):
-                cat_map = type_map.get(tree_type, None)
-                if cat_map:
-                    type_summaries.append(f'{tree_type_name}: {self._build_cat_summaries_str(cat_map)}')
-            return '; '.join(type_summaries)
-        else:
-            cat_map = self._build_summary_cat_map(self.get_root_node().uid)
-            if not cat_map:
-                return 'Contents are identical'
-            return self._build_cat_summaries_str(cat_map)
+        return f'ChangeTree(tree_id=[{self.tree_id}], {len(self._category_tree)})'
 
     def generate_dir_stats(self) -> Dict[UID, DirectoryStats]:
-        logger.debug(f'[{self.tree_id}] Refreshing stats for change tree')
-        stats = self._category_tree.generate_dir_stats(self.tree_id, self.get_root_node())
-        logger.debug(f'[{self.tree_id}] Done refreshing stats for change tree')
-        return stats
+        return self._category_tree.generate_dir_stats(self.tree_id)

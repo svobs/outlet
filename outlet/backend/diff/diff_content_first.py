@@ -275,8 +275,7 @@ class ContentFirstDiffer(ChangeMaker):
         logger.info(f'Done with diff (pairs: '
                     f'add/del={count_add_delete_pairs} '
                     f'upd={count_updated_pairs} '
-                    f'moved={count_moved_pairs})'
-                    f' Left:[{self.left_side.change_tree.get_summary()}] Right:[{self.right_side.change_tree.get_summary()}]')
+                    f'moved={count_moved_pairs})')
         logger.info(f'{sw} Finished path comparison for right tree')
 
         return self.left_side.change_tree, self.right_side.change_tree

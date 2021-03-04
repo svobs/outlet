@@ -214,7 +214,7 @@ class LocalDiskMasterStore(MasterStore):
                         logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
                     with self._struct_lock:
                         self._memstore.master_tree.replace_subtree(tree)
-                        logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
+                        logger.debug(f'[{tree_id}] Updated in-memory cache: tree_size={len(self._memstore.master_tree):n}')
             else:
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
 
@@ -317,6 +317,9 @@ class LocalDiskMasterStore(MasterStore):
     def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: str) -> Dict[UID, DirectoryStats]:
         with self._struct_lock:
             return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
+
+    def populate_filter(self, filter_state: FilterState):
+        filter_state.ensure_cache_populated(self._memstore.master_tree)
 
     # Cache CRUD operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -490,7 +493,7 @@ class LocalDiskMasterStore(MasterStore):
     def get_child_list(self, node: Node, filter_state: FilterState = None) -> List[Node]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_child_list(): node={node.node_identifier} filter_state={filter_state} locked={self._struct_lock.locked()}')
-        if filter_state:
+        if filter_state and filter_state.has_criteria():
             return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
         else:
             with self._struct_lock:
@@ -534,13 +537,6 @@ class LocalDiskMasterStore(MasterStore):
         except Exception:
             logger.error(f'Error getting parent for node: {node}, required_path: {required_subtree_path}')
             raise
-
-    def get_summary(self):
-        if self._memstore.use_md5:
-            md5 = str(self._memstore.md5_dict.total_entries)
-        else:
-            md5 = 'disabled'
-        return f'LocalDiskMasterStore tree_size={len(self._memstore.master_tree):n} md5={md5}'
 
     def build_local_dir_node(self, full_path: str, is_live: bool) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)

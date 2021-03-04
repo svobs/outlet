@@ -138,9 +138,12 @@ class DisplayTree(HasGetChildren):
     def get_child_list_for_root(self) -> Iterable[Node]:
         return self.get_child_list(self.get_root_node())
 
+    def get_child_list_for_uid(self, parent_uid: UID) -> List[Node]:
+        return self.backend.get_child_list(parent_uid, self.tree_id, max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
+
     def get_child_list(self, parent: Node) -> Iterable[Node]:
         assert parent, 'Arg "parent" cannot be null!'
-        return self.backend.get_child_list(parent.uid, self.tree_id, max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
+        return self.get_child_list_for_uid(parent.uid)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         return self.backend.get_ancestor_list(spid, stop_at_path=self.root_path)

@@ -217,6 +217,9 @@ class GDriveMasterStore(MasterStore):
         with self._struct_lock:
             return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
 
+    def populate_filter(self, filter_state: FilterState):
+        filter_state.ensure_cache_populated(self._memstore.master_tree)
+
     def refresh_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
         logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root})')
@@ -415,12 +418,9 @@ class GDriveMasterStore(MasterStore):
             return node.goog_id
         return None
 
-    def get_whole_tree_summary(self):
-        return self._memstore.master_tree.get_summary()
-
     def get_child_list(self, node: Node, filter_state: FilterState = None) -> List[Node]:
         assert isinstance(node, GDriveNode)
-        if filter_state:
+        if filter_state and filter_state.has_criteria():
             return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
         else:
             return self._memstore.master_tree.get_child_list(node)

@@ -164,7 +164,7 @@ class ActiveTreeManager(HasLifecycle):
             raise RuntimeError(f'update_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
 
         # replace FilterState for the given tree
-        meta.filter_state = FilterState(filter_criteria)
+        meta.filter_state = FilterState(filter_criteria, meta.root_sn)
         # write to disk
         meta.filter_state.write_to_config(self.backend, tree_id)
 
@@ -283,7 +283,7 @@ class ActiveTreeManager(HasLifecycle):
             assert display_tree_meta.state.tree_id == response_tree_id, f'TreeID "{response_tree_id}" != {display_tree_meta.state.tree_id}'
         else:
             logger.debug(f'[{sender_tree_id}] Reading FilterCriteria from config')
-            filter_state = FilterState.from_config(self.backend, sender_tree_id)
+            filter_state = FilterState.from_config(self.backend, sender_tree_id, root_sn)
 
             display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)
 
