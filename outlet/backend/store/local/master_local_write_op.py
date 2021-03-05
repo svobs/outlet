@@ -114,7 +114,7 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
 
     def send_signals(self):
         # Always update:
-        dispatcher.send(signal=Signal.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+        dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
     def __repr__(self):
         return f'UpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
@@ -145,7 +145,7 @@ class DeleteSingleNodeOp(UpsertSingleNodeOp):
         cache.delete_single_node(self.node, commit=False)
 
     def send_signals(self):
-        dispatcher.send(signal=Signal.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=self.node)
+        dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
     def __repr__(self):
         return f'DeleteSingleNodeOp({self.node.node_identifier} to_trash={self.to_trash})'
@@ -206,9 +206,9 @@ class BatchChangesOp(LocalDiskSubtreeOp):
     def send_signals(self):
         for subtree in self.subtree_list:
             for node in reversed(subtree.remove_node_list):
-                dispatcher.send(signal=Signal.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+                dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
             for node in subtree.upsert_node_list:
-                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+                dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
 
     def __repr__(self):
         return f'BatchChangesOp({self.subtree_list})'

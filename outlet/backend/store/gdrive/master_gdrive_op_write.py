@@ -104,7 +104,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
 
     def send_signals(self):
         # Always update:
-        dispatcher.send(signal=Signal.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+        dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
 class DeleteSingleNodeOp(GDriveWriteThroughOp):
@@ -128,7 +128,7 @@ class DeleteSingleNodeOp(GDriveWriteThroughOp):
         cache.delete_single_node(self.node, commit=False)
 
     def send_signals(self):
-        dispatcher.send(signal=Signal.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=self.node)
+        dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
 class DeleteSubtreeOp(GDriveWriteThroughOp):
@@ -156,9 +156,9 @@ class DeleteSubtreeOp(GDriveWriteThroughOp):
         logger.debug(f'DeleteSubtreeOp: done removing nodes from disk cache')
 
     def send_signals(self):
-        logger.debug(f'DeleteSubtreeOp: sending "{Signal.NODE_REMOVED}" signal for {len(self.node_list)} nodes')
+        logger.debug(f'DeleteSubtreeOp: sending "{Signal.NODE_REMOVED_IN_CACHE}" signal for {len(self.node_list)} nodes')
         for node in self.node_list:
-            dispatcher.send(signal=Signal.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+            dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
 
 
 class BatchChangesOp(GDriveWriteThroughOp):
@@ -258,9 +258,9 @@ class BatchChangesOp(GDriveWriteThroughOp):
         for change in self.change_list:
             assert change.node.get_path_list(), f'Node is missing path list: {change.node}'
             if change.is_removed():
-                dispatcher.send(signal=Signal.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=change.node)
+                dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=change.node)
             else:
-                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=change.node)
+                dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=change.node)
 
 
 class RefreshFolderOp(GDriveWriteThroughOp):
@@ -327,9 +327,9 @@ class RefreshFolderOp(GDriveWriteThroughOp):
         logger.debug(f'RefreshFolderOp: done with disk cache')
 
     def send_signals(self):
-        logger.debug(f'RefreshFolderOp: sending "{Signal.NODE_UPSERTED}" signal for {len(self._updated_node_list)} nodes')
+        logger.debug(f'RefreshFolderOp: sending "{Signal.NODE_UPSERTED_IN_CACHE}" signal for {len(self._updated_node_list)} nodes')
         for node in self._updated_node_list:
-            dispatcher.send(signal=Signal.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+            dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
 
 
 class CreateUserOp(GDriveWriteThroughOp):

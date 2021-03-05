@@ -26,7 +26,7 @@ class SignatureCalcThread(QThread):
 
     def start(self):
         QThread.start(self)
-        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted_in_cache)
 
     def enqueue(self, node: LocalFileNode):
         logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')

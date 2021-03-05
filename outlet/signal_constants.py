@@ -1,5 +1,7 @@
 from enum import IntEnum
 
+# Note: this file cannot be named "signal.py" because it will result in a namespace conflict with an imported library
+
 
 class Signal(IntEnum):
     # Tasks
@@ -17,6 +19,13 @@ class Signal(IntEnum):
     GENERATE_MERGE_TREE_DONE = 13
     GENERATE_MERGE_TREE_FAILED = 14
     COMPLETE_MERGE = 15
+
+    NODE_UPSERTED_IN_CACHE = 16
+    """Internal to BE: should only be received by ActiveTreeManager"""
+    NODE_REMOVED_IN_CACHE = 17
+    """Internal to BE: should only be received by ActiveTreeManager"""
+    NODE_MOVED_IN_CACHE = 18
+    """Internal to BE: should only be received by ActiveTreeManager"""
 
     # --- Tree actions: requests ---
     CALL_EXIFTOOL = 20
@@ -46,8 +55,11 @@ class Signal(IntEnum):
     DISPLAY_TREE_CHANGED = 44
     GDRIVE_RELOADED = 45
     NODE_UPSERTED = 46
+    """Sent from BE and received by FE"""
     NODE_REMOVED = 47
+    """Sent from BE and received by FE"""
     NODE_MOVED = 48
+    """Sent from BE and received by FE"""
     EXIT_DIFF_MODE = 49
     ERROR_OCCURRED = 50
     REFRESH_SUBTREE_STATS_DONE = 51

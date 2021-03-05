@@ -21,7 +21,8 @@ class GDriveMemoryStore:
     CLASS GDriveMemoryStore
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, app, uid_mapper: UidGoogIdMapper):
+    def __init__(self, backend, uid_mapper: UidGoogIdMapper):
+        self.backend = backend
         self.master_tree: Optional[GDriveWholeTree] = None
         self._uid_mapper: UidGoogIdMapper = uid_mapper
 
@@ -63,7 +64,7 @@ class GDriveMemoryStore:
 
             if existing_node == node:
                 logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+                dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
                 node = existing_node
                 return node, False
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')

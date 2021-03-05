@@ -78,9 +78,9 @@ class DisplayMutator(HasLifecycle):
         # Do not receive update notifications when displaying change trees.
         # (the need is not great enough to justify the effort - at present)
         if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
-            self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
-            self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved_in_cache)
+            self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted_in_cache)
+            self.connect_dispatch_listener(signal=Signal.NODE_REMOVED_IN_CACHE, receiver=self._on_node_removed_from_cache)
+            self.connect_dispatch_listener(signal=Signal.NODE_MOVED_IN_CACHE, receiver=self._on_node_moved_in_cache)
 
         # FIXME: figure out why the 'sender' arg fails when relayed from gRPC!
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_load_subtree_done)
@@ -467,13 +467,14 @@ class DisplayMutator(HasLifecycle):
                 self._append_file_node(parent_iter, node)
 
     def _on_node_upserted_in_cache(self, sender: str, node: Node) -> None:
-        if SUPER_DEBUG:
-            logger.debug(f'[{self.con.tree_id}] Entered _on_node_upserted_in_cache(): sender={sender}, node={node}')
-        assert node is not None
+        assert node
+
+        if sender != self.con.tree_id:
+            return
 
         if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_UPSERTED.name}": node listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_UPSERTED_IN_CACHE.name}": node listeners disabled')
             return
 
         # Possibly long-running op to load lazy tree. Also has a nasty lock. Do this outside the UI thread.
@@ -488,7 +489,7 @@ class DisplayMutator(HasLifecycle):
 
                 if parent_uid_list:
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {node.node_identifier} '
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED_IN_CACHE.name} for node {node.node_identifier} '
                                      f'with parents {parent_uid_list}')
 
                     for parent_uid in parent_uid_list:
@@ -527,16 +528,16 @@ class DisplayMutator(HasLifecycle):
                 else:
                     # No parent found in tree
                     if node.uid in self.con.display_store.displayed_rows:
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {node.node_identifier} '
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED_IN_CACHE.name} for node {node.node_identifier} '
                                      f'but its parent is no longer in the tree; removing node from display store: {node.uid}')
                         self.con.display_store.remove_node(node.uid)
                     elif tree.is_path_in_subtree(node.get_path_list()):
                         # At least in subtree? If so, refresh stats to reflect change
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED_IN_CACHE.name} for node {node.node_identifier}')
                     else:
                         needs_refresh = False
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_UPSERTED.name} for node {node.node_identifier}')
+                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_UPSERTED_IN_CACHE.name} for node {node.node_identifier}')
 
                 if needs_refresh:
                     self._stats_refresh_timer.start_or_delay()
@@ -544,15 +545,15 @@ class DisplayMutator(HasLifecycle):
         GLib.idle_add(update_ui)
 
     def _on_node_removed_from_cache(self, sender: str, node: Node):
-        if SUPER_DEBUG:
-            logger.debug(f'[{self.con.tree_id}] Entered _on_node_removed_from_cache(): sender={sender}, node={node}')
+        assert node
+
+        if sender != self.con.tree_id:
+            return
 
         if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_REMOVED.name}": node listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_REMOVED_IN_CACHE.name}": node listeners disabled')
             return
-
-        assert node
 
         def update_ui():
             try:
@@ -561,7 +562,7 @@ class DisplayMutator(HasLifecycle):
 
                     if displayed_item:
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for displayed node {node.node_identifier}')
+                            logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED_IN_CACHE.name} for displayed node {node.node_identifier}')
 
                         stats_refresh_needed = True
 
@@ -570,12 +571,12 @@ class DisplayMutator(HasLifecycle):
                         logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
                     elif self.con.get_tree().is_path_in_subtree(node.get_path_list()):
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for node {node.node_identifier}')
+                            logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED_IN_CACHE.name} for node {node.node_identifier}')
 
                         stats_refresh_needed = True
                     else:
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_REMOVED.name} for node {node.node_identifier}')
+                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_REMOVED_IN_CACHE.name} for node {node.node_identifier}')
                         stats_refresh_needed = False
 
                     if stats_refresh_needed:
@@ -586,9 +587,12 @@ class DisplayMutator(HasLifecycle):
         GLib.idle_add(update_ui)
 
     def _on_node_moved_in_cache(self, sender: str, src_node: Node, dst_node: Node):
+        if sender != self.con.tree_id:
+            return
+
         if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_MOVED.name}": node listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_MOVED_IN_CACHE.name}": node listeners disabled')
             return
             
         self._on_node_removed_from_cache(sender, src_node)

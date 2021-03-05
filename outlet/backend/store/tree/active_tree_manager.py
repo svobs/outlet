@@ -63,6 +63,10 @@ class ActiveTreeManager(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
         self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._on_merge_requested)
 
+        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted)
+        self.connect_dispatch_listener(signal=Signal.NODE_REMOVED_IN_CACHE, receiver=self._on_node_removed)
+        self.connect_dispatch_listener(signal=Signal.NODE_MOVED_IN_CACHE, receiver=self._on_node_moved)
+
         self._live_monitor.start()
 
     def shutdown(self):
@@ -79,6 +83,40 @@ class ActiveTreeManager(HasLifecycle):
 
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def _is_in_subtree(self, node: Node, subtree_root_spid: SinglePathNodeIdentifier):
+        cacheman = self.backend.cacheman
+
+        node_list = [node]
+        while True:
+            if not node_list:
+                return False
+
+            new_node_list = []
+            for node in node_list:
+                if node.uid == subtree_root_spid.uid:
+                    return True
+                for parent_node in cacheman.get_parent_list_for_node(node):
+                    new_node_list.append(parent_node)
+            node_list = new_node_list
+
+    def _on_node_upserted(self, sender: str, node: Node):
+        for tree_id, tree_meta in self._display_tree_dict.items():
+            if self._is_in_subtree(node, tree_meta.root_sn.spid):
+                logger.debug(f'[{tree_id}] Notifying tree for upserted node: {node.node_identifier}')
+                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, node=node)
+
+    def _on_node_removed(self, sender: str, node: Node):
+        for tree_id, tree_meta in self._display_tree_dict.items():
+            if self._is_in_subtree(node, tree_meta.root_sn.spid):
+                logger.debug(f'[{tree_id}] Notifying tree for removed node: {node.node_identifier}')
+                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, node=node)
+
+    def _on_node_moved(self, sender: str, src_node: Node, dst_node: Node):
+        for tree_id, tree_meta in self._display_tree_dict.items():
+            if self._is_in_subtree(src_node, tree_meta.root_sn.spid) or self._is_in_subtree(dst_node, tree_meta.root_sn.spid):
+                logger.debug(f'[{tree_id}] Notifying tree for moved node: {src_node.node_identifier} -> {dst_node.node_identifier}')
+                dispatcher.send(signal=Signal.NODE_MOVED, src_node=src_node, dst_node=dst_node)
 
     def _on_merge_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')
