@@ -5,7 +5,8 @@ import gi
 from pydispatch import dispatcher
 
 from signal_constants import ID_LEFT_TREE, ID_MAIN_WINDOW, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
-from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
+from constants import APP_NAME, DEFAULT_MAIN_WIN_HEIGHT, DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_X, DEFAULT_MAIN_WIN_Y, H_PAD, IconId, \
+    TreeDisplayMode, WIN_SIZE_STORE_DELAY_MS
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
@@ -40,8 +41,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # Restore previous window location:
         self.x_loc_cfg_path = f'ui_state.{self.win_id}.x'
         self.y_loc_cfg_path = f'ui_state.{self.win_id}.y'
-        self.x_loc = ensure_int(self.backend.get_config(self.x_loc_cfg_path, 50))
-        self.y_loc = ensure_int(self.backend.get_config(self.y_loc_cfg_path, 50))
+        self.x_loc = ensure_int(self.backend.get_config(self.x_loc_cfg_path, DEFAULT_MAIN_WIN_X))
+        self.y_loc = ensure_int(self.backend.get_config(self.y_loc_cfg_path, DEFAULT_MAIN_WIN_Y))
         self.move(x=self.x_loc, y=self.y_loc)
 
         self.set_hide_titlebar_when_maximized(True)
@@ -50,14 +51,14 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.width_cfg_path = f'ui_state.{self.win_id}.width'
         self.height_cfg_path = f'ui_state.{self.win_id}.height'
 
-        width = ensure_int(self.backend.get_config(self.width_cfg_path, 1200))
-        height = ensure_int(self.backend.get_config(self.height_cfg_path, 500))
+        width = ensure_int(self.backend.get_config(self.width_cfg_path, DEFAULT_MAIN_WIN_WIDTH))
+        height = ensure_int(self.backend.get_config(self.height_cfg_path, DEFAULT_MAIN_WIN_HEIGHT))
         allocation = Gdk.Rectangle()
         allocation.width = width
         allocation.height = height
         self.size_allocate(allocation)
         # i.e. "minimum" window size allowed:
-        self.set_size_request(1200, 500)
+        self.set_size_request(DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_HEIGHT)
 
         self.set_border_width(H_PAD)
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.VERTICAL)
@@ -222,8 +223,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # disconnect the 'size-allocate' event
         self.disconnect(self._event_id_size_allocate)
 
-        # create a 1000ms timer
-        tid = GLib.timeout_add(interval=1000, function=self._on_size_timer)
+        # create a timer
+        tid = GLib.timeout_add(interval=WIN_SIZE_STORE_DELAY_MS, function=self._on_size_timer)
         # ...and remember its id
         self._timer_id = tid
 

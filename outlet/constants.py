@@ -10,6 +10,11 @@ VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp
 
 CACHE_LOAD_TIMEOUT_SEC = 3000
 
+DEFAULT_MAIN_WIN_X = 50
+DEFAULT_MAIN_WIN_Y = 50
+DEFAULT_MAIN_WIN_WIDTH = 1200
+DEFAULT_MAIN_WIN_HEIGHT = 500
+
 # IMPORTANT: Each client will require 2 worker threads: 1 is for receiving signals asynchronously and is always open;
 # and 1 is for all other requests to the backend.
 GRPC_SERVER_MAX_WORKER_THREADS = 4
@@ -241,3 +246,4 @@ PROGRESS_BAR_MAX_MSG_LENGTH = 80
 
 FILTER_APPLY_DELAY_MS = 200
 STATS_REFRESH_HOLDOFF_TIME_MS = 1000
+WIN_SIZE_STORE_DELAY_MS = 1000

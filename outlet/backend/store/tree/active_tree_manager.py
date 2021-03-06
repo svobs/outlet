@@ -477,7 +477,12 @@ class ActiveTreeManager(HasLifecycle):
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
-        display_tree_meta.expanded_rows.remove(row_uid)
+        try:
+            display_tree_meta.expanded_rows.remove(row_uid)
+        except KeyError as err:
+            self.backend.report_error(sender=tree_id, msg='Failed to remove expanded row {row_uid}', secondary_msg=f'{repr(err)}')
+            return
+
         # TODO: use a timer for this. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
