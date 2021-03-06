@@ -29,6 +29,7 @@ class TreeContextMenu:
     def __init__(self, controller):
         self.con = controller
 
+    # TODO: does this account for logical nodes?
     def build_context_menu_multiple(self, selected_items: List[Node], selected_tree_paths: List[Gtk.TreePath]) -> Optional[Gtk.Menu]:
         menu = Gtk.Menu()
 

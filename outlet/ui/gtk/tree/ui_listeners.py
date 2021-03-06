@@ -46,9 +46,7 @@ class TreeUiListeners(HasLifecycle):
         self._drop_data = None
         self._connected_treeview_eids = []
         self._connected_selection_eid = None
-        self._context_menus_by_type = {TREE_TYPE_LOCAL_DISK: TreeContextMenu(self.con),
-                                       TREE_TYPE_GDRIVE: TreeContextMenu(self.con),
-                                       TREE_TYPE_MIXED: None}  # TODO: handle mixed
+        self._context_menu = TreeContextMenu(self.con)
 
     def start(self):
         logger.debug(f'[{self.con.tree_id}] TreeUiListeners start')
@@ -353,7 +351,7 @@ class TreeUiListeners(HasLifecycle):
                 return True
         return False
 
-    # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     # LISTENERS end
 
     # ACTIONS begin
@@ -425,49 +423,21 @@ class TreeUiListeners(HasLifecycle):
                     clicked_on_selection = True
 
         if clicked_on_selection:
-            objs_type = _get_items_type(selected_items)
-
             # User right-clicked on selection -> apply context menu to all selected items:
-            context_menu = self._context_menus_by_type[objs_type].build_context_menu_multiple(selected_items, selected_tree_paths)
-            if context_menu:
-                context_menu.popup_at_pointer(event)
-                # Suppress selection event
-                return True
-            else:
-                return False
+            context_menu = self._context_menu.build_context_menu_multiple(selected_items, selected_tree_paths)
+        else:
+            # Singular item, or singular selection (equivalent logic). Display context menu:
+            context_menu = self._context_menu.build_context_menu(tree_path, node_data)
 
-        # FIXME: what about logical nodes?
-        # Singular item, or singular selection (equivalent logic). Display context menu:
-        context_menu = self._context_menus_by_type[node_data.node_identifier.tree_type].build_context_menu(tree_path, node_data)
         if context_menu:
             context_menu.popup_at_pointer(event)
+            # Suppress selection event
             return True
-
-        return False
+        else:
+            return False
 
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # ACTIONS end
-
-
-def _get_items_type(selected_items: List):
-    gdrive_count = 0
-    fmeta_count = 0
-
-    if len(selected_items) > 1:
-        # Multiple selected items:
-        for item in selected_items:
-            if item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-                gdrive_count += 1
-            elif item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                fmeta_count += 1
-
-    # determine object types
-    if gdrive_count and fmeta_count:
-        return TREE_TYPE_MIXED
-    elif gdrive_count:
-        return TREE_TYPE_GDRIVE
-    else:
-        return TREE_TYPE_LOCAL_DISK
 
 
 def _do_default_action_for_node(node: Node, tree_id: str):
