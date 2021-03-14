@@ -58,7 +58,7 @@ class TreeContextMenu:
 
         is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
         if is_localdisk:
-            item = Gtk.MenuItem(label=f'Use EXIFTool on dirs')
+            item = Gtk.MenuItem(label=f'Use EXIFTool on Dirs')
             item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL_LIST, {'node_list': selected_items})
             menu.append(item)
 
@@ -71,12 +71,12 @@ class TreeContextMenu:
                 items_to_delete_gdrive.append(selected_item)
 
         if len(items_to_delete_local) > 0:
-            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_local)} items from local disk')
+            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_local)} Items from Local Disk')
             item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': items_to_delete_local})
             menu.append(item)
 
         if len(items_to_delete_gdrive) > 0:
-            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_gdrive)} items from Google Drive')
+            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_gdrive)} Items from Google Drive')
             item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': items_to_delete_gdrive})
             menu.append(item)
 
@@ -84,30 +84,27 @@ class TreeContextMenu:
         return menu
 
     def _build_menu_items_for_single_node(self, menu, tree_path, node: Node, single_path: str):
-        is_category_node = type(node) == CategoryNode
-        file_exists = node.is_live()
-        is_dir = node.is_dir()
         is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
 
         # MenuItem: 'Show in Nautilus'
-        if file_exists and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+        if node.is_live() and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             item = Gtk.MenuItem(label='Show in Nautilus')
             item.connect('activate', self.send_signal, Signal.SHOW_IN_NAUTILUS, {'full_path': node.get_single_path()})
             menu.append(item)
 
         # MenuItem: 'Download from Google Drive' [GDrive] OR 'Open with default app' [Local]
-        if file_exists and not is_dir:
+        if node.is_live() and not node.is_dir():
             if is_gdrive:
                 item = Gtk.MenuItem(label=f'Download from Google Drive')
                 item.connect('activate', self.send_signal, Signal.DOWNLOAD_FROM_GDRIVE, {'node': node})
                 menu.append(item)
             elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                item = Gtk.MenuItem(label=f'Open with default app')
+                item = Gtk.MenuItem(label=f'Open with Default App')
                 item.connect('activate', self.send_signal, Signal.CALL_XDG_OPEN, {'node': node})
                 menu.append(item)
 
         # Label: Does not exist
-        if not file_exists:
+        if not node.is_live():
             # FIXME: this is not entirely correct when examining logical nodes which represent real paths
             item = Gtk.MenuItem(label='')
             label = item.get_child()
@@ -116,8 +113,8 @@ class TreeContextMenu:
             menu.append(item)
 
         # MenuItem: 'Go into {dir}'
-        if file_exists and is_dir and self.con.treeview_meta.can_change_root:
-            item = Gtk.MenuItem(label=f'Go into "{node.name}"')
+        if node.is_live() and node.is_dir() and self.con.treeview_meta.can_change_root:
+            item = Gtk.MenuItem(label=f'Go Into "{node.name}"')
             spid: SinglePathNodeIdentifier = self.con.display_store.build_spid_from_tree_path(tree_path)
 
             def go_into():
@@ -127,16 +124,16 @@ class TreeContextMenu:
             menu.append(item)
 
         # MenuItem: 'Use EXIFTool on dir'
-        if file_exists and is_dir and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+        if node.is_live() and node.is_dir() and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             match = re.match(DATE_REGEX, node.name)
             if match:
-                item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
+                item = Gtk.MenuItem(label=f'Use EXIFTool on Dir')
                 item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL, {'full_path': single_path})
                 menu.append(item)
 
         # MenuItem: 'Delete tree'
-        if file_exists and is_dir and not is_category_node:
-            label = f'Delete tree "{node.name}"'
+        if node.is_live() and node.is_dir() and type(node) != CategoryNode:
+            label = f'Delete Tree "{node.name}"'
             if is_gdrive:
                 label += ' from Google Drive'
             item = Gtk.MenuItem(label=label)
@@ -145,7 +142,7 @@ class TreeContextMenu:
             menu.append(item)
 
         # MenuItem: 'Delete'
-        if file_exists and not is_dir:
+        if node.is_live() and not node.is_dir():
             label = f'Delete "{node.name}"'
             if is_gdrive:
                 label += ' from Google Drive'
@@ -153,7 +150,7 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, Signal.DELETE_SINGLE_FILE, {'node': node})
             menu.append(item)
 
-    def build_context_menu(self, tree_path: Gtk.TreePath, node: Node) -> Optional[Gtk.Menu]:
+    def build_context_menu_single(self, tree_path: Gtk.TreePath, node: Node) -> Optional[Gtk.Menu]:
         """Dynamic context menu (right-click on tree item) for the given 'node' at 'tree_path'"""
 
         if node.is_ephemereal():
@@ -172,7 +169,7 @@ class TreeContextMenu:
         if op and op.has_dst():
             if SUPER_DEBUG:
                 logger.debug(f'Building context menu for op: {op}')
-            logger.warning('TODO: test this!')
+            logger.warning('TODO: test this!')  # FIXME: test and then remove this msg
             # Split into separate entries for src and dst.
 
             # (1/2) Source:
@@ -181,17 +178,17 @@ class TreeContextMenu:
                 src_path = single_path
             else:
                 src_path = op.src_node.get_path_list()[0]
-            item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', op.src_node, src_path)
+            item = TreeContextMenu.build_full_path_display_item('Src: ', op.src_node, src_path)
             if op.src_node.is_live():
                 src_submenu = Gtk.Menu()
                 item.set_submenu(src_submenu)
                 self._build_menu_items_for_single_node(src_submenu, tree_path, op.src_node, src_path)
             else:
                 item.set_sensitive(False)
+            menu.append(item)
 
             # MenuItem: ---
-            item = Gtk.SeparatorMenuItem()
-            menu.append(item)
+            menu.append(Gtk.SeparatorMenuItem())
 
             # (2/2) Destination:
             if op.dst_node.uid == node.uid:
@@ -199,37 +196,37 @@ class TreeContextMenu:
                 dst_path = single_path
             else:
                 dst_path = op.src_node.get_path_list()[0]
-            item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', op.dst_node, dst_path)
+            item = TreeContextMenu.build_full_path_display_item('Dst: ', op.dst_node, dst_path)
             if op.dst_node.is_live():
                 dst_submenu = Gtk.Menu()
                 item.set_submenu(dst_submenu)
                 self._build_menu_items_for_single_node(dst_submenu, tree_path, op.dst_node, dst_path)
             else:
                 item.set_sensitive(False)
-
-            item = Gtk.SeparatorMenuItem()
             menu.append(item)
-        else:
-            # Single item
-            item = TreeContextMenu.build_full_path_display_item(menu, '', node, single_path)
-            # gray it out
-            item.set_sensitive(False)
 
             # MenuItem: ---
-            item = Gtk.SeparatorMenuItem()
+            menu.append(Gtk.SeparatorMenuItem())
+        else:
+            # Single item
+            item = TreeContextMenu.build_full_path_display_item('', node, single_path)
+            # gray it out
+            item.set_sensitive(False)
             menu.append(item)
+
+            # MenuItem: ---
+            menu.append(Gtk.SeparatorMenuItem())
 
             self._build_menu_items_for_single_node(menu, tree_path, node, single_path)
 
         if node.is_dir():
-            item = Gtk.MenuItem(label=f'Expand all')
+            item = Gtk.MenuItem(label=f'Expand All')
             item.connect('activate', self.send_signal, Signal.EXPAND_ALL, {'tree_path': tree_path})
             menu.append(item)
 
         if node.is_live():
             # MenuItem: ---
-            item = Gtk.SeparatorMenuItem()
-            menu.append(item)
+            menu.append(Gtk.SeparatorMenuItem())
 
             # MenuItem: Refresh
             item = Gtk.MenuItem(label='Refresh')
@@ -240,7 +237,7 @@ class TreeContextMenu:
         return menu
 
     @staticmethod
-    def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: Node, single_path: str) -> Gtk.MenuItem:
+    def build_full_path_display_item(preamble: str, node: Node, single_path: str) -> Gtk.MenuItem:
         path_display = single_path
         if node.get_tree_type() == TREE_TYPE_GDRIVE:
             path_display = GDRIVE_PATH_PREFIX + path_display
@@ -249,7 +246,6 @@ class TreeContextMenu:
         label = item.get_child()
         full_path_display = GLib.markup_escape_text(path_display)
         label.set_markup(f'<i>{preamble}{full_path_display}</i>')
-        menu.append(item)
         return item
 
     def send_signal(self, menu_item, signal: Signal, kwargs: dict):

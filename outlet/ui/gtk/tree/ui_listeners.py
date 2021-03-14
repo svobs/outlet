@@ -427,7 +427,7 @@ class TreeUiListeners(HasLifecycle):
             context_menu = self._context_menu.build_context_menu_multiple(selected_items, selected_tree_paths)
         else:
             # Singular item, or singular selection (equivalent logic). Display context menu:
-            context_menu = self._context_menu.build_context_menu(tree_path, node_data)
+            context_menu = self._context_menu.build_context_menu_single(tree_path, node_data)
 
         if context_menu:
             context_menu.popup_at_pointer(event)
