@@ -45,7 +45,7 @@ class BaseDialog:
 
         run_on_ui_thread()
 
-    def show_question_dialog(self, msg, secondary_msg=None):
+    def show_question_dialog(self, msg, secondary_msg=None) -> bool:
         dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.YES_NO, text=msg)
         if secondary_msg is None:
             logger.debug(f'Q: {msg}')

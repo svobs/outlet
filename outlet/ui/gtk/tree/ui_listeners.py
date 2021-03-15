@@ -398,11 +398,15 @@ class TreeUiListeners(HasLifecycle):
         return True
 
     def on_delete_key_pressed(self):
-        if self.con.treeview_meta.can_modify_tree:
-            selected_node_list: List[Node] = self.con.display_store.get_multiple_selection()
-            if selected_node_list:
+        if not self.con.treeview_meta.can_modify_tree:
+            return False
+
+        selected_node_list: List[Node] = self.con.display_store.get_multiple_selection()
+        if selected_node_list:
+            if self.con.parent_win.show_question_dialog('Confirm Delete', f'Are you sure you want delete these {len(selected_node_list)} items?'):
                 dispatcher.send(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, node_list=selected_node_list)
                 return True
+
         return False
 
     def on_row_right_clicked(self, event, tree_path, node_data: Node):

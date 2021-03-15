@@ -112,7 +112,7 @@ class TreeContextMenu:
             item.set_sensitive(False)
             menu.append(item)
 
-        # MenuItem: 'Go into {dir}'
+        # MenuItem: 'Go Into {dir}'
         if node.is_live() and node.is_dir() and self.con.treeview_meta.can_change_root:
             item = Gtk.MenuItem(label=f'Go Into "{node.name}"')
             spid: SinglePathNodeIdentifier = self.con.display_store.build_spid_from_tree_path(tree_path)
