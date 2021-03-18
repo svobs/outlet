@@ -1,6 +1,9 @@
+import io
 import logging
 from typing import Dict, Iterable, List, Optional, Set
 
+import PIL
+from PIL import Image
 from zeroconf import ServiceBrowser, Zeroconf
 
 from backend.backend_interface import OutletBackend
@@ -11,7 +14,8 @@ from backend.daemon.grpc.generated import Outlet_pb2_grpc
 from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
     GenerateMergeTree_Request, \
     GetAncestorList_Request, GetChildList_Request, \
-    GetConfig_Request, GetConfig_Response, GetRowsOfInterest_Request, GetFilter_Request, GetFilter_Response, GetLastPendingOp_Request, \
+    GetConfig_Request, GetConfig_Response, GetIcon_Request, GetRowsOfInterest_Request, GetFilter_Request, GetFilter_Response, \
+    GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForLocalPath_Request, \
     GetNodeForUid_Request, \
@@ -20,7 +24,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_
     PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
     SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
-from constants import SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
+from constants import IconId, SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
 from error import ResultsExceededError
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -175,6 +179,16 @@ class BackendGRPCClient(OutletBackend):
             config = ConfigEntry(key=config_key, val=config_val)
             request.config_list.append(config)
         self.grpc_stub.put_config(request)
+
+    def get_icon(self, icon_id: IconId) -> Optional[Image]:
+        request = GetIcon_Request()
+        request.icon_id = icon_id
+        response = self.grpc_stub.get_icon(request)
+        if response.HasField('icon'):
+            assert icon_id == response.icon.icon_id
+            img_byte_arr = io.BytesIO(response.icon.content)
+            return PIL.Image.open(img_byte_arr)
+        return None
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         request = GetNodeForUid_Request()

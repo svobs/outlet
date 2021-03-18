@@ -34,6 +34,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
                 )
+        self.get_icon = channel.unary_unary(
+                '/outlet.backend.daemon.grpc.generated.Outlet/get_icon',
+                request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.FromString,
+                )
         self.get_node_for_uid = channel.unary_unary(
                 '/outlet.backend.daemon.grpc.generated.Outlet/get_node_for_uid',
                 request_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
@@ -168,6 +173,12 @@ class OutletServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def put_config(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_icon(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -327,6 +338,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.put_config,
                     request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.SerializeToString,
+            ),
+            'get_icon': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_icon,
+                    request_deserializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.SerializeToString,
             ),
             'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_node_for_uid,
@@ -513,6 +529,23 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/put_config',
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
             outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_icon(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.daemon.grpc.generated.Outlet/get_icon',
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.SerializeToString,
+            outlet_dot_backend_dot_daemon_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

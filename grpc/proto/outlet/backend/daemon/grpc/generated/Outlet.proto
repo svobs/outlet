@@ -34,6 +34,19 @@ message PutConfig_Response {
 	// nothing
 }
 
+message GetIcon_Request {
+	uint32 icon_id = 1;
+}
+
+message GetIcon_Response {
+	Icon icon = 1;
+}
+
+message Icon {
+	uint32 icon_id = 1;
+	bytes content = 2;
+}
+
 message GetFilter_Request {
 	string tree_id = 1;
 }
@@ -289,6 +302,8 @@ service Outlet {
 
 	rpc get_config(GetConfig_Request) returns (GetConfig_Response);
 	rpc put_config(PutConfig_Request) returns (PutConfig_Response);
+
+	rpc get_icon(GetIcon_Request) returns (GetIcon_Response);
 
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);

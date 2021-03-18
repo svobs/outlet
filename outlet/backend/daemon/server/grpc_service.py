@@ -1,3 +1,4 @@
+import io
 import logging
 import threading
 
@@ -15,7 +16,9 @@ from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DirMetaUpdate, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
-    GetConfig_Request, GetConfig_Response, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetFilter_Response, GetLastPendingOp_Request, \
+    GetConfig_Request, GetConfig_Response, GetIcon_Request, GetIcon_Response, GetRowsOfInterest_Request, GetRowsOfInterest_Response, \
+    GetFilter_Response, \
+    GetLastPendingOp_Request, \
     GetLastPendingOp_Response, \
     GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
@@ -189,6 +192,26 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             self.backend.put_config(config_key=config.key, config_val=config.val)
 
         return PutConfig_Response()
+
+    @staticmethod
+    def _img_to_bytes(image):
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr.flush()
+        return img_byte_arr.getvalue()
+
+    def get_icon(self, request: GetIcon_Request, context):
+        image = self.backend.get_icon(request.icon_id)
+        response = GetIcon_Response()
+
+        if image:
+            response.icon.icon_id = request.icon_id
+            response.icon.content = self._img_to_bytes(image)
+            logger.debug(f'Returning requested image with iconId={request.icon_id}')
+        else:
+            logger.debug(f'Could not find image with requested iconId={request.icon_id}')
+
+        return response
 
     def get_node_for_uid(self, request: GetNodeForUid_Request, context):
         response = SingleNode_Response()

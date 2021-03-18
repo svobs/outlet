@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from pydispatch import dispatcher
 
-from constants import TreeDisplayMode
+from constants import IconId, TreeDisplayMode
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
@@ -48,6 +48,10 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def put_config_list(self, config_dict: Dict[str, str]):
+        pass
+
+    @abstractmethod
+    def get_icon(self, icon_id: IconId) -> Optional:
         pass
 
     @abstractmethod

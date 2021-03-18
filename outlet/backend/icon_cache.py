@@ -1,5 +1,6 @@
 import os
 import logging
+from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
 from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, COMPOSITE_ICON_BASE_DIR, \
@@ -14,10 +15,6 @@ from util.ensure import ensure_int
 
 from util.file_util import get_resource_path
 
-import gi
-
-gi.require_version("Gtk", "3.0")
-from gi.repository import GdkPixbuf
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -37,8 +34,8 @@ class SimpleIcon:
         self.name = name
         self.icon_path: str = get_resource_path(path)
 
-    def load(self) -> GdkPixbuf.Pixbuf:
-        return GdkPixbuf.Pixbuf.new_from_file(self.icon_path)
+    def build(self):
+        pass
 
 
 class CompositeIcon(SimpleIcon):
@@ -56,11 +53,9 @@ class CompositeIcon(SimpleIcon):
         if not self.badges:
             self.badges = []
 
-    def load(self):
+    def build(self):
         if REBUILD_IMAGES or not os.path.exists(self.icon_path):
             self._generate_composite_icon()
-
-        return GdkPixbuf.Pixbuf.new_from_file(self.icon_path)
 
     def _generate_composite_icon(self):
         logger.debug(f'Generating composite icon: {self.icon_path}')
@@ -168,17 +163,9 @@ def _build_icon_dict(icon_meta_list):
     return icon_dict
 
 
-def _load_icon_content(icon_meta_dict: Dict[IconId, SimpleIcon]):
-    icon_content_dict: Dict[IconId, GdkPixbuf.Pixbuf] = {}
-    for icon_id, icon in icon_meta_dict.items():
-        icon_content_dict[icon_id] = icon.load()
-    return icon_content_dict
-
-
-class Assets:
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS Assets
+class IconCache(ABC):
+    """▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS IconCache
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend):
@@ -187,13 +174,33 @@ class Assets:
         icon_size = ensure_int(entry)
         badge_size = ensure_int(backend.get_config('display.diff_tree.badge_size'))
         self._icon_meta_dict: Dict[IconId, SimpleIcon] = _build_icon_meta(icon_size, badge_size)
-        self._icon_dict: Dict[IconId, GdkPixbuf.Pixbuf] = _load_icon_content(self._icon_meta_dict)
+        self._icon_dict: Dict[IconId, object] = {}
 
-    def get_icon(self, icon_id: IconId) -> Optional[GdkPixbuf.Pixbuf]:
+    def get_icon(self, icon_id: IconId) -> Optional:
         return self._icon_dict.get(icon_id, None)
+
+    def load_all_icons(self):
+        for icon_id, icon in self._icon_meta_dict.items():
+            icon.build()
+            self._icon_dict[icon_id] = self.load_icon(icon_id, icon)
 
     def get_path(self, icon_id: IconId) -> Optional[str]:
         icon_meta: SimpleIcon = self._icon_meta_dict.get(icon_id, None)
         if icon_meta:
             return icon_meta.icon_path
         return None
+
+    @abstractmethod
+    def load_icon(self, icon_id: IconId, icon: SimpleIcon) -> object:
+        pass
+
+
+class IconCachePy(IconCache):
+    """▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS IconCachePy
+
+    An in-memory image cache which uses Python's cross-platform Pillow library's data struct for images
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+    def load_icon(self, icon_id: IconId, icon: SimpleIcon) -> object:
+        return Image.open(icon.icon_path)

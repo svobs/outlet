@@ -6,6 +6,8 @@ import logging
 from backend.backend_interface import OutletBackend
 from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
+from backend.icon_cache import IconCachePy
+from constants import IconId
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
@@ -34,10 +36,13 @@ class BackendIntegrated(OutletBackend):
         self.executor: CentralExecutor = CentralExecutor(self)
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
         self.cacheman: CacheManager = CacheManager(self)
+        self.icon_cache = IconCachePy(self)
         self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
 
     def start(self):
         logger.debug('Starting up backend')
+
+        self.icon_cache.load_all_icons()
         OutletBackend.start(self)
 
         self.executor.start()
@@ -71,6 +76,9 @@ class BackendIntegrated(OutletBackend):
     def put_config_list(self, config_dict: Dict[str, str]):
         for config_key, config_val in config_dict:
             self._config.write(config_key, config_val)
+
+    def get_icon(self, icon_id: IconId) -> Optional:
+        return self.icon_cache.get_icon(icon_id)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         return self.cacheman.get_node_for_uid(uid, tree_type)
