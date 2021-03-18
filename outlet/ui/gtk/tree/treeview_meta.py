@@ -47,15 +47,15 @@ class TreeViewMeta(HasLifecycle):
 
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
-        self.use_dir_tree: bool = ensure_bool(backend.get_config('display.diff_tree.use_dir_tree'))
+        self.use_dir_tree: bool = ensure_bool(backend.get_config('display.treeview.use_dir_tree'))
 
-        self.show_modify_ts_col: bool = ensure_bool(backend.get_config('display.diff_tree.show_modify_ts_col'))
-        self.show_change_ts_col: bool = ensure_bool(backend.get_config('display.diff_tree.show_change_ts_col'))
-        self.show_etc_col: bool = ensure_bool(backend.get_config('display.diff_tree.show_etc_col'))
+        self.show_modify_ts_col: bool = ensure_bool(backend.get_config('display.treeview.show_modify_ts_col'))
+        self.show_change_ts_col: bool = ensure_bool(backend.get_config('display.treeview.show_change_ts_col'))
+        self.show_etc_col: bool = ensure_bool(backend.get_config('display.treeview.show_etc_col'))
 
-        self.datetime_format = backend.get_config('display.diff_tree.datetime_format')
-        self.extra_indent: int = ensure_int(backend.get_config('display.diff_tree.extra_indent'))
-        self.row_height: int = ensure_int(backend.get_config('display.diff_tree.row_height'))
+        self.datetime_format = backend.get_config('display.treeview.datetime_format')
+        self.extra_indent: int = ensure_int(backend.get_config('display.treeview.extra_indent'))
+        self.row_height: int = ensure_int(backend.get_config('display.treeview.row_height'))
 
         # Search for "TREE_VIEW_COLUMNS":
 

@@ -44,7 +44,7 @@ class DisplayMutator(HasLifecycle):
     def __init__(self, controller=None):
         HasLifecycle.__init__(self)
         self.con = controller
-        self.use_empty_nodes = True
+        self.use_empty_nodes = True  # default
         self._lock = threading.Lock()
         self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=STATS_REFRESH_HOLDOFF_TIME_MS, task_func=self._request_subtree_stats_refresh)
         """Stats for the entire subtree are all connected to each other, so this is a big task. This timer allows us to throttle its frequency"""
@@ -63,7 +63,7 @@ class DisplayMutator(HasLifecycle):
         """Do post-wiring stuff like connect listeners."""
         HasLifecycle.start(self)
 
-        self.use_empty_nodes = self.con.backend.get_config('display.diff_tree.use_empty_nodes')
+        self.use_empty_nodes = self.con.backend.get_config('display.treeview.use_empty_nodes')
         self._connect_node_listeners()
         logger.debug(f'[{self.con.tree_id}] DisplayMutator started')
 

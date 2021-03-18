@@ -93,12 +93,11 @@ class CompositeIcon(SimpleIcon):
 # Static methods
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-def _build_icon_meta(icon_size: int, badge_size: int) -> Dict[IconId, SimpleIcon]:
-    tool_icon_size = icon_size
-    logger.debug(f'ToolIconSize is {tool_icon_size}')
-    file_base: str = f'{BASE_ICON_BASE_DIR}/File-{icon_size}.png'
-    dir_base: str = f'{BASE_ICON_BASE_DIR}/Dir-{icon_size}.png'
-    hdisk_base: str = f'{BASE_ICON_BASE_DIR}/HDisk-{icon_size}.png'
+def _build_icon_meta(tree_icon_size: int, toolbar_icon_size: int, badge_size: int) -> Dict[IconId, SimpleIcon]:
+    logger.debug(f'ToolIconSize is {toolbar_icon_size}')
+    file_base: str = f'{BASE_ICON_BASE_DIR}/File-{tree_icon_size}.png'
+    dir_base: str = f'{BASE_ICON_BASE_DIR}/Dir-{tree_icon_size}.png'
+    hdisk_base: str = f'{BASE_ICON_BASE_DIR}/HDisk-{tree_icon_size}.png'
 
     # IMPORTANT: make sure these are in the same order as the IconId values in constants! (too lazy to enter each individually right now)
     icon_meta_dict = {
@@ -111,7 +110,7 @@ def _build_icon_meta(icon_size: int, badge_size: int) -> Dict[IconId, SimpleIcon
         IconId.ICON_FILE_MV_DST: CompositeIcon(name=ICON_FILE_MV_DST, base_path=file_base, badges=[f'MV-dst-{badge_size}']),
         IconId.ICON_FILE_UP_DST: CompositeIcon(name=ICON_FILE_UP_DST, base_path=file_base, badges=[f'UP-dst-{badge_size}']),
         IconId.ICON_FILE_CP_DST: CompositeIcon(name=ICON_FILE_CP_DST, base_path=file_base, badges=[f'CP-dst-{badge_size}']),
-        IconId.ICON_FILE_TRASHED: SimpleIcon(name=ICON_FILE_TRASHED, path=f'resources/icons8-paper-waste-{icon_size}px.png'),
+        IconId.ICON_FILE_TRASHED: SimpleIcon(name=ICON_FILE_TRASHED, path=f'resources/icons8-paper-waste-{tree_icon_size}px.png'),
 
         # Dir
         IconId.ICON_GENERIC_DIR: SimpleIcon(name=ICON_GENERIC_DIR, path=dir_base),
@@ -123,7 +122,7 @@ def _build_icon_meta(icon_size: int, badge_size: int) -> Dict[IconId, SimpleIcon
         IconId.ICON_DIR_MV_DST: CompositeIcon(name=ICON_DIR_MV_DST, base_path=dir_base, badges=[f'MV-dst-{badge_size}']),
         IconId.ICON_DIR_UP_DST: CompositeIcon(name=ICON_DIR_UP_DST, base_path=dir_base, badges=[f'UP-dst-{badge_size}']),
         IconId.ICON_DIR_CP_DST: CompositeIcon(name=ICON_DIR_CP_DST, base_path=dir_base, badges=[f'CP-dst-{badge_size}']),
-        IconId.ICON_DIR_TRASHED: SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{icon_size}px.png'),
+        IconId.ICON_DIR_TRASHED: SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{tree_icon_size}px.png'),
 
         # Misc UI
         IconId.ICON_ALERT: SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
@@ -131,13 +130,13 @@ def _build_icon_meta(icon_size: int, badge_size: int) -> Dict[IconId, SimpleIcon
         IconId.ICON_REFRESH: SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),
         IconId.ICON_PLAY: SimpleIcon(name=ICON_PLAY, path=f'resources/play-button-white-32px.png'),
         IconId.ICON_PAUSE: SimpleIcon(name=ICON_PAUSE, path=f'resources/pause-button-white-32px.png'),
-        IconId.ICON_FOLDER_TREE: SimpleIcon(name=ICON_FOLDER_TREE, path=f'resources/Toolbar/FolderTree-{tool_icon_size}px.png'),
-        IconId.ICON_MATCH_CASE: SimpleIcon(name=ICON_MATCH_CASE, path=f'resources/Toolbar/MatchCase-{tool_icon_size}px.png'),
-        IconId.ICON_IS_SHARED: SimpleIcon(name=ICON_IS_SHARED, path=f'resources/Toolbar/Shared-{tool_icon_size}px.png'),
-        IconId.ICON_IS_NOT_SHARED: CompositeIcon(name=ICON_IS_NOT_SHARED, base_path=f'resources/Toolbar/Shared-{tool_icon_size}px.png',
+        IconId.ICON_FOLDER_TREE: SimpleIcon(name=ICON_FOLDER_TREE, path=f'resources/Toolbar/FolderTree-{toolbar_icon_size}px.png'),
+        IconId.ICON_MATCH_CASE: SimpleIcon(name=ICON_MATCH_CASE, path=f'resources/Toolbar/MatchCase-{toolbar_icon_size}px.png'),
+        IconId.ICON_IS_SHARED: SimpleIcon(name=ICON_IS_SHARED, path=f'resources/Toolbar/Shared-{toolbar_icon_size}px.png'),
+        IconId.ICON_IS_NOT_SHARED: CompositeIcon(name=ICON_IS_NOT_SHARED, base_path=f'resources/Toolbar/Shared-{toolbar_icon_size}px.png',
                                                  badges=[f'Cancel-{badge_size}']),
-        IconId.ICON_IS_TRASHED: SimpleIcon(name=ICON_IS_TRASHED, path=f'resources/Toolbar/Trashed-{tool_icon_size}px.png'),
-        IconId.ICON_IS_NOT_TRASHED: CompositeIcon(name=ICON_IS_NOT_TRASHED, base_path=f'resources/Toolbar/Trashed-{tool_icon_size}px.png',
+        IconId.ICON_IS_TRASHED: SimpleIcon(name=ICON_IS_TRASHED, path=f'resources/Toolbar/Trashed-{toolbar_icon_size}px.png'),
+        IconId.ICON_IS_NOT_TRASHED: CompositeIcon(name=ICON_IS_NOT_TRASHED, base_path=f'resources/Toolbar/Trashed-{toolbar_icon_size}px.png',
                                                   badges=[f'Cancel-{badge_size}']),
 
         # Drive
@@ -170,10 +169,10 @@ class IconCache(ABC):
     """
     def __init__(self, backend):
         self.backend = backend
-        entry = backend.get_config('display.diff_tree.icon_size')
-        icon_size = ensure_int(entry)
-        badge_size = ensure_int(backend.get_config('display.diff_tree.badge_size'))
-        self._icon_meta_dict: Dict[IconId, SimpleIcon] = _build_icon_meta(icon_size, badge_size)
+        tree_icon_size = ensure_int(backend.get_config('display.image.tree_icon_size'))
+        toolbar_icon_size = ensure_int(backend.get_config('display.image.toolbar_icon_size'))
+        badge_size = ensure_int(backend.get_config('display.image.badge_size'))
+        self._icon_meta_dict: Dict[IconId, SimpleIcon] = _build_icon_meta(tree_icon_size, toolbar_icon_size, badge_size)
         self._icon_dict: Dict[IconId, object] = {}
 
     def get_icon(self, icon_id: IconId) -> Optional:

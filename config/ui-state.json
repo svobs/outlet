@@ -10,7 +10,7 @@
         }
     },
     "global": {
-        "last_uid": 11677980
+        "last_uid": 11690004
     },
     "left_tree": {
         "expanded_rows": "9959708,9959709",
@@ -23,10 +23,10 @@
         "filter": {
             "ignore_case": true,
             "is_shared": 2,
-            "is_trashed": 2,
+            "is_trashed": 0,
             "search_query": "",
             "show_subtree": true,
-            "show_subtrees": false
+            "show_subtrees": true
         },
         "offending_path": "",
         "root_exists": false,
@@ -35,10 +35,10 @@
         "tree_type": 2
     },
     "main_win": {
-        "height": 746,
-        "width": 1440,
-        "x": 106,
-        "y": 174
+        "height": "840",
+        "width": "1298",
+        "x": "2756",
+        "y": "703"
     },
     "merge_tree": {
         "filter": {
@@ -50,7 +50,7 @@
         }
     },
     "right_tree": {
-        "expanded_rows": "9959722",
+        "expanded_rows": "11215297,11260065,11215133",
         "expanded_state": {
             "CP": true,
             "MV": true,
@@ -58,7 +58,7 @@
             "UP": true
         },
         "filter": {
-            "ignore_case": true,
+            "ignore_case": false,
             "is_shared": 2,
             "is_trashed": 2,
             "search_query": "",
@@ -68,8 +68,9 @@
         "is_found": true,
         "offending_path": "",
         "root_exists": true,
-        "root_path": "/My Drive",
-        "root_uid": 11214632,
+        "root_path": "/My Drive/Development",
+        "root_uid": 11215134,
+        "selected_rows": "11273456",
         "tree_type": 3
     },
     "right_tree_diff": {
