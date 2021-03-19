@@ -10,7 +10,7 @@ from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_L
     ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_FOLDER_TREE, ICON_GDRIVE, ICON_GENERIC_DIR, \
     ICON_GENERIC_FILE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_LOCAL_DISK_LINUX, ICON_MATCH_CASE, ICON_PAUSE, ICON_PLAY, ICON_REFRESH, \
     ICON_IS_SHARED, \
-    ICON_IS_TRASHED, ICON_WINDOW, IconId
+    ICON_IS_TRASHED, ICON_WINDOW, IconId, REBUILD_IMAGES
 from util.ensure import ensure_int
 
 from util.file_util import get_resource_path
@@ -18,9 +18,6 @@ from util.file_util import get_resource_path
 from PIL import Image
 
 logger = logging.getLogger(__name__)
-
-REBUILD_IMAGES = True
-VALID_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512, 1024]
 
 
 class SimpleIcon:
@@ -90,78 +87,6 @@ class CompositeIcon(SimpleIcon):
         img_composite.save(self.icon_path)
 
 
-# Static methods
-# ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-def _build_icon_meta(tree_icon_size: int, toolbar_icon_size: int, badge_size: int) -> Dict[IconId, SimpleIcon]:
-    logger.debug(f'ToolIconSize is {toolbar_icon_size}')
-    file_base: str = f'{BASE_ICON_BASE_DIR}/File-{tree_icon_size}.png'
-    dir_base: str = f'{BASE_ICON_BASE_DIR}/Dir-{tree_icon_size}.png'
-    hdisk_base: str = f'{BASE_ICON_BASE_DIR}/HDisk-{tree_icon_size}.png'
-
-    # IMPORTANT: make sure these are in the same order as the IconId values in constants! (too lazy to enter each individually right now)
-    icon_meta_dict = {
-        # File
-        IconId.ICON_GENERIC_FILE: SimpleIcon(name=ICON_GENERIC_FILE, path=file_base),
-        IconId.ICON_FILE_RM: CompositeIcon(name=ICON_FILE_RM, base_path=file_base, badges=[f'RM-{badge_size}']),
-        IconId.ICON_FILE_MV_SRC: CompositeIcon(name=ICON_FILE_MV_SRC, base_path=file_base, badges=[f'MV-src-{badge_size}']),
-        IconId.ICON_FILE_UP_SRC: CompositeIcon(name=ICON_FILE_UP_SRC, base_path=file_base, badges=[f'UP-src-{badge_size}']),
-        IconId.ICON_FILE_CP_SRC: CompositeIcon(name=ICON_FILE_CP_SRC, base_path=file_base, badges=[f'CP-src-{badge_size}']),
-        IconId.ICON_FILE_MV_DST: CompositeIcon(name=ICON_FILE_MV_DST, base_path=file_base, badges=[f'MV-dst-{badge_size}']),
-        IconId.ICON_FILE_UP_DST: CompositeIcon(name=ICON_FILE_UP_DST, base_path=file_base, badges=[f'UP-dst-{badge_size}']),
-        IconId.ICON_FILE_CP_DST: CompositeIcon(name=ICON_FILE_CP_DST, base_path=file_base, badges=[f'CP-dst-{badge_size}']),
-        IconId.ICON_FILE_TRASHED: SimpleIcon(name=ICON_FILE_TRASHED, path=f'resources/icons8-paper-waste-{tree_icon_size}px.png'),
-
-        # Dir
-        IconId.ICON_GENERIC_DIR: SimpleIcon(name=ICON_GENERIC_DIR, path=dir_base),
-        IconId.ICON_DIR_MK: CompositeIcon(name=ICON_DIR_MK, base_path=dir_base, badges=[f'MKDIR-{badge_size}']),
-        IconId.ICON_DIR_RM: CompositeIcon(name=ICON_DIR_RM, base_path=dir_base, badges=[f'RM-{badge_size}']),
-        IconId.ICON_DIR_MV_SRC: CompositeIcon(name=ICON_DIR_MV_SRC, base_path=file_base, badges=[f'MV-src-{badge_size}']),
-        IconId.ICON_DIR_UP_SRC: CompositeIcon(name=ICON_DIR_UP_SRC, base_path=file_base, badges=[f'UP-src-{badge_size}']),
-        IconId.ICON_DIR_CP_SRC: CompositeIcon(name=ICON_DIR_CP_SRC, base_path=file_base, badges=[f'CP-src-{badge_size}']),
-        IconId.ICON_DIR_MV_DST: CompositeIcon(name=ICON_DIR_MV_DST, base_path=dir_base, badges=[f'MV-dst-{badge_size}']),
-        IconId.ICON_DIR_UP_DST: CompositeIcon(name=ICON_DIR_UP_DST, base_path=dir_base, badges=[f'UP-dst-{badge_size}']),
-        IconId.ICON_DIR_CP_DST: CompositeIcon(name=ICON_DIR_CP_DST, base_path=dir_base, badges=[f'CP-dst-{badge_size}']),
-        IconId.ICON_DIR_TRASHED: SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{tree_icon_size}px.png'),
-
-        # Misc UI
-        IconId.ICON_ALERT: SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
-        IconId.ICON_WINDOW: SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
-        IconId.ICON_REFRESH: SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),
-        IconId.ICON_PLAY: SimpleIcon(name=ICON_PLAY, path=f'resources/play-button-white-32px.png'),
-        IconId.ICON_PAUSE: SimpleIcon(name=ICON_PAUSE, path=f'resources/pause-button-white-32px.png'),
-        IconId.ICON_FOLDER_TREE: SimpleIcon(name=ICON_FOLDER_TREE, path=f'resources/Toolbar/FolderTree-{toolbar_icon_size}px.png'),
-        IconId.ICON_MATCH_CASE: SimpleIcon(name=ICON_MATCH_CASE, path=f'resources/Toolbar/MatchCase-{toolbar_icon_size}px.png'),
-        IconId.ICON_IS_SHARED: SimpleIcon(name=ICON_IS_SHARED, path=f'resources/Toolbar/Shared-{toolbar_icon_size}px.png'),
-        IconId.ICON_IS_NOT_SHARED: CompositeIcon(name=ICON_IS_NOT_SHARED, base_path=f'resources/Toolbar/Shared-{toolbar_icon_size}px.png',
-                                                 badges=[f'Cancel-{badge_size}']),
-        IconId.ICON_IS_TRASHED: SimpleIcon(name=ICON_IS_TRASHED, path=f'resources/Toolbar/Trashed-{toolbar_icon_size}px.png'),
-        IconId.ICON_IS_NOT_TRASHED: CompositeIcon(name=ICON_IS_NOT_TRASHED, base_path=f'resources/Toolbar/Trashed-{toolbar_icon_size}px.png',
-                                                  badges=[f'Cancel-{badge_size}']),
-
-        # Drive
-        IconId.ICON_GDRIVE: SimpleIcon(name=ICON_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
-        IconId.ICON_LOCAL_DISK_LINUX: CompositeIcon(name=ICON_LOCAL_DISK_LINUX, base_path=hdisk_base, badges=[f'linux-outline-{badge_size}']),
-
-        IconId.BTN_GDRIVE: SimpleIcon(name=BTN_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
-        IconId.BTN_LOCAL_DISK_LINUX: CompositeIcon(name=BTN_LOCAL_DISK_LINUX, base_path=f'{BASE_ICON_BASE_DIR}/HDisk-48.png',
-                                                   badges=[f'linux-outline-{badge_size}']),
-    }
-
-    return icon_meta_dict
-
-
-def _build_icon_dict(icon_meta_list):
-    icon_dict = dict()
-    icon_id = IconId(0)
-    icon_dict[icon_id] = None
-    for icon in icon_meta_list:
-        icon_id = IconId(icon_id + 1)
-        icon_dict[icon_id] = icon
-
-    return icon_dict
-
-
 class IconStore(ABC):
     """▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS IconStore
@@ -172,7 +97,7 @@ class IconStore(ABC):
         tree_icon_size = ensure_int(backend.get_config('display.image.tree_icon_size'))
         toolbar_icon_size = ensure_int(backend.get_config('display.image.toolbar_icon_size'))
         badge_size = ensure_int(backend.get_config('display.image.badge_size'))
-        self._icon_meta_dict: Dict[IconId, SimpleIcon] = _build_icon_meta(tree_icon_size, toolbar_icon_size, badge_size)
+        self._icon_meta_dict: Dict[IconId, SimpleIcon] = IconStore._build_icon_meta(tree_icon_size, toolbar_icon_size, badge_size)
         self._icon_dict: Dict[IconId, object] = {}
 
     def get_icon(self, icon_id: IconId) -> Optional:
@@ -192,6 +117,64 @@ class IconStore(ABC):
     @abstractmethod
     def load_icon(self, icon_id: IconId, icon: SimpleIcon) -> object:
         pass
+
+    @staticmethod
+    def _build_icon_meta(tree_icon_size: int, toolbar_icon_size: int, badge_size: int) -> Dict[IconId, SimpleIcon]:
+        logger.debug(f'ToolIconSize is {toolbar_icon_size}')
+        file_base: str = f'{BASE_ICON_BASE_DIR}/File-{tree_icon_size}.png'
+        dir_base: str = f'{BASE_ICON_BASE_DIR}/Dir-{tree_icon_size}.png'
+        hdisk_base: str = f'{BASE_ICON_BASE_DIR}/HDisk-{tree_icon_size}.png'
+
+        # IMPORTANT: make sure these are in the same order as the IconId values in constants! (too lazy to enter each individually right now)
+        icon_meta_dict = {
+            # File
+            IconId.ICON_GENERIC_FILE: SimpleIcon(name=ICON_GENERIC_FILE, path=file_base),
+            IconId.ICON_FILE_RM: CompositeIcon(name=ICON_FILE_RM, base_path=file_base, badges=[f'RM-{badge_size}']),
+            IconId.ICON_FILE_MV_SRC: CompositeIcon(name=ICON_FILE_MV_SRC, base_path=file_base, badges=[f'MV-src-{badge_size}']),
+            IconId.ICON_FILE_UP_SRC: CompositeIcon(name=ICON_FILE_UP_SRC, base_path=file_base, badges=[f'UP-src-{badge_size}']),
+            IconId.ICON_FILE_CP_SRC: CompositeIcon(name=ICON_FILE_CP_SRC, base_path=file_base, badges=[f'CP-src-{badge_size}']),
+            IconId.ICON_FILE_MV_DST: CompositeIcon(name=ICON_FILE_MV_DST, base_path=file_base, badges=[f'MV-dst-{badge_size}']),
+            IconId.ICON_FILE_UP_DST: CompositeIcon(name=ICON_FILE_UP_DST, base_path=file_base, badges=[f'UP-dst-{badge_size}']),
+            IconId.ICON_FILE_CP_DST: CompositeIcon(name=ICON_FILE_CP_DST, base_path=file_base, badges=[f'CP-dst-{badge_size}']),
+            IconId.ICON_FILE_TRASHED: SimpleIcon(name=ICON_FILE_TRASHED, path=f'resources/icons8-paper-waste-{tree_icon_size}px.png'),
+
+            # Dir
+            IconId.ICON_GENERIC_DIR: SimpleIcon(name=ICON_GENERIC_DIR, path=dir_base),
+            IconId.ICON_DIR_MK: CompositeIcon(name=ICON_DIR_MK, base_path=dir_base, badges=[f'MKDIR-{badge_size}']),
+            IconId.ICON_DIR_RM: CompositeIcon(name=ICON_DIR_RM, base_path=dir_base, badges=[f'RM-{badge_size}']),
+            IconId.ICON_DIR_MV_SRC: CompositeIcon(name=ICON_DIR_MV_SRC, base_path=file_base, badges=[f'MV-src-{badge_size}']),
+            IconId.ICON_DIR_UP_SRC: CompositeIcon(name=ICON_DIR_UP_SRC, base_path=file_base, badges=[f'UP-src-{badge_size}']),
+            IconId.ICON_DIR_CP_SRC: CompositeIcon(name=ICON_DIR_CP_SRC, base_path=file_base, badges=[f'CP-src-{badge_size}']),
+            IconId.ICON_DIR_MV_DST: CompositeIcon(name=ICON_DIR_MV_DST, base_path=dir_base, badges=[f'MV-dst-{badge_size}']),
+            IconId.ICON_DIR_UP_DST: CompositeIcon(name=ICON_DIR_UP_DST, base_path=dir_base, badges=[f'UP-dst-{badge_size}']),
+            IconId.ICON_DIR_CP_DST: CompositeIcon(name=ICON_DIR_CP_DST, base_path=dir_base, badges=[f'CP-dst-{badge_size}']),
+            IconId.ICON_DIR_TRASHED: SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{tree_icon_size}px.png'),
+
+            # Misc UI
+            IconId.ICON_ALERT: SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
+            IconId.ICON_WINDOW: SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
+            IconId.ICON_REFRESH: SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),
+            IconId.ICON_PLAY: SimpleIcon(name=ICON_PLAY, path=f'resources/play-button-white-32px.png'),
+            IconId.ICON_PAUSE: SimpleIcon(name=ICON_PAUSE, path=f'resources/pause-button-white-32px.png'),
+            IconId.ICON_FOLDER_TREE: SimpleIcon(name=ICON_FOLDER_TREE, path=f'resources/Toolbar/FolderTree-{toolbar_icon_size}px.png'),
+            IconId.ICON_MATCH_CASE: SimpleIcon(name=ICON_MATCH_CASE, path=f'resources/Toolbar/MatchCase-{toolbar_icon_size}px.png'),
+            IconId.ICON_IS_SHARED: SimpleIcon(name=ICON_IS_SHARED, path=f'resources/Toolbar/Shared-{toolbar_icon_size}px.png'),
+            IconId.ICON_IS_NOT_SHARED: CompositeIcon(name=ICON_IS_NOT_SHARED, base_path=f'resources/Toolbar/Shared-{toolbar_icon_size}px.png',
+                                                     badges=[f'Cancel-{badge_size}']),
+            IconId.ICON_IS_TRASHED: SimpleIcon(name=ICON_IS_TRASHED, path=f'resources/Toolbar/Trashed-{toolbar_icon_size}px.png'),
+            IconId.ICON_IS_NOT_TRASHED: CompositeIcon(name=ICON_IS_NOT_TRASHED, base_path=f'resources/Toolbar/Trashed-{toolbar_icon_size}px.png',
+                                                      badges=[f'Cancel-{badge_size}']),
+
+            # Drive
+            IconId.ICON_GDRIVE: SimpleIcon(name=ICON_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
+            IconId.ICON_LOCAL_DISK_LINUX: CompositeIcon(name=ICON_LOCAL_DISK_LINUX, base_path=hdisk_base, badges=[f'linux-outline-{badge_size}']),
+
+            IconId.BTN_GDRIVE: SimpleIcon(name=BTN_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
+            IconId.BTN_LOCAL_DISK_LINUX: CompositeIcon(name=BTN_LOCAL_DISK_LINUX, base_path=f'{BASE_ICON_BASE_DIR}/HDisk-48.png',
+                                                       badges=[f'linux-outline-{badge_size}']),
+        }
+
+        return icon_meta_dict
 
 
 class IconStorePy(IconStore):

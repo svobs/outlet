@@ -104,6 +104,9 @@ ZEROCONF_SERVICE_TYPE = '_outlet._tcp.local.'
 
 TRASHED_STATUS_STR = ['No', 'UserTrashed', 'Trashed', 'Deleted']
 
+REBUILD_IMAGES = True
+VALID_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512, 1024]
+
 
 # Trashed state
 class TrashStatus(IntEnum):
