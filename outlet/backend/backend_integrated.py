@@ -6,7 +6,7 @@ import logging
 from backend.backend_interface import OutletBackend
 from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
-from backend.icon_cache import IconCachePy
+from backend.icon_store import IconStorePy
 from constants import IconId
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -36,7 +36,7 @@ class BackendIntegrated(OutletBackend):
         self.executor: CentralExecutor = CentralExecutor(self)
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
         self.cacheman: CacheManager = CacheManager(self)
-        self.icon_cache = IconCachePy(self)
+        self.icon_cache = IconStorePy(self)
         self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
 
     def start(self):

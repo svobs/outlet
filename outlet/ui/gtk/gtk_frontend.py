@@ -9,9 +9,9 @@ from backend.backend_interface import OutletBackend
 from backend.store.uid.uid_generator import SimpleUidGenerator
 from signal_constants import Signal
 from signal_constants import ID_MAIN_WINDOW
-from ui.gtk.icon_cache_gtk import IconCacheGtk
+from ui.gtk.icon_store_gtk import IconStoreGtk
 from ui.gtk.tree.controller import TreePanelController
-from ui.gtk.two_pane_window import TwoPanelWindow
+from ui.gtk.two_pane_window import TwoPaneWindow
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -32,7 +32,7 @@ class OutletApplication(Gtk.Application):
     def __init__(self, backend):
         Gtk.Application.__init__(self)
         self.backend: OutletBackend = backend
-        self.assets = IconCacheGtk(backend)
+        self.assets = IconStoreGtk(backend)
         self.ui_uid_generator = SimpleUidGenerator()
         self._tree_controllers: Dict[str, TreePanelController] = {}
         """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
@@ -69,7 +69,7 @@ class OutletApplication(Gtk.Application):
             self.start()
 
             logger.debug(f'Creating main window')
-            self.window = TwoPanelWindow(app=self, win_id=ID_MAIN_WINDOW)
+            self.window = TwoPaneWindow(app=self, win_id=ID_MAIN_WINDOW)
             self.window.show_all()
             logger.debug(f'Finished window.show_all()')
 

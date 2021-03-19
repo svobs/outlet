@@ -21,13 +21,8 @@ from gi.repository import GLib, Gtk, Gdk
 logger = logging.getLogger(__name__)
 
 
-""" ▂ ▃ ▄ ▅ ▆ ▇ █ █ ▇ ▆ ▅ ▄ ▃ ▂
-             TwoPanelWindow
-"""
-
-
-class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
-    """🢄🢄🢄 2-panel window for comparing one file tree to another"""
+class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
+    """2-panel window for comparing one file tree to another"""
     def __init__(self, app, win_id):
         Gtk.Window.__init__(self, application=app)
         BaseDialog.__init__(self, app)
@@ -154,7 +149,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def shutdown(self, arg=None):
         """Overrides Gtk.Window.close()"""
-        logger.debug(f'TwoPanelWindow.shutdown() called')
+        logger.debug(f'TwoPaneWindow.shutdown() called')
 
         dispatcher.send(Signal.SHUTDOWN_APP, sender=self.win_id)
 
