@@ -21,6 +21,9 @@ def main():
     except KeyboardInterrupt:
         logger.info('Caught KeyboardInterrupt. Quitting')
         app.shutdown()
+    except RuntimeError:
+        logger.exception(f'Fatal error; shutting down')
+        app.shutdown()
 
 
 if __name__ == '__main__':

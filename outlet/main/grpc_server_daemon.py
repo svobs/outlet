@@ -14,13 +14,16 @@ def main():
     logger.info(f'Creating OutletDameon')
     config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
     daemon = OutletDaemon(config)
-    daemon.start()
 
     try:
+        daemon.start()
         daemon.serve()
         sys.exit(0)
     except KeyboardInterrupt:
         logger.info(f'Caught KeyboardInterrupt. Quitting')
+        daemon.shutdown()
+    except RuntimeError:
+        logger.exception(f'Fatal error (shutting down)')
         daemon.shutdown()
 
 

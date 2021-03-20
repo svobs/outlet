@@ -3,12 +3,15 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
-from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, COMPOSITE_ICON_BASE_DIR, \
+from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, BTN_LOCAL_DISK_MACOS, BTN_LOCAL_DISK_WINDOWS, \
+    COMPOSITE_ICON_BASE_DIR, \
     ICON_ALERT, ICON_DIR_CP_DST, \
     ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_RM, \
     ICON_DIR_TRASHED, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, ICON_FILE_MV_DST, \
     ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_FOLDER_TREE, ICON_GDRIVE, ICON_GENERIC_DIR, \
-    ICON_GENERIC_FILE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_LOCAL_DISK_LINUX, ICON_MATCH_CASE, ICON_PAUSE, ICON_PLAY, ICON_REFRESH, \
+    ICON_GENERIC_FILE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_LOCAL_DISK_LINUX, ICON_LOCAL_DISK_MACOS, ICON_LOCAL_DISK_WINDOWS, \
+    ICON_MATCH_CASE, ICON_PAUSE, ICON_PLAY, \
+    ICON_REFRESH, \
     ICON_IS_SHARED, \
     ICON_IS_TRASHED, ICON_WINDOW, IconId, REBUILD_IMAGES
 from util.ensure import ensure_int
@@ -166,12 +169,18 @@ class IconStore(ABC):
                                                       badges=[f'Cancel-{badge_size}']),
 
             # Drive
+            IconId.ICON_LOCAL_DISK_LINUX: CompositeIcon(name=ICON_LOCAL_DISK_LINUX, base_path=hdisk_base, badges=[f'linux-{badge_size}']),
+            IconId.ICON_LOCAL_DISK_MACOS: CompositeIcon(name=ICON_LOCAL_DISK_MACOS, base_path=hdisk_base, badges=[f'macos-{badge_size}']),
+            IconId.ICON_LOCAL_DISK_WINDOWS: CompositeIcon(name=ICON_LOCAL_DISK_WINDOWS, base_path=hdisk_base, badges=[f'win-{badge_size}']),
             IconId.ICON_GDRIVE: SimpleIcon(name=ICON_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
-            IconId.ICON_LOCAL_DISK_LINUX: CompositeIcon(name=ICON_LOCAL_DISK_LINUX, base_path=hdisk_base, badges=[f'linux-outline-{badge_size}']),
 
-            IconId.BTN_GDRIVE: SimpleIcon(name=BTN_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
             IconId.BTN_LOCAL_DISK_LINUX: CompositeIcon(name=BTN_LOCAL_DISK_LINUX, base_path=f'{BASE_ICON_BASE_DIR}/HDisk-48.png',
-                                                       badges=[f'linux-outline-{badge_size}']),
+                                                       badges=[f'linux-{badge_size}']),
+            IconId.BTN_LOCAL_DISK_MACOS: CompositeIcon(name=BTN_LOCAL_DISK_MACOS, base_path=f'{BASE_ICON_BASE_DIR}/HDisk-48.png',
+                                                       badges=[f'macos-{badge_size}']),
+            IconId.BTN_LOCAL_DISK_WINDOWS: CompositeIcon(name=BTN_LOCAL_DISK_WINDOWS, base_path=f'{BASE_ICON_BASE_DIR}/HDisk-48.png',
+                                                         badges=[f'win-{badge_size}']),
+            IconId.BTN_GDRIVE: SimpleIcon(name=BTN_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
         }
 
         return icon_meta_dict

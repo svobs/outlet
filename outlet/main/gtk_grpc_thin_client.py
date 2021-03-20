@@ -23,7 +23,12 @@ def main():
         daemon_util.launch_daemon_if_needed(kill_existing=kill_existing)
 
     backend = BackendGRPCClient(config)
-    backend.start()
+    try:
+        backend.start()
+    except RuntimeError:
+        logger.exception(f'Fatal error while starting backend; shutting down')
+        backend.shutdown()
+        exit(1)
 
     app = OutletApplication(backend)
     try:

@@ -192,11 +192,15 @@ ICON_PLAY = 'play'
 ICON_PAUSE = 'pause'
 
 # Root icon names:
-ICON_GDRIVE = 'gdrive'
 ICON_LOCAL_DISK_LINUX = 'localdisk-linux'
+ICON_LOCAL_DISK_MACOS = 'localdisk-macos'
+ICON_LOCAL_DISK_WINDOWS = 'localdisk-win'
+ICON_GDRIVE = 'gdrive'
 
-BTN_GDRIVE = 'gdrive-btn'
 BTN_LOCAL_DISK_LINUX = 'localdisk-linux-btn'
+BTN_LOCAL_DISK_MACOS = 'localdisk-macos-btn'
+BTN_LOCAL_DISK_WINDOWS = 'localdisk-win-btn'
+BTN_GDRIVE = 'gdrive-btn'
 
 
 class IconId(IntEnum):
@@ -236,11 +240,15 @@ class IconId(IntEnum):
     ICON_IS_TRASHED = 29
     ICON_IS_NOT_TRASHED = 30
 
-    ICON_GDRIVE = 31
-    ICON_LOCAL_DISK_LINUX = 32
+    ICON_LOCAL_DISK_LINUX = 31
+    ICON_LOCAL_DISK_MACOS = 32
+    ICON_LOCAL_DISK_WINDOWS = 33
+    ICON_GDRIVE = 34
 
-    BTN_GDRIVE = 33
-    BTN_LOCAL_DISK_LINUX = 34
+    BTN_GDRIVE = 40
+    BTN_LOCAL_DISK_LINUX = 41
+    BTN_LOCAL_DISK_MACOS = 42
+    BTN_LOCAL_DISK_WINDOWS = 43
 
 
 PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
