@@ -197,6 +197,7 @@ ICON_LOCAL_DISK_MACOS = 'localdisk-macos'
 ICON_LOCAL_DISK_WINDOWS = 'localdisk-win'
 ICON_GDRIVE = 'gdrive'
 
+BTN_FOLDER_TREE = 'folder-tree-btn'
 BTN_LOCAL_DISK_LINUX = 'localdisk-linux-btn'
 BTN_LOCAL_DISK_MACOS = 'localdisk-macos-btn'
 BTN_LOCAL_DISK_WINDOWS = 'localdisk-win-btn'
@@ -245,10 +246,11 @@ class IconId(IntEnum):
     ICON_LOCAL_DISK_WINDOWS = 33
     ICON_GDRIVE = 34
 
-    BTN_GDRIVE = 40
+    BTN_FOLDER_TREE = 40
     BTN_LOCAL_DISK_LINUX = 41
     BTN_LOCAL_DISK_MACOS = 42
     BTN_LOCAL_DISK_WINDOWS = 43
+    BTN_GDRIVE = 44
 
 
 PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
