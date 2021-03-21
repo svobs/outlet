@@ -150,7 +150,7 @@ class ActiveTreeManager(HasLifecycle):
         logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
         display_tree = self._display_tree_dict.pop(sender, None)
         if display_tree:
-            logger.debug(f'[{sender}] Display tree de-registered in backend')
+            logger.debug(f'[{sender}] Display tree deregistered in backend')
         else:
             logger.debug(f'[{sender}] Could not deregister display tree in backend: it was not found')
 
