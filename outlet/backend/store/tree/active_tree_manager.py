@@ -319,6 +319,8 @@ class ActiveTreeManager(HasLifecycle):
             # reuse and update existing
             display_tree_meta.state = state
             assert display_tree_meta.state.tree_id == response_tree_id, f'TreeID "{response_tree_id}" != {display_tree_meta.state.tree_id}'
+
+            display_tree_meta.filter_state.update_root_sn(display_tree_meta.state.root_sn)
         else:
             logger.debug(f'[{sender_tree_id}] Reading FilterCriteria from config')
             filter_state = FilterState.from_config(self.backend, sender_tree_id, root_sn)

@@ -32,10 +32,10 @@ class FilterCriteria:
     def __init__(self, search_query: str = '', is_trashed: Ternary = Ternary.NOT_SPECIFIED,
                  is_shared: Ternary = Ternary.NOT_SPECIFIED):
         self.search_query: str = search_query
-        self.ignore_case: bool = False
         self.is_trashed: Ternary = is_trashed
         self.is_shared: Ternary = is_shared
 
+        self.ignore_case: bool = False
         self.show_ancestors_of_matches: bool = False
 
         self._cached_filter: Dict[str, Dict[UID, List[Node]]] = {}

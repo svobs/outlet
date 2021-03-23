@@ -72,7 +72,7 @@ class BaseTree(HasGetChildren, ABC):
             # if SUPER_DEBUG:
             #     logger.debug(f'Dir node {node.uid} ("{node.name}") has size={dir_stats.get_size_bytes()}, etc="{dir_stats.get_etc()}"')
 
-        logger.debug(f'[{tree_id}] {stats_sw} Generated stats for local tree ("{subtree_root_node.node_identifier}")')
+        logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node.node_identifier}")')
         return dir_stats_dict
 
     def for_each_node_breadth_first(self, action_func: Callable[[Any], None], subtree_root_uid: Optional[UID] = None):

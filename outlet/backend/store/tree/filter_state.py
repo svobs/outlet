@@ -32,6 +32,12 @@ class FilterState:
     def has_criteria(self) -> bool:
         return self.filter.has_criteria()
 
+    def update_root_sn(self, new_root_sn: SPIDNodePair):
+        if new_root_sn.spid != self.root_sn.spid:
+            self.root_sn = new_root_sn
+            self.cached_node_dict.clear()
+            self.cached_dir_stats.clear()
+
     def _matches_search_query(self, node) -> bool:
         return not self.filter.search_query or (self.filter.ignore_case and self.filter.search_query.lower() in node.name.lower()) \
                or self.filter.search_query in node.name
@@ -116,6 +122,7 @@ class FilterState:
         self.cached_node_dict = node_dict
         self.cached_dir_stats = dir_stats_dict
 
+    # If not showing ancestors, then search results will be a big flat list:
     def _build_cache_for_flat_list(self, parent_tree: HasGetChildren):
         root_node = self.root_sn.node
         assert root_node
@@ -153,6 +160,13 @@ class FilterState:
     def ensure_cache_populated(self, parent_tree: HasGetChildren):
         if self.cached_node_dict or not self.root_sn.node:
             return
+
+        self.rebuild_cache(parent_tree)
+
+    def rebuild_cache(self, parent_tree: HasGetChildren):
+        logger.debug(f'Rebuilding cache for root: {self.root_sn.spid}')
+        self.cached_node_dict.clear()
+        self.cached_dir_stats.clear()
 
         if self.filter.show_ancestors_of_matches:
             self._build_cache_with_ancestors(parent_tree)
