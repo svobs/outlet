@@ -278,12 +278,12 @@ class OpDatabase(MetaDatabase):
                 raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({obj_uid}) '
                                    f'for goog_id "{goog_id}"')
 
-    def _store_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, action_uid_int: int,
-                             nodes_by_action_uid: Dict[UID, Node]):
+    def _collect_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, action_uid_int: int,
+                               nodes_by_action_uid: Dict[UID, Node]):
         self._verify_goog_id_consistency(goog_id, obj.uid)
 
         if not parent_uid_int:
-            raise RuntimeError(f'Cannot store GDrive object: it has no parent! Object: {obj}')
+            raise RuntimeError(f'Invalid GDrive object in op database: it has no parent! Object: {obj}')
         obj.set_parent_uids(UID(parent_uid_int))
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
@@ -298,7 +298,7 @@ class OpDatabase(MetaDatabase):
                            create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id, is_shared=is_shared,
                            shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
-        self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
+        self._collect_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
 
         return obj
 
@@ -311,7 +311,7 @@ class OpDatabase(MetaDatabase):
                          create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid,
                          sync_ts=sync_ts)
 
-        self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
+        self._collect_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
         return obj
 
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
@@ -332,7 +332,7 @@ class OpDatabase(MetaDatabase):
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         if uid != uid_int:
-            raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
+            raise RuntimeError(f'UID conflict! Cacheman returned {uid} but op cache returned {uid_int} (from row: {row})')
         parent_uid: UID = self._get_parent_uid(full_path)
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
         obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
@@ -461,11 +461,13 @@ class OpDatabase(MetaDatabase):
             assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
 
             node = e.src_node
+            assert not node.has_no_parents(), f'Src node has no parents: {node}'
             node_tuple = self._action_node_to_tuple(node, e.op_uid)
             tuple_list_multimap.append(lifecycle_state, SRC, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
 
             if e.dst_node:
                 node = e.dst_node
+                assert not node.has_no_parents(), f'Dst node has no parents: {node}'
                 node_tuple = self._action_node_to_tuple(node, e.op_uid)
                 tuple_list_multimap.append(lifecycle_state, DST, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
 
