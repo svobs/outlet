@@ -386,6 +386,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
         assert isinstance(self.op.src_node, GDriveNode)
         tgt_goog_id = self.op.src_node.goog_id
 
+        # FIXME: this breaks if node has multiple parents!
         existing = cxt.gdrive_client.get_single_node_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
         if not existing:
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[self.op.src_node])

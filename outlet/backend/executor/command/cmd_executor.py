@@ -44,13 +44,14 @@ class CommandExecutor:
                 command.op.result = command.execute(context)
                 logger.debug(f'{command.get_description()} completed with status: {command.status().name}')
         except Exception as err:
-            logger.exception(f'While executing {command.get_description()}')
+            description = f'While executing {command.get_description()}'
+            logger.exception(description)
             # Save the error inside the command:
             command.set_error_result(err)
 
             # Report error to the UI:
-            msg = f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}'
-            self.backend.report_error(ID_COMMAND_EXECUTOR, msg=msg)
+            detail = f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}'
+            self.backend.report_error(ID_COMMAND_EXECUTOR, msg=description, secondary_msg=detail)
 
         dispatcher.send(signal=Signal.COMMAND_COMPLETE, sender=ID_COMMAND_EXECUTOR, command=command)
         dispatcher.send(signal=Signal.PROGRESS_MADE, sender=ID_COMMAND_EXECUTOR, progress=command.get_total_work())
