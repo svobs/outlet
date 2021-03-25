@@ -93,7 +93,7 @@ class LocalDiskTree(SimpleTree):
         # assert parent_of_subtree, f'Could not find node in tree with parent: {sub_tree_root_node.get_single_parent()}'
         count_removed = self.remove_node(sub_tree_root_node.identifier)
         logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
-        self.paste(parent_nid=parent_of_subtree.uid, new_tree=sub_tree)
+        self.paste(parent_uid=parent_of_subtree.uid, new_tree=sub_tree)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         file_list: List[LocalFileNode] = []

@@ -218,10 +218,10 @@ class OpLedger(HasLifecycle):
         # Load from disk
         op_list: List[UserOp] = self._disk_store.get_pending_ops_from_disk()
         if not op_list:
-            logger.debug(f'No pending ops found in the disk cache')
+            logger.debug(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
             return
 
-        logger.info(f'Found {len(op_list)} pending ops from the disk cache')
+        logger.info(f'resume_pending_ops_from_disk(): Found {len(op_list)} pending ops from the disk cache')
 
         # Sort into batches
         batch_dict: DefaultDict[UID, List[UserOp]] = defaultdict(lambda: list())
