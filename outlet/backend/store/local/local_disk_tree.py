@@ -47,7 +47,7 @@ class LocalDiskTree(SimpleTree):
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
                 uid = self.backend.cacheman.get_uid_for_local_path(path_so_far)
-                child: LocalNode = self.get_node_for_uid(nid=uid)
+                child: LocalNode = self.get_node_for_uid(uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
                     child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid),
@@ -60,7 +60,7 @@ class LocalDiskTree(SimpleTree):
                 parent = child
 
         # Finally, add the node itself:
-        child: Node = self.get_node_for_uid(nid=node.uid)
+        child: Node = self.get_node_for_uid(node.uid)
         if child:
             if child.is_dir() and node.is_dir():
                 # Just update
