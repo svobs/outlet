@@ -264,7 +264,7 @@ class GDriveClient(HasLifecycle):
             logger.info('Found a page token. Attempting to resume previous download')
 
         def request():
-            m = f'Sending request for files, page {request.page_count}...'
+            m = f'Sending request for GDrive items, page {request.page_count}...'
             logger.debug(m)
             if self.tree_id:
                 dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
@@ -345,7 +345,6 @@ class GDriveClient(HasLifecycle):
 
         user: GDriveUser = self._store_user(about['user'])
         logger.info(f'Logged in as user {user.display_name} <{user.email_address}> (user_id={user.permission_id})')
-        logger.debug(f'User photo link: {user.photo_link}')
 
         storage_quota = about['storageQuota']
         storage_total = storage_quota['limit']

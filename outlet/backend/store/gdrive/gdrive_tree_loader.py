@@ -1,7 +1,7 @@
 import logging
 import os
 from collections import deque
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -181,19 +181,24 @@ class GDriveTreeLoader:
 
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 
-    def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, None, str, int]]) -> List[Tuple]:
+    def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, Optional[UID], str, int]]) -> List[Tuple]:
+        """Fills in the parent_uid field ([1]) based on the parent's goog_id ([2]) for each downloaded mapping"""
         sw = Stopwatch()
         logger.debug(f'Translating parent IDs for {len(tree.uid_dict)} items...')
 
         new_mappings: List[Tuple] = []
         for mapping in id_parent_mappings:
+            parent_uid = mapping[1]
             # [0]=item_uid, [1]=parent_uid, [2]=parent_goog_id, [3]=sync_ts
-            assert not mapping[1]
-            parent_goog_id: str = mapping[2]
+            if parent_uid and parent_uid == GDRIVE_ROOT_UID:
+                # Special handling for children of GDrive root
+                assert not mapping[2]
+            else:
+                parent_goog_id: str = mapping[2]
 
-            # Add parent UID to tuple for later DB update:
-            parent_uid = self.backend.cacheman.get_uid_for_goog_id(parent_goog_id)
-            mapping = mapping[0], parent_uid, mapping[2], mapping[3]
+                # Add parent UID to tuple for later DB update:
+                parent_uid = self.backend.cacheman.get_uid_for_goog_id(parent_goog_id)
+                mapping = mapping[0], parent_uid, mapping[2], mapping[3]
             tree.add_parent_mapping(mapping[0], parent_uid)
             new_mappings.append(mapping)
 

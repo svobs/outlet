@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, \
-    MIME_TYPE_SHORTCUT
+    GDRIVE_ROOT_UID, MIME_TYPE_SHORTCUT
 from backend.store.gdrive.master_gdrive_disk import GDriveDiskStore
 from backend.store.sqlite.gdrive_db import CurrentDownload
 from model.uid import UID
@@ -178,6 +178,10 @@ class FileMetaPersister(GDriveQueryObserver):
 
 def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: int) -> List[Tuple[UID, Optional[UID], str, int]]:
     tuples = []
-    for parent_goog_id in parent_goog_ids:
-        tuples.append((item_uid, None, parent_goog_id, sync_ts))
+    if parent_goog_ids:
+        for parent_goog_id in parent_goog_ids:
+            tuples.append((item_uid, None, parent_goog_id, sync_ts))
+    else:
+        # If no parent, set to GDrive root
+        tuples.append((item_uid, GDRIVE_ROOT_UID, None, sync_ts))
     return tuples

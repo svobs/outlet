@@ -5,7 +5,6 @@ from typing import Optional
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
 from model.uid import UID
-from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
 from model.node.node import Node
 from model.node_identifier import GDriveIdentifier

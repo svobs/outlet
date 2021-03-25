@@ -298,7 +298,7 @@ class ActiveTreeManager(HasLifecycle):
             root_path_meta.offending_path = None
         elif spid.tree_type == TREE_TYPE_GDRIVE:
             if spid.uid == GDRIVE_ROOT_UID:
-                node: Node = GDriveWholeTree.get_super_root()
+                node: Node = GDriveWholeTree.get_gdrive_root()
             else:
                 # TODO: hit memory cache instead if available
                 node: Node = self.backend.cacheman.read_single_node_from_disk_for_uid(spid.uid, TREE_TYPE_GDRIVE)
