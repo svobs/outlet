@@ -6,7 +6,7 @@ import errno
 import platform
 import logging
 from typing import List, Tuple
-from backend.store.local import content_hasher
+from backend.tree_store.local import content_hasher
 
 from constants import ROOT_PATH
 from error import IdenticalFileExistsError

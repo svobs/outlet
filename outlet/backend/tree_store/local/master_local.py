@@ -5,28 +5,28 @@ import pathlib
 import threading
 from typing import Dict, List, Optional, Tuple
 
-from backend.store.local.local_disk_scanner import LocalDiskScanner
-from backend.store.local.master_local_disk import LocalDiskDiskStore
+from backend.tree_store.local.local_disk_scanner import LocalDiskScanner
+from backend.tree_store.local.master_local_disk import LocalDiskDiskStore
 from backend.sqlite.local_db import LocalDiskDatabase
 from backend.display_tree.filter_state import FilterState
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
-from backend.store.local.local_disk_tree import LocalDiskTree
+from backend.tree_store.local.local_disk_tree import LocalDiskTree
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.node.directory_stats import DirectoryStats
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
-from backend.store.local.local_sig_calc_thread import SignatureCalcThread
-from backend.store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
+from backend.tree_store.local.local_sig_calc_thread import SignatureCalcThread
+from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, UpsertSingleNodeOp
-from backend.store.tree_store_interface import TreeStore
+from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
-from backend.store.local import content_hasher
+from backend.tree_store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 

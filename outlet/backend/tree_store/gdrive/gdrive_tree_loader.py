@@ -5,17 +5,17 @@ from typing import List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from backend.store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
+from backend.tree_store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG
-from backend.store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from backend.store.gdrive.gdrive_client import GDriveClient
-from backend.store.gdrive.master_gdrive_disk import GDriveDiskStore
-from backend.store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
+from backend.tree_store.gdrive.gdrive_client import GDriveClient
+from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
+from backend.tree_store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from backend.sqlite.gdrive_db import CurrentDownload
 from signal_constants import Signal
 from util import time_util

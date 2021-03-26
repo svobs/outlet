@@ -8,9 +8,9 @@ from pydispatch import dispatcher
 
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode
-from backend.store.local.local_disk_tree import LocalDiskTree
+from backend.tree_store.local.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalNodeIdentifier
-from backend.store.local.local_tree_recurser import LocalTreeRecurser
+from backend.tree_store.local.local_tree_recurser import LocalTreeRecurser
 
 logger = logging.getLogger(__name__)
 

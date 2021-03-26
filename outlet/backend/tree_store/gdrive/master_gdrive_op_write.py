@@ -9,8 +9,8 @@ from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
-from backend.store.gdrive.change_observer import GDriveChange, GDriveNodeChange
-from backend.store.gdrive.master_gdrive_memory import GDriveMemoryStore
+from backend.tree_store.gdrive.change_observer import GDriveChange, GDriveNodeChange
+from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from backend.sqlite.gdrive_db import GDriveDatabase
 from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE

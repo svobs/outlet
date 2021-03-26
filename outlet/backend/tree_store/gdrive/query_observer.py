@@ -4,11 +4,11 @@ import logging
 
 from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, \
     GDRIVE_ROOT_UID, MIME_TYPE_SHORTCUT
-from backend.store.gdrive.master_gdrive_disk import GDriveDiskStore
+from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
 from backend.sqlite.gdrive_db import CurrentDownload
 from model.uid import UID
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from backend.store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 
 logger = logging.getLogger(__name__)
 

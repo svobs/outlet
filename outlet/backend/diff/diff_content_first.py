@@ -10,7 +10,7 @@ from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from model.node.node import Node
 from model.user_op import UserOpType
 from util.stopwatch_sec import Stopwatch
-from backend.store.local import content_hasher
+from backend.tree_store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 

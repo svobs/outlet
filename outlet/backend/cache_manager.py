@@ -10,9 +10,9 @@ from pydispatch import dispatcher
 from backend.diff.change_maker import ChangeMaker
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_ledger import OpLedger
-from backend.store.gdrive.master_gdrive import GDriveMasterStore
-from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
-from backend.store.local.master_local import LocalDiskMasterStore
+from backend.tree_store.gdrive.master_gdrive import GDriveMasterStore
+from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
+from backend.tree_store.local.master_local import LocalDiskMasterStore
 from backend.sqlite.cache_registry_db import CacheRegistry
 from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta

@@ -12,7 +12,7 @@ from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, 
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
-from backend.store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier

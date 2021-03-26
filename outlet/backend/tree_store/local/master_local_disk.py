@@ -6,10 +6,10 @@ from pydispatch import dispatcher
 
 from constants import TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.cache_info import PersistedCacheInfo
-from backend.store.local.local_disk_tree import LocalDiskTree
+from backend.tree_store.local.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
-from backend.store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
+from backend.tree_store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
 from backend.sqlite.local_db import LocalDiskDatabase
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle

@@ -15,11 +15,11 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
-from backend.store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
+from backend.tree_store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
     MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG, TrashStatus
-from backend.store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
+from backend.tree_store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode

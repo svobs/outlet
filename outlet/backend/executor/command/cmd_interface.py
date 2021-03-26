@@ -2,10 +2,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from backend.store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
-from backend.store.gdrive.gdrive_client import GDriveClient
+from backend.tree_store.gdrive.gdrive_client import GDriveClient
 from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)

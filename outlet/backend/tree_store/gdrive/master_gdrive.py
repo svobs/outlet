@@ -15,15 +15,15 @@ from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from backend.store.gdrive.change_observer import GDriveChange, PagePersistingChangeObserver
-from backend.store.gdrive.gdrive_client import GDriveClient
-from backend.store.gdrive.gdrive_tree_loader import GDriveTreeLoader
-from backend.store.gdrive.master_gdrive_disk import GDriveDiskStore
-from backend.store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
-from backend.store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
+from backend.tree_store.gdrive.change_observer import GDriveChange, PagePersistingChangeObserver
+from backend.tree_store.gdrive.gdrive_client import GDriveClient
+from backend.tree_store.gdrive.gdrive_tree_loader import GDriveTreeLoader
+from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
+from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
+from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
+from backend.tree_store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
-from backend.store.tree_store_interface import TreeStore
+from backend.tree_store.tree_store_interface import TreeStore
 from backend.sqlite.gdrive_db import CurrentDownload
 from backend.uid.uid_mapper import UidGoogIdMapper
 from signal_constants import Signal

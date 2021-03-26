@@ -4,13 +4,13 @@ from typing import Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from constants import GDRIVE_ROOT_UID
-from backend.store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from backend.store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
-from backend.store.gdrive.master_gdrive_op_write import GDriveWriteThroughOp
+from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
+from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
+from backend.tree_store.gdrive.master_gdrive_op_write import GDriveWriteThroughOp
 from backend.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle

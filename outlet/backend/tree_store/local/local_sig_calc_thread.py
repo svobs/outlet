@@ -7,7 +7,7 @@ from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
 from signal_constants import Signal
 from util.qthread import QThread
-from backend.store.local import content_hasher
+from backend.tree_store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 

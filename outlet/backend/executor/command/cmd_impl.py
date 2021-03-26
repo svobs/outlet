@@ -10,7 +10,7 @@ from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.gdrive_node import GDriveFile, GDriveNode
-from backend.store.local import content_hasher
+from backend.tree_store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 
