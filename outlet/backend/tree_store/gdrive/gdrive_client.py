@@ -82,7 +82,7 @@ class GDriveClient(HasLifecycle):
             # The file token.pickle stores the user's access and refresh tokens, and is
             # created automatically when the authorization flow completes for the first
             # time.
-            token_file_path = file_util.get_resource_path(backend.get_config('auth.token_file_path'))
+            token_file_path = file_util.get_resource_path(backend.get_config('gdrive.auth.token_file_path'))
             if os.path.exists(token_file_path):
                 with open(token_file_path, 'rb') as token:
                     creds = pickle.load(token)
@@ -91,7 +91,7 @@ class GDriveClient(HasLifecycle):
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(Request())
                 else:
-                    creds_path = file_util.get_resource_path(backend.get_config('auth.credentials_file_path'))
+                    creds_path = file_util.get_resource_path(backend.get_config('gdrive.auth.credentials_file_path'))
                     if not os.path.exists(creds_path):
                         raise RuntimeError(f'Could not find credentials file at the specified path ({creds_path})! This file is required to run.')
                     flow = InstalledAppFlow.from_client_secrets_file(creds_path, GDRIVE_AUTH_SCOPES)

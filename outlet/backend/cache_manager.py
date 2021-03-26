@@ -26,6 +26,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_
     TREE_TYPE_LOCAL_DISK, TreeDisplayMode, UID_PATH_FILE_NAME
 from error import InvalidOperationError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
+from model.device import Device
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
@@ -87,7 +88,8 @@ class CacheManager(HasLifecycle):
         self.cache_dir_path = ensure_cache_dir_path(self.backend)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
 
-        self.device_uid = self.get_or_set_local_device_uid()  # TODO
+        self.device_uuid: str = self.get_or_set_local_device_uuid()
+        # self.device_dict: [UID, Device] = self.get_device_dict()
 
         self.change_tree_uid_mapper = UidChangeTreeMapper(self.backend)
 
@@ -226,11 +228,19 @@ class CacheManager(HasLifecycle):
         logger.debug(f'CacheManager.start() initiated by {sender}')
         self.start()
 
-    def get_or_set_local_device_uid(self):
-        device_uuid = self.backend.get_config(DEVICE_UUID_CONFIG_KEY)
-        if not device_uuid:
-            device_uuid = uuid.uuid4()
-            self.backend.put_config(DEVICE_UUID_CONFIG_KEY, str(device_uuid))
+    def get_or_set_local_device_uuid(self) -> str:
+        file_path: str = file_util.get_resource_path(self.backend.get_config('agent.local_disk.device_id_file_path'))
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as reader:
+                device_uuid = reader.readline().strip()
+        else:
+            device_uuid = str(uuid.uuid4())
+            with open(file_path, 'w') as reader:
+                reader.write(device_uuid)
+                reader.write('\n')
+                reader.flush()
+        logger.info(f'Device UUID is: {device_uuid}')
+        return device_uuid
 
     def _load_registry(self):
         stopwatch = Stopwatch()
@@ -337,14 +347,14 @@ class CacheManager(HasLifecycle):
     def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
             if db.has_cache_info():
-                exisiting_caches = db.get_cache_info()
-                logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
+                exisiting_cache_list = db.get_cache_info_list()
+                logger.debug(f'Found {len(exisiting_cache_list)} caches listed in registry')
             else:
                 logger.debug('Registry has no caches listed')
                 db.create_cache_registry_if_not_exist()
-                exisiting_caches = []
+                exisiting_cache_list = []
 
-        return exisiting_caches
+        return exisiting_cache_list
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')

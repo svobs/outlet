@@ -3,6 +3,7 @@ from collections import OrderedDict
 from typing import List, Tuple, Union
 
 from constants import TREE_TYPE_LOCAL_DISK
+from model.device import Device
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from util import file_util
 from model.cache_info import CacheInfoEntry
@@ -21,6 +22,17 @@ def _tuple_to_cache_info(a_tuple: Tuple) -> CacheInfoEntry:
     return CacheInfoEntry(*a_tuple)
 
 
+def _device_to_tuple(d: Device) -> Tuple:
+    assert isinstance(d, Device), f'Expected Device; got instead: {d}'
+    return d.to_tuple()
+
+
+def _tuple_to_device(a_tuple: Tuple) -> Device:
+    assert isinstance(a_tuple, Tuple), f'Expected Tuple; got instead: {a_tuple}'
+    return Device(*a_tuple)
+
+
+
 class CacheRegistry(MetaDatabase):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -36,10 +48,19 @@ class CacheRegistry(MetaDatabase):
         ('complete', 'INTEGER')
     ]))
 
+    TABLE_DEVICE = Table(name='device', cols=OrderedDict([
+        ('uid', 'INTEGER PRIMARY KEY'),
+        ('device_id', 'TEXT'),
+        ('tree_type', 'INTEGER'),
+        ('friendly_name', 'TEXT'),
+        ('sync_ts', 'INTEGER'),
+    ]))
+
     def __init__(self, main_registry_path: str, node_identifier_factory):
         super().__init__(main_registry_path)
         self.node_identifier_factory = node_identifier_factory
         self.table_cache_registry = LiveTable(CacheRegistry.TABLE_CACHE_REGISTRY, self.conn, _cache_info_to_tuple, _tuple_to_cache_info)
+        self.table_device = LiveTable(CacheRegistry.TABLE_DEVICE, self.conn, _device_to_tuple, _tuple_to_device)
 
     def has_cache_info(self):
         return self.table_cache_registry.has_rows()
@@ -47,8 +68,7 @@ class CacheRegistry(MetaDatabase):
     def create_cache_registry_if_not_exist(self):
         self.table_cache_registry.create_table_if_not_exist(self.conn)
 
-    def get_cache_info(self) -> List[CacheInfoEntry]:
-        # Gets all changes in the table
+    def get_cache_info_list(self) -> List[CacheInfoEntry]:
         rows = self.table_cache_registry.get_all_rows()
         entries = []
         for row in rows:
@@ -80,3 +100,9 @@ class CacheRegistry(MetaDatabase):
 
         self.table_cache_registry.create_table_if_not_exist(commit=False)
         self.table_cache_registry.insert_many(rows)
+
+    def get_device_list(self) -> List[CacheInfoEntry]:
+        return self.table_device.select_object_list()
+
+    def upsert_device(self, device: Device):
+        return self.table_device.upsert_object(device)

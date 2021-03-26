@@ -82,10 +82,10 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree_signal)
 
         # TODO: hmm...looks like a chicken & egg problem here. Ideally we should get the config from the server
-        use_fixed_address = ensure_bool(self._app_config.get('grpc.use_fixed_address'))
+        use_fixed_address = ensure_bool(self._app_config.get('agent.grpc.use_fixed_address'))
         if use_fixed_address:
-            address = self._app_config.get('grpc.fixed_address')
-            port = ensure_int(self._app_config.get('grpc.fixed_port'))
+            address = self._app_config.get('agent.grpc.fixed_address')
+            port = ensure_int(self._app_config.get('agent.grpc.fixed_port'))
             logger.debug(f'Config specifies fixed server address = {address}:{port}')
             self.connect(address, port)
         else:
