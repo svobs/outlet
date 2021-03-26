@@ -76,7 +76,7 @@ class LocalDiskMasterStore(TreeStore):
             if self._signature_calc_thread:
                 self._signature_calc_thread.shutdown()
                 self._signature_calc_thread = None
-        except NameError:
+        except (AttributeError, NameError):
             pass
 
     def _execute_write_op(self, operation: LocalWriteThroughOp):

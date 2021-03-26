@@ -78,7 +78,7 @@ class ActiveTreeManager(HasLifecycle):
             if self._live_monitor:
                 self._live_monitor.shutdown()
                 self._live_monitor = None
-        except NameError:
+        except (AttributeError, NameError):
             pass
 
     # SignalDispatcher callbacks

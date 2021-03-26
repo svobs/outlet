@@ -41,7 +41,10 @@ class OutletAgent(BackendIntegrated):
     def shutdown(self):
         BackendIntegrated.shutdown(self)
         self.unregister_zeroconf()
-        self._grpc_service.shutdown()
+        try:
+            self._grpc_service.shutdown()
+        except AttributeError:
+            pass
 
     def serve(self):
         # See note about GRPC_SERVER_MAX_WORKER_THREADS
@@ -99,11 +102,14 @@ class OutletAgent(BackendIntegrated):
             raise
 
     def unregister_zeroconf(self):
-        if self.zeroconf:
-            logger.debug('Unregistering Zeroconf service')
-            self.zeroconf.unregister_service(self.zc_info)
-            self.zeroconf.close()
+        try:
+            if self.zeroconf:
+                logger.debug('Unregistering Zeroconf service')
+                self.zeroconf.unregister_service(self.zc_info)
+                self.zeroconf.close()
             self.zeroconf = None
+        except AttributeError:
+            pass
 
     @staticmethod
     def get_local_address_list() -> List[str]:

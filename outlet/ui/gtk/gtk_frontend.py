@@ -55,7 +55,7 @@ class OutletApplication(Gtk.Application):
                 for controller in list(self._tree_controllers.values()):
                     controller.shutdown()
                 self._tree_controllers.clear()
-        except NameError:
+        except (AttributeError, NameError):
             pass
 
         # This may take a long time if gRPC needs to time out

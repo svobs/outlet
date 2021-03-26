@@ -70,7 +70,7 @@ class AppConfig:
         last = len(path_segments) - 1
         for num, segment in enumerate(path_segments):
             if num == 0:
-                assert segment == 'ui_state'
+                assert segment == 'ui_state', 'Only ui_state may be written to!'
             else:
                 val = sub_dict.get(segment, None)
                 if num == last:

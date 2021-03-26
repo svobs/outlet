@@ -47,6 +47,8 @@ from util.two_level_dict import TwoLevelDict
 
 logger = logging.getLogger(__name__)
 
+DEVICE_UUID_CONFIG_KEY = 'agent.local_disk.device_uuid'
+
 
 def ensure_cache_dir_path(backend):
     cache_dir_path = get_resource_path(backend.get_config('cache.cache_dir_path'))
@@ -141,35 +143,35 @@ class CacheManager(HasLifecycle):
             if self._op_ledger:
                 self._op_ledger.shutdown()
                 self._op_ledger = None
-        except NameError or AttributeError:
+        except (AttributeError, NameError):
             pass
 
         try:
             if self._master_local:
                 self._master_local.shutdown()
                 self._master_local = None
-        except NameError or AttributeError:
+        except (AttributeError, NameError):
             pass
 
         try:
             if self._master_gdrive:
                 self._master_gdrive.shutdown()
                 self._master_gdrive = None
-        except NameError or AttributeError:
+        except (AttributeError, NameError):
             pass
 
         try:
             if self._load_request_thread:
                 self._load_request_thread.shutdown()
                 self._load_request_thread = None
-        except NameError or AttributeError:
+        except (AttributeError, NameError):
             pass
 
         try:
             if self._active_tree_manager:
                 self._active_tree_manager.shutdown()
                 self._active_tree_manager = None
-        except NameError or AttributeError:
+        except (AttributeError, NameError):
             pass
 
     # Startup loading/maintenance
@@ -225,9 +227,10 @@ class CacheManager(HasLifecycle):
         self.start()
 
     def get_or_set_local_device_uid(self):
-        self.enable_save_to_disk = self.backend.get_config('device_uuid')
-
-        device_uuid = uuid.uuid4()
+        device_uuid = self.backend.get_config(DEVICE_UUID_CONFIG_KEY)
+        if not device_uuid:
+            device_uuid = uuid.uuid4()
+            self.backend.put_config(DEVICE_UUID_CONFIG_KEY, str(device_uuid))
 
     def _load_registry(self):
         stopwatch = Stopwatch()

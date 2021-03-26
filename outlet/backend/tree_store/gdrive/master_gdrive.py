@@ -70,7 +70,7 @@ class GDriveMasterStore(TreeStore):
         self.gdrive_client: GDriveClient = GDriveClient(self.backend, ID_GLOBAL_CACHE)
         self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, tree_id=ID_GLOBAL_CACHE)
 
-        self.download_dir = file_util.get_resource_path(self.backend.get_config('download_dir'))
+        self.download_dir = file_util.get_resource_path(self.backend.get_config('agent.local_disk.download_dir'))
 
     def start(self):
         logger.debug(f'Starting GDriveMasterStore')
@@ -87,12 +87,12 @@ class GDriveMasterStore(TreeStore):
             if self.gdrive_client:
                 self.gdrive_client.shutdown()
                 self.gdrive_client = None
-        except NameError:
+        except (AttributeError, NameError):
             pass
 
         try:
             self.backend = None
-        except NameError:
+        except (AttributeError, NameError):
             pass
 
     def execute_load_op(self, operation: GDriveDiskLoadOp):

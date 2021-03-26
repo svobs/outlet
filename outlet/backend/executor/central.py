@@ -63,8 +63,11 @@ class CentralExecutor(HasLifecycle):
         self._be_task_runner = None
 
         self._shutdown_requested = True
-        with self._cv_can_execute:
-            self._cv_can_execute.notifyAll()
+        try:
+            with self._cv_can_execute:
+                self._cv_can_execute.notifyAll()
+        except AttributeError:
+            pass
 
         logger.debug('CentralExecutor shut down')
 
