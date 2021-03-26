@@ -16,7 +16,7 @@ from model.uid import UID
 from backend.store.gdrive.gdrive_client import GDriveClient
 from backend.store.gdrive.master_gdrive_disk import GDriveDiskStore
 from backend.store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
-from backend.store.sqlite.gdrive_db import CurrentDownload
+from backend.sqlite.gdrive_db import CurrentDownload
 from signal_constants import Signal
 from util import time_util
 from util.stopwatch_sec import Stopwatch

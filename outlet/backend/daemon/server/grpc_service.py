@@ -34,7 +34,7 @@ from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeReques
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
 from model.uid import UID
-from backend.store.uid.uid_generator import UidGenerator
+from backend.uid.uid_generator import UidGenerator
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 

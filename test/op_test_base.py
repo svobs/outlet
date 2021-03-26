@@ -11,7 +11,7 @@ from pydispatch import dispatcher
 
 from backend.backend_integrated import BackendIntegrated
 from backend.executor.command.cmd_interface import Command
-from backend.store.sqlite.op_db import OpDatabase
+from backend.sqlite.op_db import OpDatabase
 from ui.gtk.gtk_frontend import OutletApplication
 from app_config import AppConfig
 from constants import OPS_FILE_NAME
@@ -20,7 +20,7 @@ from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
-from backend.store.tree import root_path_config
+from backend.display_tree import root_path_config
 from ui.gtk.tree.controller import TreePanelController
 from util import file_util
 

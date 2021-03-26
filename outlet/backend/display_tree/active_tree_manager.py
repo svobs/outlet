@@ -6,8 +6,8 @@ from typing import Deque, Dict, List, Optional, Set
 
 from pydispatch import dispatcher
 
-from backend.store.tree.change_tree import ChangeTree
-from backend.store.tree.filter_state import FilterState
+from backend.display_tree.change_tree import ChangeTree
+from backend.display_tree.filter_state import FilterState
 from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
@@ -18,10 +18,10 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from backend.realtime.live_monitor import LiveMonitor
-from backend.store.tree.active_tree_meta import ActiveDisplayTreeMeta
+from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from model.uid import UID
 from signal_constants import Signal
-from backend.store.tree.root_path_config import RootPathConfigPersister
+from backend.display_tree.root_path_config import RootPathConfigPersister
 from util import file_util
 from util.ensure import ensure_uid
 from util.has_lifecycle import HasLifecycle

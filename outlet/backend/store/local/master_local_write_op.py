@@ -8,7 +8,7 @@ from constants import SUPER_DEBUG
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from backend.store.local.master_local_memory import LocalDiskMemoryStore
-from backend.store.sqlite.local_db import LocalDiskDatabase
+from backend.sqlite.local_db import LocalDiskDatabase
 from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE
 

@@ -6,7 +6,7 @@ from typing import Dict, Optional
 from pydispatch import dispatcher
 
 from backend.backend_interface import OutletBackend
-from backend.store.uid.uid_generator import SimpleUidGenerator
+from backend.uid import SimpleUidGenerator
 from signal_constants import Signal
 from signal_constants import ID_MAIN_WINDOW
 from ui.gtk.icon_store_gtk import IconStoreGtk

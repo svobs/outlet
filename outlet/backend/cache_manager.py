@@ -13,12 +13,12 @@ from backend.executor.user_op.op_ledger import OpLedger
 from backend.store.gdrive.master_gdrive import GDriveMasterStore
 from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from backend.store.local.master_local import LocalDiskMasterStore
-from backend.store.sqlite.cache_registry_db import CacheRegistry
-from backend.store.tree.active_tree_manager import ActiveTreeManager
-from backend.store.tree.active_tree_meta import ActiveDisplayTreeMeta
-from backend.store.tree.change_tree import ChangeTree
-from backend.store.tree.load_request_thread import LoadRequest, LoadRequestThread
-from backend.store.uid.uid_mapper import UidChangeTreeMapper
+from backend.sqlite.cache_registry_db import CacheRegistry
+from backend.display_tree.active_tree_manager import ActiveTreeManager
+from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
+from backend.display_tree.change_tree import ChangeTree
+from backend.display_tree.load_request_thread import LoadRequest, LoadRequestThread
+from backend.uid.uid_mapper import UidChangeTreeMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, TREE_TYPE_GDRIVE, \

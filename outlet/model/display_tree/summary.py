@@ -2,9 +2,9 @@ import logging
 from typing import Dict
 
 import util.format
-from backend.store.tree.active_tree_meta import ActiveDisplayTreeMeta
-from backend.store.tree.change_tree import ChangeTree
-from backend.store.tree.filter_state import FilterState
+from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
+from backend.display_tree.change_tree import ChangeTree
+from backend.display_tree.filter_state import FilterState
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats

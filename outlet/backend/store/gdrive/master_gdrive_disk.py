@@ -11,7 +11,7 @@ from model.uid import UID
 from backend.store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from backend.store.gdrive.master_gdrive_op_write import GDriveWriteThroughOp
-from backend.store.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
+from backend.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch

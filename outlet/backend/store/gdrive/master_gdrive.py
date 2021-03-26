@@ -6,7 +6,7 @@ from typing import Deque, Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from backend.store.tree.filter_state import FilterState
+from backend.display_tree.filter_state import FilterState
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
 from global_actions import GlobalActions
 from model.gdrive_meta import GDriveUser, MimeType
@@ -23,9 +23,9 @@ from backend.store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from backend.store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from backend.store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
-from backend.store.master_store_interface import MasterStore
-from backend.store.sqlite.gdrive_db import CurrentDownload
-from backend.store.uid.uid_mapper import UidGoogIdMapper
+from backend.store.tree_store_interface import TreeStore
+from backend.sqlite.gdrive_db import CurrentDownload
+from backend.uid.uid_mapper import UidGoogIdMapper
 from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE
 from util import file_util, time_util
@@ -34,7 +34,7 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
-class GDriveMasterStore(MasterStore):
+class GDriveMasterStore(TreeStore):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS GDriveMasterStore
@@ -57,7 +57,7 @@ class GDriveMasterStore(MasterStore):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend):
-        MasterStore.__init__(self)
+        TreeStore.__init__(self)
         self.backend = backend
 
         self._uid_mapper = UidGoogIdMapper(backend)
@@ -74,7 +74,7 @@ class GDriveMasterStore(MasterStore):
 
     def start(self):
         logger.debug(f'Starting GDriveMasterStore')
-        MasterStore.start(self)
+        TreeStore.start(self)
         self._diskstore.start()
         self.gdrive_client.start()
         self.connect_dispatch_listener(signal=Signal.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)

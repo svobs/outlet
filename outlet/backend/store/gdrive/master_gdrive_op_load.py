@@ -4,7 +4,7 @@ import logging
 
 from model.gdrive_meta import GDriveUser, MimeType
 from backend.store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from backend.store.sqlite.gdrive_db import GDriveDatabase
+from backend.sqlite.gdrive_db import GDriveDatabase
 
 logger = logging.getLogger(__name__)
 

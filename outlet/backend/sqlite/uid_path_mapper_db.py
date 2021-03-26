@@ -2,8 +2,8 @@ import logging
 from collections import OrderedDict
 from typing import List, Tuple
 
+from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
 from model.uid import UID
-from backend.store.sqlite.base_db import LiveTable, MetaDatabase, Table
 
 logger = logging.getLogger(__name__)
 

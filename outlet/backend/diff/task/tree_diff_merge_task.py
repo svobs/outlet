@@ -3,7 +3,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from backend.store.tree.change_tree import ChangeTree
+from backend.display_tree.change_tree import ChangeTree
 from constants import TREE_TYPE_MIXED, TreeDisplayMode
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTreeUiState
@@ -11,7 +11,7 @@ from model.node.container_node import RootTypeNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from backend.store.tree.active_tree_meta import ActiveDisplayTreeMeta
+from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from signal_constants import ID_MERGE_TREE, Signal
 from util.stopwatch_sec import Stopwatch
 

@@ -5,7 +5,7 @@ import pathlib
 from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
-from backend.store.tree.change_tree import ChangeTree
+from backend.display_tree.change_tree import ChangeTree
 from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode

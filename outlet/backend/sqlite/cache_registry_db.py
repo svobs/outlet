@@ -6,7 +6,7 @@ from constants import TREE_TYPE_LOCAL_DISK
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from util import file_util
 from model.cache_info import CacheInfoEntry
-from backend.store.sqlite.base_db import LiveTable, MetaDatabase, Table
+from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
 
 logger = logging.getLogger(__name__)
 

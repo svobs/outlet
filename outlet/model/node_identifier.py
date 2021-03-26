@@ -27,6 +27,22 @@ class NodeIdentifier(ABC):
         self.set_path_list(path_list)
 
     @property
+    def node_uid(self) -> UID:
+        return self.uid
+
+    @property
+    def tree_uid(self) -> UID:
+        """Just extract the tree_id from the node_uid, which is currently just the first two digits"""
+        # Using strings seems to be the fastest way to extract the UID, based on this:
+        # https://stackoverflow.com/questions/33947632/get-most-significant-digit-in-python
+        return UID(str(self.node_uid)[0:2])
+
+    @property
+    def relative_uid(self) -> UID:
+        """Just extract the relative_uid from the node_uid, which is currently just everything beyond the last two digits"""
+        return UID(str(self.node_uid)[2:])
+
+    @property
     @abstractmethod
     def tree_type(self) -> int:
         return TREE_TYPE_NA

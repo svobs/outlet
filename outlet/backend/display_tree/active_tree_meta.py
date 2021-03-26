@@ -1,10 +1,10 @@
 import logging
 from typing import Dict, Optional, Set
 
-from backend.store.tree.change_tree import ChangeTree
-from backend.store.tree.filter_state import FilterState
+from backend.display_tree.change_tree import ChangeTree
+from backend.display_tree.filter_state import FilterState
 from model.display_tree.display_tree import DisplayTreeUiState
-from backend.store.tree.root_path_config import RootPathConfigPersister
+from backend.display_tree.root_path_config import RootPathConfigPersister
 from model.node.directory_stats import DirectoryStats
 from model.uid import UID
 

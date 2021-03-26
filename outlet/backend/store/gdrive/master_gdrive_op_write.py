@@ -11,7 +11,7 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
 from backend.store.gdrive.change_observer import GDriveChange, GDriveNodeChange
 from backend.store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from backend.store.sqlite.gdrive_db import GDriveDatabase
+from backend.sqlite.gdrive_db import GDriveDatabase
 from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE
 

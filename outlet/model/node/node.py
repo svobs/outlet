@@ -8,7 +8,7 @@ from constants import IconId, TrashStatus
 from error import InvalidOperationError
 from model.node.trait import HasParentList
 from model.node_identifier import NodeIdentifier
-from backend.store.uid.uid_generator import UID
+from model.uid import UID
 
 logger = logging.getLogger(__name__)
 

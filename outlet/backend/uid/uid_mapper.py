@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from model.user_op import UserOpType
-from backend.store.sqlite.uid_path_mapper_db import UidPathMapperDb
+from backend.sqlite.uid_path_mapper_db import UidPathMapperDb
 from util import file_util
 from constants import CACHE_WRITE_HOLDOFF_TIME_MS, LOCAL_ROOT_UID, ROOT_PATH
 from model.uid import UID
@@ -132,6 +132,8 @@ class UidChangeTreeMapper:
 
     @staticmethod
     def _build_tree_nid(tree_type: int, single_path: str, op: UserOpType) -> str:
+        # FIXME: change this to {tree_uid}:{op.name}:{single_path}
+
         if op:
             return f'{tree_type}:{op.name}:{single_path}'
         else:

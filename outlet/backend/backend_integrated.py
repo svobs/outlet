@@ -16,7 +16,7 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
-from backend.store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
+from backend.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from backend.diff.task.tree_diff_merge_task import TreeDiffMergeTask
 from signal_constants import ID_CENTRAL_EXEC, Signal
 

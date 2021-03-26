@@ -10,7 +10,7 @@ from backend.store.local.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from backend.store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
-from backend.store.sqlite.local_db import LocalDiskDatabase
+from backend.sqlite.local_db import LocalDiskDatabase
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch

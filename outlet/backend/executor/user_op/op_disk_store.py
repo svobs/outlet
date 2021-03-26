@@ -1,7 +1,7 @@
 from typing import Iterable, List, Optional
 import logging
 
-from backend.store.sqlite.op_db import OpDatabase
+from backend.sqlite.op_db import OpDatabase
 from constants import SUPER_DEBUG
 from model.user_op import UserOp
 from util.has_lifecycle import HasLifecycle

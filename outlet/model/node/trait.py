@@ -2,7 +2,7 @@ import logging
 from abc import ABC
 from typing import List, Optional, Union
 
-from backend.store.uid.uid_generator import UID
+from model.uid import UID
 from util.ensure import ensure_uid
 
 logger = logging.getLogger(__name__)

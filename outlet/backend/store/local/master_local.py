@@ -7,8 +7,8 @@ from typing import Dict, List, Optional, Tuple
 
 from backend.store.local.local_disk_scanner import LocalDiskScanner
 from backend.store.local.master_local_disk import LocalDiskDiskStore
-from backend.store.sqlite.local_db import LocalDiskDatabase
-from backend.store.tree.filter_state import FilterState
+from backend.sqlite.local_db import LocalDiskDatabase
+from backend.display_tree.filter_state import FilterState
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from backend.store.local.local_disk_tree import LocalDiskTree
 from error import NodeNotPresentError
@@ -20,9 +20,9 @@ from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from backend.store.local.local_sig_calc_thread import SignatureCalcThread
 from backend.store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, UpsertSingleNodeOp
-from backend.store.master_store_interface import MasterStore
-from backend.store.uid.uid_generator import UID
-from backend.store.uid.uid_mapper import UidPathMapper
+from backend.store.tree_store_interface import TreeStore
+from backend.uid.uid_mapper import UidPathMapper
+from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
@@ -31,7 +31,7 @@ from backend.store.local import content_hasher
 logger = logging.getLogger(__name__)
 
 
-class LocalDiskMasterStore(MasterStore):
+class LocalDiskMasterStore(TreeStore):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDiskMasterStore
@@ -42,7 +42,7 @@ class LocalDiskMasterStore(MasterStore):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, uid_path_cache_path):
-        MasterStore.__init__(self)
+        TreeStore.__init__(self)
         self.backend = backend
 
         self.uid_mapper = UidPathMapper(backend, uid_path_cache_path)
@@ -61,14 +61,14 @@ class LocalDiskMasterStore(MasterStore):
             self._signature_calc_thread.start()
 
     def start(self):
-        MasterStore.start(self)
+        TreeStore.start(self)
         self.uid_mapper.start()
         self._diskstore.start()
         if self.lazy_load_signatures:
             self.start_signature_calc_thread()
 
     def shutdown(self):
-        MasterStore.shutdown(self)
+        TreeStore.shutdown(self)
         try:
             self.backend = None
             self._memstore = None
@@ -125,6 +125,7 @@ class LocalDiskMasterStore(MasterStore):
         if SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Scanned fresh tree: \n{fresh_tree.show()}')
 
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out.
             # Need extra logic to find removed nodes and pending op nodes though:
@@ -157,12 +158,17 @@ class LocalDiskMasterStore(MasterStore):
             batch_changes_op: BatchChangesOp = BatchChangesOp(subtree_list=[subtree])
             self._execute_write_op(batch_changes_op)
 
+        # logger.warning('LOCK off')
+
     # LocalSubtree-level methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def show_tree(self, subtree_root: LocalNodeIdentifier) -> str:
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
-            return self._memstore.master_tree.show(nid=subtree_root.uid)
+            result = self._memstore.master_tree.show(nid=subtree_root.uid)
+        # logger.warning('LOCK off')
+        return result
 
     def load_subtree(self, subtree_root: LocalNodeIdentifier, tree_id: str):
         logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
@@ -212,9 +218,11 @@ class LocalDiskMasterStore(MasterStore):
                 if tree:
                     if SUPER_DEBUG:
                         logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
+                    # logger.warning('LOCK ON!')
                     with self._struct_lock:
                         self._memstore.master_tree.replace_subtree(tree)
                         logger.debug(f'[{tree_id}] Updated in-memory cache: tree_size={len(self._memstore.master_tree):n}')
+                    # logger.warning('LOCK off')
             else:
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
 
@@ -298,8 +306,10 @@ class LocalDiskMasterStore(MasterStore):
                     super_tree.replace_subtree(sub_tree=sub_tree)
 
                 # 5. We already loaded it into memory; add it to the in-memory cache:
+                # logger.warning('LOCK ON!')
                 with self._struct_lock:
                     self._memstore.master_tree.replace_subtree(super_tree)
+                # logger.warning('LOCK off')
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
@@ -315,8 +325,11 @@ class LocalDiskMasterStore(MasterStore):
         self._get_display_tree(node_identifier, tree_id, is_live_refresh=True)
 
     def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: str) -> Dict[UID, DirectoryStats]:
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
-            return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
+            result = self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
+        # logger.warning('LOCK off')
+        return result
 
     def populate_filter(self, filter_state: FilterState):
         filter_state.ensure_cache_populated(self._memstore.master_tree)
@@ -344,21 +357,30 @@ class LocalDiskMasterStore(MasterStore):
             f'Internal error while trying to upsert node to cache: UID did not match expected ' \
             f'({self.uid_mapper.get_uid_for_path(node.get_single_path(), node.uid)}); node={node}'
 
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
             self._execute_write_op(UpsertSingleNodeOp(node))
+
+        # logger.warning('LOCK off')
 
     def update_single_node(self, node: LocalNode):
         assert node, 'Cannot update node: no node provided!'
 
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
             self._execute_write_op(UpsertSingleNodeOp(node, update_only=True))
+
+        # logger.warning('LOCK off')
 
     def remove_single_node(self, node: LocalNode, to_trash=False):
         assert node, 'Cannot remove node: no node provided!'
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
             self._execute_write_op(DeleteSingleNodeOp(node, to_trash=to_trash))
+
+        # logger.warning('LOCK off')
 
     def _migrate_node(self, node: LocalNode, src_full_path: str, dst_full_path: str) -> LocalNode:
         new_node_full_path: str = file_util.change_path_to_new_root(node.get_single_path(), src_full_path, dst_full_path)
@@ -380,6 +402,7 @@ class LocalDiskMasterStore(MasterStore):
                 self._memstore.expected_node_moves[src_node.get_single_path()] = dst_node.get_single_path()
 
     def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
             # FIXME: refactor to put this in watchdog itself
             if is_from_watchdog:
@@ -434,6 +457,7 @@ class LocalDiskMasterStore(MasterStore):
 
             operation = BatchChangesOp(subtree_list=subtree_list)
             self._execute_write_op(operation)
+        # logger.warning('LOCK off')
 
     def remove_subtree(self, subtree_root_node: LocalNode, to_trash: bool):
         """subtree_root can be either a file or dir"""
@@ -450,11 +474,13 @@ class LocalDiskMasterStore(MasterStore):
             raise RuntimeError(f'Internal error while trying to remove subtree_root ({subtree_root_node}): UID did not match expected '
                                f'({self.get_uid_for_path(subtree_root_node.get_single_path())})')
 
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
             subtree_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root_node.uid)
             assert isinstance(subtree_root_node.node_identifier, LocalNodeIdentifier)
             operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_nodes)
             self._execute_write_op(operation)
+        # logger.warning('LOCK off')
 
     # Various public getters
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -462,8 +488,11 @@ class LocalDiskMasterStore(MasterStore):
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_all_files_and_dirs_for_subtree(): locked={self._struct_lock.locked()}')
+        # logger.warning('LOCK ON!')
         with self._struct_lock:
-            return self._memstore.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
+            result = self._memstore.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
+        # logger.warning('LOCK off')
+        return result
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalNode]:
         node_list: List[LocalNode] = []
@@ -496,15 +525,16 @@ class LocalDiskMasterStore(MasterStore):
         if filter_state and filter_state.has_criteria():
             return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
         else:
+            # logger.warning('LOCK ON!')
             with self._struct_lock:
                 child_nodes = self._memstore.master_tree.get_child_list(node)
+            # logger.warning('LOCK off')
         return child_nodes
 
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
-        with self._struct_lock:
-            return self._memstore.master_tree.get_node_for_uid(uid)
+        return self._memstore.master_tree.get_node_for_uid(uid)
 
     def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
         parent_node = self.get_single_parent_for_node(node)
@@ -517,6 +547,7 @@ class LocalDiskMasterStore(MasterStore):
         if SUPER_DEBUG:
             logger.debug(f'Entered get_single_parent_for_node({node.node_identifier}): locked={self._struct_lock.locked()}')
         try:
+            # logger.warning('LOCK ON!')
             with self._struct_lock:
                 try:
                     parent: LocalNode = self._memstore.master_tree.get_parent(node.identifier)
@@ -527,10 +558,13 @@ class LocalDiskMasterStore(MasterStore):
                     parent = self._memstore.master_tree.get_node_for_uid(parent_uid)
                     if not parent:
                         logger.debug(f'Parent not found for node ({node.uid})')
+                        # logger.warning('LOCK off')
                         return None
                     logger.debug(f'Parent not found for node ({node.uid}) but found parent at path: {parent.get_single_path()}')
                 if not required_subtree_path or parent.get_single_path().startswith(required_subtree_path):
+                    # logger.warning('LOCK off')
                     return parent
+                # logger.warning('LOCK off')
                 return None
         except NodeNotPresentError:
             return None

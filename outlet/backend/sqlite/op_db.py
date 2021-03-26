@@ -7,9 +7,9 @@ from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from backend.store.sqlite.base_db import LiveTable, MetaDatabase, Table
-from backend.store.sqlite.gdrive_db import GDriveDatabase
-from backend.store.sqlite.local_db import LocalDiskDatabase
+from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
+from backend.sqlite.gdrive_db import GDriveDatabase
+from backend.sqlite.local_db import LocalDiskDatabase
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from model.node.node import Node
