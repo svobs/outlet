@@ -37,7 +37,7 @@ class MyListener(ServiceListener):
 
 
 def main():
-    config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
+    app_config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
 
     service_type = "_outlet._tcp.local."
     service_type = '_discoverable._udp.local.'#, name = 'Matt-Mac Service._discoverable._udp.local.',

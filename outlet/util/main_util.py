@@ -16,8 +16,8 @@ def do_main_boilerplate(executing_script_path: str = None) -> AppConfig:
         raise Exception("Python 3 or a more recent version is required.")
 
     if len(sys.argv) >= 2:
-        config = AppConfig(config_file_path=sys.argv[1], executing_script_name=executing_script_name)
+        app_config = AppConfig(config_file_path=sys.argv[1], executing_script_name=executing_script_name)
     else:
-        config = AppConfig(executing_script_name=executing_script_name)
+        app_config = AppConfig(executing_script_name=executing_script_name)
 
-    return config
+    return app_config

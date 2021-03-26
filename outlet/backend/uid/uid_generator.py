@@ -87,13 +87,13 @@ class PersistentAtomicIntUidGenerator(SimpleUidGenerator):
     CLASS PersistentAtomicIntUidGenerator
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, config):
-        self._config = config
-        self._enable_uid_persistence: bool = self._config.get(CONFIG_KEY_ENABLE_LAST_UID)
+    def __init__(self, app_config):
+        self._app_config = app_config
+        self._enable_uid_persistence: bool = self._app_config.get(CONFIG_KEY_ENABLE_LAST_UID)
         self._last_uid_written = MIN_FREE_UID
         if self._enable_uid_persistence:
-            self._last_uid_written = self._config.get(CONFIG_KEY_LAST_UID, MIN_FREE_UID)
-            self._uid_reservation_block_size = self._config.get(CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE)
+            self._last_uid_written = self._app_config.get(CONFIG_KEY_LAST_UID, MIN_FREE_UID)
+            self._uid_reservation_block_size = self._app_config.get(CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE)
         super().__init__(self._last_uid_written + 1)
 
     def _set(self, new_value):
@@ -101,5 +101,5 @@ class PersistentAtomicIntUidGenerator(SimpleUidGenerator):
         if self._enable_uid_persistence and self._value > self._last_uid_written:
             # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
             self._last_uid_written = self._value + self._uid_reservation_block_size
-            self._config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
+            self._app_config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
         return self._value

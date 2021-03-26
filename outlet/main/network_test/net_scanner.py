@@ -26,7 +26,7 @@ class NetworkScanner:
 
 
 def main():
-    config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
+    app_config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
     scanner = NetworkScanner()
     scanner.scan()
 

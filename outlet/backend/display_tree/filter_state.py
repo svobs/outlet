@@ -215,7 +215,7 @@ class FilterState:
         search_query = self.filter.search_query
         if not search_query:
             search_query = ''
-        logger.debug(f'[{tree_id}] Writing FilterCriteria to config with search query: "{search_query}"')
+        logger.debug(f'[{tree_id}] Writing FilterCriteria to app_config with search query: "{search_query}"')
         backend.put_config(FilterState._make_search_query_config_key(tree_id), search_query)
 
         backend.put_config(FilterState._make_ignore_case_config_key(tree_id), self.filter.ignore_case)
@@ -229,7 +229,7 @@ class FilterState:
     @staticmethod
     def from_config(backend, tree_id: str, root_sn: SPIDNodePair):
         assert tree_id, 'No tree_id specified!'
-        logger.debug(f'[{tree_id}] Reading FilterCriteria from config')
+        logger.debug(f'[{tree_id}] Reading FilterCriteria from app_config')
         filter_criteria = FilterCriteria()
 
         search_query = backend.get_config(FilterState._make_search_query_config_key(tree_id), '')

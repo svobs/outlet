@@ -40,7 +40,7 @@ class OpDiskStore(HasLifecycle):
 
         op_list: List[UserOp] = self._db.get_all_pending_ops()
         if op_list:
-            self._db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
+            self._db.archive_failed_ops(op_list, 'Cancelled on startup per app_config')
             logger.info(f'Cancelled {len(op_list)} pending ops found in cache')
         else:
             logger.debug(f'Found no pending ops to cancel')

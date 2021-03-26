@@ -30,11 +30,11 @@ class BackendIntegrated(OutletBackend):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, config):
+    def __init__(self, app_config):
         OutletBackend.__init__(self)
-        self._config = config
+        self._app_config = app_config
         self.executor: CentralExecutor = CentralExecutor(self)
-        self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
+        self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(app_config)
         self.cacheman: CacheManager = CacheManager(self)
         self.icon_cache = IconStorePy(self)
         self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
@@ -62,20 +62,20 @@ class BackendIntegrated(OutletBackend):
         self.executor = None
 
     def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
-        return self._config.get(config_key, default_val)
+        return self._app_config.get(config_key, default_val)
 
     def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
         response_dict: Dict[str, str] = {}
         for config_key in config_key_list:
-            response_dict[config_key] = self._config.get(config_key)
+            response_dict[config_key] = self._app_config.get(config_key)
         return response_dict
 
     def put_config(self, config_key: str, config_val: str):
-        self._config.write(config_key, config_val)
+        self._app_config.write(config_key, config_val)
 
     def put_config_list(self, config_dict: Dict[str, str]):
         for config_key, config_val in config_dict:
-            self._config.write(config_key, config_val)
+            self._app_config.write(config_key, config_val)
 
     def get_icon(self, icon_id: IconId) -> Optional:
         return self.icon_cache.get_icon(icon_id)

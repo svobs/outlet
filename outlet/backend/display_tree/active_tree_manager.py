@@ -322,7 +322,7 @@ class ActiveTreeManager(HasLifecycle):
 
             display_tree_meta.filter_state.update_root_sn(display_tree_meta.state.root_sn)
         else:
-            logger.debug(f'[{sender_tree_id}] Reading FilterCriteria from config')
+            logger.debug(f'[{sender_tree_id}] Reading FilterCriteria from app_config')
             filter_state = FilterState.from_config(self.backend, sender_tree_id, root_sn)
 
             display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)
@@ -331,7 +331,7 @@ class ActiveTreeManager(HasLifecycle):
             self._display_tree_dict[response_tree_id] = display_tree_meta
 
         if root_path_persister:
-            # Write updates to config if applicable
+            # Write updates to app_config if applicable
             root_path_persister.write_to_config(root_path_meta)
 
             # Retain the persister for next time:
@@ -490,7 +490,7 @@ class ActiveTreeManager(HasLifecycle):
 
     def _load_expanded_rows_from_config(self, tree_id: str) -> Set[UID]:
         """Loads the Set of expanded rows from config file"""
-        logger.debug(f'[{tree_id}] Loading expanded rows from config')
+        logger.debug(f'[{tree_id}] Loading expanded rows from app_config')
         try:
             expanded_rows: Set[UID] = set()
             expanded_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id))
@@ -499,7 +499,7 @@ class ActiveTreeManager(HasLifecycle):
                     expanded_rows.add(ensure_uid(uid))
             return expanded_rows
         except RuntimeError:
-            logger.exception(f'[{tree_id}] Failed to load expanded rows from config')
+            logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
 
     def _save_selected_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
         selected_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in display_tree_meta.selected_rows)
@@ -510,8 +510,8 @@ class ActiveTreeManager(HasLifecycle):
         return f'ui_state.{tree_id}.expanded_rows'
 
     def _load_selected_rows_from_config(self, tree_id: str) -> Set[UID]:
-        """Loads the Set of selected rows from config file"""
-        logger.debug(f'[{tree_id}] Loading selected rows from config')
+        """Loads the Set of selected rows from app_config file"""
+        logger.debug(f'[{tree_id}] Loading selected rows from app_config')
         try:
             selected_rows: Set[UID] = set()
             selected_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_selected_rows_config_key(tree_id))
@@ -520,7 +520,7 @@ class ActiveTreeManager(HasLifecycle):
                     selected_rows.add(ensure_uid(uid))
             return selected_rows
         except RuntimeError:
-            logger.exception(f'[{tree_id}] Failed to load expanded rows from config')
+            logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
 
     def _save_expanded_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
         expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in display_tree_meta.expanded_rows)

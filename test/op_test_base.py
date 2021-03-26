@@ -169,26 +169,26 @@ class OpTestBase(unittest.TestCase):
             archive.extractall(TEST_BASE_DIR)
         logger.debug(f'Extracted: {TEST_ARCHIVE_PATH} to {TEST_BASE_DIR}')
 
-        config = AppConfig()
+        app_config = AppConfig()
 
         # Delete ops cache, so that prev run doesn't contaminate us:
-        cache_dir_path = cache_manager.ensure_cache_dir_path(config)
+        cache_dir_path = cache_manager.ensure_cache_dir_path(app_config)
         self.op_db_path = os.path.join(cache_dir_path, OPS_FILE_NAME)
         if os.path.exists(self.op_db_path):
             file_util.rm_file(self.op_db_path)
 
-        config.write(root_path_config.make_tree_type_config_key(ID_LEFT_TREE), self.left_tree_type)
-        config.write(root_path_config.make_root_path_config_key(ID_LEFT_TREE), self.left_tree_root_path)
+        app_config.write(root_path_config.make_tree_type_config_key(ID_LEFT_TREE), self.left_tree_type)
+        app_config.write(root_path_config.make_root_path_config_key(ID_LEFT_TREE), self.left_tree_root_path)
         if self.left_tree_root_uid:
-            config.write(root_path_config.make_root_uid_config_key(ID_LEFT_TREE), self.left_tree_root_uid)
+            app_config.write(root_path_config.make_root_uid_config_key(ID_LEFT_TREE), self.left_tree_root_uid)
 
-        config.write(root_path_config.make_tree_type_config_key(ID_RIGHT_TREE), self.right_tree_type)
-        config.write(root_path_config.make_root_path_config_key(ID_RIGHT_TREE), self.right_tree_root_path)
+        app_config.write(root_path_config.make_tree_type_config_key(ID_RIGHT_TREE), self.right_tree_type)
+        app_config.write(root_path_config.make_root_path_config_key(ID_RIGHT_TREE), self.right_tree_root_path)
         if self.right_tree_root_uid:
-            config.write(root_path_config.make_root_uid_config_key(ID_RIGHT_TREE), self.right_tree_root_uid)
+            app_config.write(root_path_config.make_root_uid_config_key(ID_RIGHT_TREE), self.right_tree_root_uid)
 
-        backend = BackendIntegrated(config)
-        self.app = OutletApplication(config, backend)
+        backend = BackendIntegrated(app_config)
+        self.app = OutletApplication(app_config, backend)
         # Disable execution so we can study the state of the OpGraph:
         self.backend.executor.enable_op_execution = False
 

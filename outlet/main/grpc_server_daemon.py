@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 def main():
     logger.info(f'Creating OutletDameon')
-    config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
-    agent = OutletAgent(config)
+    app_config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
+    agent = OutletAgent(app_config)
 
     try:
         agent.start()
