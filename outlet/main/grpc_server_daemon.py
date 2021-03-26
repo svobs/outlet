@@ -1,7 +1,7 @@
 import logging
 import sys
 import util.main_util
-from backend.daemon.server.backend_grpc_server import OutletDaemon
+from backend.agent.server.backend_grpc_server import OutletAgent
 
 logger = logging.getLogger(__name__)
 
@@ -13,18 +13,18 @@ logger = logging.getLogger(__name__)
 def main():
     logger.info(f'Creating OutletDameon')
     config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
-    daemon = OutletDaemon(config)
+    agent = OutletAgent(config)
 
     try:
-        daemon.start()
-        daemon.serve()
+        agent.start()
+        agent.serve()
         sys.exit(0)
     except KeyboardInterrupt:
         logger.info(f'Caught KeyboardInterrupt. Quitting')
-        daemon.shutdown()
+        agent.shutdown()
     except RuntimeError:
         logger.exception(f'Fatal error (shutting down)')
-        daemon.shutdown()
+        agent.shutdown()
 
 
 if __name__ == '__main__':

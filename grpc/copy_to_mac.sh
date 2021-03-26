@@ -1,2 +1,2 @@
 #!/bin/bash
-cp -v proto/outlet/backend/daemon/grpc/generated/*.proto ../../MacDEV/OutletMac/grpc/outlet/backend/daemon/grpc/generated
+cp -v proto/outlet/backend/agent/grpc/generated/*.proto ../../MacDEV/OutletMac/grpc/outlet/backend/agent/grpc/generated

@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-import public "outlet/backend/daemon/grpc/generated/Node.proto"; // PYTHON
+import public "outlet/backend/agent/grpc/generated/Node.proto"; // PYTHON
 //import public "Node.proto"; // Swift
 
 option java_package = "com.msvoboda.outlet";
 option go_package = "msvoboda.com/outlet/proto";
 option java_multiple_files = true;
 
-package outlet.backend.daemon.grpc.generated;
+package outlet.backend.agent.grpc.generated;
 
 message Empty {
 	// nothing

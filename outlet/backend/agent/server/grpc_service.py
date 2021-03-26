@@ -8,12 +8,12 @@ from collections import deque
 from typing import Deque, Dict, Optional, Set
 
 from backend.backend_integrated import BackendIntegrated
-from backend.daemon.grpc.generated.Outlet_pb2_grpc import OutletServicer
+from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
 from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from constants import SUPER_DEBUG
-from backend.daemon.grpc.conversion import GRPCConverter
-from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DirMetaUpdate, DragDrop_Request, DragDrop_Response, Empty, \
+from backend.agent.grpc.conversion import GRPCConverter
+from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DirMetaUpdate, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
     GetConfig_Request, GetConfig_Response, GetIcon_Request, GetIcon_Response, GetRowsOfInterest_Request, GetRowsOfInterest_Response, \

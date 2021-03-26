@@ -43,7 +43,7 @@ def terminate_daemon_if_found():
 
 def _do_for_running_process(on_found_func: Callable) -> bool:
     cmdline = [PYTHON_EXE, DAEMON_SCRIPT_PATH]
-    logger.debug(f'Checking to see if daemon is running: checking cmdline for: {cmdline}')
+    logger.debug(f'Checking to see if agent is running: checking cmdline for: {cmdline}')
     proc_found: bool = False
 
     for process in psutil.process_iter():

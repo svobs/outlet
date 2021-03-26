@@ -1,5 +1,5 @@
 from typing import Iterable, List, Optional
-import backend.daemon.grpc.generated.Node_pb2
+import backend.agent.grpc.generated.Node_pb2
 
 from constants import IconId, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_tree.display_tree import DisplayTreeUiState
@@ -12,7 +12,7 @@ from model.node.node import Node, SPIDNodePair
 import logging
 
 from model.uid import UID
-from outlet.backend.daemon.grpc.generated import Outlet_pb2
+from outlet.backend.agent.grpc.generated import Outlet_pb2
 
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -35,7 +35,7 @@ class GRPCConverter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def node_to_grpc(node: Node, grpc_node: backend.daemon.grpc.generated.Node_pb2.Node):
+    def node_to_grpc(node: Node, grpc_node: backend.agent.grpc.generated.Node_pb2.Node):
         assert isinstance(node, Node), f'Not a Node: {node}'
         if node.is_decorator():
             grpc_node.decorator_nid = int(node.uid)
@@ -137,11 +137,11 @@ class GRPCConverter:
         if not node_container.HasField('node'):
             return None
 
-        grpc_node: backend.daemon.grpc.generated.Node_pb2.Node = node_container.node
+        grpc_node: backend.agent.grpc.generated.Node_pb2.Node = node_container.node
         return GRPCConverter.node_from_grpc(grpc_node)
 
     @staticmethod
-    def node_from_grpc(grpc_node: backend.daemon.grpc.generated.Node_pb2.Node) -> Node:
+    def node_from_grpc(grpc_node: backend.agent.grpc.generated.Node_pb2.Node) -> Node:
         node_identifier = NodeIdentifierFactory.for_all_values(grpc_node.uid, grpc_node.tree_type, list(grpc_node.path_list),
                                                                single_path=False)
 
@@ -192,7 +192,7 @@ class GRPCConverter:
         return node
 
     @staticmethod
-    def dir_stats_from_grpc(dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
+    def dir_stats_from_grpc(dir_meta: backend.agent.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
         dir_stats = DirectoryStats()
         if dir_meta.has_data:
             dir_stats.file_count = dir_meta.file_count
@@ -239,7 +239,7 @@ class GRPCConverter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: backend.daemon.grpc.generated.Node_pb2.NodeIdentifier):
+    def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         if not node_identifier:
             return
         grpc_node_identifier.uid = node_identifier.uid
@@ -250,7 +250,7 @@ class GRPCConverter:
         assert not grpc_node_identifier.is_single_path or len(list(grpc_node_identifier.path_list)) <= 1, f'Wrong: {node_identifier}'
 
     @staticmethod
-    def node_identifier_from_grpc(grpc_node_identifier: backend.daemon.grpc.generated.Node_pb2.NodeIdentifier):
+    def node_identifier_from_grpc(grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         return NodeIdentifierFactory.for_all_values(grpc_node_identifier.uid, grpc_node_identifier.tree_type, list(grpc_node_identifier.path_list),
                                                     single_path=grpc_node_identifier.is_single_path)
 
@@ -258,7 +258,7 @@ class GRPCConverter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def sn_to_grpc(sn: SPIDNodePair, grpc_sn: backend.daemon.grpc.generated.Node_pb2.SPIDNodePair):
+    def sn_to_grpc(sn: SPIDNodePair, grpc_sn: backend.agent.grpc.generated.Node_pb2.SPIDNodePair):
         if not sn:
             return
 
@@ -267,7 +267,7 @@ class GRPCConverter:
             GRPCConverter.node_to_grpc(sn.node, grpc_sn.node)
 
     @staticmethod
-    def sn_from_grpc(grpc_sn: backend.daemon.grpc.generated.Node_pb2.SPIDNodePair) -> SPIDNodePair:
+    def sn_from_grpc(grpc_sn: backend.agent.grpc.generated.Node_pb2.SPIDNodePair) -> SPIDNodePair:
         spid = GRPCConverter.node_identifier_from_grpc(grpc_sn.spid)
         node = GRPCConverter.optional_node_from_grpc_container(grpc_sn)
         return SPIDNodePair(spid, node)
@@ -276,7 +276,7 @@ class GRPCConverter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def filter_criteria_to_grpc(filter_criteria: FilterCriteria, grpc_filter_criteria: backend.daemon.grpc.generated.Node_pb2.FilterCriteria):
+    def filter_criteria_to_grpc(filter_criteria: FilterCriteria, grpc_filter_criteria: backend.agent.grpc.generated.Node_pb2.FilterCriteria):
         if filter_criteria.search_query:
             grpc_filter_criteria.search_query = filter_criteria.search_query
         grpc_filter_criteria.is_trashed = filter_criteria.is_trashed
@@ -285,7 +285,7 @@ class GRPCConverter:
         grpc_filter_criteria.show_subtrees_of_matches = filter_criteria.show_ancestors_of_matches
 
     @staticmethod
-    def filter_criteria_from_grpc(grpc_filter_criteria: backend.daemon.grpc.generated.Node_pb2.FilterCriteria) -> FilterCriteria:
+    def filter_criteria_from_grpc(grpc_filter_criteria: backend.agent.grpc.generated.Node_pb2.FilterCriteria) -> FilterCriteria:
         filter_criteria: FilterCriteria = FilterCriteria()
         if grpc_filter_criteria.search_query:
             filter_criteria.search_query = grpc_filter_criteria.search_query

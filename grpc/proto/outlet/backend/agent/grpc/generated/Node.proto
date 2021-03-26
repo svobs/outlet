@@ -4,7 +4,7 @@ option java_package = "com.msvoboda.outlet.grpc";
 option java_multiple_files = true;
 option go_package = "msvoboda.com/outlet/grpc";
 
-package outlet.backend.daemon.grpc.generated;
+package outlet.backend.agent.grpc.generated;
 
 message Null {
   // nothing

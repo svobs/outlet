@@ -8,18 +8,18 @@ import netifaces
 from zeroconf import ServiceInfo, Zeroconf
 
 from backend.backend_integrated import BackendIntegrated
-from backend.daemon.grpc.generated import Outlet_pb2_grpc
-from backend.daemon.server.grpc_service import OutletGRPCService
+from backend.agent.grpc.generated import Outlet_pb2_grpc
+from backend.agent.server.grpc_service import OutletGRPCService
 from constants import GRPC_SERVER_MAX_WORKER_THREADS, LOOPBACK_ADDRESS, ZEROCONF_SERVICE_NAME, ZEROCONF_SERVICE_TYPE, ZEROCONF_SERVICE_VERSION
 from util.ensure import ensure_bool, ensure_int
 
 logger = logging.getLogger(__name__)
 
 
-class OutletDaemon(BackendIntegrated):
+class OutletAgent(BackendIntegrated):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS OutletDaemon
+    CLASS OutletAgent
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 

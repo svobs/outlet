@@ -7,11 +7,11 @@ from PIL import Image
 from zeroconf import ServiceBrowser, Zeroconf
 
 from backend.backend_interface import OutletBackend
-from backend.daemon.client.signal_receiver_thread import SignalReceiverThread
-from backend.daemon.client.zeroconf import OutletZeroconfListener
-from backend.daemon.grpc.conversion import GRPCConverter
-from backend.daemon.grpc.generated import Outlet_pb2_grpc
-from backend.daemon.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
+from backend.agent.client.signal_receiver_thread import SignalReceiverThread
+from backend.agent.client.zeroconf import OutletZeroconfListener
+from backend.agent.grpc.conversion import GRPCConverter
+from backend.agent.grpc.generated import Outlet_pb2_grpc
+from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
     GenerateMergeTree_Request, \
     GetAncestorList_Request, GetChildList_Request, \
     GetConfig_Request, GetConfig_Response, GetIcon_Request, GetRowsOfInterest_Request, GetFilter_Request, GetFilter_Response, \
@@ -47,7 +47,7 @@ class BackendGRPCClient(OutletBackend):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS BackendGRPCClient
 
-    GTK3 thin client which communicates with the OutletDaemon via GRPC.
+    GTK3 thin client which communicates with the OutletAgent via GRPC.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, cfg):
@@ -118,7 +118,7 @@ class BackendGRPCClient(OutletBackend):
             self.channel = None
 
         if ensure_bool(self._config.get('thin_client.kill_server_on_client_shutdown')):
-            logger.debug('Configured to kill backend daemon: looking for processes to kill...')
+            logger.debug('Configured to kill backend agent: looking for processes to kill...')
             daemon_util.terminate_daemon_if_found()
 
     def _wait_for_connect(self) -> bool:

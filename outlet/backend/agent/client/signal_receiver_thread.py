@@ -4,8 +4,8 @@ from typing import Dict
 
 from pydispatch import dispatcher
 
-from backend.daemon.grpc.conversion import GRPCConverter
-from backend.daemon.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
+from backend.agent.grpc.conversion import GRPCConverter
+from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
 from model.display_tree.display_tree import DisplayTree
 from model.node.directory_stats import DirectoryStats
 from model.uid import UID
