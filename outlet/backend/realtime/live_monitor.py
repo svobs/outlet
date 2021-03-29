@@ -29,7 +29,7 @@ class GDrivePollingThread(HasLifecycle, threading.Thread):
         super().__init__(target=self._run_gdrive_polling_thread, name=f'GDrivePollingThread-{thread_num}', daemon=True)
         self._shutdown: bool = False
         self.backend = backend
-        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.backend.get_config('cache.gdrive_thread_polling_interval_sec'))
+        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.backend.get_config('cache.live_monitoring.gdrive_thread_polling_interval_sec'))
 
     def start(self):
         HasLifecycle.start(self)
@@ -62,7 +62,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
         threading.Thread.__init__(self, target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
         self.backend = backend
-        self.local_change_batch_interval_ms: int = ensure_int(self.backend.get_config('cache.local_change_batch_interval_ms'))
+        self.local_change_batch_interval_ms: int = ensure_int(self.backend.get_config('cache.live_monitoring.local_change_batch_interval_ms'))
         self.change_set: Set = set()
 
     def enqueue(self, file_path: str):
@@ -126,7 +126,7 @@ class LiveMonitor(HasLifecycle):
         self._active_local_tree_dict: Dict[str, Set[str]] = {}
         """A dict of [local_path -> set of tree_ids]"""
 
-        self.enable_gdrive_polling_thread: bool = ensure_bool(self.backend.get_config('cache.enable_gdrive_polling_thread'))
+        self.enable_gdrive_polling_thread: bool = ensure_bool(self.backend.get_config('cache.live_monitoring.enable_gdrive_polling_thread'))
         self._gdrive_polling_thread: Optional[GDrivePollingThread] = None
         self._count_gdrive_threads: int = 0
         self._local_change_batching_thread: Optional[LocalFileChangeBatchingThread] = None

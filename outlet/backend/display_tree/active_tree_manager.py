@@ -51,10 +51,10 @@ class ActiveTreeManager(HasLifecycle):
         self._display_tree_dict: Dict[str, ActiveDisplayTreeMeta] = {}
         """Keeps track of which display trees are currently being used in the UI"""
 
-        self._is_live_capture_enabled = backend.get_config('cache.live_capture_enabled')
+        self._is_live_monitoring_enabled = backend.get_config('cache.live_monitoring.live_monitoring_enabled')
 
     def start(self):
-        gdrive_live_monitor_enabled = self._is_live_capture_enabled and self._live_monitor.enable_gdrive_polling_thread
+        gdrive_live_monitor_enabled = self._is_live_monitoring_enabled and self._live_monitor.enable_gdrive_polling_thread
         if not gdrive_live_monitor_enabled and not self.backend.cacheman.sync_from_gdrive_on_cache_load:
             logger.warning(f'GDrive: live monitoring is disabled AND sync on cache load is disabled: GDrive cache will not be updated!')
 
@@ -155,7 +155,7 @@ class ActiveTreeManager(HasLifecycle):
             logger.debug(f'[{sender}] Could not deregister display tree in backend: it was not found')
 
         # Also stop live capture, if any
-        if self._is_live_capture_enabled and self._live_monitor:
+        if self._is_live_monitoring_enabled and self._live_monitor:
             self._live_monitor.stop_capture(sender)
 
     # Public methods
@@ -338,7 +338,7 @@ class ActiveTreeManager(HasLifecycle):
             display_tree_meta.root_path_config_persister = root_path_persister
 
         # Update monitoring state
-        if self._is_live_capture_enabled:
+        if self._is_live_monitoring_enabled:
             if display_tree_meta.root_exists:
                 self._live_monitor.start_or_update_capture(display_tree_meta.root_sn.spid, response_tree_id)
             else:
