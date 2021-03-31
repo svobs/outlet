@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
@@ -7,6 +7,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
+from model.uid import UID
 from signal_constants import ID_GDRIVE_DIR_SELECT, Signal
 from ui.gtk.tree import tree_factory
 
@@ -29,10 +30,11 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, parent_win: BaseDialog, current_selection: SinglePathNodeIdentifier, target_tree_id: str):
+    def __init__(self, parent_win: BaseDialog, device_uid: UID, current_selection: Optional[SinglePathNodeIdentifier], target_tree_id: str):
         Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, app=parent_win.app)
 
+        self.device_uid: UID = device_uid  # the device_uid of the GDrive account
         self.tree_id = ID_GDRIVE_DIR_SELECT
         self.target_tree_id = target_tree_id
         """Note: this is the ID of the tree for which this dialog is ultimately selecting for, not this dialog's tree (see tree_controller below)"""
@@ -57,16 +59,16 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         dispatcher.connect(signal=Signal.POPULATE_UI_TREE_DONE, receiver=self._on_populate_complete)
 
         # This will start the load process and send us a Signal.LOAD_SUBTREE_DONE when done:
-        tree: DisplayTree = parent_win.app.backend.create_display_tree_for_gdrive_select()
+        tree: DisplayTree = parent_win.app.backend.create_display_tree_for_gdrive_select(device_uid)
         assert tree, 'create_display_tree_for_gdrive_select() returned None for tree!'
         # Prevent dialog from stepping on existing trees by giving it its own ID:
         self.con = tree_factory.build_gdrive_root_chooser(parent_win=self, tree=tree)
 
         self.content_box.pack_start(self.con.content_box, True, True, 0)
 
-        assert isinstance(current_selection, SinglePathNodeIdentifier), \
+        assert current_selection is None or isinstance(current_selection, SinglePathNodeIdentifier), \
             f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
-        self._initial_selection_spid: SinglePathNodeIdentifier = current_selection
+        self._initial_selection_spid: Optional[SinglePathNodeIdentifier] = current_selection
 
     def shutdown(self):
         if self.con:
@@ -96,8 +98,10 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
     def _on_populate_complete(self, sender):
         if sender != self.tree_id:
             return
-        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Populate complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
-        dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, spid=self._initial_selection_spid)
+
+        if self._initial_selection_spid:
+            logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Populate complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
+            dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, spid=self._initial_selection_spid)
 
     def on_ok_clicked(self, spid: SinglePathNodeIdentifier):
         logger.info(f'[{self.target_tree_id}] User selected dir "{spid}"')
@@ -113,7 +117,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
                 logger.debug("The OK button was clicked")
                 sn: SPIDNodePair = self.con.display_store.get_single_selection_sn()
                 if not sn:
-                    spid = NodeIdentifierFactory.get_root_constant_gdrive_spid()
+                    spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
                 else:
                     if sn.node.is_dir():
                         spid = sn.spid

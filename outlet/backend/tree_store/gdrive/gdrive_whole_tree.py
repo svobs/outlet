@@ -3,7 +3,7 @@ from collections import Counter, defaultdict, deque
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TrashStatus, \
-    TREE_TYPE_GDRIVE
+    TreeType
 from error import GDriveItemNotFoundError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -25,7 +25,11 @@ class GDriveWholeTree(BaseTree):
     Represents a user's entire GDrive tree.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier_factory: NodeIdentifierFactory):
+
+    def __init__(self, device_uid: UID, node_identifier_factory: NodeIdentifierFactory):
+        self.device_uid: UID = device_uid
+        """Uniquely identifies this GDrive account"""
+
         self.node_identifier_factory: NodeIdentifierFactory = node_identifier_factory
         """This is sometimes needed for lookups"""
 
@@ -34,7 +38,7 @@ class GDriveWholeTree(BaseTree):
         """ Forward lookup table: nodes are indexed by UID"""
 
         # It's a lot cleaner to have a single root node, even if it does not map to anything in GDrive:
-        self.root = GDriveWholeTree.get_gdrive_root()
+        self.root = GDriveWholeTree.get_gdrive_root(self.device_uid)
         self.uid_dict[self.root.uid] = self.root
 
         self.parent_child_dict: Dict[UID, List[GDriveNode]] = {}
@@ -46,17 +50,17 @@ class GDriveWholeTree(BaseTree):
         self.me: Optional[GDriveUser] = None
 
     @staticmethod
-    def get_gdrive_root():
+    def get_gdrive_root(device_uid: UID):
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
-        return GDriveFolder(NodeIdentifierFactory.get_root_constant_gdrive_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
-                            None, None, None, None, None, False)
+        return GDriveFolder(NodeIdentifierFactory.get_root_constant_gdrive_identifier(device_uid), None, None, TrashStatus.NOT_TRASHED,
+                            None, None, None, None, None, None, None, False)
 
     def get_root_node(self) -> Optional[GDriveNode]:
         return self.root
 
     @property
     def node_identifier(self):
-        return NodeIdentifierFactory.get_root_constant_gdrive_identifier()
+        return NodeIdentifierFactory.get_root_constant_gdrive_identifier(self.device_uid)
 
     def upsert_folder_and_children(self, parent_node: GDriveFolder, child_list: List[GDriveNode]) -> List[GDriveNode]:
         """Adds or replaces the given parent_node and its children. Any previous children which are not in the given list are
@@ -292,7 +296,7 @@ class GDriveWholeTree(BaseTree):
         if SUPER_DEBUG:
             logger.debug(f'GDriveWholeTree.get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
         if full_path == ROOT_PATH:
-            return [NodeIdentifierFactory.get_root_constant_gdrive_identifier()]
+            return [NodeIdentifierFactory.get_root_constant_gdrive_identifier(self.device_uid)]
         name_segments = file_util.split_path(full_path)
         if len(name_segments) == 0:
             raise RuntimeError(f'Bad path: "{full_path}"')
@@ -336,8 +340,9 @@ class GDriveWholeTree(BaseTree):
                 if SUPER_DEBUG:
                     logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}" (target_path: "{full_path}"')
                 if error_if_not_found:
-                    raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                        tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
+                    err_node_identifier = self.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
+                                                                                  path_list=full_path)
+                    raise GDriveItemNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
             else:
                 path_found = path_found + '/' + next_seg_nodes[0].name
 
@@ -350,8 +355,9 @@ class GDriveWholeTree(BaseTree):
         if SUPER_DEBUG:
             logger.debug(f'get_identifier_list_for_single_path(): Found for path "{path_so_far}": {matching_node_identifiers}')
         if error_if_not_found and not matching_node_identifiers:
-            raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
+            err_node_identifier = self.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
+                                                                          path_list=full_path)
+            raise GDriveItemNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
         return matching_node_identifiers
 
     @staticmethod
@@ -375,8 +381,8 @@ class GDriveWholeTree(BaseTree):
         return full_path.startswith(subtree_root_path)
 
     def get_parent_list_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> List[GDriveNode]:
-        if node.get_tree_type() != TREE_TYPE_GDRIVE:
-            logger.debug(f'get_parent_list_for_node(): node has wrong tree type ({node.get_tree_type()}); returning None')
+        if node.tree_type != TreeType.GDRIVE:
+            logger.debug(f'get_parent_list_for_node(): node has wrong tree type ({node.tree_type}); returning None')
             return []
 
         assert isinstance(node, GDriveNode)
@@ -415,8 +421,8 @@ class GDriveWholeTree(BaseTree):
         logger.debug(f'Done validating GDriveWholeTree')
 
     @property
-    def tree_type(self) -> int:
-        return TREE_TYPE_GDRIVE
+    def tree_type(self) -> TreeType:
+        return TreeType.GDRIVE
 
     def get_child_list(self, node: GDriveNode) -> List[Node]:
         return self.parent_child_dict.get(node.uid, [])
@@ -575,10 +581,9 @@ class GDriveWholeTree(BaseTree):
     def show_tree(self, subroot_uid: UID) -> str:
         # TODO
         return 'TODO'
-    
+
 
 def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Tuple[List[UID], List[UID]]:
-
     new_parent_uids: List[UID] = []
     for parent_uid in new_node.get_parent_uids():
         if parent_uid not in existing_node.get_parent_uids():

@@ -2,16 +2,15 @@ import logging
 import re
 from typing import List, Optional
 
+import gi
 from pydispatch import dispatcher
 
-from constants import DATE_REGEX, GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import DATE_REGEX, GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeType
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp
 from signal_constants import Signal
-
-import gi
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -56,18 +55,19 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, Signal.SET_ROWS_UNCHECKED, {'tree_paths': tree_paths})
             menu.append(item)
 
-        is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
+        is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TreeType.LOCAL_DISK
         if is_localdisk:
             item = Gtk.MenuItem(label=f'Use EXIFTool on Dirs')
             item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL_LIST, {'node_list': selected_items})
             menu.append(item)
 
+        # FIXME: this does not support multiple devices or GDrives
         items_to_delete_local: List[Node] = []
         items_to_delete_gdrive: List[Node] = []
         for selected_item in selected_items:
-            if selected_item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK and selected_item.is_live():
+            if selected_item.node_identifier.tree_type == TreeType.LOCAL_DISK and selected_item.is_live():
                 items_to_delete_local.append(selected_item)
-            elif selected_item.node_identifier.tree_type == TREE_TYPE_GDRIVE and selected_item.is_live():
+            elif selected_item.node_identifier.tree_type == TreeType.GDRIVE and selected_item.is_live():
                 items_to_delete_gdrive.append(selected_item)
 
         if len(items_to_delete_local) > 0:
@@ -84,10 +84,10 @@ class TreeContextMenu:
         return menu
 
     def _build_menu_items_for_single_node(self, menu, tree_path, node: Node, single_path: str):
-        is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
+        is_gdrive = node.node_identifier.tree_type == TreeType.GDRIVE
 
         # MenuItem: 'Show in Nautilus'
-        if node.is_live() and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+        if node.is_live() and node.node_identifier.tree_type == TreeType.LOCAL_DISK:
             item = Gtk.MenuItem(label='Show in Nautilus')
             item.connect('activate', self.send_signal, Signal.SHOW_IN_NAUTILUS, {'full_path': node.get_single_path()})
             menu.append(item)
@@ -98,7 +98,7 @@ class TreeContextMenu:
                 item = Gtk.MenuItem(label=f'Download from Google Drive')
                 item.connect('activate', self.send_signal, Signal.DOWNLOAD_FROM_GDRIVE, {'node': node})
                 menu.append(item)
-            elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            elif node.node_identifier.tree_type == TreeType.LOCAL_DISK:
                 item = Gtk.MenuItem(label=f'Open with Default App')
                 item.connect('activate', self.send_signal, Signal.CALL_XDG_OPEN, {'node': node})
                 menu.append(item)
@@ -124,7 +124,7 @@ class TreeContextMenu:
             menu.append(item)
 
         # MenuItem: 'Use EXIFTool on dir'
-        if node.is_live() and node.is_dir() and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+        if node.is_live() and node.is_dir() and node.node_identifier.tree_type == TreeType.LOCAL_DISK:
             match = re.match(DATE_REGEX, node.name)
             if match:
                 item = Gtk.MenuItem(label=f'Use EXIFTool on Dir')
@@ -159,10 +159,10 @@ class TreeContextMenu:
 
         menu = Gtk.Menu()
 
-        if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+        if node.node_identifier.tree_type == TreeType.GDRIVE:
             single_path = self.con.display_store.derive_single_path_from_tree_path(tree_path, include_gdrive_prefix=False)
         else:
-            assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
+            assert node.node_identifier.tree_type == TreeType.LOCAL_DISK
             single_path = node.get_single_path()
 
         op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(node.uid)
@@ -239,7 +239,7 @@ class TreeContextMenu:
     @staticmethod
     def build_full_path_display_item(preamble: str, node: Node, single_path: str) -> Gtk.MenuItem:
         path_display = single_path
-        if node.get_tree_type() == TREE_TYPE_GDRIVE:
+        if node.tree_type == TreeType.GDRIVE:
             path_display = GDRIVE_PATH_PREFIX + path_display
 
         item = Gtk.MenuItem(label='')

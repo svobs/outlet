@@ -4,13 +4,13 @@ import logging
 import time
 from typing import Callable, DefaultDict, Dict, List, Tuple
 
-from backend.display_tree.change_tree import ChangeTree
-from constants import TREE_TYPE_GDRIVE
 from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
+from backend.display_tree.change_tree import ChangeTree
+from backend.tree_store.local import content_hasher
+from constants import TreeType
 from model.node.node import Node
 from model.user_op import UserOpType
 from util.stopwatch_sec import Stopwatch
-from backend.tree_store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class ContentFirstDiffer(ChangeMaker):
             relpath_s = self.left_side.derive_relative_path(sn_s.spid)
             if relpath_s in relpath_sn_dict_s:
                 # GDrive permits this unfortunately. But if node is a complete duplicate, do we really care?
-                assert sn_s.spid.tree_type == TREE_TYPE_GDRIVE, f'Duplicate node with same MD5 and same location but not GDrive: {sn_s.spid}'
+                assert sn_s.spid.tree_type == TreeType.GDRIVE, f'Duplicate node with same MD5 and same location but not GDrive: {sn_s.spid}'
                 logger.warning(f'Found node with same MD5 and same location; will ignore for diff: {sn_s.spid}')
             else:
                 relpath_sn_dict_s[relpath_s] = sn_s
@@ -222,7 +222,7 @@ class ContentFirstDiffer(ChangeMaker):
                 existing_sn_list_r: List[SPIDNodePair] = meta_r.path_dict.get(left_on_right_path)
                 if existing_sn_list_r:
                     if len(existing_sn_list_r) > 1:
-                        assert self.right_side.root_identifier.tree_type == TREE_TYPE_GDRIVE, \
+                        assert self.right_side.root_identifier.tree_type == TreeType.GDRIVE, \
                             f'Should never see multiple nodes for same path ("{left_on_right_path}") for this tree type, ' \
                             f'but found: {existing_sn_list_r}'
                         logger.debug(f'Found {len(existing_sn_list_r)} nodes at path "{left_on_right_path}"; picking the first one')

@@ -1,7 +1,7 @@
 import copy
 from typing import Tuple
 
-from constants import IconId, TrashStatus
+from constants import IconId, TrashStatus, TreeType
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
 from model.uid import UID
@@ -55,8 +55,9 @@ class DecoNode(Node):
     def set_size_bytes(self, size_bytes: int):
         self.delegate.set_size_bytes(size_bytes)
 
-    def get_tree_type(self) -> int:
-        return self.delegate.get_tree_type()
+    @property
+    def tree_type(self) -> TreeType:
+        return self.delegate.tree_type
 
     def get_default_icon(self) -> IconId:
         return self.delegate.get_default_icon()

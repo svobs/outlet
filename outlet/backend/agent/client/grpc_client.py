@@ -26,6 +26,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
 from constants import IconId, SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
 from error import ResultsExceededError
+from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
@@ -62,6 +63,8 @@ class BackendGRPCClient(OutletBackend):
 
         self._fe_task_runner = TaskRunner()
         """Only needed to generate UIDs which are unique to drag & drop"""
+
+        self._converter = GRPCConverter(self)
 
     def start(self):
         if self._started:
@@ -194,20 +197,14 @@ class BackendGRPCClient(OutletBackend):
             return PIL.Image.open(img_byte_arr)
         return None
 
-    def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None) -> Optional[Node]:
         request = GetNodeForUid_Request()
         request.uid = uid
-        if tree_type:
-            request.tree_type = tree_type
+        if device_uid:
+            request.device_uid = device_uid
 
         grpc_response = self.grpc_stub.get_node_for_uid(request)
-        return GRPCConverter.optional_node_from_grpc_container(grpc_response)
-
-    def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
-        request = GetNodeForLocalPath_Request()
-        request.full_path = full_path
-        grpc_response = self.grpc_stub.get_node_for_local_path(request)
-        return GRPCConverter.optional_node_from_grpc_container(grpc_response)
+        return self._converter.optional_node_from_grpc_container(grpc_response)
 
     def next_uid(self) -> UID:
         request = GetNextUid_Request()
@@ -230,13 +227,13 @@ class BackendGRPCClient(OutletBackend):
         grpc_req.return_async = request.return_async
         if request.user_path:
             grpc_req.user_path = request.user_path
-        GRPCConverter.node_identifier_to_grpc(request.spid, grpc_req.spid)
+        self._converter.node_identifier_to_grpc(request.spid, grpc_req.spid)
         grpc_req.tree_display_mode = request.tree_display_mode
 
-        response = self.grpc_stub.request_display_tree_ui_state(grpc_req)
+        response = self.grpc_stub.request_display_tree(grpc_req)
 
         if response.HasField('display_tree_ui_state'):
-            state = GRPCConverter.display_tree_ui_state_from_grpc(response.display_tree_ui_state)
+            state = self._converter.display_tree_ui_state_from_grpc(response.display_tree_ui_state)
             tree = state.to_display_tree(backend=self)
         else:
             tree = None
@@ -252,6 +249,15 @@ class BackendGRPCClient(OutletBackend):
         response = self.grpc_stub.get_op_exec_play_state(GetOpExecPlayState_Request())
         logger.debug(f'Got op execution state from backend server: is_playing={response.is_enabled}')
         return response.is_enabled
+
+    def get_device_list(self) -> List[Device]:
+        response = self.grpc_stub.get_device_list()
+        device_list = []
+        for grpc_device in response.device_list:
+            device_list.append(Device(device_uid=grpc_device.device_uid, long_device_id=grpc_device.long_device_id, tree_type=grpc_device.tree_type,
+                                      friendly_name=grpc_device.friendly_name))
+
+        return device_list
 
     def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> Iterable[Node]:
         if SUPER_DEBUG:
@@ -270,7 +276,7 @@ class BackendGRPCClient(OutletBackend):
             # Convert to exception on this side
             assert max_results > 0, f'Got nonzero result_exceeded_count ({response.result_exceeded_count}) but max_results was 0!'
             raise ResultsExceededError(response.result_exceeded_count)
-        return GRPCConverter.node_list_from_grpc(response.node_list)
+        return self._converter.node_list_from_grpc(response.node_list)
 
     def set_selected_rows(self, tree_id: str, selected: Set[UID]):
         request = SetSelectedRowSet_Request()
@@ -300,10 +306,10 @@ class BackendGRPCClient(OutletBackend):
         request = GetAncestorList_Request()
         if stop_at_path:
             request.stop_at_path = stop_at_path
-        GRPCConverter.node_identifier_to_grpc(spid, request.spid)
+        self._converter.node_identifier_to_grpc(spid, request.spid)
 
         response = self.grpc_stub.get_ancestor_list_for_spid(request)
-        return GRPCConverter.node_list_from_grpc(response.node_list)
+        return self._converter.node_list_from_grpc(response.node_list)
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         request = DragDrop_Request()
@@ -313,9 +319,9 @@ class BackendGRPCClient(OutletBackend):
 
         for src_sn in src_sn_list:
             grpc_sn = request.src_sn_list.add()
-            GRPCConverter.sn_to_grpc(src_sn, grpc_sn)
+            self._converter.sn_to_grpc(src_sn, grpc_sn)
 
-        GRPCConverter.sn_to_grpc(dst_sn, request.dst_sn)
+        self._converter.sn_to_grpc(dst_sn, request.dst_sn)
 
         self.grpc_stub.drop_dragged_nodes(request)
 
@@ -335,17 +341,17 @@ class BackendGRPCClient(OutletBackend):
 
         for src_sn in selected_changes_left:
             grpc_sn = request.change_list_left.add()
-            GRPCConverter.sn_to_grpc(src_sn, grpc_sn)
+            self._converter.sn_to_grpc(src_sn, grpc_sn)
 
         for src_sn in selected_changes_right:
             grpc_sn = request.change_list_right.add()
-            GRPCConverter.sn_to_grpc(src_sn, grpc_sn)
+            self._converter.sn_to_grpc(src_sn, grpc_sn)
 
         self.grpc_stub.generate_merge_tree(request)
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
         request = RefreshSubtree_Request()
-        GRPCConverter.node_identifier_to_grpc(node_identifier, request.node_identifier)
+        self._converter.node_identifier_to_grpc(node_identifier, request.node_identifier)
         request.tree_id = tree_id
         self.grpc_stub.refresh_subtree(request)
 
@@ -362,8 +368,8 @@ class BackendGRPCClient(OutletBackend):
         if not response.HasField('user_op'):
             return None
 
-        src_node = GRPCConverter.node_from_grpc(response.user_op.src_node)
-        dst_node = GRPCConverter.node_from_grpc(response.user_op.dst_node)
+        src_node = self._converter.node_from_grpc(response.user_op.src_node)
+        dst_node = self._converter.node_from_grpc(response.user_op.dst_node)
         op_type = UserOpType(response.user_op.op_type)
         return UserOp(response.user_op.op_uid, response.user_op.batch_uid, op_type, src_node, dst_node, response.user_op.create_ts)
 
@@ -382,12 +388,12 @@ class BackendGRPCClient(OutletBackend):
         request.tree_id = tree_id
         response: GetFilter_Response = self.grpc_stub.get_filter(request)
         if response.HasField('filter_criteria'):
-            return GRPCConverter.filter_criteria_from_grpc(response.filter_criteria)
+            return self._converter.filter_criteria_from_grpc(response.filter_criteria)
         else:
             return None
 
     def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
         request = UpdateFilter_Request()
         request.tree_id = tree_id
-        GRPCConverter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)
+        self._converter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)
         self.grpc_stub.update_filter(request)

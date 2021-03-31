@@ -8,14 +8,13 @@ from typing import Callable, List
 
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.uid import UID
-from model.node.node import Node, SPIDNodePair
+from constants import TreeType
 from model.node.gdrive_node import GDriveNode
+from model.node.node import Node, SPIDNodePair
+from model.uid import UID
+from signal_constants import ID_CENTRAL_EXEC, ID_GLOBAL_CACHE, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
-from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, Signal
-from signal_constants import ID_GLOBAL_CACHE, ID_RIGHT_TREE
 from ui.gtk.tree.ui_listeners import DragAndDropData
 
 import gi
@@ -53,11 +52,11 @@ class OpGDriveTest(OpTestBase):
         super().setUp()
 
         self.left_tree_initial = INITIAL_LOCAL_TREE_LEFT
-        self.left_tree_type = TREE_TYPE_LOCAL_DISK
+        self.left_tree_type = TreeType.LOCAL_DISK
         self.left_tree_root_path = os.path.join(TEST_TARGET_DIR, 'Left-Root')
 
         self.right_tree_initial = INITIAL_GDRIVE_TREE_RIGHT
-        self.right_tree_type = TREE_TYPE_GDRIVE
+        self.right_tree_type = TreeType.GDRIVE
         self.right_tree_root_path = '/My Drive/Test'
         # IMPORTANT NOTE: currently need to manually inspect the GDrive database and get UID of 'Test' folder
         self.right_tree_root_uid = 8847219
@@ -106,11 +105,12 @@ class OpGDriveTest(OpTestBase):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
         logger.info('Connecting to GDrive to find files in remote test folder')
 
-        parent_node: Node = self.backend.cacheman.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
+        parent_node: Node = self.backend.cacheman.get_node_for_uid(self.right_tree_root_uid)
         assert isinstance(parent_node, GDriveNode)
         # VERY IMPORTANT: fail if name doesn't match - don't want to delete the wrong folder!
         self.assertEqual(parent_node.name, 'Test')
 
+        # FIXME: this is broken
         client = self.backend.cacheman.get_gdrive_client()
         children = client.get_all_children_for_parent(parent_node.goog_id)
         logger.info(f'GDrive server query found {len(children)} child nodes for parent: {parent_node.name}')

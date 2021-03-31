@@ -56,9 +56,10 @@ class GDriveClient(HasLifecycle):
     CLASS GDriveClient
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, tree_id=None):
+    def __init__(self, backend, device_uid: UID, tree_id=None):
         HasLifecycle.__init__(self)
         self.backend = backend
+        self.device_uid: UID = device_uid
         self.tree_id: str = tree_id
         self.page_size: int = self.backend.get_config('gdrive.page_size')
         self.service: Optional[Resource] = None
@@ -66,7 +67,13 @@ class GDriveClient(HasLifecycle):
     def start(self):
         logger.debug(f'Starting GDriveClient')
         HasLifecycle.start(self)
-        self.service = GDriveClient._load_google_client_service(self.backend)
+
+        # The file token.pickle stores the user's access and refresh tokens, and is
+        # created automatically when the authorization flow completes for the first
+        # time.
+        token_file_path = file_util.get_resource_path(self.backend.get_config('gdrive.auth.token_file_path'))
+        creds_file_path = file_util.get_resource_path(self.backend.get_config('gdrive.auth.credentials_file_path'))
+        self.service = GDriveClient._load_google_client_service(token_file_path, creds_file_path)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -75,14 +82,10 @@ class GDriveClient(HasLifecycle):
             self.service = None
 
     @staticmethod
-    def _load_google_client_service(backend):
+    def _load_google_client_service(token_file_path: str, creds_file_path: str):
         def request():
             logger.debug('Trying to authenticate against GDrive API...')
             creds = None
-            # The file token.pickle stores the user's access and refresh tokens, and is
-            # created automatically when the authorization flow completes for the first
-            # time.
-            token_file_path = file_util.get_resource_path(backend.get_config('gdrive.auth.token_file_path'))
             if os.path.exists(token_file_path):
                 with open(token_file_path, 'rb') as token:
                     creds = pickle.load(token)
@@ -91,10 +94,9 @@ class GDriveClient(HasLifecycle):
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(Request())
                 else:
-                    creds_path = file_util.get_resource_path(backend.get_config('gdrive.auth.credentials_file_path'))
-                    if not os.path.exists(creds_path):
-                        raise RuntimeError(f'Could not find credentials file at the specified path ({creds_path})! This file is required to run.')
-                    flow = InstalledAppFlow.from_client_secrets_file(creds_path, GDRIVE_AUTH_SCOPES)
+                    if not os.path.exists(creds_file_path):
+                        raise RuntimeError(f'Could not find credentials file at the specified path ({creds_file_path})! This file is required to run')
+                    flow = InstalledAppFlow.from_client_secrets_file(creds_file_path, GDRIVE_AUTH_SCOPES)
                     creds = flow.run_local_server(port=0)
                 # Save the credentials for the next run
                 with open(token_file_path, 'wb') as token:
@@ -199,7 +201,7 @@ class GDriveClient(HasLifecycle):
 
         modify_ts = GDriveClient._parse_gdrive_date(item, 'modifiedTime')
 
-        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, path_list=None), goog_id=goog_id, node_name=item['name'],
+        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, device_uid=self.device_uid, path_list=None), goog_id=goog_id, node_name=item['name'],
                                  trashed=GDriveClient._convert_trashed(item), create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid,
                                  drive_id=item.get('driveId', None), is_shared=item.get('shared', None), shared_by_user_uid=sharing_user_uid,
                                  sync_ts=sync_ts, all_children_fetched=False)
@@ -241,7 +243,8 @@ class GDriveClient(HasLifecycle):
         goog_id = item['id']
 
         uid = self.backend.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
-        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, path_list=None), goog_id=goog_id, node_name=item["name"],
+        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, device_uid=self.device_uid, path_list=None),
+                                           goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveClient._convert_trashed(item),
                                            drive_id=item.get('driveId', None), version=version,
                                            md5=item.get('md5Checksum', None), is_shared=item.get('shared', None), create_ts=create_ts,

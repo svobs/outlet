@@ -21,10 +21,11 @@ class GDriveMemoryStore:
     CLASS GDriveMemoryStore
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, uid_mapper: UidGoogIdMapper):
+    def __init__(self, backend, uid_mapper: UidGoogIdMapper, device_uid: UID):
         self.backend = backend
         self.master_tree: Optional[GDriveWholeTree] = None
         self._uid_mapper: UidGoogIdMapper = uid_mapper
+        self.device_uid: UID = device_uid
 
         self._mime_type_for_str_dict: Dict[str, MimeType] = {}
         self._mime_type_for_uid_dict: Dict[UID, MimeType] = {}

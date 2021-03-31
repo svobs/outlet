@@ -5,28 +5,29 @@ import pathlib
 import threading
 from typing import Dict, List, Optional, Tuple
 
-from backend.tree_store.local.local_disk_scanner import LocalDiskScanner
-from backend.tree_store.local.master_local_disk import LocalDiskDiskStore
-from backend.sqlite.local_db import LocalDiskDatabase
 from backend.display_tree.filter_state import FilterState
-from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
+from backend.sqlite.local_db import LocalDiskDatabase
+from backend.tree_store.local import content_hasher
+from backend.tree_store.local.local_disk_scanner import LocalDiskScanner
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
-from error import NodeNotPresentError
-from model.cache_info import PersistedCacheInfo
-from model.node.directory_stats import DirectoryStats
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import Node
-from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from backend.tree_store.local.local_sig_calc_thread import SignatureCalcThread
+from backend.tree_store.local.master_local_disk import LocalDiskDiskStore
 from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
+from constants import SUPER_DEBUG, TrashStatus, TreeType
+from error import NodeNotPresentError
+from model.cache_info import PersistedCacheInfo
+from model.device import Device
+from model.node.directory_stats import DirectoryStats
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.node import Node
+from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
-from backend.tree_store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 
@@ -41,18 +42,17 @@ class LocalDiskMasterStore(TreeStore):
     # TODO: consider scanning only root dir at first, then enqueuing subdirectories
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, uid_path_cache_path):
-        TreeStore.__init__(self)
+    def __init__(self, backend, uid_path_mapper, device: Device):
+        TreeStore.__init__(self, device)
         self.backend = backend
-
-        self.uid_mapper = UidPathMapper(backend, uid_path_cache_path)
+        self.uid_path_mapper: UidPathMapper = uid_path_mapper
 
         self._struct_lock = threading.Lock()
-        self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(backend)
-        self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(backend)
+        self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(backend, self.device.uid)
+        self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(backend, self.device.uid)
 
         initial_sleep_sec: float = self.backend.get_config('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
-        self._signature_calc_thread = SignatureCalcThread(self.backend, initial_sleep_sec)
+        self._signature_calc_thread = SignatureCalcThread(self.backend, initial_sleep_sec, device.uid)
 
         self.lazy_load_signatures: bool = backend.get_config('cache.lazy_load_local_file_signatures')
 
@@ -62,7 +62,6 @@ class LocalDiskMasterStore(TreeStore):
 
     def start(self):
         TreeStore.start(self)
-        self.uid_mapper.start()
         self._diskstore.start()
         if self.lazy_load_signatures:
             self.start_signature_calc_thread()
@@ -188,12 +187,7 @@ class LocalDiskMasterStore(TreeStore):
 
         # If we have already loaded this subtree as part of a larger cache, use that:
         cache_man = self.backend.cacheman
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(subtree_root.get_single_path())
-        if cache_info:
-            logger.debug(f'[{tree_id}] LocalSubtree ({subtree_root}) is part of existing cached supertree ({cache_info.subtree_root})')
-        else:
-            # No supertree found in cache. Create new cache entry:
-            cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
+        cache_info: PersistedCacheInfo = cache_man.get_cache_info_for_subtree(subtree_root, create_if_not_found=True)
         assert cache_info
         self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
 
@@ -341,21 +335,23 @@ class LocalDiskMasterStore(TreeStore):
         """This actually reads directly from the disk cache"""
         logger.debug(f'Loading single node for path: "{full_path}"')
         cache_man = self.backend.cacheman
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(full_path)
+        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
         if not cache_info:
             logger.debug(f'Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
             logger.debug(f'Cache is already loaded for subtree (will return node from memory): "{cache_info.subtree_root}"')
             return self.get_node_for_domain_id(full_path)
-        with LocalDiskDatabase(cache_info.cache_location, self.backend) as cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
     def upsert_single_node(self, node: LocalNode):
-        assert node and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Cannot upsert node: invalid node provided: {node}'
-        assert self.uid_mapper.get_uid_for_path(node.get_single_path(), node.uid) == node.uid, \
+        if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
+            raise RuntimeError(f'Cannot upsert node: invalid node provided: {node}')
+
+        assert self.uid_path_mapper.get_uid_for_path(node.get_single_path(), node.uid) == node.uid, \
             f'Internal error while trying to upsert node to cache: UID did not match expected ' \
-            f'({self.uid_mapper.get_uid_for_path(node.get_single_path(), node.uid)}); node={node}'
+            f'({self.uid_path_mapper.get_uid_for_path(node.get_single_path(), node.uid)}); node={node}'
 
         # logger.warning('LOCK ON!')
         with self._struct_lock:
@@ -364,7 +360,8 @@ class LocalDiskMasterStore(TreeStore):
         # logger.warning('LOCK off')
 
     def update_single_node(self, node: LocalNode):
-        assert node, 'Cannot update node: no node provided!'
+        if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
+            raise RuntimeError(f'Cannot update node: invalid node provided: {node}')
 
         # logger.warning('LOCK ON!')
         with self._struct_lock:
@@ -373,7 +370,9 @@ class LocalDiskMasterStore(TreeStore):
         # logger.warning('LOCK off')
 
     def remove_single_node(self, node: LocalNode, to_trash=False):
-        assert node, 'Cannot remove node: no node provided!'
+        if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
+            raise RuntimeError(f'Cannot remove node: invalid node provided: {node}')
+
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
         # logger.warning('LOCK ON!')
@@ -387,7 +386,7 @@ class LocalDiskMasterStore(TreeStore):
         new_node_uid: UID = self.get_uid_for_path(new_node_full_path)
 
         new_node = copy.deepcopy(node)
-        new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, path_list=new_node_full_path))
+        new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, device_uid=self.device.uid, path_list=new_node_full_path))
         return new_node
 
     def _add_to_expected_node_moves(self, src_node_list: List[LocalNode], dst_node_list: List[LocalNode]):
@@ -426,7 +425,7 @@ class LocalDiskMasterStore(TreeStore):
 
             # Create up to 3 tree operations which should be executed in a single transaction if possible
             dst_uid: UID = self.get_uid_for_path(dst_full_path)
-            dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, path_list=dst_full_path)
+            dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, path_list=dst_full_path)
             dst_subtree: LocalSubtree = LocalSubtree(dst_node_identifier, [], [])
 
             existing_dst_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
@@ -507,7 +506,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         assert isinstance(full_path, str)
-        return self.uid_mapper.get_uid_for_path(full_path, uid_suggestion)
+        return self.uid_path_mapper.get_uid_for_path(full_path, uid_suggestion)
 
     @staticmethod
     def _cache_exists(cache_info: PersistedCacheInfo):
@@ -576,7 +575,7 @@ class LocalDiskMasterStore(TreeStore):
 
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
-        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid=parent_uid,
+        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, path_list=full_path), parent_uid=parent_uid,
                             trashed=TrashStatus.NOT_TRASHED, is_live=is_live)
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
@@ -617,5 +616,5 @@ class LocalDiskMasterStore(TreeStore):
         change_ts = int(stat.st_ctime * 1000)
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
-        node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
+        node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, path_list=full_path)
         return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)

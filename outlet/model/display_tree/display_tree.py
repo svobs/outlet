@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Deque, Iterable, List, Optional, Union
 
-from constants import MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode
+from constants import MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode, TreeType
 from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
@@ -87,17 +87,14 @@ class DisplayTree(HasGetChildren):
     def set_needs_manual_load(self, needs_manual_load: bool):
         self.state.needs_manual_load = needs_manual_load
 
-    def get_tree_type(self) -> int:
+    @property
+    def tree_type(self) -> TreeType:
         return self.state.root_sn.spid.tree_type
 
     @property
     def root_path(self) -> str:
         """Override this if root node's identifier is not SinglePathNodeIdentifier"""
         return self.state.root_sn.spid.get_single_path()
-
-    @property
-    def tree_type(self) -> int:
-        return self.state.root_sn.spid.tree_type
 
     @property
     def uid(self):
@@ -168,7 +165,7 @@ class DisplayTree(HasGetChildren):
                 if child_path not in child_node.get_path_list():
                     # this means we're not following the rules
                     raise RuntimeError(f'Could not find derived path ("{child_path}") in path list ({child_node.get_path_list()}) of child!')
-                child_sn = SPIDNodePair(SinglePathNodeIdentifier(child_node.uid, child_path, child_node.get_tree_type()), child_node)
+                child_sn = SPIDNodePair(SinglePathNodeIdentifier(child_node.uid, child_path, child_node.tree_type), child_node)
             child_sn_list.append(child_sn)
         return child_sn_list
 

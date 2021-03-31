@@ -3,15 +3,15 @@ from typing import List
 
 from pydispatch import dispatcher
 
+from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
-from constants import TREE_TYPE_MIXED, TreeDisplayMode
+from constants import NULL_UID, TreeDisplayMode, TreeType
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import RootTypeNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from signal_constants import ID_MERGE_TREE, Signal
 from util.stopwatch_sec import Stopwatch
 
@@ -72,7 +72,7 @@ class TreeDiffMergeTask:
                            tree_left: ChangeTree, left_selected_changes: List[SPIDNodePair],
                            tree_right: ChangeTree, right_selected_changes: List[SPIDNodePair]) -> ChangeTree:
 
-        super_root_spid: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_spid(TREE_TYPE_MIXED)
+        super_root_spid: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_spid(tree_type=TreeType.MIXED, device_uid=NULL_UID)
         super_root_sn = SPIDNodePair(super_root_spid, RootTypeNode(super_root_spid))
         state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn,
                                                        tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)

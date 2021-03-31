@@ -1,13 +1,13 @@
 import os
 from typing import List, Optional
 
+from constants import IconId, OBJ_TYPE_DIR, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
-from model.uid import UID
-from model.user_op import DISPLAYED_USER_OP_TYPES, UserOpType
-from constants import IconId, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
+from model.uid import UID
+from model.user_op import DISPLAYED_USER_OP_TYPES, UserOpType
 
 
 class ContainerNode(Node):
@@ -139,9 +139,9 @@ class RootTypeNode(ContainerNode):
 
     @property
     def name(self):
-        if self.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+        if self.node_identifier.tree_type == TreeType.LOCAL_DISK:
             return 'Local Disk'
-        elif self.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+        elif self.node_identifier.tree_type == TreeType.GDRIVE:
             return 'Google Drive'
         return 'Unknown'
 
@@ -152,8 +152,8 @@ class RootTypeNode(ContainerNode):
         return self.name
 
     def get_default_icon(self) -> IconId:
-        if self.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+        if self.node_identifier.tree_type == TreeType.LOCAL_DISK:
             return IconId.ICON_LOCAL_DISK_LINUX
-        elif self.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+        elif self.node_identifier.tree_type == TreeType.GDRIVE:
             return IconId.ICON_GDRIVE
         return IconId.ICON_GENERIC_DIR

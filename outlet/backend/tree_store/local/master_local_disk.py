@@ -4,13 +4,14 @@ from typing import Dict, List, Optional
 
 from pydispatch import dispatcher
 
-from constants import TrashStatus, TREE_TYPE_LOCAL_DISK
-from model.cache_info import PersistedCacheInfo
+from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
+from backend.tree_store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
+from constants import TrashStatus, TreeType
+from model.cache_info import PersistedCacheInfo
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
-from backend.tree_store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
-from backend.sqlite.local_db import LocalDiskDatabase
+from model.uid import UID
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
@@ -26,9 +27,10 @@ class LocalDiskDiskStore(HasLifecycle):
     Wrapper for OpDatabase; adds lifecycle and possibly complex logic
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
+    def __init__(self, backend, device_uid: UID):
         HasLifecycle.__init__(self)
         self.backend = backend
+        self.device_uid: UID = device_uid
         self._struct_lock = threading.Lock()
         """Just use one big lock for now"""
         self._open_db_dict: Dict[str, LocalDiskDatabase] = {}
@@ -52,7 +54,7 @@ class LocalDiskDiskStore(HasLifecycle):
     def _get_or_open_db(self, cache_info: PersistedCacheInfo) -> LocalDiskDatabase:
         db = self._open_db_dict.get(cache_info.cache_location, None)
         if not db:
-            db = LocalDiskDatabase(cache_info.cache_location, self.backend)
+            db = LocalDiskDatabase(cache_info.cache_location, self.backend, self.device_uid)
             self._open_db_dict[cache_info.cache_location] = db
         return db
 
@@ -75,8 +77,8 @@ class LocalDiskDiskStore(HasLifecycle):
         cache_dict: Dict[str, LocalDiskDatabase] = {}
 
         for subtree in op.get_subtree_list():
-            assert subtree.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK
-            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(subtree.subtree_root.get_single_path())
+            assert subtree.subtree_root.tree_type == TreeType.LOCAL_DISK and subtree.subtree_root.device_uid == self.device_uid
+            cache_info: Optional[PersistedCacheInfo] = cache_man.get_cache_info_for_subtree(subtree.subtree_root)
             if not cache_info:
                 raise RuntimeError(f'Could not find a cache associated with file path: {subtree.subtree_root.get_single_path()}')
 
@@ -89,7 +91,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
     def _update_diskstore_for_single_op(self, operation: LocalDiskSingleNodeOp):
         assert operation.node, f'No node for operation: {type(operation)}'
-        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(operation.node.get_single_path())
+        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.get_cache_info_for_subtree(operation.node.node_identifier)
         if not cache_info:
             raise RuntimeError(f'Could not find a cache associated with node: {operation.node.node_identifier}')
 
@@ -124,7 +126,8 @@ class LocalDiskDiskStore(HasLifecycle):
 
             self._ensure_uid_consistency(cache_info.subtree_root)
 
-            root_node_identifer = LocalNodeIdentifier(uid=cache_info.subtree_root.uid, path_list=cache_info.subtree_root.get_single_path())
+            root_node_identifer = LocalNodeIdentifier(uid=cache_info.subtree_root.uid, device_uid=cache_info.subtree_root.device_uid,
+                                                      path_list=cache_info.subtree_root.get_single_path())
             tree: LocalDiskTree = LocalDiskTree(self.backend)
             parent_path = root_node_identifer.get_single_parent_path()
             subtree_root_parent_uid = self.backend.cacheman.get_uid_for_local_path(parent_path)

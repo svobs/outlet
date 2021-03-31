@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set
 from pydispatch import dispatcher
 
 from constants import IconId, TreeDisplayMode
+from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
@@ -55,11 +56,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
-        pass
-
-    @abstractmethod
-    def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None) -> Optional[Node]:
         pass
 
     @abstractmethod
@@ -76,6 +73,10 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def get_op_execution_play_state(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_device_list(self) -> List[Device]:
         pass
 
     @abstractmethod
@@ -100,8 +101,8 @@ class OutletBackend(HasLifecycle, ABC):
         """I really could not think of a better name for this."""
         pass
 
-    def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:
-        spid = NodeIdentifierFactory.get_root_constant_gdrive_spid()
+    def create_display_tree_for_gdrive_select(self, device_uid: UID) -> Optional[DisplayTree]:
+        spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
         request = DisplayTreeRequest(tree_id=ID_GDRIVE_DIR_SELECT, return_async=False, spid=spid,
                                      tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)

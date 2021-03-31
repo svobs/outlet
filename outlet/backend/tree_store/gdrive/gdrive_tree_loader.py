@@ -30,14 +30,12 @@ class GDriveTreeLoader:
     CLASS GDriveTreeLoader
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, diskstore: GDriveDiskStore, tree_id: str = None):
+    def __init__(self, backend, diskstore: GDriveDiskStore, gdrive_client: GDriveClient, device_uid: UID, tree_id: str = None):
         self.backend = backend
         self._diskstore: GDriveDiskStore = diskstore
+        self.gdrive_client: GDriveClient = gdrive_client
+        self.device_uid: UID = device_uid
         self.tree_id: str = tree_id
-
-    @property
-    def gdrive_client(self) -> GDriveClient:
-        return self.backend.cacheman.get_gdrive_client()
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         logger.debug(f'GDriveTreeLoader.load_all() called with invalidate_cache={invalidate_cache}')
@@ -57,6 +55,10 @@ class GDriveTreeLoader:
 
         sync_ts: int = time_util.now_sec()
 
+        # Retrieve this here, so we can fail fast if not found, even though we won't do anything with this until the end
+        master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
+        cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root, create_if_not_found=False)
+
         changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
         if not changes_download or invalidate_cache:
             logger.debug(f'Getting a new start token for changes (invalidate_cache={invalidate_cache})')
@@ -71,11 +73,11 @@ class GDriveTreeLoader:
             self._diskstore.create_or_update_download(initial_download)
 
             # Notify UI trees that their old roots are invalid:
-            dispatcher.send(signal=Signal.GDRIVE_RELOADED, sender=self.tree_id)
+            dispatcher.send(signal=Signal.GDRIVE_RELOADED, sender=self.tree_id, device_uid=self.device_uid)
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
-            tree = GDriveWholeTree(self.backend.node_identifier_factory)
+            tree = GDriveWholeTree(self.device_uid, self.backend.node_identifier_factory)
         else:
             # Start/resume: read cache
             msg = 'Reading disk cache...'
@@ -157,8 +159,6 @@ class GDriveTreeLoader:
         self._check_for_broken_nodes(tree)
 
         # set cache_info.is_loaded=True:
-        master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid()
-        cache_info = self.backend.cacheman.get_or_create_cache_info_entry(master_tree_root)
         cache_info.is_loaded = True
 
         logger.debug('GDrive: load_all() done')

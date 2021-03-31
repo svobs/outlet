@@ -1,5 +1,6 @@
 import logging
 
+from constants import TreeType
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -40,3 +41,11 @@ def ensure_list(full_path):
     else:
         return []
 
+
+def ensure_tree_type(val):
+    try:
+        if val and not isinstance(val, TreeType):
+            return TreeType(ensure_int(val))
+    except ValueError:
+        logger.error(f'Bad value: {val}')
+    return val

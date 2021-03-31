@@ -8,10 +8,10 @@ from pydispatch import dispatcher
 from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from backend.realtime.local_event_handler import LocalChangeEventHandler
+from constants import TreeType
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import NodeIdentifier
-from backend.realtime.local_event_handler import LocalChangeEventHandler
 from signal_constants import ID_GDRIVE_POLLING_THREAD, Signal
 from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
@@ -117,6 +117,7 @@ class LiveMonitor(HasLifecycle):
         self._active_tree_dict: Dict[str, NodeIdentifier] = {}
         """Dict for [tree_id -> NodeIdentifier]. Keeps track of what each tree is looking at"""
 
+        # FIXME: this does not support multiple GDrive trees
         self._active_gdrive_tree_set: Set[str] = set()
         """Keep track of how many displayed trees are currently using GDrive. It is up to the last GDrive user to shut off the lights"""
 
@@ -207,14 +208,14 @@ class LiveMonitor(HasLifecycle):
 
                 logger.debug(f'[{tree_id}] Replacing prev capture tree ({node_identifier}) with new tree ({node_identifier})')
 
-                if prev_identifier.tree_type == TREE_TYPE_GDRIVE:
+                if prev_identifier.tree_type == TreeType.GDRIVE:
                     self._active_gdrive_tree_set.discard(tree_id)
 
-                    needs_gdrive_stop = len(self._active_gdrive_tree_set) == 0 and node_identifier.tree_type != TREE_TYPE_GDRIVE
+                    needs_gdrive_stop = len(self._active_gdrive_tree_set) == 0 and node_identifier.tree_type != TreeType.GDRIVE
                     if needs_gdrive_stop:
                         self._stop_gdrive_capture()
                 else:
-                    assert prev_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {prev_identifier}'
+                    assert prev_identifier.tree_type == TreeType.LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {prev_identifier}'
                     self._stop_local_disk_capture(prev_identifier.get_single_path(), tree_id)
 
             else:
@@ -222,7 +223,7 @@ class LiveMonitor(HasLifecycle):
 
             self._active_tree_dict[tree_id] = node_identifier
 
-            if node_identifier.tree_type == TREE_TYPE_GDRIVE:
+            if node_identifier.tree_type == TreeType.GDRIVE:
                 # GDrive
                 needs_gdrive_start = len(self._active_gdrive_tree_set) == 0
                 self._active_gdrive_tree_set.add(tree_id)
@@ -234,7 +235,7 @@ class LiveMonitor(HasLifecycle):
                 self._start_gdrive_capture(tree_id)
             else:
                 # Local
-                assert node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {node_identifier}'
+                assert node_identifier.tree_type == TreeType.LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {node_identifier}'
 
                 if os.path.exists(node_identifier.get_single_path()):
                     self._start_local_disk_capture(node_identifier.get_single_path(), tree_id)
@@ -249,7 +250,7 @@ class LiveMonitor(HasLifecycle):
             if prev_identifier:
                 logger.debug(f'[{tree_id}] Removing capture tree (was: ({prev_identifier})')
 
-                if prev_identifier.tree_type == TREE_TYPE_GDRIVE:
+                if prev_identifier.tree_type == TreeType.GDRIVE:
                     # GDrive
                     assert tree_id in self._active_gdrive_tree_set, f'Expected to find "{tree_id}" in active GDrive tree dict!'
                     self._active_gdrive_tree_set.discard(tree_id)
@@ -258,7 +259,7 @@ class LiveMonitor(HasLifecycle):
                         self._stop_gdrive_capture()
                 else:
                     # Local
-                    assert prev_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {prev_identifier}'
+                    assert prev_identifier.tree_type == TreeType.LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {prev_identifier}'
                     assert self._local_tree_watcher_dict.get(prev_identifier.get_single_path(), None), \
                         f'Expected to find "{tree_id}" in active local tree dict!'
                     self._stop_local_disk_capture(prev_identifier.get_single_path(), tree_id)

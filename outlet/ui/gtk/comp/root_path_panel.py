@@ -2,19 +2,17 @@ import logging
 import os
 from typing import Optional
 
+from constants import GDRIVE_DEVICE_UID_TEMP, GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeDisplayMode, TreeType
 from model.display_tree.display_tree import DisplayTree
-from ui.gtk.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
-from util import file_util
-from ui.gtk.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
-
-from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from model.node_identifier import SinglePathNodeIdentifier
-from ui.gtk.dialog.base_dialog import BaseDialog
-from util.has_lifecycle import HasLifecycle
 from signal_constants import Signal
+from ui.gtk.dialog.base_dialog import BaseDialog
+from ui.gtk.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
+from ui.gtk.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
+from util import file_util
+from util.has_lifecycle import HasLifecycle
 
 import gi
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
@@ -164,11 +162,11 @@ class RootPathPanel(HasLifecycle):
         if self.can_change_root:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
-        if new_root.tree_type == TREE_TYPE_LOCAL_DISK:
+        if new_root.tree_type == TreeType.LOCAL_DISK:
             self.path_icon.set_from_file(self.parent_win.app.assets.get_path(IconId.BTN_LOCAL_DISK_LINUX))
-        elif new_root.tree_type == TREE_TYPE_GDRIVE:
+        elif new_root.tree_type == TreeType.GDRIVE:
             self.path_icon.set_from_file(self.parent_win.app.assets.get_path(IconId.BTN_GDRIVE))
-        elif new_root.tree_type == TREE_TYPE_MIXED:
+        elif new_root.tree_type == TreeType.MIXED:
             self.path_icon.set_from_file(self.parent_win.app.assets.get_path(IconId.BTN_LOCAL_DISK_LINUX))
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
@@ -229,7 +227,7 @@ class RootPathPanel(HasLifecycle):
 
         root_spid: SinglePathNodeIdentifier = self.con.get_tree().get_root_spid()
         path = root_spid.get_single_path()
-        if root_spid.tree_type == TREE_TYPE_GDRIVE:
+        if root_spid.tree_type == TreeType.GDRIVE:
             path = GDRIVE_PATH_PREFIX + path
         self.path_entry.set_text(path)
         self.path_entry.connect('activate', self._on_root_text_entry_submitted, self.con.tree_id)
@@ -272,13 +270,15 @@ class RootPathPanel(HasLifecycle):
 
     def _open_gdrive_root_chooser_dialog(self, menu_item):
         spid = self.con.get_tree().get_root_spid()
+        if spid.tree_type != TreeType.GDRIVE:
+            spid = None
         logger.debug(f'[{self.con.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
 
         def open_dialog():
             try:
                 # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
                 # Dialog will display itself when ready
-                GDriveDirChooserDialog(self.parent_win, current_selection=spid, target_tree_id=self.con.tree_id)
+                GDriveDirChooserDialog(self.parent_win, device_uid=GDRIVE_DEVICE_UID_TEMP, current_selection=spid, target_tree_id=self.con.tree_id)
             except Exception as err:
                 self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
                 raise

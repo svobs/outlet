@@ -3,7 +3,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import ROOT_PATH, SUPER_DEBUG, TREE_TYPE_MIXED
+from constants import ROOT_PATH, SUPER_DEBUG, TreeType
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -107,7 +107,7 @@ class ChangeTree(DisplayTree):
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
         tree_type: int = sn.spid.tree_type
-        assert tree_type != TREE_TYPE_MIXED, f'For {sn.spid}'
+        assert tree_type != TreeType.MIXED, f'For {sn.spid}'
 
         cat_node_nid: UID = get_uid_for_op_and_tree_type(op_type, tree_type)
         cat_node = self._category_tree.get_node_for_uid(cat_node_nid)

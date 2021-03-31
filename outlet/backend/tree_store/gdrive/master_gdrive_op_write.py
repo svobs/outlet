@@ -5,15 +5,14 @@ from typing import DefaultDict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE
+from backend.sqlite.gdrive_db import GDriveDatabase
+from backend.tree_store.gdrive.change_observer import GDriveChange, GDriveNodeChange
+from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
+from constants import SUPER_DEBUG, TreeType
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
-from backend.tree_store.gdrive.change_observer import GDriveChange, GDriveNodeChange
-from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from backend.sqlite.gdrive_db import GDriveDatabase
-from signal_constants import Signal
-from signal_constants import ID_GLOBAL_CACHE
+from signal_constants import ID_GLOBAL_CACHE, Signal
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             raise RuntimeError(f'No node supplied!')
         if not node.uid:
             raise RuntimeError(f'Node is missing UID: {node}')
-        if node.node_identifier.tree_type != TREE_TYPE_GDRIVE:
+        if node.node_identifier.tree_type != TreeType.GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {node.node_identifier.tree_type}')
         if not isinstance(node, GDriveNode):
             raise RuntimeError(f'Unrecognized node type: {node}')

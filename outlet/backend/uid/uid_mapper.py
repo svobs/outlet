@@ -66,9 +66,12 @@ class UidPathMapper:
         with UidPathMapperDb(self.uid_path_cache_path, self.backend) as db:
             # 0=uid, 1=full_path:
             mapping_list: List[Tuple[str, str]] = db.get_all_uid_path_mappings()
+            max_uid: UID = db.get_last_uid()
 
         for mapping in mapping_list:
             self._full_path_uid_dict[mapping[1]] = UID(mapping[0])
+
+        self.uid_generator.ensure_next_uid_greater_than(max_uid)
 
         logger.debug(f'{sw} Loaded {len(mapping_list)} UID-path mappings from disk cache')
 

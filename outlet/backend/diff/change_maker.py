@@ -6,7 +6,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
 from backend.display_tree.change_tree import ChangeTree
-from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import TrashStatus, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
@@ -68,14 +68,15 @@ class OneSide:
         return file_util.strip_root(spid.get_single_path(), self.root_sn.spid.get_single_path())
 
     def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str) -> SPIDNodePair:
-        dst_tree_type = self.root_sn.spid.tree_type
+        dst_device_uid: UID = self.root_sn.spid.device_uid
+        dst_tree_type: TreeType = self.root_sn.spid.tree_type
 
         # First figure out UID and other identifying info for dst node.
-        if dst_tree_type == TREE_TYPE_LOCAL_DISK:
+        if dst_tree_type == TreeType.LOCAL_DISK:
             dst_node_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_path)
             dst_node_goog_id = None  # N/A, but need to make compiler happy
-        elif dst_tree_type == TREE_TYPE_GDRIVE:
-            existing_dst_node_list = self.backend.cacheman.get_node_list_for_path_list([dst_path], dst_tree_type)
+        elif dst_tree_type == TreeType.GDRIVE:
+            existing_dst_node_list = self.backend.cacheman.get_node_list_for_path_list([dst_path], device_uid=dst_device_uid)
             if len(existing_dst_node_list) == 1:
                 existing_node = existing_dst_node_list[0]
                 # If a single node is already there with given name, use its identification; we will overwrite its content with a new version
@@ -100,22 +101,24 @@ class OneSide:
             raise RuntimeError(f'Invalid tree_type: {dst_tree_type}')
 
         # Now build the node:
-        node_identifier = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid)
+        node_identifier = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
+                                                                          device_uid=dst_device_uid)
         src_node: Node = sn_src.node
-        if dst_tree_type == TREE_TYPE_LOCAL_DISK:
+        if dst_tree_type == TreeType.LOCAL_DISK:
             assert isinstance(node_identifier, LocalNodeIdentifier)
             dst_parent_path = self.backend.cacheman.derive_parent_path(dst_path)
             dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
             dst_node: Node = LocalFileNode(node_identifier, dst_parent_uid, src_node.md5, src_node.sha256, src_node.get_size_bytes(),
                                            None, None, None, TrashStatus.NOT_TRASHED, False)
-        elif dst_tree_type == TREE_TYPE_GDRIVE:
-            assert isinstance(node_identifier, GDriveIdentifier)
+        elif dst_tree_type == TreeType.GDRIVE:
             dst_node: Node = GDriveFile(node_identifier, dst_node_goog_id, src_node.name, None, TrashStatus.NOT_TRASHED, None, None, src_node.md5,
                                         False, None, None, src_node.get_size_bytes(), None, None, None)
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={node_identifier}")
 
-        dst_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(dst_node.uid, dst_path, dst_tree_type), dst_node)
+        spid = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
+                                                               device_uid=dst_device_uid, must_be_single_path=True)
+        dst_sn: SPIDNodePair = SPIDNodePair(spid, dst_node)
 
         # ANCESTORS:
         self._add_needed_ancestors(dst_sn)
@@ -145,6 +148,7 @@ class OneSide:
 
     def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[SPIDNodePair]:
         tree_type: int = new_sn.spid.tree_type
+        device_uid: UID = new_sn.spid.device_uid
         ancestor_stack: Deque[SPIDNodePair] = deque()
 
         child_path: str = new_sn.spid.get_single_path()
@@ -161,27 +165,30 @@ class OneSide:
                 break
 
             # Folder already existed in original tree?
-            existing_ancestor_list: List[Node] = self.backend.cacheman.get_node_list_for_path_list([parent_path], tree_type)
+            existing_ancestor_list: List[Node] = self.backend.cacheman.get_node_list_for_path_list([parent_path], device_uid)
             if existing_ancestor_list:
                 # Add all parents which match the path, even if they are duplicates or do not yet exist (i.e., pending ops)
                 child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
                 break
 
             # Need to create ancestor
-            if tree_type == TREE_TYPE_GDRIVE:
+            if tree_type == TreeType.GDRIVE:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
                 new_ancestor_uid = self.backend.uid_generator.next_uid()
                 folder_name = os.path.basename(parent_path)
-                new_ancestor_node = GDriveFolder(GDriveIdentifier(uid=new_ancestor_uid, path_list=parent_path), goog_id=None, node_name=folder_name,
+                new_ancestor_node = GDriveFolder(GDriveIdentifier(uid=new_ancestor_uid, device_uid=device_uid, path_list=parent_path),
+                                                 goog_id=None, node_name=folder_name,
                                                  trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None,
                                                  drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
-            elif tree_type == TREE_TYPE_LOCAL_DISK:
+            elif tree_type == TreeType.LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
                 new_ancestor_node = self.backend.cacheman.build_local_dir_node(parent_path, is_live=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')
 
-            new_ancestor_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(new_ancestor_node.uid, parent_path, tree_type), new_ancestor_node)
+            spid = self.backend.node_identifier_factory.for_values(uid=new_ancestor_node.uid, device_uid=device_uid, tree_type=tree_type,
+                                                                   path_list=parent_path, must_be_single_path=True)
+            new_ancestor_sn: SPIDNodePair = SPIDNodePair(spid, new_ancestor_node)
             self._added_folders[parent_path] = new_ancestor_sn
             ancestor_stack.append(new_ancestor_sn)
 
@@ -247,9 +254,10 @@ class ChangeMaker:
                 dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(src_sn, dst_path)
                 self.right_side.add_op(op_type=op_type, src_sn=src_sn, dst_sn=dst_sn)
 
-    @staticmethod
-    def _build_child_spid(child_node: Node, parent_path: str):
-        return SinglePathNodeIdentifier(child_node.uid, os.path.join(parent_path, child_node.name), tree_type=child_node.get_tree_type())
+    def _build_child_spid(self, child_node: Node, parent_path: str):
+        return self.backend.node_identifier_factory.for_values(uid=child_node.uid, device_uid=child_node.device_uid,
+                                                               tree_type=child_node.tree_type,
+                                                               path_list=os.path.join(parent_path, child_node.name), must_be_single_path=True)
 
     def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id: Optional[str]):
         """Note: here, param "tree_id" indicates which tree_id from which to request nodes from CacheManager (or None to indicate master cache)"""
@@ -267,7 +275,7 @@ class ChangeMaker:
                             if child.node_identifier.is_spid():
                                 child_spid = child.node_identifier
                             else:
-                                child_spid = ChangeMaker._build_child_spid(child, sn.spid.get_single_path())
+                                child_spid = self._build_child_spid(child, sn.spid.get_single_path())
                             assert child_spid.get_single_path() in child.get_path_list(), \
                                 f'Child path "{child_spid.get_single_path()}" does not correspond to actual node: {child}'
                             queue.append(SPIDNodePair(child_spid, child))

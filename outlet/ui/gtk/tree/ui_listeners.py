@@ -1,19 +1,19 @@
 import logging
 from typing import List, Optional, Set
 
+import gi
 from pydispatch import dispatcher
 
-from signal_constants import Signal
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from backend.diff.change_maker import SPIDNodePair
+from constants import TreeType
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
-from model.user_op import UserOp
 from model.uid import UID
+from model.user_op import UserOp
+from signal_constants import Signal
 from ui.gtk.tree.context_menu import TreeContextMenu
 from util.has_lifecycle import HasLifecycle
 
-import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
 
@@ -445,10 +445,11 @@ class TreeUiListeners(HasLifecycle):
 
 
 def _do_default_action_for_node(node: Node, tree_id: str):
-    if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+    if node.node_identifier.tree_type == TreeType.LOCAL_DISK:
+        # FIXME: this will not work for non-local files
         dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.get_single_path())
         return True
-    elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+    elif node.node_identifier.tree_type == TreeType.GDRIVE:
         dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
         return True
 

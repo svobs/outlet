@@ -151,6 +151,9 @@ class TwoLevelDict:
 
         return all_list
 
+    def get_first_dict(self):
+        return self._dict
+
     def get_second_dict(self, key1: Union[str, int]) -> Dict[Union[str, int], Any]:
         dict2 = self._dict.get(key1, None)
         if dict2:

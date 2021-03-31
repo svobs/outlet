@@ -1,9 +1,8 @@
 import logging
 from typing import List, Optional, Union
 
-from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, \
-    TREE_TYPE_MIXED
-from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, SUPER_ROOT_UID, TreeType
+from model.node_identifier import GDriveIdentifier, GDriveSPID, LocalNodeIdentifier, MixedTreeSPID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_list, ensure_uid
 
@@ -20,70 +19,69 @@ class NodeIdentifierFactory:
         self.backend = backend
 
     @staticmethod
-    def get_root_constant_gdrive_identifier() -> GDriveIdentifier:
-        return GDriveIdentifier(uid=GDRIVE_ROOT_UID, path_list=ROOT_PATH)
+    def get_root_constant_gdrive_identifier(device_uid: UID) -> GDriveIdentifier:
+        return GDriveIdentifier(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
     @staticmethod
-    def get_root_constant_spid(tree_type: int) -> SinglePathNodeIdentifier:
-        if tree_type == TREE_TYPE_GDRIVE:
-            return NodeIdentifierFactory.get_root_constant_gdrive_spid()
+    def get_root_constant_spid(tree_type: TreeType, device_uid: UID) -> SinglePathNodeIdentifier:
+        if tree_type == TreeType.GDRIVE:
+            return NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
 
-        if tree_type == TREE_TYPE_LOCAL_DISK:
-            return NodeIdentifierFactory.get_root_constant_local_disk_spid()
+        if tree_type == TreeType.LOCAL_DISK:
+            return NodeIdentifierFactory.get_root_constant_local_disk_spid(device_uid)
 
-        if tree_type == TREE_TYPE_MIXED:
-            return SinglePathNodeIdentifier(uid=SUPER_ROOT_UID, path_list=ROOT_PATH, tree_type=TREE_TYPE_MIXED)
+        if tree_type == TreeType.MIXED:
+            assert device_uid == NULL_UID, f'Expected NULL_UID for device_uid but found: {device_uid}'
+            return MixedTreeSPID(uid=SUPER_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
         raise RuntimeError(f'get_root_constant_spid(): invalid tree type: {tree_type}')
 
     @staticmethod
-    def get_root_constant_gdrive_spid() -> SinglePathNodeIdentifier:
-        return SinglePathNodeIdentifier(uid=GDRIVE_ROOT_UID, path_list=ROOT_PATH, tree_type=TREE_TYPE_GDRIVE)
+    def get_root_constant_gdrive_spid(device_uid: UID) -> SinglePathNodeIdentifier:
+        return GDriveSPID(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
     @staticmethod
-    def get_root_constant_local_disk_spid() -> SinglePathNodeIdentifier:
-        return SinglePathNodeIdentifier(uid=LOCAL_ROOT_UID, path_list=ROOT_PATH, tree_type=TREE_TYPE_LOCAL_DISK)
+    def get_root_constant_local_disk_spid(device_uid: UID) -> SinglePathNodeIdentifier:
+        return LocalNodeIdentifier(uid=LOCAL_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
-    @staticmethod
-    def for_all_values(uid: UID, tree_type: int, path_list: List[str], single_path: bool) -> NodeIdentifier:
-        uid = ensure_uid(uid)
-        full_path_list = ensure_list(path_list)
+    def from_path(self, full_path: str):
+        # FIXME: clean this up! See note for ActiveTreeManager._resolve_root_meta_from_path()
+        full_path_list = ensure_list(full_path)
+        return self._and_deriving_tree_type_from_path(full_path_list, uid=None, device_uid=None, must_be_single_path=False)
 
-        if tree_type == TREE_TYPE_LOCAL_DISK:
-            # LocalNodeIdentifier is always a SPID
-            return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
-        elif single_path:
-            if len(full_path_list) <= 1:
-                # CategoryNode, etc
-                return SinglePathNodeIdentifier(uid=uid, path_list=full_path_list, tree_type=tree_type)
-            else:
-                raise RuntimeError(f'Invalid: uid={uid}, tree_type={tree_type} path_list={full_path_list}, single_path={single_path}')
-        elif tree_type == TREE_TYPE_GDRIVE:
-            return GDriveIdentifier(uid=uid, path_list=full_path_list)
-
-        raise RuntimeError(f'Invalid: uid={uid}, tree_type={tree_type} path_list={full_path_list}, single_path={single_path}')
-
-    # --- BEGIN BACKEND ONLY ---
-
-    def for_values(self, tree_type: int = None, path_list:  Union[str, List[str]] = None, uid: UID = None,
+    def for_values(self, device_uid: UID = None, tree_type: int = None, path_list: Union[str, List[str]] = None, uid: UID = None,
                    must_be_single_path: bool = False) -> NodeIdentifier:
         """Big factory method for creating a new identifier (for example when you intend to create a new node.
-        NOTE: this method should only be called by the backend; never the frontend. It makes use of UID generators and other such stuff."""
+        May be called either from FE or BE. For FE, it may be quite slow due to network overhead."""
+        uid = ensure_uid(uid)
+        device_uid = ensure_uid(device_uid)
         full_path_list = ensure_list(path_list)
+
         if not tree_type:
-            return self._and_deriving_tree_type_from_path(full_path_list, uid, must_be_single_path)
+            if device_uid:
+                tree_type = self._get_tree_type_for_device_uid(device_uid)
+            else:
+                return self._and_deriving_tree_type_from_path(full_path_list, uid, device_uid, must_be_single_path)
 
-        elif tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._for_tree_type_local(full_path_list, uid)
+        if tree_type == TreeType.LOCAL_DISK:
+            return self._for_tree_type_local(device_uid, full_path_list, uid)
 
-        elif tree_type == TREE_TYPE_GDRIVE:
-            return self._for_tree_type_gdrive(full_path_list, uid, must_be_single_path)
+        elif tree_type == TreeType.GDRIVE:
+            return self._for_tree_type_gdrive(device_uid, full_path_list, uid, must_be_single_path)
 
-        elif tree_type == TREE_TYPE_MIXED:
+        elif tree_type == TreeType.MIXED:
             logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, path={full_path_list}')
-            return SinglePathNodeIdentifier(uid=uid, path_list=full_path_list, tree_type=tree_type)
+            if len(full_path_list) > 1:
+                raise RuntimeError(f'Too many paths for tree_type MIXED: {full_path_list}')
+            return MixedTreeSPID(uid=uid, device_uid=device_uid, path_list=full_path_list)
         else:
             raise RuntimeError('bad')
+
+    def _get_tree_type_for_device_uid(self, device_uid: UID) -> TreeType:
+        for device in self.backend.get_device_list():
+            if device.uid == device_uid:
+                return device.tree_type
+        raise RuntimeError(f'Could not find device with UID: {device_uid}')
 
     @staticmethod
     def strip_gdrive(path):
@@ -102,46 +100,58 @@ class NodeIdentifierFactory:
             derived_list.append(NodeIdentifierFactory.strip_gdrive(path))
         return derived_list
 
-    def _and_deriving_tree_type_from_path(self, full_path_list: Optional[List[str]], uid: UID, must_be_single_path: bool = False) \
-            -> NodeIdentifier:
+    def _and_deriving_tree_type_from_path(self, full_path_list: Optional[List[str]], uid: UID, device_uid: Optional[UID],
+                                          must_be_single_path: bool = False) -> NodeIdentifier:
         if full_path_list:
             if full_path_list[0].startswith(GDRIVE_PATH_PREFIX):
+                # GDrive
+
+                # TODO: see if we can get away with removing this. It won't work when called from FE
+                # if not device_uid:
+                #     device_uid = self.backend.cacheman.get_device_uid_for_default_gdrive()
+
                 derived_list: List[str] = NodeIdentifierFactory._derive_gdrive_path_list(full_path_list)
                 if must_be_single_path:
                     if not derived_list or not derived_list[0]:
-                        return NodeIdentifierFactory.get_root_constant_gdrive_spid()
+                        return NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
                     if len(derived_list) > 1:
                         raise RuntimeError(f'Could not make GDrive identifier: must_be_single_path=True but given too many paths:'
                                            f' {derived_list}')
-                    return SinglePathNodeIdentifier(uid=uid, path_list=derived_list, tree_type=TREE_TYPE_GDRIVE)
+                    return GDriveSPID(uid=uid, device_uid=device_uid, path_list=derived_list)
                 if not derived_list or not derived_list[0]:
-                    return NodeIdentifierFactory.get_root_constant_gdrive_identifier()
-                return GDriveIdentifier(path_list=derived_list, uid=uid)
+                    return NodeIdentifierFactory.get_root_constant_gdrive_identifier(device_uid)
+                return GDriveIdentifier(path_list=derived_list, uid=uid, device_uid=device_uid)
             else:
+                # LocalDisk
+
+                # TODO: see if we can get away with removing this. It won't work when called from FE
+                # if not device_uid:
+                #     device_uid = self.backend.cacheman.get_device_uid_for_this_local_disk()
+
                 if not uid:
                     uid = self.backend.get_uid_for_local_path(full_path_list[0])
 
-                return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
+                return LocalNodeIdentifier(uid=uid, device_uid=device_uid, path_list=full_path_list)
         else:
             raise RuntimeError('Neither tree_type nor full_path supplied for GDriveIdentifier!')
 
-    def _for_tree_type_local(self, full_path_list: Optional[List[str]] = None, uid: UID = None) -> LocalNodeIdentifier:
+    def _for_tree_type_local(self, device_uid: UID, full_path_list: Optional[List[str]] = None, uid: UID = None) -> LocalNodeIdentifier:
         if uid and full_path_list:
-            return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
+            return LocalNodeIdentifier(uid=uid, device_uid=device_uid, path_list=full_path_list)
 
         if full_path_list:
             uid = self.backend.get_uid_for_local_path(full_path_list[0], uid)
 
-            return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
+            return LocalNodeIdentifier(uid=uid, device_uid=device_uid, path_list=full_path_list)
         elif uid:
-            node = self.backend.get_node_for_uid(uid, TREE_TYPE_LOCAL_DISK)
+            node = self.backend.get_node_for_uid(uid, device_uid)
             if node:
                 full_path_list = node.get_path_list()
-                return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
+                return LocalNodeIdentifier(uid=uid, device_uid=device_uid, path_list=full_path_list)
         else:
             raise RuntimeError('Neither "uid" nor "full_path" supplied for LocalNodeIdentifier!')
 
-    def _for_tree_type_gdrive(self, full_path_list: Optional[List[str]] = None, uid: UID = None, must_be_single_path: bool = False) \
+    def _for_tree_type_gdrive(self, device_uid: UID, full_path_list: Optional[List[str]] = None, uid: UID = None, must_be_single_path: bool = False) \
             -> Union[GDriveIdentifier, SinglePathNodeIdentifier]:
         if not uid:
             if full_path_list and full_path_list[0] == ROOT_PATH:
@@ -154,6 +164,6 @@ class NodeIdentifierFactory:
         if must_be_single_path:
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Could not make identifier: must_be_single_path=True but given too many paths: {full_path_list}')
-            return SinglePathNodeIdentifier(uid=uid, path_list=full_path_list, tree_type=TREE_TYPE_GDRIVE)
-        return GDriveIdentifier(uid=uid, path_list=full_path_list)
+            return GDriveSPID(uid=uid, device_uid=device_uid, path_list=full_path_list)
+        return GDriveIdentifier(uid=uid, device_uid=device_uid, path_list=full_path_list)
 

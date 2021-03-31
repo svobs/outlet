@@ -4,7 +4,7 @@ import re
 from abc import ABC
 from typing import Optional, Tuple
 
-from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
+from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TreeType
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
@@ -24,10 +24,6 @@ class LocalNode(Node, ABC):
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, trashed: TrashStatus, is_live: bool):
         super().__init__(node_identifier, parent_uids=parent_uid, trashed=trashed)
         self._is_live = ensure_bool(is_live)
-
-    @classmethod
-    def get_tree_type(cls) -> int:
-        return TREE_TYPE_LOCAL_DISK
 
     def is_live(self) -> bool:
         """Whether the object represented by this node actually is live currently, or it is just planned to exist or is an ephemeral node."""
@@ -71,7 +67,7 @@ class LocalDirNode(LocalNode):
         self.dir_stats = other_node.dir_stats
 
     def is_parent_of(self, potential_child_node: Node):
-        if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+        if potential_child_node.tree_type == TreeType.LOCAL_DISK:
             rel_path = re.sub(self.get_single_path(), '', potential_child_node.get_single_path(), count=1)
             if len(rel_path) > 0 and rel_path.startswith('/'):
                 rel_path = rel_path[1:]

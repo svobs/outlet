@@ -1,17 +1,16 @@
 import logging
-from typing import Optional
 
+import gi
+from gi.overrides import GLib
 from pydispatch import dispatcher
 
 from constants import FILTER_APPLY_DELAY_MS, IconId, SUPER_DEBUG
+from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from signal_constants import Signal
 from ui.gtk.dialog.base_dialog import BaseDialog
-from model.display_tree.filter_criteria import Ternary, FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
-import gi
-from gi.overrides import GLib, Pango
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -53,7 +52,7 @@ class TreeFilterPanel(HasLifecycle):
         # logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
 
         # FIXME: put this into _redraw_panel()
-        # self.supports_shared_status = self.con.get_root_spid().tree_type == TREE_TYPE_GDRIVE
+        # self.supports_shared_status = self.con.get_root_spid().tree_type == TreeType.GDRIVE
         self.supports_shared_status = True
 
         self.show_ancestors_btn = self._add_toolbar_toggle_btn('Show ancestors of matches', IconId.ICON_FOLDER_TREE)

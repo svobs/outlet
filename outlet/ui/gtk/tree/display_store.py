@@ -1,14 +1,13 @@
 import logging
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE
+from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeType
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 
 import gi
-
 gi.require_version("Gtk", "3.0")
 from gi.repository.Gtk import TreeIter, TreePath
 from gi.repository import Gtk, GLib
@@ -389,12 +388,12 @@ class DisplayStore:
     def build_spid_from_tree_path(self, tree_path: Gtk.TreePath) -> SinglePathNodeIdentifier:
         node = self.get_node_data(tree_path)
         single_path = self.derive_single_path_from_tree_path(tree_path)
-        return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
+        return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.tree_type)
 
     def build_sn_from_tree_path(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
         node = self.get_node_data(tree_path)
         single_path = self.derive_single_path_from_tree_path(tree_path)
-        spid = SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
+        spid = SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.tree_type)
         return SPIDNodePair(spid, node)
 
     def derive_single_path_from_tree_path(self, tree_path: Gtk.TreePath, include_gdrive_prefix: bool = False) -> str:
@@ -416,7 +415,7 @@ class DisplayStore:
         tree_path_copy = tree_path.copy()
 
         node = self.get_node_data(tree_path_copy)
-        is_gdrive: bool = node.get_tree_type() == TREE_TYPE_GDRIVE
+        is_gdrive: bool = node.tree_type == TreeType.GDRIVE
 
         single_path = ''
 

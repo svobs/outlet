@@ -4,7 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
-from constants import IconId, TrashStatus
+from constants import IconId, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.trait import HasParentList
 from model.node_identifier import NodeIdentifier
@@ -60,8 +60,13 @@ class Node(BaseNode, HasParentList, ABC):
     def is_parent_of(self, potential_child_node) -> bool:
         raise InvalidOperationError('is_parent_of')
 
-    def get_tree_type(self) -> int:
+    @property
+    def tree_type(self) -> TreeType:
         return self.node_identifier.tree_type
+
+    @property
+    def device_uid(self) -> UID:
+        return self.node_identifier.device_uid
 
     def get_tag(self) -> str:
         return str(self.node_identifier)

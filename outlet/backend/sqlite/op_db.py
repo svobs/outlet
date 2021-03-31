@@ -6,7 +6,7 @@ from collections import OrderedDict
 from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TreeType
 from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
 from backend.sqlite.gdrive_db import GDriveDatabase
 from backend.sqlite.local_db import LocalDiskDatabase
@@ -89,9 +89,10 @@ class TableMultiMap:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self):
-        self.all_dict: Dict[str, Dict[str, Dict[int, Dict[str, Any]]]] = {}
+        # lifecycle_state -> src_or_dst -> tree_type -> obj_type
+        self.all_dict: Dict[str, Dict[str, Dict[TreeType, Dict[str, Any]]]] = {}
 
-    def put(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str, obj):
+    def put(self, lifecycle_state: str, src_or_dst: str, tree_type: TreeType, obj_type: str, obj):
         dict2 = self.all_dict.get(lifecycle_state, None)
         if not dict2:
             dict2 = {}
@@ -109,7 +110,7 @@ class TableMultiMap:
 
         dict4[obj_type] = obj
 
-    def append(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str, obj):
+    def append(self, lifecycle_state: str, src_or_dst: str, tree_type: TreeType, obj_type: str, obj):
         dict2 = self.all_dict.get(lifecycle_state, None)
         if not dict2:
             dict2 = {}
@@ -131,14 +132,14 @@ class TableMultiMap:
             dict4[obj_type] = the_list
         the_list.append(obj)
 
-    def get(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str) -> Any:
+    def get(self, lifecycle_state: str, src_or_dst: str, tree_type: TreeType, obj_type: str) -> Any:
         dict2 = self.all_dict.get(lifecycle_state, None)
         dict3 = dict2.get(src_or_dst, None)
         dict4 = dict3.get(tree_type, None)
         return dict4.get(obj_type, None)
 
-    def entries(self) -> List[Tuple[str, str, int, str, List]]:
-        tuple_list: List[Tuple[str, str, int, str, List]] = []
+    def entries(self) -> List[Tuple[str, str, TreeType, str, List]]:
+        tuple_list: List[Tuple[str, str, TreeType, str, List]] = []
 
         for lifecycle_state, dict2 in self.all_dict.items():
             for src_or_dst, dict3 in dict2.items():
@@ -172,10 +173,10 @@ class TableListCollection:
         self.tuple_to_obj_func_map: Dict[str, Callable[[Dict[UID, Node], Tuple], Any]] = {}
         # self.obj_to_tuple_func_map: Dict[str, Callable[[Any, UID], Tuple]] = {}
 
-    def put_table(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str, table):
+    def put_table(self, lifecycle_state: str, src_or_dst: str, tree_type: TreeType, obj_type: str, table):
         self.all_dict.put(lifecycle_state, src_or_dst, tree_type, obj_type, table)
 
-    def get_table(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str) -> LiveTable:
+    def get_table(self, lifecycle_state: str, src_or_dst: str, tree_type: TreeType, obj_type: str) -> LiveTable:
         return self.all_dict.get(lifecycle_state, src_or_dst, tree_type, obj_type)
 
 
@@ -291,10 +292,11 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFolder:
-        action_uid_int, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared, shared_by_user_uid, \
-            sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
+        action_uid_int, device_uid, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id,\
+            is_shared, shared_by_user_uid, sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
-        obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), path_list=None), goog_id=goog_id, node_name=node_name, trashed=item_trashed,
+        obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
+                           goog_id=goog_id, node_name=node_name, trashed=item_trashed,
                            create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id, is_shared=is_shared,
                            shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
@@ -303,10 +305,11 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
-        action_uid_int, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, \
-            is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
+        action_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, \
+            owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
 
-        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), path_list=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
+        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
+                         goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
                          trashed=item_trashed, drive_id=drive_id, version=version, md5=md5, is_shared=is_shared,
                          create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid,
                          sync_ts=sync_ts)
@@ -315,12 +318,13 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
-        action_uid_int, uid_int, full_path, is_live = row
+        action_uid_int, device_uid, uid_int, full_path, is_live = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         parent_uid: UID = self._get_parent_uid(full_path)
-        obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid, TrashStatus.NOT_TRASHED, bool(is_live))
+        obj = LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid),
+                                               path_list=full_path), parent_uid, TrashStatus.NOT_TRASHED, bool(is_live))
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
@@ -328,13 +332,13 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
-        action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
+        action_uid_int, device_uid, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cacheman returned {uid} but op cache returned {uid_int} (from row: {row})')
         parent_uid: UID = self._get_parent_uid(full_path)
-        node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
+        node_identifier = LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid), path_list=full_path)
         obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
@@ -345,7 +349,7 @@ class OpDatabase(MetaDatabase):
     def _action_node_to_tuple(self, node: Node, op_uid: UID) -> Tuple:
         if not node.has_tuple():
             raise RuntimeError(f'Node cannot be converted to tuple: {node}')
-        if node.get_tree_type() == TREE_TYPE_GDRIVE:
+        if node.tree_type == TreeType.GDRIVE:
             assert isinstance(node, GDriveNode)
             parent_uid: Optional[UID] = None
             parent_goog_id: Optional[str] = None
@@ -364,6 +368,12 @@ class OpDatabase(MetaDatabase):
         table.name = f'{prefix}_{table.name}_{suffix}'
         # uid is no longer primary key
         table.cols.update({'uid': 'INTEGER'})
+
+        # add device_uid:
+        table.cols.update({('device_uid', 'INTEGER')})
+        # move to front:
+        table.cols.move_to_end('device_uid', last=False)
+
         # primary key is also foreign key (not enforced) to UserOp (ergo, only one row per UserOp):
         table.cols.update({ACTION_UID_COL_NAME: 'INTEGER PRIMARY KEY'})
         # move to front:
@@ -371,22 +381,22 @@ class OpDatabase(MetaDatabase):
 
         if src_table.name == LocalDiskDatabase.TABLE_LOCAL_FILE.name:
             live_table = LiveTable(table, self.conn, None, None)
-            self.table_lists.put_table(prefix, suffix, TREE_TYPE_LOCAL_DISK, OBJ_TYPE_FILE, live_table)
+            self.table_lists.put_table(prefix, suffix, TreeType.LOCAL_DISK, OBJ_TYPE_FILE, live_table)
             self.table_lists.local_file.append(live_table)
             self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_local_file
         elif src_table.name == LocalDiskDatabase.TABLE_LOCAL_DIR.name:
             live_table = LiveTable(table, self.conn, None, None)
-            self.table_lists.put_table(prefix, suffix, TREE_TYPE_LOCAL_DISK, OBJ_TYPE_DIR, live_table)
+            self.table_lists.put_table(prefix, suffix, TreeType.LOCAL_DISK, OBJ_TYPE_DIR, live_table)
             self.table_lists.local_dir.append(live_table)
             self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_local_dir
         elif src_table.name == GDriveDatabase.TABLE_GRDIVE_FILE.name:
             live_table = LiveTable(table, self.conn, None, None)
-            self.table_lists.put_table(prefix, suffix, TREE_TYPE_GDRIVE, OBJ_TYPE_FILE, live_table)
+            self.table_lists.put_table(prefix, suffix, TreeType.GDRIVE, OBJ_TYPE_FILE, live_table)
             self.table_lists.gdrive_file.append(live_table)
             self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_gdrive_file
         elif src_table.name == GDriveDatabase.TABLE_GRDIVE_FOLDER.name:
             live_table = LiveTable(table, self.conn, None, None)
-            self.table_lists.put_table(prefix, suffix, TREE_TYPE_GDRIVE, OBJ_TYPE_DIR, live_table)
+            self.table_lists.put_table(prefix, suffix, TreeType.GDRIVE, OBJ_TYPE_DIR, live_table)
             self.table_lists.gdrive_dir.append(live_table)
             self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_gdrive_folder
         else:

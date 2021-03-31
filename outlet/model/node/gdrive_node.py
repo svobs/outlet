@@ -2,12 +2,12 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
-from model.uid import UID
-from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
 from model.node.node import Node
 from model.node_identifier import GDriveIdentifier
+from model.uid import UID
 from util.ensure import ensure_bool, ensure_int, ensure_uid
 
 logger = logging.getLogger(__name__)
@@ -92,9 +92,9 @@ class GDriveNode(Node, ABC):
     def set_sync_ts(self, sync_ts: int):
         self._sync_ts = sync_ts
 
-    @classmethod
-    def get_tree_type(cls) -> int:
-        return TREE_TYPE_GDRIVE
+    @property
+    def tree_type(self) -> TreeType:
+        return TreeType.GDRIVE
 
     @property
     def name(self) -> str:
@@ -162,7 +162,7 @@ class GDriveFolder(GDriveNode):
                self.drive_id, self._is_shared, self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
-        if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
+        if potential_child_node.tree_type == TreeType.GDRIVE:
             assert isinstance(potential_child_node, GDriveNode)
             return self.uid in potential_child_node.get_parent_uids()
         return False

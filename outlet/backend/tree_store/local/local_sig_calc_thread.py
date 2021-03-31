@@ -2,9 +2,9 @@ import copy
 import logging
 import time
 
-from constants import TREE_TYPE_LOCAL_DISK
 from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
+from model.uid import UID
 from signal_constants import Signal
 from util.qthread import QThread
 from backend.tree_store.local import content_hasher
@@ -20,9 +20,10 @@ class SignatureCalcThread(QThread):
     Hasher thread which churns through signature queue and sends updates to cacheman
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, initial_sleep_sec: float):
+    def __init__(self, backend, initial_sleep_sec: float, device_uid: UID):
         QThread.__init__(self, name='SignatureCalcThread', initial_sleep_sec=initial_sleep_sec)
         self.backend = backend
+        self.device_uid: UID = device_uid
 
     def start(self):
         QThread.start(self)
@@ -34,7 +35,7 @@ class SignatureCalcThread(QThread):
         super().enqueue(node)
 
     def _on_node_upserted_in_cache(self, sender: str, node: Node):
-        if node.get_tree_type() == TREE_TYPE_LOCAL_DISK and node.is_file() and not node.md5 and not node.sha256:
+        if node.device_uid == self.device_uid and node.is_file() and not node.md5 and not node.sha256:
             assert isinstance(node, LocalFileNode)
             self.enqueue(node)
 

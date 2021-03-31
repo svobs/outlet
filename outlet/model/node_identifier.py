@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
-from constants import NULL_UID, SUPER_DEBUG, TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
+from constants import NULL_UID, SUPER_DEBUG, TREE_TYPE_DISPLAY, TreeType
 from error import InvalidOperationError
 from model.uid import UID
 from util import file_util
@@ -21,34 +21,24 @@ class NodeIdentifier(ABC):
     Still a work in progress and may change greatly.
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]]):
-        self.uid: UID = ensure_uid(uid)
+    def __init__(self, relative_uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+        self.relative_uid: UID = ensure_uid(relative_uid)
+        self.device_uid: UID = ensure_uid(device_uid)
         self._path_list: Optional[List[str]] = None
         self.set_path_list(path_list)
 
     @property
-    def node_uid(self) -> UID:
-        return self.uid
+    def uid(self):
+        return self.relative_uid
 
-    @property
-    def tree_uid(self) -> UID:
-        """Just extract the tree_id from the node_uid, which is currently just the first two digits"""
-        # Using strings seems to be the fastest way to extract the UID, based on this:
-        # https://stackoverflow.com/questions/33947632/get-most-significant-digit-in-python
-        return UID(str(self.node_uid)[0:2])
-
-    @property
-    def relative_uid(self) -> UID:
-        """Just extract the relative_uid from the node_uid, which is currently just everything beyond the last two digits"""
-        return UID(str(self.node_uid)[2:])
+    @uid.setter
+    def uid(self, uid: UID):
+        self.relative_uid = uid
 
     @property
     @abstractmethod
-    def tree_type(self) -> int:
-        return TREE_TYPE_NA
-
-    def get_tree_type(self) -> int:
-        return self.tree_type
+    def tree_type(self) -> TreeType:
+        return TreeType.NA
 
     @staticmethod
     def is_spid():
@@ -128,14 +118,14 @@ class NullNodeIdentifier(NodeIdentifier):
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
     def __init__(self):
-        super().__init__(NULL_UID, None)
+        super().__init__(NULL_UID, NULL_UID, None)
 
     @property
-    def tree_type(self) -> int:
-        return TREE_TYPE_NA
+    def tree_type(self) -> TreeType:
+        return TreeType.NA
 
 
-class SinglePathNodeIdentifier(NodeIdentifier):
+class SinglePathNodeIdentifier(NodeIdentifier, ABC):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS SinglePathNodeIdentifier
@@ -143,16 +133,15 @@ class SinglePathNodeIdentifier(NodeIdentifier):
     AKA "SPID"
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]], tree_type: int):
+    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
         """Has only one path. We still name the variable 'path_list' for consistency with the class hierarchy."""
-        super().__init__(uid, path_list)
+        super().__init__(uid, device_uid, path_list)
         if len(self.get_path_list()) != 1:
             raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {path_list}')
-        self._tree_type = tree_type
 
     @property
-    def tree_type(self) -> int:
-        return self._tree_type
+    def tree_type(self) -> TreeType:
+        raise RuntimeError(f'Cannot use SinglePathNodeIdentifier directly!')
 
     @staticmethod
     def is_spid():
@@ -175,7 +164,12 @@ class SinglePathNodeIdentifier(NodeIdentifier):
     def from_node_identifier(node_identifier, single_path: str):
         if single_path not in node_identifier.get_path_list():
             raise RuntimeError('bad!')
-        return SinglePathNodeIdentifier(uid=node_identifier.uid, path_list=single_path, tree_type=node_identifier.get_tree_type())
+        if node_identifier.tree_type == TreeType.GDRIVE:
+            return GDriveSPID(uid=node_identifier.uid, device_uid=node_identifier.device_uid, path_list=single_path)
+        elif node_identifier.tree_type == TreeType.LOCAL_DISK:
+            return LocalNodeIdentifier(uid=node_identifier.uid, device_uid=node_identifier.device_uid, path_list=single_path)
+        else:
+            raise RuntimeError('Invalid!')
 
 
 class GDriveIdentifier(NodeIdentifier):
@@ -184,12 +178,40 @@ class GDriveIdentifier(NodeIdentifier):
         CLASS GDriveIdentifier
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]]):
-        super().__init__(uid, path_list)
+    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+        super().__init__(uid, device_uid, path_list)
 
     @property
-    def tree_type(self) -> int:
-        return TREE_TYPE_GDRIVE
+    def tree_type(self) -> TreeType:
+        return TreeType.GDRIVE
+
+
+class GDriveSPID(SinglePathNodeIdentifier):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS GDriveSPID
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
+    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+        super().__init__(uid, device_uid, path_list)
+
+    @property
+    def tree_type(self) -> TreeType:
+        return TreeType.GDRIVE
+
+
+class MixedTreeSPID(SinglePathNodeIdentifier):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS MixedTreeSPID
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
+    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+        super().__init__(uid, device_uid, path_list)
+
+    @property
+    def tree_type(self) -> TreeType:
+        return TreeType.MIXED
 
 
 class LocalNodeIdentifier(SinglePathNodeIdentifier):
@@ -198,5 +220,9 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
         CLASS LocalNodeIdentifier
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]]):
-        super().__init__(uid, path_list, TREE_TYPE_LOCAL_DISK)
+    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+        super().__init__(uid, device_uid, path_list)
+
+    @property
+    def tree_type(self) -> TreeType:
+        return TreeType.LOCAL_DISK

@@ -9,6 +9,7 @@ from pydispatch import dispatcher
 from backend.display_tree.filter_state import FilterState
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
 from global_actions import GlobalActions
+from model.device import Device
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
@@ -56,8 +57,8 @@ class GDriveMasterStore(TreeStore):
     # TODO: support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
-        TreeStore.__init__(self)
+    def __init__(self, backend, device: Device):
+        TreeStore.__init__(self, device)
         self.backend = backend
 
         self._uid_mapper = UidGoogIdMapper(backend)
@@ -65,10 +66,11 @@ class GDriveMasterStore(TreeStore):
 
         self._struct_lock = threading.Lock()
         """Used to protect structures inside memstore"""
-        self._memstore: GDriveMemoryStore = GDriveMemoryStore(backend, self._uid_mapper)
-        self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore)
-        self.gdrive_client: GDriveClient = GDriveClient(self.backend, ID_GLOBAL_CACHE)
-        self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, tree_id=ID_GLOBAL_CACHE)
+        self._memstore: GDriveMemoryStore = GDriveMemoryStore(backend, self._uid_mapper, device.uid)
+        self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore, device.uid)
+        self.gdrive_client: GDriveClient = GDriveClient(self.backend, device.uid, ID_GLOBAL_CACHE)
+        self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, gdrive_client=self.gdrive_client,
+                                            device_uid=device.uid, tree_id=ID_GLOBAL_CACHE)
 
         self.download_dir = file_util.get_resource_path(self.backend.get_config('agent.local_disk.download_dir'))
 
@@ -434,7 +436,7 @@ class GDriveMasterStore(TreeStore):
             self.load_and_sync_master_tree()
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
-    def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:

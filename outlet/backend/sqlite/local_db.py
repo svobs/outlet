@@ -48,9 +48,10 @@ class LocalDiskDatabase(MetaDatabase):
         ('live', 'INTEGER')
     ]))
 
-    def __init__(self, db_path, backend):
+    def __init__(self, db_path, backend, device_uid: UID):
         super().__init__(db_path)
         self.cacheman = backend.cacheman
+        self.device_uid: UID = device_uid
         self.table_local_file = LiveTable(LocalDiskDatabase.TABLE_LOCAL_FILE, self.conn, _file_to_tuple, self._tuple_to_file)
         self.table_local_dir = LiveTable(LocalDiskDatabase.TABLE_LOCAL_DIR, self.conn, _dir_to_tuple, self._tuple_to_dir)
 
@@ -67,7 +68,7 @@ class LocalDiskDatabase(MetaDatabase):
         # make sure we call get_uid_for_local_path() for both the node's path and its parent's path, so that UID mapper has a chance to store it
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
-        node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
+        node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, path_list=full_path)
         parent_uid: UID = self._get_parent_uid(full_path)
         return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
 
@@ -107,7 +108,7 @@ class LocalDiskDatabase(MetaDatabase):
         uid = self.cacheman.get_uid_for_local_path(full_path, row[0])
         assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
         parent_uid: UID = self._get_parent_uid(full_path)
-        return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid, row[2], bool(row[3]))
+        return LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, path_list=full_path), parent_uid, row[2], bool(row[3]))
 
     def has_local_dirs(self):
         return self.table_local_dir.has_rows()

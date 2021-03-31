@@ -13,30 +13,8 @@ from util.ensure import ensure_int
 logger = logging.getLogger(__name__)
 
 
-def _tuple_to_gdrive_folder(row: Tuple) -> GDriveFolder:
-    uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared, shared_by_user_uid, sync_ts, \
-        all_children_fetched = row
-    uid_from_cache = UID(uid_int)
-
-    return GDriveFolder(GDriveIdentifier(uid=uid_from_cache, path_list=None), goog_id=goog_id, node_name=node_name,
-                        trashed=item_trashed, create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id, is_shared=is_shared,
-                        shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
-
-
 def _gdrive_folder_to_tuple(folder: GDriveFolder) -> Tuple:
     return folder.to_tuple()
-
-
-def _tuple_to_gdrive_file(row: Tuple) -> GDriveFile:
-    uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
-        shared_by_user_uid, version, sync_ts = row
-
-    uid_from_cache = UID(uid_int)
-
-    return GDriveFile(GDriveIdentifier(uid=uid_from_cache, path_list=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
-                      trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, version=version,
-                      md5=md5, create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
-                      owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts)
 
 
 def _gdrive_file_to_tuple(file: GDriveFile) -> Tuple:
@@ -167,17 +145,40 @@ class GDriveDatabase(MetaDatabase):
                                                ('sync_ts', 'INTEGER')
                                            ]))
 
-    def __init__(self, db_path, backend):
+    def __init__(self, db_path, backend, device_uid: UID):
         super().__init__(db_path)
         self.cacheman = backend.cacheman
         self.uid_generator = backend.uid_generator
+        self.device_uid: UID = device_uid
 
         self.table_current_download = LiveTable(GDriveDatabase.TABLE_GRDIVE_CURRENT_DOWNLOAD, self.conn, _download_to_tuple, _tuple_to_download)
-        self.table_gdrive_folder = LiveTable(GDriveDatabase.TABLE_GRDIVE_FOLDER, self.conn, _gdrive_folder_to_tuple, _tuple_to_gdrive_folder)
-        self.table_gdrive_file = LiveTable(GDriveDatabase.TABLE_GRDIVE_FILE, self.conn, _gdrive_file_to_tuple, _tuple_to_gdrive_file)
+        self.table_gdrive_folder = LiveTable(GDriveDatabase.TABLE_GRDIVE_FOLDER, self.conn, _gdrive_folder_to_tuple, self._tuple_to_gdrive_folder)
+        self.table_gdrive_file = LiveTable(GDriveDatabase.TABLE_GRDIVE_FILE, self.conn, _gdrive_file_to_tuple, self._tuple_to_gdrive_file)
         self.id_parent_mapping = LiveTable(GDriveDatabase.TABLE_GRDIVE_ID_PARENT_MAPPING, self.conn, None, None)
         self.table_gdrive_user = LiveTable(GDriveDatabase.TABLE_GDRIVE_USER, self.conn, _gdrive_user_to_tuple, _tuple_to_gdrive_user)
         self.table_mime_type = LiveTable(GDriveDatabase.TABLE_MIME_TYPE, self.conn, _mime_type_to_tuple, _tuple_to_mime_type)
+
+    def _tuple_to_gdrive_folder(self, row: Tuple) -> GDriveFolder:
+        uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared, shared_by_user_uid, sync_ts, \
+                all_children_fetched = row
+        uid_from_cache = UID(uid_int)
+
+        return GDriveFolder(GDriveIdentifier(uid=uid_from_cache, device_uid=self.device_uid, path_list=None), goog_id=goog_id, node_name=node_name,
+                            trashed=item_trashed, create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id,
+                            is_shared=is_shared,
+                            shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
+
+    def _tuple_to_gdrive_file(self, row: Tuple) -> GDriveFile:
+        uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
+                shared_by_user_uid, version, sync_ts = row
+
+        uid_from_cache = UID(uid_int)
+
+        return GDriveFile(GDriveIdentifier(uid=uid_from_cache, device_uid=self.device_uid, path_list=None),
+                          goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
+                          trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, version=version,
+                          md5=md5, create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
+                          owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts)
 
     # FOLDER operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

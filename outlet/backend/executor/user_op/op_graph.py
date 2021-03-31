@@ -204,7 +204,7 @@ class OpGraph(HasLifecycle):
                 parent_uid_list: List[UID] = tgt_node.get_parent_uids()
                 parent_found: bool = False
                 for parent_uid in parent_uid_list:
-                    if self.backend.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) or mkdir_node_dict.get(parent_uid, None):
+                    if self.backend.cacheman.get_node_for_uid(parent_uid, tgt_node.tree_type) or mkdir_node_dict.get(parent_uid, None):
                         parent_found = True
 
                 if not parent_found:
@@ -217,7 +217,7 @@ class OpGraph(HasLifecycle):
                     mkdir_node_dict[op_node.op.src_node.uid] = op_node.op.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
-                if not self.backend.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
+                if not self.backend.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.tree_type):
                     logger.error(f'Could not find node in cache for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {tgt_node.uid} '
                                        f'for "{op_type}"')

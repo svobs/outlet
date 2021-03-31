@@ -5,17 +5,17 @@ import time
 from functools import partial
 from typing import Callable
 
-import gi
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_LOCAL_DISK
-from model.uid import UID
+from constants import TreeType
 from model.node.node import Node, SPIDNodePair
+from model.uid import UID
+from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
-from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from ui.gtk.tree.ui_listeners import DragAndDropData
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -40,11 +40,11 @@ class OpLocalTest(OpTestBase):
         super().setUp()
 
         self.left_tree_initial = INITIAL_LOCAL_TREE_LEFT
-        self.left_tree_type = TREE_TYPE_LOCAL_DISK
+        self.left_tree_type = TreeType.LOCAL_DISK
         self.left_tree_root_path = os.path.join(TEST_TARGET_DIR, 'Left-Root')
 
         self.right_tree_initial = INITIAL_LOCAL_TREE_RIGHT
-        self.right_tree_type = TREE_TYPE_LOCAL_DISK
+        self.right_tree_type = TreeType.LOCAL_DISK
         self.right_tree_root_path = os.path.join(TEST_TARGET_DIR, 'Right-Root')
 
         self.do_setup()

@@ -8,6 +8,7 @@ from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from backend.icon_store import IconStorePy
 from constants import IconId
+from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
@@ -80,11 +81,8 @@ class BackendIntegrated(OutletBackend):
     def get_icon(self, icon_id: IconId) -> Optional:
         return self.icon_cache.get_icon(icon_id)
 
-    def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
-        return self.cacheman.get_node_for_uid(uid, tree_type)
-
-    def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
-        return self.cacheman.get_node_for_local_path(full_path)
+    def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None) -> Optional[Node]:
+        return self.cacheman.get_node_for_uid(uid, device_uid)
 
     def next_uid(self) -> UID:
         return self.uid_generator.next_uid()
@@ -94,7 +92,7 @@ class BackendIntegrated(OutletBackend):
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
         assert request.tree_id, f'tree_id cannot be null for {request}'
-        state = self.cacheman.request_display_tree_ui_state(request)
+        state = self.cacheman.request_display_tree(request)
         if state:
             tree = state.to_display_tree(backend=self)
             return tree
@@ -108,6 +106,9 @@ class BackendIntegrated(OutletBackend):
 
     def get_op_execution_play_state(self) -> bool:
         return self.executor.enable_op_execution
+
+    def get_device_list(self) -> List[Device]:
+        return self.cacheman.get_device_list()
 
     def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> Iterable[Node]:
         return self.cacheman.get_child_list(parent_uid, tree_id, max_results)

@@ -47,6 +47,21 @@ message Icon {
 	bytes content = 2;
 }
 
+message GetDeviceList_Request {
+	// nothing
+}
+
+message GetDeviceList_Response {
+	repeated Device device_list = 1;
+}
+
+message Device {
+	uint32 device_uid = 1;
+	string long_device_id = 2;
+	uint32 tree_type = 3;
+	string friendly_name = 4;
+}
+
 message GetFilter_Request {
 	string tree_id = 1;
 }
@@ -281,11 +296,7 @@ message GetUidForLocalPath_Response {
 
 message GetNodeForUid_Request {
 	uint32 uid = 1;
-	uint32 tree_type = 2; // optional
-}
-
-message GetNodeForLocalPath_Request {
-	string full_path = 1;
+	uint32 device_uid = 2; // optional (but encouraged!)
 }
 
 message GetNextUid_Request {
@@ -305,33 +316,32 @@ service Outlet {
 
 	rpc get_icon(GetIcon_Request) returns (GetIcon_Response);
 
-	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
-	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);
+	rpc get_device_list(GetDeviceList_Request) returns (GetDeviceList_Response);
+
 	rpc get_child_list_for_node(GetChildList_Request) returns (GetChildList_Response);
 	rpc get_ancestor_list_for_spid(GetAncestorList_Request) returns (GetAncestorList_Response);
 	rpc get_filter(GetFilter_Request) returns (GetFilter_Response);
 	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
+	rpc get_rows_of_interest(GetRowsOfInterest_Request) returns (GetRowsOfInterest_Response);
 	rpc set_selected_row_set(SetSelectedRowSet_Request) returns (SetSelectedRowSet_Response);
 	rpc remove_expanded_row(RemoveExpandedRow_Request) returns (RemoveExpandedRow_Response);
-	rpc get_rows_of_interest(GetRowsOfInterest_Request) returns (GetRowsOfInterest_Response);
 
-	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
+	rpc request_display_tree(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
-	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);
-	rpc start_diff_trees(StartDiffTrees_Request) returns (StartDiffTrees_Response);
-
 	rpc refresh_subtree(RefreshSubtree_Request) returns (Empty);
 	rpc refresh_subtree_stats(RefreshSubtreeStats_Request) returns (Empty);
 
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
+	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);
 
+	rpc start_diff_trees(StartDiffTrees_Request) returns (StartDiffTrees_Response);
 	rpc generate_merge_tree(GenerateMergeTree_Request) returns (Empty);
 	rpc drop_dragged_nodes(DragDrop_Request) returns (DragDrop_Response);
-
+	rpc delete_subtree(DeleteSubtree_Request) returns (Empty);
 	rpc get_last_pending_op_for_node(GetLastPendingOp_Request) returns (GetLastPendingOp_Response);
 	rpc download_file_from_gdrive(DownloadFromGDrive_Request) returns (Empty);
-	rpc delete_subtree(DeleteSubtree_Request) returns (Empty);
+	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);
 }
 
 

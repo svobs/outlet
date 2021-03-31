@@ -154,7 +154,7 @@ class TreePanelController(HasLifecycle):
             assert self.treeview_meta.tree_id == self.get_tree().tree_id, f'tree_id from treeview_meta ({self.treeview_meta.tree_id})' \
                                                                           f' does not match tree ({self.get_tree().tree_id})'
 
-            # Send signal to backend to load the subtree. When it's ready, it will notify us
+            # Send signal to backend to load the subtree. When it's ready, it will notify us via the LOAD_SUBTREE_DONE signal
             self.backend.start_subtree_load(self.tree_id)
 
         GLib.idle_add(_reload)

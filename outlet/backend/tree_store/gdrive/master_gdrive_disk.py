@@ -25,9 +25,10 @@ class GDriveDiskStore(HasLifecycle):
     CLASS GDriveDiskStore
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, memstore: GDriveMemoryStore):
+    def __init__(self, backend, memstore: GDriveMemoryStore, device_uid: UID):
         HasLifecycle.__init__(self)
         self.backend = backend
+        self.device_uid: UID = device_uid
         self._memstore: GDriveMemoryStore = memstore
         self._db: Optional[GDriveDatabase] = None
 
@@ -35,7 +36,7 @@ class GDriveDiskStore(HasLifecycle):
         logger.debug(f'Starting GDriveDiskStore')
         HasLifecycle.start(self)
         gdrive_db_path = self._get_gdrive_cache_path()
-        self._db = GDriveDatabase(gdrive_db_path, self.backend)
+        self._db = GDriveDatabase(gdrive_db_path, self.backend, self.device_uid)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -44,8 +45,8 @@ class GDriveDiskStore(HasLifecycle):
             self._db = None
 
     def _get_gdrive_cache_path(self) -> str:
-        master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid()
-        cache_info = self.backend.cacheman.get_or_create_cache_info_entry(master_tree_root)
+        master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
+        cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root)
         return cache_info.cache_location
 
     def load_tree_from_cache(self, is_complete: bool, tree_id: str) -> GDriveWholeTree:
@@ -56,7 +57,7 @@ class GDriveDiskStore(HasLifecycle):
         logger.debug(f'[{tree_id}] Loading GDrive tree from disk cache...')
         sw_total = Stopwatch()
         max_uid = GDRIVE_ROOT_UID + 1
-        tree = GDriveWholeTree(self.backend.node_identifier_factory)
+        tree = GDriveWholeTree(self.device_uid, self.backend.node_identifier_factory)
         invalidate_uids: Dict[UID, str] = {}
 
         # DIRs:

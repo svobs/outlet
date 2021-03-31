@@ -8,7 +8,7 @@ from backend.executor.command.cmd_impl import CopyFileLocallyCommand, CreateGDri
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
 from backend.executor.command.cmd_interface import Command
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import TreeType
 from model.user_op import UserOp, UserOpType
 
 logger = logging.getLogger(__name__)
@@ -20,12 +20,12 @@ def _make_key(tree_type_src, tree_type_dst=None):
     return f'{tree_type_src}'
 
 
-LO = _make_key(TREE_TYPE_LOCAL_DISK)
-GD = _make_key(TREE_TYPE_GDRIVE)
-LO_LO = _make_key(TREE_TYPE_LOCAL_DISK, TREE_TYPE_LOCAL_DISK)
-GD_GD = _make_key(TREE_TYPE_GDRIVE, TREE_TYPE_GDRIVE)
-LO_GD = _make_key(TREE_TYPE_LOCAL_DISK, TREE_TYPE_GDRIVE)
-GD_LO = _make_key(TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK)
+LO = _make_key(TreeType.LOCAL_DISK)
+GD = _make_key(TreeType.GDRIVE)
+LO_LO = _make_key(TreeType.LOCAL_DISK, TreeType.LOCAL_DISK)
+GD_GD = _make_key(TreeType.GDRIVE, TreeType.GDRIVE)
+LO_GD = _make_key(TreeType.LOCAL_DISK, TreeType.GDRIVE)
+GD_LO = _make_key(TreeType.GDRIVE, TreeType.LOCAL_DISK)
 
 
 class CommandBuilder:

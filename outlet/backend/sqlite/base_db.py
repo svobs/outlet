@@ -19,6 +19,8 @@ class Table:
 
     # Factory methods:
 
+    # FIXME! Need to convert ALL OF THESE to SQL parameters!
+
     def build_insert(self):
         return 'INSERT INTO ' + self.name + '(' + ','.join(col_name for col_name in self.cols.keys()) + \
                ') VALUES (' + ','.join('?' for i in range(len(self.cols))) + ')'
@@ -186,6 +188,29 @@ class LiveTable(Table):
 
         return to_insert
 
+    def next_id_in_seq(self) -> str:
+        """Gets the next value in the table's ID sequence. (NOTE: the identifier column must have AUTOINCREMENT specified in its definition!)"""
+        sql = f"SELECT seq FROM sqlite_sequence WHERE name = ? LIMIT 1"
+        logger.debug('Executing SQL: ' + sql)
+        cursor = self.conn.execute(sql, (self.name,))
+        row = cursor.fetchone()
+        return row
+
+    def get_last_insert_rowid(self) -> int:
+        sql = ' SELECT last_insert_rowid()'
+        logger.debug('Executing SQL: ' + sql)
+        cursor = self.conn.execute(sql)
+        return cursor.fetchone()[0]
+
+    def insert_object(self, item: Any, commit=True, obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None):
+        if obj_to_tuple_func_override:
+            item: Tuple = obj_to_tuple_func_override(item)
+        elif self.obj_to_tuple_func:
+            item: Tuple = self.obj_to_tuple_func(item)
+        else:
+            assert isinstance(item, Tuple)
+        self.insert_one(item, commit=commit)
+
     def insert_object_list(self, entries: List, overwrite: bool, commit: bool = True,
                            obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None):
         """ Takes a list of objects and inserts them all """
@@ -215,6 +240,8 @@ class LiveTable(Table):
             item: Tuple = obj_to_tuple_func_override(item)
         elif self.obj_to_tuple_func:
             item: Tuple = self.obj_to_tuple_func(item)
+        else:
+            assert isinstance(item, Tuple)
         self.upsert_one(item, commit=commit)
 
     def select_object_list(self, where_clause: str = '', where_tuple: Tuple = None,
@@ -277,6 +304,13 @@ class LiveTable(Table):
         if commit:
             logger.debug('Committing!')
             self.conn.commit()
+
+    def select_max(self, row_name: str):
+        cursor = self.conn.cursor()
+        # more efficient than using max(), but achieves same result
+        sql = f"SELECT {row_name} FROM {self.name} ORDER BY {row_name} DESC LIMIT 1"
+        cursor.execute(sql)
+        return cursor.fetchone()[0]
 
 
 class MetaDatabase:

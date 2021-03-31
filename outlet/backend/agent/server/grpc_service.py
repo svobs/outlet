@@ -16,12 +16,14 @@ from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DirMetaUpdate, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
-    GetConfig_Request, GetConfig_Response, GetIcon_Request, GetIcon_Response, GetRowsOfInterest_Request, GetRowsOfInterest_Response, \
+    GetConfig_Request, GetConfig_Response, GetDeviceList_Request, GetDeviceList_Response, GetIcon_Request, GetIcon_Response, \
+    GetRowsOfInterest_Request, \
+    GetRowsOfInterest_Response, \
     GetFilter_Response, \
     GetLastPendingOp_Request, \
     GetLastPendingOp_Response, \
     GetNextUid_Response, \
-    GetNodeForLocalPath_Request, GetNodeForUid_Request, \
+    GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, RemoveExpandedRow_Response, \
     RequestDisplayTree_Response, \
@@ -62,6 +64,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._queue_lock = threading.Lock()
         self._thread_signal_queues: Dict[int, Deque] = {}
         self._shutdown: bool = False
+
+        self._converter = GRPCConverter(self.backend)
 
     def start(self):
         HasLifecycle.start(self)
@@ -215,16 +219,9 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def get_node_for_uid(self, request: GetNodeForUid_Request, context):
         response = SingleNode_Response()
-        node = self.cacheman.get_node_for_uid(request.full_path, request.tree_type)
+        node = self.cacheman.get_node_for_uid(request.full_path, request.device_uid)
         if node:
-            GRPCConverter.node_to_grpc(node, response.node)
-        return response
-
-    def get_node_for_local_path(self, request: GetNodeForLocalPath_Request, context):
-        response = SingleNode_Response()
-        node = self.cacheman.get_node_for_local_path(request.full_path)
-        if node:
-            GRPCConverter.node_to_grpc(node, response.node)
+            self._converter.node_to_grpc(node, response.node)
         return response
 
     def get_next_uid(self, request, context):
@@ -237,21 +234,21 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
         return response
 
-    def request_display_tree_ui_state(self, grpc_req, context):
+    def request_display_tree(self, grpc_req, context):
         if grpc_req.HasField('spid'):
-            spid = GRPCConverter.node_identifier_from_grpc(grpc_req.spid)
+            spid = self._converter.node_identifier_from_grpc(grpc_req.spid)
         else:
             spid = None
 
         request = DisplayTreeRequest(tree_id=grpc_req.tree_id, return_async=grpc_req.return_async, user_path=grpc_req.user_path, spid=spid,
                                      is_startup=grpc_req.is_startup, tree_display_mode=grpc_req.tree_display_mode)
 
-        display_tree_ui_state: Optional[DisplayTreeUiState] = self.cacheman.request_display_tree_ui_state(request)
+        display_tree_ui_state: Optional[DisplayTreeUiState] = self.cacheman.request_display_tree(request)
 
         response = RequestDisplayTree_Response()
         if display_tree_ui_state:
             logger.debug(f'Converting DisplayTreeUiState: {display_tree_ui_state}')
-            GRPCConverter.display_tree_ui_state_to_grpc(display_tree_ui_state, response.display_tree_ui_state)
+            self._converter.display_tree_ui_state_to_grpc(display_tree_ui_state, response.display_tree_ui_state)
         return response
 
     def start_subtree_load(self, request: StartSubtreeLoad_Request, context):
@@ -281,7 +278,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         for uid, dir_meta in dir_stats.items():
             dir_meta_grpc: DirMetaUpdate = signal.stats_update.dir_meta_list.add()
             dir_meta_grpc.uid = uid
-            GRPCConverter.dir_stats_to_grpc(dir_meta, dir_meta_grpc)
+            self._converter.dir_stats_to_grpc(dir_meta, dir_meta_grpc)
 
         self._send_grpc_signal_to_all_clients(signal)
 
@@ -297,18 +294,18 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def _on_node_upserted(self, sender: str, node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)
-        GRPCConverter.node_to_grpc(node, signal.node)
+        self._converter.node_to_grpc(node, signal.node)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_node_removed(self, sender: str, node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_REMOVED, sender=sender)
-        GRPCConverter.node_to_grpc(node, signal.node)
+        self._converter.node_to_grpc(node, signal.node)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_node_moved(self, sender: str, src_node: Node, dst_node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_MOVED, sender=sender)
-        GRPCConverter.node_to_grpc(src_node, signal.src_dst_node_list.src_node)
-        GRPCConverter.node_to_grpc(dst_node, signal.src_dst_node_list.dst_node)
+        self._converter.node_to_grpc(src_node, signal.src_dst_node_list.src_node)
+        self._converter.node_to_grpc(dst_node, signal.src_dst_node_list.dst_node)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
@@ -325,14 +322,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def _on_display_tree_changed_grpcserver(self, sender: str, tree: DisplayTree):
         signal = SignalMsg(sig_int=Signal.DISPLAY_TREE_CHANGED, sender=sender)
-        GRPCConverter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
+        self._converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
         logger.debug(f'Relaying signal across gRPC: "{Signal.DISPLAY_TREE_CHANGED.name}", sender={sender}, tree={tree}')
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_generate_merge_tree_done(self, sender: str, tree: DisplayTree):
         signal = SignalMsg(sig_int=Signal.GENERATE_MERGE_TREE_DONE, sender=sender)
-        GRPCConverter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
+        self._converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
         logger.debug(f'Relaying signal across gRPC: "{Signal.GENERATE_MERGE_TREE_DONE.name}", sender={sender}, tree={tree}')
         self._send_grpc_signal_to_all_clients(signal)
@@ -351,13 +348,24 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             logger.debug(f'Relaying op_execution_state.is_enabled = {response.is_enabled}')
         return response
 
+    def get_device_list(self, request: GetDeviceList_Request, context):
+        response = GetDeviceList_Response()
+        for device in self.cacheman.get_device_list():
+            grpc_device = response.device_list.add()
+            grpc_device.device_uid = device.uid
+            grpc_device.long_device_id = device.long_device_id
+            grpc_device.tree_type = device.tree_type
+            grpc_device.friendly_name = device.friendly_name
+
+        return response
+
     def get_child_list_for_node(self, request, context):
         max_results = request.max_results
 
         response = GetChildList_Response()
         try:
             child_list = self.cacheman.get_child_list(request.parent_uid, request.tree_id, max_results)
-            GRPCConverter.node_list_to_grpc(child_list, response.node_list)
+            self._converter.node_list_to_grpc(child_list, response.node_list)
             logger.debug(f'[{request.tree_id}] Relaying {len(child_list)} children for node {request.parent_uid}')
         except ResultsExceededError as err:
             response.result_exceeded_count = err.actual_count
@@ -367,18 +375,18 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def get_ancestor_list_for_spid(self, request, context):
-        spid = GRPCConverter.node_identifier_from_grpc(request.spid)
+        spid = self._converter.node_identifier_from_grpc(request.spid)
         ancestor_list: Deque[Node] = self.cacheman.get_ancestor_list_for_spid(spid=spid, stop_at_path=request.stop_at_path)
         response = GetAncestorList_Response()
-        GRPCConverter.node_list_to_grpc(ancestor_list, response.node_list)
+        self._converter.node_list_to_grpc(ancestor_list, response.node_list)
         logger.debug(f'Relaying {len(ancestor_list)} ancestors for: {spid}')
         return response
 
     def drop_dragged_nodes(self, request: DragDrop_Request, context):
         src_sn_list = []
         for src_sn in request.src_sn_list:
-            src_sn_list.append(GRPCConverter.sn_from_grpc(src_sn))
-        dst_sn = GRPCConverter.sn_from_grpc(request.dst_sn)
+            src_sn_list.append(self._converter.sn_from_grpc(src_sn))
+        dst_sn = self._converter.sn_from_grpc(request.dst_sn)
 
         self.cacheman.drop_dragged_nodes(request.src_tree_id, src_sn_list, request.is_into, request.dst_tree_id, dst_sn)
 
@@ -387,11 +395,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def generate_merge_tree(self, request: GenerateMergeTree_Request, context):
         selected_changes_left = []
         for src_sn in request.change_list_left:
-            selected_changes_left.append(GRPCConverter.sn_from_grpc(src_sn))
+            selected_changes_left.append(self._converter.sn_from_grpc(src_sn))
 
         selected_changes_right = []
         for src_sn in request.change_list_right:
-            selected_changes_right.append(GRPCConverter.sn_from_grpc(src_sn))
+            selected_changes_right.append(self._converter.sn_from_grpc(src_sn))
 
         self.backend.generate_merge_tree(request.tree_id_left, request.tree_id_right, selected_changes_left, selected_changes_right)
         return Empty()
@@ -405,7 +413,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return Empty()
 
     def refresh_subtree(self, request, context):
-        node_identifier = GRPCConverter.node_identifier_from_grpc(request.node_identifier)
+        node_identifier = self._converter.node_identifier_from_grpc(request.node_identifier)
         self.backend.cacheman.enqueue_refresh_subtree_task(node_identifier, request.tree_id)
         return Empty()
 
@@ -419,8 +427,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             response.user_op.op_type = user_op.op_type
             response.user_op.create_ts = user_op.create_ts
 
-            GRPCConverter.node_to_grpc(user_op.src_node, response.user_op.src_node)
-            GRPCConverter.node_to_grpc(user_op.dst_node, response.user_op.dst_node)
+            self._converter.node_to_grpc(user_op.src_node, response.user_op.src_node)
+            self._converter.node_to_grpc(user_op.dst_node, response.user_op.dst_node)
 
         return response
 
@@ -436,12 +444,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         filter_criteria = self.cacheman.get_filter_criteria(request.tree_id)
 
         response = GetFilter_Response()
-        GRPCConverter.filter_criteria_to_grpc(filter_criteria, response.filter_criteria)
+        self._converter.filter_criteria_to_grpc(filter_criteria, response.filter_criteria)
 
         return response
 
     def update_filter(self, request: UpdateFilter_Request, context):
-        filter_criteria = GRPCConverter.filter_criteria_from_grpc(request.filter_criteria)
+        filter_criteria = self._converter.filter_criteria_from_grpc(request.filter_criteria)
         self.cacheman.update_filter_criteria(request.tree_id, filter_criteria)
         return UpdateFilter_Response()
 

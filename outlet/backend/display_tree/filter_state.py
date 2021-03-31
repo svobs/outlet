@@ -1,8 +1,8 @@
-from typing import Deque, Dict, List
 import logging
-
 from collections import deque
-from constants import TrashStatus, TREE_TYPE_GDRIVE
+from typing import Deque, Dict, List
+
+from constants import TrashStatus, TreeType
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.has_get_children import HasGetChildren
 from model.node.directory_stats import DirectoryStats
@@ -48,7 +48,7 @@ class FilterState:
                (self.filter.is_trashed == Ternary.TRUE and node.get_trashed_status() != TrashStatus.NOT_TRASHED)
 
     def _matches_is_shared(self, node) -> bool:
-        return self.filter.is_shared == Ternary.NOT_SPECIFIED or node.get_tree_type() != TREE_TYPE_GDRIVE \
+        return self.filter.is_shared == Ternary.NOT_SPECIFIED or node.tree_type != TreeType.GDRIVE \
                or node.is_shared == bool(self.filter.is_shared)
 
     def matches(self, node) -> bool:

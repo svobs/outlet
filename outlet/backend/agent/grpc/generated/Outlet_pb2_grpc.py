@@ -39,15 +39,10 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.FromString,
                 )
-        self.get_node_for_uid = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_uid',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
-                )
-        self.get_node_for_local_path = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_local_path',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
+        self.get_device_list = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/get_device_list',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.FromString,
                 )
         self.get_child_list_for_node = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/get_child_list_for_node',
@@ -69,6 +64,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.FromString,
                 )
+        self.get_rows_of_interest = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/get_rows_of_interest',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
+                )
         self.set_selected_row_set = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/set_selected_row_set',
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.SerializeToString,
@@ -79,13 +79,8 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.FromString,
                 )
-        self.get_rows_of_interest = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_rows_of_interest',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
-                )
-        self.request_display_tree_ui_state = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/request_display_tree_ui_state',
+        self.request_display_tree = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/request_display_tree',
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
                 )
@@ -93,16 +88,6 @@ class OutletStub(object):
                 '/outlet.backend.agent.grpc.generated.Outlet/start_subtree_load',
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
-                )
-        self.get_op_exec_play_state = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_op_exec_play_state',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
-                )
-        self.start_diff_trees = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/start_diff_trees',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
                 )
         self.refresh_subtree = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/refresh_subtree',
@@ -119,10 +104,20 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.FromString,
                 )
+        self.get_node_for_uid = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_uid',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
+                )
         self.get_uid_for_local_path = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/get_uid_for_local_path',
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+                )
+        self.start_diff_trees = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/start_diff_trees',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
                 )
         self.generate_merge_tree = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/generate_merge_tree',
@@ -134,6 +129,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.FromString,
                 )
+        self.delete_subtree = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/delete_subtree',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+                )
         self.get_last_pending_op_for_node = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/get_last_pending_op_for_node',
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.SerializeToString,
@@ -144,10 +144,10 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
                 )
-        self.delete_subtree = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/delete_subtree',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+        self.get_op_exec_play_state = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/get_op_exec_play_state',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
                 )
 
 
@@ -184,13 +184,7 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def get_node_for_uid(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def get_node_for_local_path(self, request, context):
+    def get_device_list(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -220,6 +214,12 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def get_rows_of_interest(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def set_selected_row_set(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -232,31 +232,13 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def get_rows_of_interest(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def request_display_tree_ui_state(self, request, context):
+    def request_display_tree(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def start_subtree_load(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def get_op_exec_play_state(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def start_diff_trees(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -280,7 +262,19 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def get_node_for_uid(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def get_uid_for_local_path(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def start_diff_trees(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -298,6 +292,12 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def delete_subtree(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def get_last_pending_op_for_node(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -310,7 +310,7 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def delete_subtree(self, request, context):
+    def get_op_exec_play_state(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -344,15 +344,10 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.SerializeToString,
             ),
-            'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
-                    servicer.get_node_for_uid,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
-            ),
-            'get_node_for_local_path': grpc.unary_unary_rpc_method_handler(
-                    servicer.get_node_for_local_path,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForLocalPath_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
+            'get_device_list': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_device_list,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.SerializeToString,
             ),
             'get_child_list_for_node': grpc.unary_unary_rpc_method_handler(
                     servicer.get_child_list_for_node,
@@ -374,6 +369,11 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.SerializeToString,
             ),
+            'get_rows_of_interest': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_rows_of_interest,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.SerializeToString,
+            ),
             'set_selected_row_set': grpc.unary_unary_rpc_method_handler(
                     servicer.set_selected_row_set,
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.FromString,
@@ -384,13 +384,8 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.SerializeToString,
             ),
-            'get_rows_of_interest': grpc.unary_unary_rpc_method_handler(
-                    servicer.get_rows_of_interest,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.SerializeToString,
-            ),
-            'request_display_tree_ui_state': grpc.unary_unary_rpc_method_handler(
-                    servicer.request_display_tree_ui_state,
+            'request_display_tree': grpc.unary_unary_rpc_method_handler(
+                    servicer.request_display_tree,
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.SerializeToString,
             ),
@@ -398,16 +393,6 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.start_subtree_load,
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.SerializeToString,
-            ),
-            'get_op_exec_play_state': grpc.unary_unary_rpc_method_handler(
-                    servicer.get_op_exec_play_state,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.SerializeToString,
-            ),
-            'start_diff_trees': grpc.unary_unary_rpc_method_handler(
-                    servicer.start_diff_trees,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.SerializeToString,
             ),
             'refresh_subtree': grpc.unary_unary_rpc_method_handler(
                     servicer.refresh_subtree,
@@ -424,10 +409,20 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.SerializeToString,
             ),
+            'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_node_for_uid,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
+            ),
             'get_uid_for_local_path': grpc.unary_unary_rpc_method_handler(
                     servicer.get_uid_for_local_path,
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.SerializeToString,
+            ),
+            'start_diff_trees': grpc.unary_unary_rpc_method_handler(
+                    servicer.start_diff_trees,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.SerializeToString,
             ),
             'generate_merge_tree': grpc.unary_unary_rpc_method_handler(
                     servicer.generate_merge_tree,
@@ -439,6 +434,11 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.SerializeToString,
             ),
+            'delete_subtree': grpc.unary_unary_rpc_method_handler(
+                    servicer.delete_subtree,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
+            ),
             'get_last_pending_op_for_node': grpc.unary_unary_rpc_method_handler(
                     servicer.get_last_pending_op_for_node,
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.FromString,
@@ -449,10 +449,10 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
             ),
-            'delete_subtree': grpc.unary_unary_rpc_method_handler(
-                    servicer.delete_subtree,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
+            'get_op_exec_play_state': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_op_exec_play_state,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -550,7 +550,7 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def get_node_for_uid(request,
+    def get_device_list(request,
             target,
             options=(),
             channel_credentials=None,
@@ -560,26 +560,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_uid',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def get_node_for_local_path(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_local_path',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_device_list',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -652,6 +635,23 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def get_rows_of_interest(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_rows_of_interest',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def set_selected_row_set(request,
             target,
             options=(),
@@ -686,7 +686,7 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def get_rows_of_interest(request,
+    def request_display_tree(request,
             target,
             options=(),
             channel_credentials=None,
@@ -696,24 +696,7 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_rows_of_interest',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def request_display_tree_ui_state(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/request_display_tree_ui_state',
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/request_display_tree',
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
             options, channel_credentials,
@@ -733,40 +716,6 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/start_subtree_load',
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def get_op_exec_play_state(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_op_exec_play_state',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def start_diff_trees(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/start_diff_trees',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -822,6 +771,23 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def get_node_for_uid(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_uid',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def get_uid_for_local_path(request,
             target,
             options=(),
@@ -835,6 +801,23 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_uid_for_local_path',
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def start_diff_trees(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/start_diff_trees',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -873,6 +856,23 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def delete_subtree(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/delete_subtree',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def get_last_pending_op_for_node(request,
             target,
             options=(),
@@ -907,7 +907,7 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def delete_subtree(request,
+    def get_op_exec_play_state(request,
             target,
             options=(),
             channel_credentials=None,
@@ -917,8 +917,8 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/delete_subtree',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_op_exec_play_state',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

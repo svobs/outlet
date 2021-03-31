@@ -32,14 +32,14 @@ message SPIDNodePair {
 
 message NodeIdentifier {
   uint32 uid = 1;
-  uint32 tree_type = 2;
+  uint32 device_uid = 2;
   repeated string path_list = 3;
   bool is_single_path = 4;
 }
 
 message Node {
   uint32 uid = 1;
-  uint32 tree_type = 2;
+  uint32 device_uid = 2;
   repeated string path_list = 3;
   uint32 trashed = 4;
   bool is_shared = 5;

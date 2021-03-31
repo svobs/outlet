@@ -33,3 +33,6 @@ class UidPathMapperDb(MetaDatabase):
 
     def upsert_uid_path_mapping_list(self, mapping_list: List[Tuple[UID, str]], commit=True):
         self.table_uid_path.upsert_many(mapping_list, commit=commit)
+
+    def get_last_uid(self) -> UID:
+        return self.table_uid_path.select_max('uid')

@@ -7,6 +7,7 @@ from model.node.container_node import RootTypeNode
 from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier
+from model.uid import UID
 from util.two_level_dict import Md5BeforeUidDict, Sha256BeforeUidDict
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ class LocalDiskMemoryStore:
     CLASS LocalDiskMemoryStore
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
+    def __init__(self, backend, device_uid: UID):
+        self.device_uid: UID = device_uid
         self.use_md5 = backend.get_config('cache.enable_md5_lookup')
         if self.use_md5:
             self.md5_dict: Optional[Md5BeforeUidDict] = Md5BeforeUidDict()
@@ -34,7 +36,7 @@ class LocalDiskMemoryStore:
         # Each node inserted here will have an entry created for its dir.
         # But we still need a dir tree to look up child dirs:
         self.master_tree = LocalDiskTree(backend)
-        root_node = RootTypeNode(node_identifier=LocalNodeIdentifier(path_list=ROOT_PATH, uid=LOCAL_ROOT_UID))
+        root_node = RootTypeNode(node_identifier=LocalNodeIdentifier(path_list=ROOT_PATH, uid=LOCAL_ROOT_UID, device_uid=self.device_uid))
         self.master_tree.add_node(node=root_node, parent=None)
 
         self.expected_node_moves: Dict[str, str] = {}
