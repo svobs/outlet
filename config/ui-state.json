@@ -1,56 +1,20 @@
 {
     "gdrive_dir_select": {
-        "expanded_rows": "10751706,10751162",
+        "expanded_rows": "11215320",
         "filter": {
             "ignore_case": true,
             "is_shared": 2,
             "is_trashed": 2,
             "search_query": "",
             "show_subtrees": false
-        }
+        },
+        "selected_rows": "11701026"
     },
     "global": {
-        "last_uid": 11690004
+        "last_uid": 12169499
     },
     "left_tree": {
         "expanded_rows": "9959708,9959709",
-        "expanded_state": {
-            "CP": true,
-            "MV": true,
-            "RM": true,
-            "UP": true
-        },
-        "filter": {
-            "ignore_case": true,
-            "is_shared": 2,
-            "is_trashed": 0,
-            "search_query": "",
-            "show_subtree": true,
-            "show_subtrees": true
-        },
-        "offending_path": "",
-        "root_exists": false,
-        "root_path": "/home/msvoboda/LocalDevel/outlet/test/ChangeTest/Left-Root",
-        "root_uid": 11677026,
-        "tree_type": 2
-    },
-    "main_win": {
-        "height": "840",
-        "width": "1298",
-        "x": "2756",
-        "y": "703"
-    },
-    "merge_tree": {
-        "filter": {
-            "ignore_case": true,
-            "is_shared": 2,
-            "is_trashed": 2,
-            "search_query": "",
-            "show_subtrees": false
-        }
-    },
-    "right_tree": {
-        "expanded_rows": "11215297,11260065,11215133",
         "expanded_state": {
             "CP": true,
             "MV": true,
@@ -65,13 +29,51 @@
             "show_subtree": true,
             "show_subtrees": false
         },
+        "offending_path": "",
+        "root_device_uid": 1,
+        "root_exists": true,
+        "root_path": "/Users/msvoboda/LocalDevel/SteelSeries-Keyboard",
+        "root_uid": 12163490,
+        "selected_rows": ""
+    },
+    "main_win": {
+        "height": "840",
+        "width": "1296",
+        "x": "48",
+        "y": "0"
+    },
+    "merge_tree": {
+        "filter": {
+            "ignore_case": true,
+            "is_shared": 2,
+            "is_trashed": 2,
+            "search_query": "",
+            "show_subtrees": false
+        }
+    },
+    "right_tree": {
+        "expanded_rows": "11701084",
+        "expanded_state": {
+            "CP": true,
+            "MV": true,
+            "RM": true,
+            "UP": true
+        },
+        "filter": {
+            "ignore_case": true,
+            "is_shared": 2,
+            "is_trashed": 2,
+            "search_query": "baby",
+            "show_subtree": true,
+            "show_subtrees": false
+        },
         "is_found": true,
         "offending_path": "",
+        "root_device_uid": 2,
         "root_exists": true,
-        "root_path": "/My Drive/Development",
-        "root_uid": 11215134,
-        "selected_rows": "11273456",
-        "tree_type": 3
+        "root_path": "/My Drive/Media/Svoboda-Family",
+        "root_uid": 11701722,
+        "selected_rows": "11797654"
     },
     "right_tree_diff": {
         "expanded_rows": "10671041,10601989,10665075,21,22,10686069,24,10671132,10671039",

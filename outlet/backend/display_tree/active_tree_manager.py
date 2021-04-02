@@ -358,7 +358,7 @@ class ActiveTreeManager(HasLifecycle):
             # Assume the user means the local disk (for now). In the future, maybe we can add support for some kind of server name syntax
             full_path = file_util.normalize_path(full_path)
             # FIXME: did I really write this code? Looks like "node_identifier" is only being used as a storage for paths & tree_type. Clean up!
-            node_identifier: NodeIdentifier = self.backend.node_identifier_factory.from_path(full_path=full_path)
+            node_identifier: NodeIdentifier = self.backend.node_identifier_factory.from_path(full_path=full_path, device_uid=device_uid)
             if node_identifier.tree_type == TreeType.GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.backend.cacheman.wait_for_startup_done()

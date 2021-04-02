@@ -8,6 +8,7 @@ from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
+from error import CacheNotLoadedError
 from global_actions import GlobalActions
 from model.device import Device
 from model.gdrive_meta import GDriveUser, MimeType
@@ -401,7 +402,7 @@ class GDriveMasterStore(TreeStore):
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         if not self._memstore.master_tree:
-            raise RuntimeError(f'Cannot retrieve node (UID={uid}(: GDrive cache not loaded!')
+            raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}(: GDrive cache not loaded!')
         return self._memstore.master_tree.get_node_for_uid(uid)
 
     def get_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:

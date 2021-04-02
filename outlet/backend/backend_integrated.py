@@ -62,8 +62,8 @@ class BackendIntegrated(OutletBackend):
         self.cacheman = None
         self.executor = None
 
-    def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
-        return self._app_config.get(config_key, default_val)
+    def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = False) -> Optional[str]:
+        return self._app_config.get(config_key, default_val, required)
 
     def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
         response_dict: Dict[str, str] = {}

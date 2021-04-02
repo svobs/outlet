@@ -41,12 +41,15 @@ class AppConfig:
         if self.read_only:
             logger.info('Config is set to read-only')
 
-    def get(self, cfg_path, default_val=None):
+    def get(self, cfg_path, default_val=None, required: bool = False):
         try:
             val = self.cfg[cfg_path]
+            if not val and not default_val and required:
+                raise RuntimeError(f'Config entry not found but is required: "{cfg_path}"')
+
             if val is not None and type(val) == str:
                 val = val.replace(PROJECT_DIR_TOKEN, self._project_dir)
-            logger.debug(f'Read "{cfg_path}" = "{val}"')
+            logger.debug(f'Read config entry "{cfg_path}" = "{val}"')
             return val
         except config.KeyNotFoundError:
             logger.debug(f'Path not found: {cfg_path}')

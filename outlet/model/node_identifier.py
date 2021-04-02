@@ -22,6 +22,8 @@ class NodeIdentifier(ABC):
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
     def __init__(self, relative_uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+        assert relative_uid is not None, 'NodeIdentifier(): relative_uid is empty!'
+        assert device_uid is not None, 'NodeIdentifier(): device_uid is empty!'
         self.relative_uid: UID = ensure_uid(relative_uid)
         self.device_uid: UID = ensure_uid(device_uid)
         self._path_list: Optional[List[str]] = None
@@ -98,7 +100,7 @@ class NodeIdentifier(ABC):
         return False
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.uid}⩨{self.get_path_list()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.device_uid}-{self.uid}⩨{self.get_path_list()}∣'
 
     def __eq__(self, other):
         if isinstance(other, NodeIdentifier):
@@ -158,7 +160,7 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
         return str(pathlib.Path(self.get_single_path()).parent)
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.device_uid}-{self.uid}⩨{self.get_single_path()}∣'
 
     @staticmethod
     def from_node_identifier(node_identifier, single_path: str):

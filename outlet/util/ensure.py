@@ -11,7 +11,7 @@ def ensure_int(val):
         if type(val) == str:
             return int(val)
     except ValueError:
-        logger.error(f'Bad value: {val}')
+        logger.error(f'Bad value (expected integer): {val}')
     return val
 
 
@@ -20,7 +20,7 @@ def ensure_uid(val):
         if val and not isinstance(val, UID):
             return UID(ensure_int(val))
     except ValueError:
-        logger.error(f'Bad value: {val}')
+        logger.error(f'Bad value (expected integer): {val}')
     return val
 
 
@@ -28,8 +28,7 @@ def ensure_bool(val):
     try:
         return bool(val)
     except ValueError:
-        pass
-    return val
+        return val
 
 
 def ensure_list(full_path):

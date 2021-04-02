@@ -44,10 +44,10 @@ class NodeIdentifierFactory:
     def get_root_constant_local_disk_spid(device_uid: UID) -> SinglePathNodeIdentifier:
         return LocalNodeIdentifier(uid=LOCAL_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
-    def from_path(self, full_path: str):
+    def from_path(self, full_path: str, device_uid: UID):
         # FIXME: clean this up! See note for ActiveTreeManager._resolve_root_meta_from_path()
         full_path_list = ensure_list(full_path)
-        return self._and_deriving_tree_type_from_path(full_path_list, uid=None, device_uid=None, must_be_single_path=False)
+        return self._and_deriving_tree_type_from_path(full_path_list, uid=None, device_uid=device_uid, must_be_single_path=False)
 
     def for_values(self, device_uid: UID = None, tree_type: int = None, path_list: Union[str, List[str]] = None, uid: UID = None,
                    must_be_single_path: bool = False) -> NodeIdentifier:
@@ -64,9 +64,11 @@ class NodeIdentifierFactory:
                 return self._and_deriving_tree_type_from_path(full_path_list, uid, device_uid, must_be_single_path)
 
         if tree_type == TreeType.LOCAL_DISK:
+            assert device_uid, f'No device_uid provided!'
             return self._for_tree_type_local(device_uid, full_path_list, uid)
 
         elif tree_type == TreeType.GDRIVE:
+            assert device_uid, f'No device_uid provided!'
             return self._for_tree_type_gdrive(device_uid, full_path_list, uid, must_be_single_path)
 
         elif tree_type == TreeType.MIXED:
@@ -100,7 +102,7 @@ class NodeIdentifierFactory:
             derived_list.append(NodeIdentifierFactory.strip_gdrive(path))
         return derived_list
 
-    def _and_deriving_tree_type_from_path(self, full_path_list: Optional[List[str]], uid: UID, device_uid: Optional[UID],
+    def _and_deriving_tree_type_from_path(self, full_path_list: Optional[List[str]], uid: Optional[UID], device_uid: Optional[UID],
                                           must_be_single_path: bool = False) -> NodeIdentifier:
         if full_path_list:
             if full_path_list[0].startswith(GDRIVE_PATH_PREFIX):

@@ -24,7 +24,7 @@ from backend.uid.uid_mapper import UidChangeTreeMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, TreeDisplayMode, TreeType, UID_PATH_FILE_NAME
-from error import ResultsExceededError
+from error import CacheNotLoadedError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
@@ -258,6 +258,7 @@ class CacheManager(HasLifecycle):
             logger.debug(f'Wrote new device to DB: {device}')
 
     def _init_store_dict(self):
+        logger.debug('Init store dict')
         for device in self._read_device_list():
             if device.tree_type == TreeType.LOCAL_DISK:
                 store = LocalDiskMasterStore(self.backend, self._uid_path_mapper, device)
@@ -344,6 +345,7 @@ class CacheManager(HasLifecycle):
             logger.error('Timed out waiting for CacheManager startup!')
 
     def _get_store_for_device_uid(self, device_uid: UID) -> TreeStore:
+        assert device_uid, f'get_store_for_device_uid(): device_uid not specified!'
         store: TreeStore = self._store_dict.get(device_uid, None)
         if not store:
             raise RuntimeError(f'get_tree_type(): no store found for device_uid: {device_uid}')
@@ -732,7 +734,6 @@ class CacheManager(HasLifecycle):
     # Getters: Nodes and node identifiers
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    # TODO: try to remove this
     def get_device_uid_for_this_local_disk(self) -> UID:
         return self._this_disk_local_store.device.uid
 
@@ -1088,9 +1089,12 @@ class CacheManager(HasLifecycle):
         store = self._get_store_for_device_uid(spid.device_uid)
 
         # Use memory cache instead if available
-        node: Node = store.get_node_for_uid(spid.uid)
-        if node:
-            return node
+        try:
+            node: Node = store.get_node_for_uid(spid.uid)
+            if node:
+                return node
+        except CacheNotLoadedError:
+            pass
 
         # else read from disk
         if spid.tree_type == TreeType.LOCAL_DISK:
