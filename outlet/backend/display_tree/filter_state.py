@@ -99,19 +99,22 @@ class FilterState:
             parent_node = second_pass_stack.pop()
             child_list = parent_tree.get_child_list(parent_node)
             filtered_child_list = []
+
+            # Calculate stats also. Compare with BaseTree.generate_dir_stats()
+            dir_stats = dir_stats_dict.get(parent_node.uid, None)
+            if not dir_stats:
+                dir_stats = DirectoryStats()
+                dir_stats_dict[parent_node.uid] = dir_stats
+
             for child in child_list:
                 # Include dirs if any of their children are included, or if they match. Include non-dirs only if they match:
                 if (child.is_dir() and child.uid in node_dict) or self.matches(child):
                     filtered_child_list.append(child)
 
-                    # Calculate stats also. Compare with BaseTree.generate_dir_stats()
-                    dir_stats = dir_stats_dict.get(parent_node.uid, None)
-                    if not dir_stats:
-                        dir_stats = DirectoryStats()
-                        dir_stats_dict[parent_node.uid] = dir_stats
-
                     if child.is_dir():
-                        child_stats = dir_stats_dict[child.uid]
+                        child_stats = dir_stats_dict.get(child.uid, None)
+                        if not child_stats:
+                            raise RuntimeError(f'No child stats in dict for dir node: {child}')
                         dir_stats.add_dir_stats(child_stats, child.get_trashed_status() == TrashStatus.NOT_TRASHED)
                     else:
                         dir_stats.add_file_node(child)
