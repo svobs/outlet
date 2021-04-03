@@ -114,7 +114,8 @@ class FilterState:
                     if child.is_dir():
                         child_stats = dir_stats_dict.get(child.uid, None)
                         if not child_stats:
-                            raise RuntimeError(f'No child stats in dict for dir node: {child}')
+                            # should never happen
+                            raise RuntimeError(f'Internal error: no child stats in dict for dir node: {child}')
                         dir_stats.add_dir_stats(child_stats, child.get_trashed_status() == TrashStatus.NOT_TRASHED)
                     else:
                         dir_stats.add_file_node(child)

@@ -99,9 +99,9 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         elif signal == Signal.ERROR_OCCURRED:
             kwargs['msg'] = signal_msg.error_occurred.msg
             kwargs['secondary_msg'] = signal_msg.error_occurred.secondary_msg
-        elif signal == Signal.NODE_UPSERTED_IN_CACHE or signal == Signal.NODE_REMOVED_IN_CACHE:
+        elif signal == Signal.NODE_UPSERTED or signal == Signal.NODE_REMOVED:
             kwargs['node'] = GRPCConverter.node_from_grpc(signal_msg.node)
-        elif signal == Signal.NODE_MOVED_IN_CACHE:
+        elif signal == Signal.NODE_MOVED:
             kwargs['src_node'] = GRPCConverter.node_from_grpc(signal_msg.src_dst_node_list.src_node)
             kwargs['dst_node'] = GRPCConverter.node_from_grpc(signal_msg.src_dst_node_list.dst_node)
         elif signal == Signal.SET_STATUS:

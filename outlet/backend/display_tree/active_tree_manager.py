@@ -62,6 +62,7 @@ class ActiveTreeManager(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
         self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._on_merge_requested)
 
+        # These take the signal from the cache and route it to the relevant display trees (if any) based on each node's location:
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED_IN_CACHE, receiver=self._on_node_removed)
         self.connect_dispatch_listener(signal=Signal.NODE_MOVED_IN_CACHE, receiver=self._on_node_moved)
