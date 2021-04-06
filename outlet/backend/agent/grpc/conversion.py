@@ -48,7 +48,7 @@ class GRPCConverter:
             node_identifier = node.node_identifier
 
         # node_identifier fields:
-        grpc_node.uid = int(node_identifier.uid)
+        grpc_node.uid = int(node_identifier.node_uid)
         grpc_node.device_uid = int(node_identifier.device_uid)
         for full_path in node_identifier.get_path_list():
             grpc_node.path_list.append(full_path)
@@ -237,7 +237,7 @@ class GRPCConverter:
     def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         if not node_identifier:
             return
-        grpc_node_identifier.uid = node_identifier.uid
+        grpc_node_identifier.uid = node_identifier.node_uid
         grpc_node_identifier.device_uid = node_identifier.device_uid
         for full_path in node_identifier.get_path_list():
             grpc_node_identifier.path_list.append(full_path)

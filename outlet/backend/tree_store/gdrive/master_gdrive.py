@@ -228,7 +228,7 @@ class GDriveMasterStore(TreeStore):
         logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root})')
         stats_sw = Stopwatch()
 
-        subtree_root_node = self.get_node_for_uid(subtree_root.uid)
+        subtree_root_node = self.get_node_for_uid(subtree_root.node_uid)
 
         if not subtree_root_node:
             raise RuntimeError(f'Cannot refresh subtree for GDrive: could not find node in cache matching: {subtree_root}')
@@ -279,7 +279,7 @@ class GDriveMasterStore(TreeStore):
                     f'Folders={count_folders} Total={count_total})')
 
     def show_tree(self, subtree_root: GDriveIdentifier) -> str:
-        return self._memstore.master_tree.show_tree(subtree_root.uid)
+        return self._memstore.master_tree.show_tree(subtree_root.node_uid)
 
     # Individual node cache updates
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

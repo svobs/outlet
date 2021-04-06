@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 from model.user_op import UserOpType
 from backend.sqlite.uid_path_mapper_db import UidPathMapperDb
 from util import file_util
-from constants import CACHE_WRITE_HOLDOFF_TIME_MS, LOCAL_ROOT_UID, ROOT_PATH
+from constants import CACHE_WRITE_HOLDOFF_TIME_MS, LOCAL_ROOT_UID, ROOT_PATH, ROOT_PATH_UID
 from model.uid import UID
 from util.holdoff_timer import HoldOffTimer
 from util.stopwatch_sec import Stopwatch
@@ -19,6 +19,8 @@ class UidPathMapper:
     CLASS UidPathMapper
 
     Maps a UID (int) to a file tree path (string)
+    Note: root path ("/") will have a UID of ROOT_PATH_UID (which equals LOCAL_PATH_UID)
+
     # TODO: need to account for possiblity of missing entries in cache (due to holdoff timer being used to batch writes)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
@@ -28,7 +30,7 @@ class UidPathMapper:
         self.uid_generator = backend.uid_generator
         self.uid_path_cache_path = uid_path_cache_path
         # Every unique path must map to one unique UID
-        self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: LOCAL_ROOT_UID}
+        self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: ROOT_PATH_UID}
         self._to_cache: List[Tuple[UID, str]] = []
         self._cache_write_timer = HoldOffTimer(holdoff_time_ms=CACHE_WRITE_HOLDOFF_TIME_MS, task_func=self._append_to_cache)
 
@@ -134,20 +136,18 @@ class UidChangeTreeMapper:
         self._nid_uid_dict: Dict[str, UID] = {}
 
     @staticmethod
-    def _build_tree_nid(tree_type: int, single_path: str, op: UserOpType) -> str:
-        # FIXME: change this to {tree_uid}:{op.name}:{single_path}
-
+    def _build_tree_nid(device_uid: UID, single_path: str, op: UserOpType) -> str:
         if op:
-            return f'{tree_type}:{op.name}:{single_path}'
+            return f'{device_uid}:{op.name}:{single_path}'
         else:
-            return f'{tree_type}'
+            return f'{device_uid}'
 
-    def get_uid_for(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
+    def get_uid_for(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
         if op:
-            nid = self._build_tree_nid(tree_type, single_path, op)
+            nid = self._build_tree_nid(device_uid, single_path, op)
         else:
             assert not single_path
-            nid = str(tree_type)
+            nid = str(device_uid)
         return self._get(nid)
 
     def _get(self, nid):

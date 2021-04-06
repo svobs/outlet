@@ -5,10 +5,10 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 
 from model.has_get_children import HasGetChildren
 from util.stopwatch_sec import Stopwatch
-from model.node.node import Node
+from model.node.node import BaseNode, Node
 from model.uid import UID
 from model.node.directory_stats import DirectoryStats
-from constants import SUPER_DEBUG, TrashStatus
+from constants import TrashStatus
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,15 @@ class BaseTree(HasGetChildren, ABC):
     Parent of ALL trees, from SimpleTree to GDriveWholeTree
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
+    def __init__(self, extract_identifier_func: Callable = None):
+        self.extract_identifier: Callable = self._default_identifier_func
+        if extract_identifier_func:
+            self.extract_identifier = extract_identifier_func
+
+    @staticmethod
+    def _default_identifier_func(node: BaseNode):
+        return node.identifier
 
     @abstractmethod
     def get_root_node(self) -> Optional:
@@ -109,7 +118,7 @@ class BaseTree(HasGetChildren, ABC):
             root_node = self.get_root_node()
             if not root_node:
                 return []
-            subtree_root_uid = root_node.identifier
+            subtree_root_uid = self.extract_identifier(root_node)
 
         node = self.get_node_for_uid(uid=subtree_root_uid)
         if not node:

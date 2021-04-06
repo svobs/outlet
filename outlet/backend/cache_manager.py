@@ -522,7 +522,7 @@ class CacheManager(HasLifecycle):
 
             if tree_meta.state.root_exists:
                 # get up-to-date root node:
-                subtree_root_node: Node = self.get_node_for_uid(spid.uid)
+                subtree_root_node: Node = self.get_node_for_uid(spid.node_uid)
 
                 # Calculate stats for all dir nodes:
                 logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
@@ -747,6 +747,9 @@ class CacheManager(HasLifecycle):
     def get_device_uid_for_default_gdrive(self) -> UID:
         return self._master_gdrive_temp.device.uid
 
+    def get_uid_for_change_tree_node(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
+        return self._change_tree_uid_mapper.get_uid_for(device_uid, single_path, op)
+
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         assert full_path and isinstance(full_path, str)
@@ -765,7 +768,7 @@ class CacheManager(HasLifecycle):
         return parent_goog_id
 
     def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[Node]:
-        return self.get_node_for_uid(node_identifer.uid, node_identifer.device_uid)
+        return self.get_node_for_uid(node_identifer.node_uid, node_identifer.device_uid)
 
     def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None):
         if device_uid:
@@ -905,7 +908,7 @@ class CacheManager(HasLifecycle):
     def get_ancestor_list_for_spid(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Deque[Node]:
 
         ancestor_deque: Deque[Node] = deque()
-        ancestor: Node = self.get_node_for_uid(spid.uid)
+        ancestor: Node = self.get_node_for_uid(spid.node_uid)
         if not ancestor:
             logger.warning(f'get_ancestor_list_for_spid(): Node not found: {spid}')
             return ancestor_deque
@@ -932,10 +935,6 @@ class CacheManager(HasLifecycle):
     # FIXME
     def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
         return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
-
-    # FIXME
-    def get_uid_for_change_tree_node(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
-        return self._change_tree_uid_mapper.get_uid_for(tree_type, single_path, op)
 
     # FIXME
     def get_uid_list_for_goog_id_list(self, goog_id_list: List[str]) -> List[UID]:
@@ -1096,7 +1095,7 @@ class CacheManager(HasLifecycle):
 
         # Use memory cache instead if available
         try:
-            node: Node = store.get_node_for_uid(spid.uid)
+            node: Node = store.get_node_for_uid(spid.node_uid)
             if node:
                 return node
         except CacheNotLoadedError:
@@ -1114,6 +1113,6 @@ class CacheManager(HasLifecycle):
 
         elif spid.tree_type == TreeType.GDRIVE:
             assert isinstance(store, GDriveMasterStore)
-            return store.read_single_node_from_disk_for_uid(spid.uid)
+            return store.read_single_node_from_disk_for_uid(spid.node_uid)
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')

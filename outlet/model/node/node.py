@@ -17,14 +17,19 @@ logger = logging.getLogger(__name__)
 SPIDNodePair = collections.namedtuple('SPIDNodePair', 'spid node')
 
 
-class BaseNode:
+class BaseNode(ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS BaseNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, identifier):
-        self.identifier = identifier
+    def __init__(self):
+        pass
+
+    @property
+    @abstractmethod
+    def identifier(self):
+        pass
 
     def get_tag(self) -> str:
         return ''
@@ -43,7 +48,7 @@ class Node(BaseNode, HasParentList, ABC):
     """
     def __init__(self, node_identifier: NodeIdentifier, parent_uids: Optional[Union[UID, List[UID]]] = None,
                  trashed: TrashStatus = TrashStatus.NOT_TRASHED):
-        BaseNode.__init__(self, identifier=node_identifier.uid)
+        BaseNode.__init__(self)
         HasParentList.__init__(self, parent_uids)
         self.node_identifier: NodeIdentifier = node_identifier
 
@@ -55,6 +60,10 @@ class Node(BaseNode, HasParentList, ABC):
             self._trashed: TrashStatus = TrashStatus(trashed)
 
         self._icon: Optional[IconId] = None
+
+    @property
+    def identifier(self):
+        return self.node_identifier.node_uid
 
     @abstractmethod
     def is_parent_of(self, potential_child_node) -> bool:
@@ -122,7 +131,6 @@ class Node(BaseNode, HasParentList, ABC):
 
     def set_node_identifier(self, node_identifier: NodeIdentifier):
         self.node_identifier = node_identifier
-        self.identifier = node_identifier.uid
 
     @property
     def name(self):
@@ -171,12 +179,11 @@ class Node(BaseNode, HasParentList, ABC):
 
     @property
     def uid(self) -> UID:
-        return self.node_identifier.uid
+        return self.node_identifier.node_uid
 
     @uid.setter
     def uid(self, uid: UID):
-        self.node_identifier.uid = uid
-        self.identifier = uid
+        self.node_identifier.node_uid = uid
 
     def get_icon(self) -> IconId:
         if self._icon:
@@ -197,10 +204,10 @@ class Node(BaseNode, HasParentList, ABC):
     @abstractmethod
     def update_from(self, other_node):
         assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
-        assert other_node.node_identifier.uid == self.node_identifier.uid and other_node.node_identifier.tree_type == self.node_identifier.tree_type,\
-            f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
+        assert other_node.node_identifier.node_uid == self.node_identifier.node_uid \
+               and other_node.node_identifier.device_uid == self.node_identifier.device_uid, \
+               f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
         HasParentList.update_from(self, other_node)
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
-        self.identifier = other_node.identifier
         self._trashed = other_node._trashed

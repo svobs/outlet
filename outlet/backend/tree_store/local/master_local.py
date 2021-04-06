@@ -134,7 +134,7 @@ class LocalDiskMasterStore(TreeStore):
                 pending_op_nodes: List[LocalNode] = []
                 remove_node_list: List[LocalNode] = []
 
-                for existing_node in self._memstore.master_tree.get_subtree_bfs(subtree_root.uid):
+                for existing_node in self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid):
                     if not fresh_tree.get_node_for_uid(existing_node.uid):
                         if existing_node.is_live():
                             remove_node_list.append(existing_node)
@@ -165,7 +165,7 @@ class LocalDiskMasterStore(TreeStore):
     def show_tree(self, subtree_root: LocalNodeIdentifier) -> str:
         # logger.warning('LOCK ON!')
         with self._struct_lock:
-            result = self._memstore.master_tree.show(nid=subtree_root.uid)
+            result = self._memstore.master_tree.show(nid=subtree_root.node_uid)
         # logger.warning('LOCK off')
         return result
 
@@ -231,7 +231,7 @@ class LocalDiskMasterStore(TreeStore):
             if SUPER_DEBUG:
                 logger.debug(f'[{tree_id}] File system sync complete')
             # We can only mark this as 'done' (False) if the entire cache contents has been refreshed:
-            if requested_subtree_root.uid == cache_info.subtree_root.uid:
+            if requested_subtree_root.node_uid == cache_info.subtree_root.node_uid:
                 cache_info.needs_refresh = False
         elif not self.backend.cacheman.sync_from_local_disk_on_cache_load:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because it is disabled for cache loads')
@@ -256,11 +256,11 @@ class LocalDiskMasterStore(TreeStore):
         """Since the UID of the subtree root node is stored in 3 different locations (registry, cache file, and memory),
         checks that at least registry & memory match. If UID is not in memory, guarantees that it will be stored with the value from registry.
         This method should only be called for the subtree root of display trees being loaded"""
-        existing_uid = subtree_root.uid
+        existing_uid = subtree_root.node_uid
         new_uid = self.get_uid_for_path(subtree_root.get_single_path(), existing_uid)
         if existing_uid != new_uid:
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
-        subtree_root.uid = new_uid
+        subtree_root.node_uid = new_uid
 
     def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []

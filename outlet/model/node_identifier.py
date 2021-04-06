@@ -21,21 +21,20 @@ class NodeIdentifier(ABC):
     Still a work in progress and may change greatly.
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, relative_uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
-        assert relative_uid is not None, 'NodeIdentifier(): relative_uid is empty!'
+    def __init__(self, node_uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+        assert node_uid is not None, 'NodeIdentifier(): node_uid is empty!'
         assert device_uid is not None, 'NodeIdentifier(): device_uid is empty!'
-        self.relative_uid: UID = ensure_uid(relative_uid)
+
+        self.node_uid: UID = ensure_uid(node_uid)
+
         self.device_uid: UID = ensure_uid(device_uid)
+
         self._path_list: Optional[List[str]] = None
         self.set_path_list(path_list)
 
     @property
-    def uid(self):
-        return self.relative_uid
-
-    @uid.setter
-    def uid(self, uid: UID):
-        self.relative_uid = uid
+    def guid(self):
+        return f'{self.device_uid}:{self.node_uid}'
 
     @property
     @abstractmethod
@@ -100,11 +99,11 @@ class NodeIdentifier(ABC):
         return False
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.device_uid}-{self.uid}⩨{self.get_path_list()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}⩨{self.get_path_list()}∣'
 
     def __eq__(self, other):
         if isinstance(other, NodeIdentifier):
-            return self.get_path_list() == other.get_path_list() and self.uid == other.uid and self.tree_type == other.tree_type
+            return self.get_path_list() == other.get_path_list() and self.node_uid == other.node_uid and self.tree_type == other.tree_type
         return False
 
     def __ne__(self, other):
@@ -135,11 +134,17 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
     AKA "SPID"
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+    def __init__(self, node_uid: UID, device_uid: UID, full_path: str):
         """Has only one path. We still name the variable 'path_list' for consistency with the class hierarchy."""
-        super().__init__(uid, device_uid, path_list)
+        super().__init__(node_uid, device_uid, full_path)
+
         if len(self.get_path_list()) != 1:
-            raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {path_list}')
+            raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {full_path}')
+
+    @property
+    def path_uid(self) -> UID:
+        # default for LocalDisk, etc
+        return self.node_uid
 
     @property
     def tree_type(self) -> TreeType:
@@ -160,16 +165,16 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
         return str(pathlib.Path(self.get_single_path()).parent)
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.device_uid}-{self.uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.device_uid}-{self.node_uid}⩨{self.get_single_path()}∣'
 
     @staticmethod
-    def from_node_identifier(node_identifier, single_path: str):
+    def from_node_identifier(node_identifier, path_uid: UID, single_path: str):
         if single_path not in node_identifier.get_path_list():
             raise RuntimeError('bad!')
         if node_identifier.tree_type == TreeType.GDRIVE:
-            return GDriveSPID(uid=node_identifier.uid, device_uid=node_identifier.device_uid, path_list=single_path)
+            return GDriveSPID(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_uid=path_uid, path_list=single_path)
         elif node_identifier.tree_type == TreeType.LOCAL_DISK:
-            return LocalNodeIdentifier(uid=node_identifier.uid, device_uid=node_identifier.device_uid, path_list=single_path)
+            return LocalNodeIdentifier(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_list=single_path)
         else:
             raise RuntimeError('Invalid!')
 
@@ -184,6 +189,11 @@ class GDriveIdentifier(NodeIdentifier):
         super().__init__(uid, device_uid, path_list)
 
     @property
+    def guid(self):
+        # this is impossible without more information to identify the path
+        raise RuntimeError('Cannot generate GUID for GDriveIdentifier!')
+
+    @property
     def tree_type(self) -> TreeType:
         return TreeType.GDRIVE
 
@@ -194,12 +204,20 @@ class GDriveSPID(SinglePathNodeIdentifier):
         CLASS GDriveSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+    def __init__(self, uid: UID, device_uid: UID, path_uid: UID, path_list: Optional[Union[str, List[str]]]):
         super().__init__(uid, device_uid, path_list)
+        self._path_uid: UID = path_uid
 
     @property
     def tree_type(self) -> TreeType:
         return TreeType.GDRIVE
+
+    @property
+    def guid(self):
+        return f'{self.device_uid}:{self.node_uid}:{self.path_uid}'
+
+    def __repr__(self):
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self.path_uid}⩨{self.get_single_path()}∣'
 
 
 class MixedTreeSPID(SinglePathNodeIdentifier):
@@ -208,12 +226,25 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
         CLASS MixedTreeSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
+    def __init__(self, uid: UID, device_uid: UID, path_uid: UID, path_list: Optional[Union[str, List[str]]]):
         super().__init__(uid, device_uid, path_list)
+        self._path_uid: UID = path_uid
+
+    @property
+    def path_uid(self) -> UID:
+        # default
+        return self._path_uid
 
     @property
     def tree_type(self) -> TreeType:
         return TreeType.MIXED
+
+    @property
+    def guid(self):
+        return f'{self.device_uid}:{self.node_uid}:{self.path_uid}'
+
+    def __repr__(self):
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self.path_uid}⩨{self.get_single_path()}∣'
 
 
 class LocalNodeIdentifier(SinglePathNodeIdentifier):

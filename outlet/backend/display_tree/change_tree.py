@@ -68,7 +68,7 @@ class ChangeTree(DisplayTree):
             raise
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.get_root_sn().spid}": \n' + self._category_tree.show(show_identifier=True))
+        logger.debug(f'[{self.tree_id}] ChangeTree for "{self.get_root_sn().spid}": \n' + self._category_tree.show(show_identifier=True))
 
     def print_op_structs_debug(self):
         logger.debug(f'[{self.tree_id}] OpList size = {len(self._op_list)}:')
@@ -99,8 +99,9 @@ class ChangeTree(DisplayTree):
             self._op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
-    def _build_tree_nid(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
-        return self.backend.cacheman.get_uid_for_change_tree_node(tree_type, single_path, op)
+    # TODO: consider replacing this with a simple string GUID and using tree's custom identifier func
+    def _build_tree_nid(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
+        return self.backend.cacheman.get_uid_for_change_tree_node(device_uid, single_path, op)
 
     def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: UserOpType) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
@@ -122,7 +123,7 @@ class ChangeTree(DisplayTree):
 
         if self.show_whole_forest:
             # Create tree type root (e.g. 'GDrive' or 'Local Disk')
-            nid = self._build_tree_nid(tree_type, None, None)
+            nid = self._build_tree_nid(device_uid, None, None)
             treetype_node = self._category_tree.get_node_for_uid(nid)
             if not treetype_node:
                 # see UID to root_UID of relevant tree
@@ -157,7 +158,7 @@ class ChangeTree(DisplayTree):
             full_path: str = str(pathlib.Path(full_path).parent)
             if full_path == self.root_path:
                 break
-            nid = self._build_tree_nid(tree_type, full_path, op_type)
+            nid = self._build_tree_nid(device_uid, full_path, op_type)
             ancestor = self._category_tree.get_node_for_uid(uid=nid)
             if ancestor:
                 break
@@ -196,7 +197,7 @@ class ChangeTree(DisplayTree):
             op_type_for_display = UserOpType.CP
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
-        parent_nid: UID = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type_for_display)
+        parent_nid: UID = self._build_tree_nid(sn.spid.device_uid, sn.spid.get_single_parent_path(), op_type_for_display)
         parent: Node = self._category_tree.get_node_for_uid(uid=parent_nid)
         if parent:
             logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}')
@@ -210,7 +211,7 @@ class ChangeTree(DisplayTree):
             if SUPER_DEBUG:
                 logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} to parent {parent.node_identifier}')
 
-            nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_path(), op_type_for_display)
+            nid = self._build_tree_nid(sn.spid.device_uid, sn.spid.get_single_path(), op_type_for_display)
             deco_node = DecoNode(nid, parent_uid=parent.uid, delegate_node=sn.node)
 
             self._category_tree.add_node(node=deco_node, parent=parent)

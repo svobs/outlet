@@ -94,7 +94,7 @@ class ActiveTreeManager(HasLifecycle):
 
             new_node_list = []
             for node in node_list:
-                if node.uid == subtree_root_spid.uid:
+                if node.uid == subtree_root_spid.node_uid:
                     return True
                 for parent_node in cacheman.get_parent_list_for_node(node):
                     new_node_list.append(parent_node)
@@ -285,8 +285,8 @@ class ActiveTreeManager(HasLifecycle):
 
         if spid.tree_type == TreeType.LOCAL_DISK:
             if node:
-                if spid.uid != node.uid:
-                    logger.warning(f'UID requested ({spid.uid}) does not match UID from cache ({node.uid}); will use value from cache')
+                if spid.node_uid != node.uid:
+                    logger.warning(f'UID requested ({spid.node_uid}) does not match UID from cache ({node.uid}); will use value from cache')
                 spid = node.node_identifier
                 root_path_meta.root_spid = spid
 
@@ -401,7 +401,7 @@ class ActiveTreeManager(HasLifecycle):
                 if new_root_spid.tree_type == TreeType.GDRIVE:
                     full_path = NodeIdentifierFactory.strip_gdrive(full_path)
                 tree_type = new_root_spid.tree_type
-                new_root_spid = self.backend.node_identifier_factory.for_values(uid=new_root_spid.uid, device_uid=new_root_spid.device_uid,
+                new_root_spid = self.backend.node_identifier_factory.for_values(uid=new_root_spid.node_uid, device_uid=new_root_spid.device_uid,
                                                                                 tree_type=tree_type, path_list=full_path, must_be_single_path=True)
 
             root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
@@ -464,7 +464,7 @@ class ActiveTreeManager(HasLifecycle):
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
-        if display_tree_meta.root_sn.spid.uid == row_uid:
+        if display_tree_meta.root_sn.spid.node_uid == row_uid:
             # ignore root
             return
 

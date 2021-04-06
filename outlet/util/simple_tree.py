@@ -1,6 +1,6 @@
 import logging
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 from error import NodeAlreadyPresentError, NodeNotPresentError
 from model.node.node import BaseNode
@@ -18,7 +18,8 @@ class SimpleTree(BaseTree):
     Originally based on a simplifications of treelib.Tree.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self):
+    def __init__(self, extract_identifier_func: Callable = None):
+        super().__init__(extract_identifier_func)
         self._node_dict: Dict[Any, BaseNode] = {}
         self._parent_child_list_dict: Dict[UID, List[BaseNode]] = {}
         self._child_parent_dict: Dict[UID, BaseNode] = {}
@@ -38,7 +39,9 @@ class SimpleTree(BaseTree):
         if not isinstance(node, BaseNode):
             raise RuntimeError(f'Cannot add node: it must be an instance of BaseNode (found {type(node)}): {node}')
 
-        if node.identifier in self._node_dict:
+        node_identifier = self.extract_identifier(node)
+
+        if node_identifier in self._node_dict:
             raise NodeAlreadyPresentError(f'Cannot add node: it is already present in this tree: {node}')
 
         if not parent:
@@ -46,27 +49,27 @@ class SimpleTree(BaseTree):
                 raise NodeAlreadyPresentError(f'Cannot add node as root: this tree already has a root node!')
             else:
                 self._root_node = node
-        elif parent.identifier not in self._node_dict:
-            raise NodeNotPresentError(f'Cannot add node ({node.identifier}): parent "{parent.identifier}" not found in tree!')
+        elif self.extract_identifier(parent) not in self._node_dict:
+            raise NodeNotPresentError(f'Cannot add node ({node_identifier}): parent "{self.extract_identifier(parent)}" not found in tree!')
         else:
-            child_list: List[BaseNode] = self._parent_child_list_dict.get(parent.identifier, [])
+            parent_identifier = self.extract_identifier(parent)
+            child_list: List[BaseNode] = self._parent_child_list_dict.get(parent_identifier, [])
             if not child_list:
-                self._parent_child_list_dict[parent.identifier] = child_list
+                self._parent_child_list_dict[parent_identifier] = child_list
             child_list.append(node)
-            self._child_parent_dict[node.identifier] = parent
+            self._child_parent_dict[node_identifier] = parent
 
-        self._node_dict[node.identifier] = node
+        self._node_dict[node_identifier] = node
 
-    @staticmethod
-    def _remove_node_with_identifier(node_list: List[BaseNode], uid: Any):
+    def _remove_node_with_identifier(self, node_list: List[BaseNode], uid: Any):
         for node in node_list:
-            if node.identifier == uid:
+            if self.extract_identifier(node) == uid:
                 node_list.remove(node)
                 return node
         return None
 
     def remove_node(self, uid: UID) -> int:
-        if self._root_node and self._root_node.identifier == uid:
+        if self._root_node and self.extract_identifier(self._root_node) == uid:
             self._root_node = None
             count_removed: int = len(self._node_dict)
             self._node_dict.clear()
@@ -84,9 +87,9 @@ class SimpleTree(BaseTree):
         # Remove target node from parent's child list
         parent = self.get_parent(uid)
         if parent:
-            child_list: List[BaseNode] = self._parent_child_list_dict.get(parent.identifier, None)
+            child_list: List[BaseNode] = self._parent_child_list_dict.get(self.extract_identifier(parent), None)
             if child_list:
-                SimpleTree._remove_node_with_identifier(child_list, uid)
+                self._remove_node_with_identifier(child_list, uid)
 
         # Now loop and remove target node and all its descendants:
         count_removed = 0
@@ -124,7 +127,7 @@ class SimpleTree(BaseTree):
             node, parent = node_queue.popleft()
             self.add_node(node, parent)
             count_added += 1
-            for child in new_tree.get_child_list_for_uid(node.identifier):
+            for child in new_tree.get_child_list_for_uid(self.extract_identifier(node)):
                 node_queue.append((child, node))
         return count_added
 
@@ -209,7 +212,7 @@ class SimpleTree(BaseTree):
         # Factory for proper get_label() function
         if show_identifier:
             def get_label(node):
-                return f'{node.get_tag()}  [{node.identifier}]'
+                return f'{node.get_tag()}  [{self.extract_identifier(node)}]'
         else:
             def get_label(node):
                 return node.get_tag()
@@ -245,7 +248,7 @@ class SimpleTree(BaseTree):
     def __get_iter(self, uid, level, filter_, key, reverse, dt, is_last):
         dt_vline, dt_line_box, dt_line_cor = dt
 
-        uid = self.get_root_node().identifier if (uid is None) else uid
+        uid = self.extract_identifier(self.get_root_node()) if (uid is None) else uid
         if not self.contains(uid):
             raise NodeNotPresentError("Node '%s' is not in the tree" % uid)
 
@@ -260,7 +263,8 @@ class SimpleTree(BaseTree):
             yield leading + lasting, node
 
         if filter_(node):
-            children = [self.get_node_for_uid(i.identifier) for i in self.get_child_list_for_uid(node.identifier) if filter_(self.get_node_for_uid(i.identifier))]
+            children = [self.get_node_for_uid(self.extract_identifier(i)) for i in self.get_child_list_for_uid(self.extract_identifier(node))
+                        if filter_(self.get_node_for_uid(self.extract_identifier(i)))]
             idxlast = len(children) - 1
             if key:
                 children.sort(key=key, reverse=reverse)
@@ -269,7 +273,7 @@ class SimpleTree(BaseTree):
             level += 1
             for idx, child in enumerate(children):
                 is_last.append(idx == idxlast)
-                for item in self.__get_iter(child.identifier, level, filter_,
+                for item in self.__get_iter(self.extract_identifier(child), level, filter_,
                                             key, reverse, dt, is_last):
                     yield item
                 is_last.pop()

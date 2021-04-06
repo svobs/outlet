@@ -71,11 +71,11 @@ class RootPathConfigPersister:
             new_root = new_root_meta.root_spid
             logger.debug(f'Root path changed. Saving root to app_config: {self._device_uid_config_key} '
                          f'= {new_root.device_uid}, {self._root_path_config_key} = "{new_root.get_single_path()}", '
-                         f'{self._root_uid_config_key} = "{new_root.uid}"')
+                         f'{self._root_uid_config_key} = "{new_root.node_uid}"')
             # Root changed. Invalidate the current tree contents
             self.backend.put_config(config_key=self._device_uid_config_key, config_val=new_root.device_uid)
             self.backend.put_config(config_key=self._root_path_config_key, config_val=new_root.get_single_path())
-            self.backend.put_config(config_key=self._root_uid_config_key, config_val=new_root.uid)
+            self.backend.put_config(config_key=self._root_uid_config_key, config_val=new_root.node_uid)
             self.backend.put_config(config_key=self._root_exists_config_key, config_val=new_root_meta.root_exists)
             offending_path = new_root_meta.offending_path
             if not offending_path:

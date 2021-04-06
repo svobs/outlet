@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional, Union
 
-from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, SUPER_ROOT_UID, TreeType
+from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, ROOT_PATH_UID, SUPER_ROOT_UID, TreeType
 from model.node_identifier import GDriveIdentifier, GDriveSPID, LocalNodeIdentifier, MixedTreeSPID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_list, ensure_uid
@@ -32,13 +32,13 @@ class NodeIdentifierFactory:
 
         if tree_type == TreeType.MIXED:
             assert device_uid == NULL_UID, f'Expected NULL_UID for device_uid but found: {device_uid}'
-            return MixedTreeSPID(uid=SUPER_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
+            return MixedTreeSPID(uid=SUPER_ROOT_UID, device_uid=device_uid, path_uid=ROOT_PATH_UID, path_list=ROOT_PATH)
 
         raise RuntimeError(f'get_root_constant_spid(): invalid tree type: {tree_type}')
 
     @staticmethod
     def get_root_constant_gdrive_spid(device_uid: UID) -> SinglePathNodeIdentifier:
-        return GDriveSPID(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
+        return GDriveSPID(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_uid=ROOT_PATH_UID, path_list=ROOT_PATH)
 
     @staticmethod
     def get_root_constant_local_disk_spid(device_uid: UID) -> SinglePathNodeIdentifier:
@@ -75,7 +75,8 @@ class NodeIdentifierFactory:
             logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, path={full_path_list}')
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Too many paths for tree_type MIXED: {full_path_list}')
-            return MixedTreeSPID(uid=uid, device_uid=device_uid, path_list=full_path_list)
+            path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
+            return MixedTreeSPID(uid=uid, device_uid=device_uid, path_uid=path_uid, path_list=full_path_list)
         else:
             raise RuntimeError('bad')
 
@@ -119,7 +120,8 @@ class NodeIdentifierFactory:
                     if len(derived_list) > 1:
                         raise RuntimeError(f'Could not make GDrive identifier: must_be_single_path=True but given too many paths:'
                                            f' {derived_list}')
-                    return GDriveSPID(uid=uid, device_uid=device_uid, path_list=derived_list)
+                    path_uid = self.backend.get_uid_for_local_path(derived_list[0])
+                    return GDriveSPID(uid=uid, device_uid=device_uid, path_uid=path_uid, path_list=derived_list)
                 if not derived_list or not derived_list[0]:
                     return NodeIdentifierFactory.get_root_constant_gdrive_identifier(device_uid)
                 return GDriveIdentifier(path_list=derived_list, uid=uid, device_uid=device_uid)
@@ -166,6 +168,7 @@ class NodeIdentifierFactory:
         if must_be_single_path:
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Could not make identifier: must_be_single_path=True but given too many paths: {full_path_list}')
-            return GDriveSPID(uid=uid, device_uid=device_uid, path_list=full_path_list)
+            path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
+            return GDriveSPID(uid=uid, device_uid=device_uid, path_uid=path_uid, path_list=full_path_list)
         return GDriveIdentifier(uid=uid, device_uid=device_uid, path_list=full_path_list)
 

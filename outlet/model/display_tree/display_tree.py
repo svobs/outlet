@@ -98,7 +98,7 @@ class DisplayTree(HasGetChildren):
 
     @property
     def uid(self):
-        return self.state.root_sn.spid.uid
+        return self.state.root_sn.spid.node_uid
 
     @property
     def root_uid(self) -> UID:

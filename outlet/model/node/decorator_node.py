@@ -19,7 +19,7 @@ class DecoNode(Node):
     """
     def __init__(self, uid: UID, parent_uid: UID, delegate_node):
         node_identifier: NodeIdentifier = copy.copy(delegate_node.node_identifier)
-        node_identifier.uid = uid
+        node_identifier.node_uid = uid
         super().__init__(node_identifier, parent_uid, delegate_node.get_trashed_status())
         self.delegate = delegate_node
 

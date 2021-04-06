@@ -33,7 +33,7 @@ class LocalDiskTree(SimpleTree):
         root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.get_single_path()
-        parent: LocalNode = self.get_node_for_uid(root_node_identifier.uid)
+        parent: LocalNode = self.get_node_for_uid(root_node_identifier.node_uid)
 
         # A trailing '/' will really screw us up:
         assert file_util.is_normalized(root_node_identifier.get_single_path()), f'Path: {root_node_identifier.get_single_path()}'
@@ -90,9 +90,10 @@ class LocalDiskTree(SimpleTree):
             # TODO: submit to adjudicator (eventually)
             logger.warning(f'Parent referenced by node "{sub_tree_root_node.uid}" ({sub_tree_root_node.get_single_parent()}) '
                            f'does not match actual parent ({self.get_parent(sub_tree_root_node.uid).uid})!')
-        parent_of_subtree: LocalNode = self.get_parent(sub_tree_root_node.identifier)
+        sub_tree_root_node_identifier = self.extract_identifier(sub_tree_root_node)
+        parent_of_subtree: LocalNode = self.get_parent(sub_tree_root_node_identifier)
         # assert parent_of_subtree, f'Could not find node in tree with parent: {sub_tree_root_node.get_single_parent()}'
-        count_removed = self.remove_node(sub_tree_root_node.identifier)
+        count_removed = self.remove_node(sub_tree_root_node_identifier)
         logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
         self.paste(parent_uid=parent_of_subtree.uid, new_tree=sub_tree)
 
@@ -109,7 +110,7 @@ class LocalDiskTree(SimpleTree):
                 file_list.append(node)
 
         if subtree_root:
-            subtree_root_uid = subtree_root.uid
+            subtree_root_uid = subtree_root.node_uid
         else:
             subtree_root_uid = None
         self.for_each_node_breadth_first(action_func=add_to_lists, subtree_root_uid=subtree_root_uid)

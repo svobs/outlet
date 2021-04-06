@@ -255,21 +255,6 @@ class DisplayMutator(HasLifecycle):
 
         self._expand_row_without_event_firing(tree_path=tree_path, expand_all=expand_all)
 
-
-
-
-
-
-    # TODO TODO
-    def _get_child_list_or_exceeded_count(self, uid: UID):
-        try:
-            with self._lock:
-                top_level_node_list: List[Node] = self.con.get_tree().get_child_list_for_root()
-            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top-level nodes for root')
-        except ResultsExceededError as err:
-            too_many_results = True
-            count_results = err.actual_count
-
     def populate_root(self):
         """START HERE.
         More like "repopulate" - clears model before populating.

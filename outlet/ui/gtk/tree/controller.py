@@ -163,7 +163,7 @@ class TreePanelController(HasLifecycle):
         timer = Stopwatch()
         checked_rows: List[SPIDNodePair] = self.display_mutator.get_checked_rows_as_list()
         if SUPER_DEBUG:
-            more = ': ' + ', '.join([str(sn.spid.uid) for sn in checked_rows])
+            more = ': ' + ', '.join([str(sn.spid.node_uid) for sn in checked_rows])
         else:
             more = ''
         logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_rows)} checked rows{more}')
@@ -179,8 +179,8 @@ class TreePanelController(HasLifecycle):
         """Change trees contain decorated nodes. This method will restore their node delegates. If node is not decorated, simply returns it"""
         if sn.node.is_decorator():
             assert isinstance(sn.node, DecoNode)
-            sn = SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.delegate.node_identifier, sn.spid.get_single_path()),
-                              sn.node.delegate)
+            sn = SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.delegate.node_identifier, sn.spid.path_uid,
+                                                                            sn.spid.get_single_path()), sn.node.delegate)
         return sn
 
     @property

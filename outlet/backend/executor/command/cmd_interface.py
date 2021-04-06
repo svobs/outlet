@@ -45,7 +45,8 @@ class Command(BaseNode, ABC):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, uid: UID, op: UserOp):
-        BaseNode.__init__(self, identifier=uid)
+        BaseNode.__init__(self)
+        self.uid: UID = uid
         assert op
 
         self.op: UserOp = op
@@ -61,8 +62,8 @@ class Command(BaseNode, ABC):
         return self.op.op_type
 
     @property
-    def uid(self) -> UID:
-        return self.identifier
+    def identifier(self) -> UID:
+        return self.uid
 
     @abstractmethod
     def execute(self, context: CommandContext):
