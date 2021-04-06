@@ -65,6 +65,7 @@ class BackendGRPCClient(OutletBackend):
         """Only needed to generate UIDs which are unique to drag & drop"""
 
         self._converter = GRPCConverter(self)
+        self._cached_device_list: List[Device] = []
 
     def start(self):
         if self._started:
@@ -225,6 +226,8 @@ class BackendGRPCClient(OutletBackend):
         if request.tree_id:
             grpc_req.tree_id = request.tree_id
         grpc_req.return_async = request.return_async
+        if request.device_uid:
+            grpc_req.device_uid = request.device_uid
         if request.user_path:
             grpc_req.user_path = request.user_path
         self._converter.node_identifier_to_grpc(request.spid, grpc_req.spid)
@@ -251,13 +254,14 @@ class BackendGRPCClient(OutletBackend):
         return response.is_enabled
 
     def get_device_list(self) -> List[Device]:
-        response = self.grpc_stub.get_device_list()
-        device_list = []
-        for grpc_device in response.device_list:
-            device_list.append(Device(device_uid=grpc_device.device_uid, long_device_id=grpc_device.long_device_id, tree_type=grpc_device.tree_type,
-                                      friendly_name=grpc_device.friendly_name))
-
-        return device_list
+        if not self._cached_device_list:
+            response = self.grpc_stub.get_device_list()
+            device_list = []
+            for grpc_device in response.device_list:
+                device_list.append(Device(device_uid=grpc_device.device_uid, long_device_id=grpc_device.long_device_id, tree_type=grpc_device.tree_type,
+                                          friendly_name=grpc_device.friendly_name))
+            self._cached_device_list = device_list
+        return self._cached_device_list
 
     def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> Iterable[Node]:
         if SUPER_DEBUG:

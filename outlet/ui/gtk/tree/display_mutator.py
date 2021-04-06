@@ -570,6 +570,7 @@ class DisplayMutator(HasLifecycle):
                         self.con.display_store.remove_node(node.uid)
                         logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
                     elif self.con.get_tree().is_path_in_subtree(node.get_path_list()):
+                        # not visible, but stats still need refresh
                         if logger.isEnabledFor(logging.DEBUG):
                             logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for node {node.node_identifier}')
 

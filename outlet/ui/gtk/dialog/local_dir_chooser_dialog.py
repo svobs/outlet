@@ -1,6 +1,9 @@
 import logging
 
 import gi
+
+from model.uid import UID
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -13,9 +16,10 @@ class LocalRootDirChooserDialog(Gtk.FileChooserDialog):
     CLASS LocalRootDirChooserDialog
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, title, parent_win, tree_id, current_dir):
+    def __init__(self, title, parent_win, tree_id, device_uid, current_dir):
         Gtk.FileChooserDialog.__init__(self, title=title, transient_for=parent_win, action=Gtk.FileChooserAction.SELECT_FOLDER)
         self.tree_id = tree_id
+        self.device_uid: UID = device_uid
         self.parent_win = parent_win
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
@@ -52,7 +56,8 @@ class LocalRootDirChooserDialog(Gtk.FileChooserDialog):
         if response_id == Gtk.ResponseType.OK:
             full_path = open_dialog.get_filename()
             logger.info(f'User selected dir: {full_path}')
-            open_dialog.parent_win.app.backend.create_display_tree_from_user_path(self.tree_id, user_path=full_path)
+
+            open_dialog.parent_win.app.backend.create_display_tree_from_user_path(self.tree_id, user_path=full_path, device_uid=self.device_uid)
         # if response is "CANCEL" (the button "Cancel" has been clicked)
         elif response_id == Gtk.ResponseType.CANCEL:
             logger.debug("Cancelled: LocalRootDirChooserDialog")

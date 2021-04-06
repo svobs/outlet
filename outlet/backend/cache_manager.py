@@ -136,6 +136,8 @@ class CacheManager(HasLifecycle):
         self._load_all_caches_done: threading.Event = threading.Event()
         self._load_all_caches_in_process: bool = False
 
+        self._cached_device_list: List[Device] = []
+
         self.connect_dispatch_listener(signal=Signal.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._download_all_gdrive_meta)
@@ -245,8 +247,12 @@ class CacheManager(HasLifecycle):
         return device_uuid
 
     def get_device_list(self) -> List[Device]:
-        # TODO: cache this for better performance. (Need to update the cached value on change tho)
-        return self._read_device_list()
+        # Cache this for better performance.
+        # TODO: Need to update the cached list on change
+        if not self._cached_device_list:
+            self._cached_device_list = self._read_device_list()
+
+        return self._cached_device_list
 
     def _read_device_list(self) -> List[Device]:
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:

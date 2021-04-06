@@ -2,9 +2,10 @@ import logging
 import os
 from typing import Optional
 
-from constants import GDRIVE_DEVICE_UID_TEMP, GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeDisplayMode, TreeType
+from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeDisplayMode, TreeType
 from model.display_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
+from model.uid import UID
 from signal_constants import Signal
 from ui.gtk.dialog.base_dialog import BaseDialog
 from ui.gtk.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
@@ -111,6 +112,26 @@ class RootPathPanel(HasLifecycle):
             self.con = None
 
         self.parent_win = None
+
+    # TODO: this is temp code. Need a way to actually distinguish between different devices
+    def get_default_local_device_uid(self) -> UID:
+        device_uid = None
+        for device in self.con.backend.get_device_list():
+            if device.tree_type == TreeType.LOCAL_DISK:
+                if device_uid:
+                    raise RuntimeError('(FIXME): multiple devices of type LOCAL_DISK found! We cannot support this presently')
+                device_uid = device.uid
+        return device_uid
+
+    # TODO: this is temp code. Need a way to actually distinguish between different devices
+    def get_default_gdrive_device_uid(self) -> UID:
+        device_uid = None
+        for device in self.con.backend.get_device_list():
+            if device.tree_type == TreeType.GDRIVE:
+                if device_uid:
+                    raise RuntimeError('(FIXME): multiple devices of type GDRIVE found! We cannot support this presently')
+                device_uid = device.uid
+        return device_uid
 
     def _redraw_root_display(self, new_tree=None):
         """Updates the UI to reflect the new root and tree type.
@@ -262,8 +283,11 @@ class RootPathPanel(HasLifecycle):
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
+
+        device_uid = self.get_default_local_device_uid()
+
         open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.con.tree_id,
-                                                current_dir=self.con.get_tree().get_root_spid().get_single_path())
+                                                current_dir=self.con.get_tree().get_root_spid().get_single_path(), device_uid=device_uid)
 
         # show the dialog
         open_dialog.show()
@@ -274,11 +298,13 @@ class RootPathPanel(HasLifecycle):
             spid = None
         logger.debug(f'[{self.con.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
 
+        device_uid = self.get_default_gdrive_device_uid()
+
         def open_dialog():
             try:
                 # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
                 # Dialog will display itself when ready
-                GDriveDirChooserDialog(self.parent_win, device_uid=GDRIVE_DEVICE_UID_TEMP, current_selection=spid, target_tree_id=self.con.tree_id)
+                GDriveDirChooserDialog(self.parent_win, device_uid=device_uid, current_selection=spid, target_tree_id=self.con.tree_id)
             except Exception as err:
                 self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
                 raise

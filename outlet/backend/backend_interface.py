@@ -116,8 +116,9 @@ class OutletBackend(HasLifecycle, ABC):
         request = DisplayTreeRequest(tree_id=tree_id, return_async=True, spid=spid, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)
 
-    def create_display_tree_from_user_path(self, tree_id: str, user_path: str) -> Optional[DisplayTree]:
-        request = DisplayTreeRequest(tree_id=tree_id, return_async=True, user_path=user_path, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+    def create_display_tree_from_user_path(self, tree_id: str, user_path: str, device_uid: UID) -> Optional[DisplayTree]:
+        request = DisplayTreeRequest(tree_id=tree_id, return_async=True, user_path=user_path, device_uid=device_uid,
+                                     tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)
 
     def create_existing_display_tree(self, tree_id: str, tree_display_mode: TreeDisplayMode) -> Optional[DisplayTree]:

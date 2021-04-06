@@ -233,7 +233,7 @@ class ActiveTreeManager(HasLifecycle):
 
         # Build RootPathMeta object from params. If neither SPID nor user_path supplied, read from config
         if request.user_path:
-            root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(request.user_path)
+            root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(request.user_path, request.device_uid)
             spid = root_path_meta.root_spid
         elif spid:
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
@@ -351,10 +351,13 @@ class ActiveTreeManager(HasLifecycle):
             logger.debug(f'[{sender_tree_id}] Returning display tree synchronously because return_async=False: {state}')
             return state
 
-    def _resolve_root_meta_from_path(self, full_path: str) -> RootPathMeta:
+    def _resolve_root_meta_from_path(self, full_path: str, device_uid: UID) -> RootPathMeta:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
         and returns a tuple of both"""
         logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
+        if not device_uid:
+            raise RuntimeError('No device_uid provided!')
+
         try:
             # Assume the user means the local disk (for now). In the future, maybe we can add support for some kind of server name syntax
             full_path = file_util.normalize_path(full_path)

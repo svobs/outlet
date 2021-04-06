@@ -273,8 +273,9 @@ message RequestDisplayTree_Request {
 	string tree_id = 2;
 	bool return_async = 3;
 	string user_path = 4;
-	NodeIdentifier spid = 5;
-	uint32 tree_display_mode = 6;
+	uint32 device_uid = 5;
+	NodeIdentifier spid = 6;
+	uint32 tree_display_mode = 7;
 }
 
 message RequestDisplayTree_Response {

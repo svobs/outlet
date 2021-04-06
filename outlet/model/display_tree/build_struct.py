@@ -39,15 +39,24 @@ class DisplayTreeRequest:
     Fat Microsoft-style struct encapsulating a bunch of params for request_display_tree()
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, tree_id: str, return_async: bool, user_path: str = None, spid: SinglePathNodeIdentifier = None,
+    def __init__(self, tree_id: str, return_async: bool, user_path: str = None, device_uid: UID = None, spid: SinglePathNodeIdentifier = None,
                  is_startup: bool = False, tree_display_mode: TreeDisplayMode = TreeDisplayMode.ONE_TREE_ALL_ITEMS):
         self.tree_id: str = tree_id
-        self.return_async: bool = return_async
-        self.user_path: str = user_path
-        self.spid: SinglePathNodeIdentifier = spid
+
         self.is_startup: bool = is_startup
+        self.return_async: bool = return_async
+
+        # Either:
+
+        # A. device_uid + user_path
+        self.device_uid: UID = device_uid
+        self.user_path: str = user_path
+
+        # B. SPID
+        self.spid: SinglePathNodeIdentifier = spid
+
         self.tree_display_mode: TreeDisplayMode = tree_display_mode
 
     def __repr__(self):
-        return f'DisplayTreeRequest(tree_id={self.tree_id} return_async={self.return_async} user_path={self.user_path} spid={self.spid} ' \
-               f'is_startup={self.is_startup} tree_display_mode={self.tree_display_mode}'
+        return f'DisplayTreeRequest(tree_id={self.tree_id} return_async={self.return_async} user_path={self.user_path} device_uid={self.device_uid}' \
+               f'spid={self.spid} is_startup={self.is_startup} tree_display_mode={self.tree_display_mode}'
