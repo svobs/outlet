@@ -59,12 +59,12 @@ class BackendGRPCClient(OutletBackend):
         self._started = False
         self.channel = None
         self.grpc_stub: Optional[Outlet_pb2_grpc.OutletStub] = None
-        self.signal_thread: SignalReceiverThread = SignalReceiverThread(self)
+        self._converter = GRPCConverter(self)
+        self.signal_thread: SignalReceiverThread = SignalReceiverThread(self, self._converter)
 
         self._fe_task_runner = TaskRunner()
         """Only needed to generate UIDs which are unique to drag & drop"""
 
-        self._converter = GRPCConverter(self)
         self._cached_device_list: List[Device] = []
 
     def start(self):

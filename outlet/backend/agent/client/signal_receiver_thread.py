@@ -23,11 +23,12 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
     This is used by the gRPC CLIENT. Listens for notifications which will be sent asynchronously by the backend gRPC server.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
+    def __init__(self, backend, converter):
         HasLifecycle.__init__(self)
         threading.Thread.__init__(self, target=self.run, name='SignalReceiverThread', daemon=True)
 
         self.backend = backend
+        self._converter: GRPCConverter = converter
         self._shutdown: bool = False
 
     def start(self):
@@ -89,7 +90,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         kwargs = {}
         # TODO: convert this long conditional list into an action dict
         if signal == Signal.DISPLAY_TREE_CHANGED or signal == Signal.GENERATE_MERGE_TREE_DONE:
-            display_tree_ui_state = GRPCConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
+            display_tree_ui_state = self._converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
         elif signal == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
@@ -100,21 +101,23 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['msg'] = signal_msg.error_occurred.msg
             kwargs['secondary_msg'] = signal_msg.error_occurred.secondary_msg
         elif signal == Signal.NODE_UPSERTED or signal == Signal.NODE_REMOVED:
-            kwargs['node'] = GRPCConverter.node_from_grpc(signal_msg.node)
+            kwargs['node'] = self._converter.node_from_grpc(signal_msg.node)
         elif signal == Signal.NODE_MOVED:
-            kwargs['src_node'] = GRPCConverter.node_from_grpc(signal_msg.src_dst_node_list.src_node)
-            kwargs['dst_node'] = GRPCConverter.node_from_grpc(signal_msg.src_dst_node_list.dst_node)
+            kwargs['src_node'] = self._converter.node_from_grpc(signal_msg.src_dst_node_list.src_node)
+            kwargs['dst_node'] = self._converter.node_from_grpc(signal_msg.src_dst_node_list.dst_node)
         elif signal == Signal.SET_STATUS:
             kwargs['status_msg'] = signal_msg.status_msg.msg
         elif signal == Signal.REFRESH_SUBTREE_STATS_DONE:
             kwargs['status_msg'] = signal_msg.stats_update.status_msg
             dir_stats_dict: Dict[UID, DirectoryStats] = {}
             for dir_meta_grpc in signal_msg.stats_update.dir_meta_list:
-                dir_stats = GRPCConverter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
+                dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
                 dir_stats_dict[dir_meta_grpc.uid] = dir_stats
             kwargs['dir_stats'] = dir_stats_dict
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
+        elif signal == Signal.DEVICE_UPSERTED:
+            kwargs['device'] = self._converter.device_from_grpc(signal_msg.device)
         logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')
         kwargs['signal'] = signal
         kwargs['sender'] = signal_msg.sender

@@ -34,7 +34,7 @@ message NodeIdentifier {
   uint32 uid = 1;
   uint32 device_uid = 2;
   repeated string path_list = 3;
-  bool is_single_path = 4;
+  uint32 path_uid = 4;  // If nonzero, is single path
 }
 
 message Node {

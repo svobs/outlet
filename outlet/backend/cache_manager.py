@@ -246,6 +246,14 @@ class CacheManager(HasLifecycle):
         logger.info(f'Device UUID is: {device_uuid}')
         return device_uuid
 
+    # TODO: when do we create a new device?
+    def upsert_device(self, device: Device):
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
+            db.upsert_device(device)
+            logger.debug(f'Upserted device to DB: {device}')
+
+        dispatcher.send(signal=Signal.DEVICE_UPSERTED, device=device)
+
     def get_device_list(self) -> List[Device]:
         # Cache this for better performance.
         # TODO: Need to update the cached list on change
@@ -745,7 +753,7 @@ class CacheManager(HasLifecycle):
 
     # TODO: try to remove this
     def get_device_uid_for_default_gdrive(self) -> UID:
-        return self._master_gdrive_temp.device.uid
+        return self._master_gdrive.device.uid
 
     def get_uid_for_change_tree_node(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
         return self._change_tree_uid_mapper.get_uid_for(device_uid, single_path, op)

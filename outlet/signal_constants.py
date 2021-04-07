@@ -69,6 +69,9 @@ class Signal(IntEnum):
     POPULATE_UI_TREE_DONE = 54
     """This is fired by the UI when it has finished populating the UI tree"""
 
+    DEVICE_UPSERTED = 55
+    """A Device was added or updated (includes the relevant Device in the msg)"""
+
     DRAG_AND_DROP = 60
     DRAG_AND_DROP_DIRECT = 61
 

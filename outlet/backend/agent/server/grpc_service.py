@@ -32,6 +32,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response, UserOp
 from error import ResultsExceededError
+from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
@@ -83,6 +84,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
         self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved)
+
+        self.connect_dispatch_listener(signal=Signal.DEVICE_UPSERTED, receiver=self._on_device_upserted)
 
         # simple:
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
@@ -308,6 +311,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._converter.node_to_grpc(dst_node, signal.src_dst_node_list.dst_node)
         self._send_grpc_signal_to_all_clients(signal)
 
+    def _on_device_upserted(self, sender: str, device: Device):
+        signal = SignalMsg(sig_int=Signal.DEVICE_UPSERTED, sender=sender)
+        self._converter.device_to_grpc(device, signal.device)
+        self._send_grpc_signal_to_all_clients(signal)
+
     def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
         signal = SignalMsg(sig_int=Signal.ERROR_OCCURRED, sender=sender)
         signal.error_occurred.msg = msg
@@ -352,10 +360,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response = GetDeviceList_Response()
         for device in self.cacheman.get_device_list():
             grpc_device = response.device_list.add()
-            grpc_device.device_uid = device.uid
-            grpc_device.long_device_id = device.long_device_id
-            grpc_device.tree_type = device.tree_type
-            grpc_device.friendly_name = device.friendly_name
+            self._converter.device_to_grpc(device, grpc_device)
 
         return response
 

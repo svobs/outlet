@@ -3,6 +3,7 @@ from typing import Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
 from constants import IconId, TreeType
+from model.device import Device
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -241,13 +242,15 @@ class GRPCConverter:
         grpc_node_identifier.device_uid = node_identifier.device_uid
         for full_path in node_identifier.get_path_list():
             grpc_node_identifier.path_list.append(full_path)
-        grpc_node_identifier.is_single_path = node_identifier.is_spid()
-        assert not grpc_node_identifier.is_single_path or len(list(grpc_node_identifier.path_list)) <= 1, f'Wrong: {node_identifier}'
+        if node_identifier.is_spid():
+            assert isinstance(node_identifier, SinglePathNodeIdentifier)
+            grpc_node_identifier.path_uid = node_identifier.path_uid
+        assert grpc_node_identifier.path_uid == 0 or len(list(grpc_node_identifier.path_list)) <= 1, f'Wrong: {node_identifier}'
 
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         return self.backend.node_identifier_factory.for_values(uid=grpc_node_identifier.uid, device_uid=grpc_node_identifier.device_uid,
                                                                path_list=list(grpc_node_identifier.path_list),
-                                                               must_be_single_path=grpc_node_identifier.is_single_path)
+                                                               must_be_single_path=grpc_node_identifier.path_uid > 0)
 
     # SPIDNodePair
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -308,3 +311,17 @@ class GRPCConverter:
         if not offending_path:
             offending_path = None
         return DisplayTreeUiState(grpc.tree_id, root_sn, grpc.root_exists, offending_path, grpc.tree_display_mode, grpc.has_checkboxes)
+
+    # Device
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    @staticmethod
+    def device_to_grpc(device: Device, grpc_device: Outlet_pb2.Device):
+        grpc_device.device_uid = device.uid
+        grpc_device.long_device_id = device.long_device_id
+        grpc_device.tree_type = device.tree_type
+        grpc_device.friendly_name = device.friendly_name
+
+    @staticmethod
+    def device_from_grpc( grpc_device: Outlet_pb2.Device) -> Device:
+        return Device(grpc_device.device_uid, grpc_device.long_device_id, grpc_device.tree_type, grpc_device.friendly_name)

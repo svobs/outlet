@@ -49,8 +49,8 @@ class NodeIdentifierFactory:
         full_path_list = ensure_list(full_path)
         return self._and_deriving_tree_type_from_path(full_path_list, uid=None, device_uid=device_uid, must_be_single_path=False)
 
-    def for_values(self, device_uid: UID = None, tree_type: int = None, path_list: Union[str, List[str]] = None, uid: UID = None,
-                   must_be_single_path: bool = False) -> NodeIdentifier:
+    def for_values(self, device_uid: Optional[UID] = None, tree_type: Optional[TreeType] = None, path_list: Optional[Union[str, List[str]]] = None,
+                   uid: Optional[UID] = None, must_be_single_path: bool = False) -> NodeIdentifier:
         """Big factory method for creating a new identifier (for example when you intend to create a new node.
         May be called either from FE or BE. For FE, it may be quite slow due to network overhead."""
         uid = ensure_uid(uid)
@@ -109,10 +109,6 @@ class NodeIdentifierFactory:
             if full_path_list[0].startswith(GDRIVE_PATH_PREFIX):
                 # GDrive
 
-                # TODO: see if we can get away with removing this. It won't work when called from FE
-                # if not device_uid:
-                #     device_uid = self.backend.cacheman.get_device_uid_for_default_gdrive()
-
                 derived_list: List[str] = NodeIdentifierFactory._derive_gdrive_path_list(full_path_list)
                 if must_be_single_path:
                     if not derived_list or not derived_list[0]:
@@ -127,10 +123,6 @@ class NodeIdentifierFactory:
                 return GDriveIdentifier(path_list=derived_list, uid=uid, device_uid=device_uid)
             else:
                 # LocalDisk
-
-                # TODO: see if we can get away with removing this. It won't work when called from FE
-                # if not device_uid:
-                #     device_uid = self.backend.cacheman.get_device_uid_for_this_local_disk()
 
                 if not uid:
                     uid = self.backend.get_uid_for_local_path(full_path_list[0])

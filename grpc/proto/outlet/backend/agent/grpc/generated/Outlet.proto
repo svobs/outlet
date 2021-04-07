@@ -211,6 +211,7 @@ message SignalMsg {
 		StatusMsg status_msg = 17;
 		DownloadMsg download_msg = 18;
 		StatsUpdate stats_update = 19;
+		Device device = 20;
 	}
 }
 
