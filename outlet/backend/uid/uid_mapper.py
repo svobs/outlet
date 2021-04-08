@@ -5,87 +5,120 @@ from typing import Dict, List, Optional, Tuple
 from model.user_op import UserOpType
 from backend.sqlite.uid_path_mapper_db import UidPathMapperDb
 from util import file_util
-from constants import CACHE_WRITE_HOLDOFF_TIME_MS, LOCAL_ROOT_UID, ROOT_PATH, ROOT_PATH_UID
+from constants import CACHE_WRITE_HOLDOFF_TIME_MS, ROOT_PATH, ROOT_PATH_UID
 from model.uid import UID
+from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
 
-class UidPathMapper:
+class UidPathMapper(HasLifecycle):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS UidPathMapper
 
-    Maps a UID (int) to a file tree path (string)
-    Note: root path ("/") will have a UID of ROOT_PATH_UID (which equals LOCAL_PATH_UID)
+    Bidirectionally maps a UID (int) to a file tree path (string)
+    Note: root path ("/") will have a UID of ROOT_PATH_UID (which equals LOCAL_PATH_UID, though it may not actually represent a local file path)
 
     # TODO: need to account for possiblity of missing entries in cache (due to holdoff timer being used to batch writes)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, uid_path_cache_path):
+        super().__init__()
         self.backend = backend
-        self._uid_lock = threading.Lock()
         self.uid_generator = backend.uid_generator
-        self.uid_path_cache_path = uid_path_cache_path
+
+        self._uid_lock = threading.Lock()
+
         # Every unique path must map to one unique UID
-        self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: ROOT_PATH_UID}
-        self._to_cache: List[Tuple[UID, str]] = []
-        self._cache_write_timer = HoldOffTimer(holdoff_time_ms=CACHE_WRITE_HOLDOFF_TIME_MS, task_func=self._append_to_cache)
+        self._path_uid_dict: Dict[str, UID] = {ROOT_PATH: ROOT_PATH_UID}
+        self._uid_path_dict: Dict[UID, str] = {ROOT_PATH_UID: ROOT_PATH}
+
+        self.uid_path_cache_path = uid_path_cache_path
+        self._to_write: List[Tuple[UID, str]] = []
+        self._write_timer = HoldOffTimer(holdoff_time_ms=CACHE_WRITE_HOLDOFF_TIME_MS, task_func=self._write_to_disk)
 
     def start(self):
         self._load_cached_uids()
 
+    def shutdown(self):
+        self._write_to_disk()
+
+    def _add(self, path: str, uid: UID):
+        self._path_uid_dict[path] = uid
+        self._uid_path_dict[uid] = path
+        self._to_write.append((uid, path))
+
     def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        if not full_path and isinstance(full_path, str):
+        if not full_path:
+            raise RuntimeError(f'get_uid_for_path(): full_path is empty!')
+
+        if not isinstance(full_path, str):
             raise RuntimeError(f'get_uid_for_path(): full_path is not str: {full_path}')
 
         needs_write = False
         with self._uid_lock:
             path = file_util.normalize_path(full_path)
-            uid = self._full_path_uid_dict.get(path, None)
+            uid = self._path_uid_dict.get(path, None)
             if not uid:
                 if uid_suggestion:
-                    self._full_path_uid_dict[path] = uid_suggestion
                     uid = uid_suggestion
                 else:
                     uid = self.uid_generator.next_uid()
-                self._to_cache.append((uid, path))
+                self._add(path, uid_suggestion)
                 needs_write = True
             elif uid_suggestion and uid_suggestion != uid:
                 logger.warning(f'UID was requested ({uid_suggestion}) but found existing UID ({uid}) for key: "{path}"')
 
         if needs_write:
-            self._cache_write_timer.start_or_delay()
+            self._write_timer.start_or_delay()
         return uid
 
-    def _enqueue_to_cache(self, path, uid):
-        self._full_path_uid_dict[path] = uid
+    def get_path_for_uid(self, uid: UID) -> str:
+        if not uid:
+            raise RuntimeError(f'get_path_for_uid(): UID is empty or zero!')
+
+        if not isinstance(uid, UID):
+            raise RuntimeError(f'get_uid_for_path(): not a UID: {uid}')
+
+        needs_write = False
+        with self._uid_lock:
+            path = self._uid_path_dict.get(uid, None)
+            if not path:
+                raise RuntimeError(f'No path mapping found for UID: {uid}')
+
+        if needs_write:
+            self._write_timer.start_or_delay()
+        return path
 
     def _load_cached_uids(self):
-        sw = Stopwatch()
-        with UidPathMapperDb(self.uid_path_cache_path, self.backend) as db:
-            # 0=uid, 1=full_path:
-            mapping_list: List[Tuple[str, str]] = db.get_all_uid_path_mappings()
-            max_uid: UID = db.get_last_uid()
-
-        for mapping in mapping_list:
-            self._full_path_uid_dict[mapping[1]] = UID(mapping[0])
-
-        self.uid_generator.ensure_next_uid_greater_than(max_uid)
-
-        logger.debug(f'{sw} Loaded {len(mapping_list)} UID-path mappings from disk cache')
-
-    def _append_to_cache(self):
         with self._uid_lock:
-            to_write = self._to_cache
-            self._to_cache = []
+            sw = Stopwatch()
+            with UidPathMapperDb(self.uid_path_cache_path, self.backend) as db:
+                # 0=uid, 1=full_path:
+                mapping_list: List[Tuple[str, str]] = db.get_all_uid_path_mappings()
+                max_uid: UID = db.get_last_uid()
 
-        with UidPathMapperDb(self.uid_path_cache_path, self.backend) as db:
-            db.upsert_uid_path_mapping_list(to_write)
+            for mapping in mapping_list:
+                self._path_uid_dict[mapping[1]] = UID(mapping[0])
+                self._uid_path_dict[UID(mapping[0])] = mapping[1]
 
-        logger.debug(f'Wrote {len(to_write)} UID-path mappings to disk cache')
+            self.uid_generator.ensure_next_uid_greater_than(max_uid)
+
+            logger.debug(f'{sw} Loaded {len(mapping_list)} UID-path mappings from disk cache')
+
+    def _write_to_disk(self):
+        with self._uid_lock:
+            to_write = self._to_write
+            self._to_write = []
+
+            if self._to_write:
+                with UidPathMapperDb(self.uid_path_cache_path, self.backend) as db:
+                    db.upsert_uid_path_mapping_list(to_write)
+
+                logger.debug(f'Wrote {len(to_write)} UID-path mappings to disk cache')
 
 
 class UidGoogIdMapper:
@@ -93,12 +126,13 @@ class UidGoogIdMapper:
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS UidGoogIdMapper
 
-    Maps a UID (int) to a GoogId (hash string)
+    Bidirectionally maps a UID (int) to a GoogId (hash string)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend):
-        self._uid_lock = threading.Lock()
         self.uid_generator = backend.uid_generator
+
+        self._uid_lock = threading.Lock()
         # Every unique GoogId must map to one unique UID
         self._goog_uid_dict: Dict[str, UID] = {}
         self._uid_goog_dict: Dict[UID, str] = {}

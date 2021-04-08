@@ -215,7 +215,7 @@ class DisplayMutator(HasLifecycle):
                         self._expand_subtree(tree_path, expand_all=False)
 
                 # Now select target node:
-                self.select_uid(selection.uid)
+                self.select_uid(selection.node_uid)
 
         GLib.idle_add(do_in_ui)
 

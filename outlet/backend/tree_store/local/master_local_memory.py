@@ -36,7 +36,7 @@ class LocalDiskMemoryStore:
         # Each node inserted here will have an entry created for its dir.
         # But we still need a dir tree to look up child dirs:
         self.master_tree = LocalDiskTree(backend)
-        root_node = RootTypeNode(node_identifier=LocalNodeIdentifier(path_list=ROOT_PATH, uid=LOCAL_ROOT_UID, device_uid=self.device_uid))
+        root_node = RootTypeNode(node_identifier=LocalNodeIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID, device_uid=self.device_uid))
         self.master_tree.add_node(node=root_node, parent=None)
 
         self.expected_node_moves: Dict[str, str] = {}

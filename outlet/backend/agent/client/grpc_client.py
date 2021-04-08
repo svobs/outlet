@@ -17,7 +17,6 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     GetConfig_Request, GetConfig_Response, GetIcon_Request, GetRowsOfInterest_Request, GetFilter_Request, GetFilter_Response, \
     GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
-    GetNodeForLocalPath_Request, \
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \

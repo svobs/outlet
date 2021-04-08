@@ -34,6 +34,8 @@ class NodeIdentifier(ABC):
 
     @property
     def guid(self):
+        """Currently, all node identifiers can be uniquely specified by device_uid + node_uid, except for GDrive and Mixed tree nodes,
+        which also require a path_uid."""
         return f'{self.device_uid}:{self.node_uid}'
 
     @property
@@ -78,7 +80,7 @@ class NodeIdentifier(ABC):
         if single_path not in path_list:
             path_list.append(single_path)
             if SUPER_DEBUG:
-                logger.debug(f'Added path: {single_path} to node UID {self.uid}')
+                logger.debug(f'Added path: {single_path} to node UID {self.node_uid}')
         self.set_path_list(path_list)
 
     def has_path(self, path: str) -> bool:
@@ -172,9 +174,9 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
         if single_path not in node_identifier.get_path_list():
             raise RuntimeError('bad!')
         if node_identifier.tree_type == TreeType.GDRIVE:
-            return GDriveSPID(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_uid=path_uid, path_list=single_path)
+            return GDriveSPID(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_uid=path_uid, full_path=single_path)
         elif node_identifier.tree_type == TreeType.LOCAL_DISK:
-            return LocalNodeIdentifier(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_list=single_path)
+            return LocalNodeIdentifier(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, full_path=single_path)
         else:
             raise RuntimeError('Invalid!')
 
@@ -204,8 +206,8 @@ class GDriveSPID(SinglePathNodeIdentifier):
         CLASS GDriveSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, path_uid: UID, path_list: Optional[Union[str, List[str]]]):
-        super().__init__(uid, device_uid, path_list)
+    def __init__(self, uid: UID, device_uid: UID, path_uid: UID, full_path: str):
+        super().__init__(uid, device_uid, full_path)
         self._path_uid: UID = path_uid
 
     @property
@@ -226,8 +228,8 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
         CLASS MixedTreeSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, path_uid: UID, path_list: Optional[Union[str, List[str]]]):
-        super().__init__(uid, device_uid, path_list)
+    def __init__(self, uid: UID, device_uid: UID, path_uid: UID, full_path: str):
+        super().__init__(uid, device_uid, full_path)
         self._path_uid: UID = path_uid
 
     @property
@@ -253,8 +255,8 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
         CLASS LocalNodeIdentifier
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, path_list: Optional[Union[str, List[str]]]):
-        super().__init__(uid, device_uid, path_list)
+    def __init__(self, uid: UID, device_uid: UID, full_path: str):
+        super().__init__(uid, device_uid, full_path)
 
     @property
     def tree_type(self) -> TreeType:

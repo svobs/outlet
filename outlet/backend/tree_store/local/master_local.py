@@ -386,7 +386,7 @@ class LocalDiskMasterStore(TreeStore):
         new_node_uid: UID = self.get_uid_for_path(new_node_full_path)
 
         new_node = copy.deepcopy(node)
-        new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, device_uid=self.device.uid, path_list=new_node_full_path))
+        new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, device_uid=self.device.uid, full_path=new_node_full_path))
         return new_node
 
     def _add_to_expected_node_moves(self, src_node_list: List[LocalNode], dst_node_list: List[LocalNode]):
@@ -425,7 +425,7 @@ class LocalDiskMasterStore(TreeStore):
 
             # Create up to 3 tree operations which should be executed in a single transaction if possible
             dst_uid: UID = self.get_uid_for_path(dst_full_path)
-            dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, path_list=dst_full_path)
+            dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, full_path=dst_full_path)
             dst_subtree: LocalSubtree = LocalSubtree(dst_node_identifier, [], [])
 
             existing_dst_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
@@ -575,7 +575,7 @@ class LocalDiskMasterStore(TreeStore):
 
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
-        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, path_list=full_path), parent_uid=parent_uid,
+        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path), parent_uid=parent_uid,
                             trashed=TrashStatus.NOT_TRASHED, is_live=is_live)
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
@@ -616,5 +616,5 @@ class LocalDiskMasterStore(TreeStore):
         change_ts = int(stat.st_ctime * 1000)
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
-        node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, path_list=full_path)
+        node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
         return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)

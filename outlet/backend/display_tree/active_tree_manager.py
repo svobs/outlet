@@ -374,7 +374,7 @@ class ActiveTreeManager(HasLifecycle):
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
                 uid = self.backend.cacheman.get_uid_for_local_path(full_path)
                 identifier_list = [LocalNodeIdentifier(uid=uid, device_uid=self.backend.cacheman.get_device_uid_for_this_local_disk(),
-                                                       path_list=full_path)]
+                                                       full_path=full_path)]
 
             assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
             logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')

@@ -324,7 +324,7 @@ class OpDatabase(MetaDatabase):
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         parent_uid: UID = self._get_parent_uid(full_path)
         obj = LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid),
-                                               path_list=full_path), parent_uid, TrashStatus.NOT_TRASHED, bool(is_live))
+                                               full_path=full_path), parent_uid, TrashStatus.NOT_TRASHED, bool(is_live))
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
@@ -338,7 +338,7 @@ class OpDatabase(MetaDatabase):
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cacheman returned {uid} but op cache returned {uid_int} (from row: {row})')
         parent_uid: UID = self._get_parent_uid(full_path)
-        node_identifier = LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid), path_list=full_path)
+        node_identifier = LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid), full_path=full_path)
         obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):

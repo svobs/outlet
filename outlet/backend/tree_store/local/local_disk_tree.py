@@ -50,7 +50,7 @@ class LocalDiskTree(SimpleTree):
                 child: LocalNode = self.get_node_for_uid(uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
-                    node_identifier = LocalNodeIdentifier(path_list=path_so_far, uid=uid, device_uid=root_node_identifier.device_uid)
+                    node_identifier = LocalNodeIdentifier(full_path=path_so_far, uid=uid, device_uid=root_node_identifier.device_uid)
                     child = LocalDirNode(node_identifier=node_identifier,
                                          parent_uid=parent.uid, trashed=TrashStatus.NOT_TRASHED, is_live=True)
                     try:
