@@ -80,7 +80,7 @@ message UpdateFilter_Response {
 }
 
 message SetSelectedRowSet_Request {
-	repeated uint32 selected_row_uid_set = 1;
+	repeated uint32 selected_row_guid_set = 1;
 	string tree_id = 2;
 }
 
@@ -89,7 +89,7 @@ message SetSelectedRowSet_Response {
 }
 
 message RemoveExpandedRow_Request {
-	uint32 node_uid = 1;
+	string row_guid = 1;
 	string tree_id = 2;
 }
 
@@ -102,8 +102,8 @@ message GetRowsOfInterest_Request {
 }
 
 message GetRowsOfInterest_Response {
-	repeated uint32 expanded_row_uid_set = 1;
-	repeated uint32 selected_row_uid_set = 2;
+	repeated string expanded_row_guid_set = 1;
+	repeated string selected_row_guid_set = 2;
 }
 
 message GetLastPendingOp_Request {
@@ -228,13 +228,13 @@ message SendSignalResponse {
 }
 
 message GetChildList_Request {
-	uint32 parent_uid = 1;
+	NodeIdentifier parent_spid = 1;
 	string tree_id = 2;
 	uint32 max_results = 3; // 0=unlimited
 }
 
 message GetChildList_Response {
-	repeated Node node_list = 1;
+	repeated SPIDNodePair child_list = 1;
 	uint32 result_exceeded_count = 2; // if max_results exceeded, node_list is empty and this indicates result count
 }
 
@@ -244,7 +244,7 @@ message GetAncestorList_Request {
 }
 
 message GetAncestorList_Response {
-	repeated Node node_list = 1;
+	repeated SPIDNodePair ancestor_list = 1;
 }
 
 message PlayState {
@@ -310,9 +310,11 @@ message GetNextUid_Response {
 }
 
 service Outlet {
+	// Signal
 	rpc subscribe_to_signals(Subscribe_Request) returns (stream SignalMsg);
 	rpc send_signal(SignalMsg) returns (SendSignalResponse);
 
+	// Config
 	rpc get_config(GetConfig_Request) returns (GetConfig_Response);
 	rpc put_config(PutConfig_Request) returns (PutConfig_Response);
 
@@ -320,13 +322,14 @@ service Outlet {
 
 	rpc get_device_list(GetDeviceList_Request) returns (GetDeviceList_Response);
 
-	rpc get_child_list_for_node(GetChildList_Request) returns (GetChildList_Response);
+	// TreeView
+	rpc get_child_list_for_spid(GetChildList_Request) returns (GetChildList_Response);
 	rpc get_ancestor_list_for_spid(GetAncestorList_Request) returns (GetAncestorList_Response);
-	rpc get_filter(GetFilter_Request) returns (GetFilter_Response);
-	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
 	rpc get_rows_of_interest(GetRowsOfInterest_Request) returns (GetRowsOfInterest_Response);
 	rpc set_selected_row_set(SetSelectedRowSet_Request) returns (SetSelectedRowSet_Response);
 	rpc remove_expanded_row(RemoveExpandedRow_Request) returns (RemoveExpandedRow_Response);
+	rpc get_filter(GetFilter_Request) returns (GetFilter_Response);
+	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
 
 	rpc request_display_tree(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
