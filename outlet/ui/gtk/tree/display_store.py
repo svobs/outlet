@@ -28,7 +28,7 @@ class DisplayStore:
     def __init__(self, controller, treeview_meta):
         self.con = controller
         self.treeview_meta = treeview_meta
-        self.tree_id: str = self.con.tree_id
+        self.tree_id: TreeID = self.con.tree_id
         self.model: Gtk.TreeStore = Gtk.TreeStore()
         self.model.set_column_types(self.treeview_meta.col_types)
         # Sort by name column at program launch:

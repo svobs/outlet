@@ -2,12 +2,11 @@ import logging
 from collections import deque
 from typing import Deque, Dict, List
 
-from constants import TrashStatus, TreeType
+from constants import TrashStatus, TreeID, TreeType
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
-from model.has_get_children import HasGetChildren
 from model.node.directory_stats import DirectoryStats
-from model.node.node import Node, SPIDNodePair
-from model.uid import UID
+from model.node.node import SPIDNodePair
+from model.node_identifier import GUID, SinglePathNodeIdentifier
 from util.ensure import ensure_bool
 
 logger = logging.getLogger(__name__)
@@ -26,8 +25,8 @@ class FilterState:
     def __init__(self, filter_criteria: FilterCriteria, root_sn: SPIDNodePair):
         self.filter: FilterCriteria = filter_criteria
         self.root_sn: SPIDNodePair = root_sn
-        self.cached_node_dict: Dict[UID, List[Node]] = {}
-        self.cached_dir_stats: Dict[UID, DirectoryStats] = {}
+        self.cached_node_dict: Dict[GUID, List[SPIDNodePair]] = {}
+        self.cached_dir_stats: Dict[GUID, DirectoryStats] = {}
 
     def has_criteria(self) -> bool:
         return self.filter.has_criteria()
@@ -38,136 +37,137 @@ class FilterState:
             self.cached_node_dict.clear()
             self.cached_dir_stats.clear()
 
-    def _matches_search_query(self, node) -> bool:
-        return not self.filter.search_query or (self.filter.ignore_case and self.filter.search_query.lower() in node.name.lower()) \
-               or self.filter.search_query in node.name
+    def _matches_search_query(self, sn: SPIDNodePair) -> bool:
+        return not self.filter.search_query or (self.filter.ignore_case and self.filter.search_query.lower() in sn.node.name.lower()) \
+               or self.filter.search_query in sn.node.name
 
-    def _matches_trashed(self, node) -> bool:
+    def _matches_trashed(self, sn: SPIDNodePair) -> bool:
         return self.filter.is_trashed == Ternary.NOT_SPECIFIED or \
-               (self.filter.is_trashed == Ternary.FALSE and node.get_trashed_status() == TrashStatus.NOT_TRASHED) or \
-               (self.filter.is_trashed == Ternary.TRUE and node.get_trashed_status() != TrashStatus.NOT_TRASHED)
+               (self.filter.is_trashed == Ternary.FALSE and sn.node.get_trashed_status() == TrashStatus.NOT_TRASHED) or \
+               (self.filter.is_trashed == Ternary.TRUE and sn.node.get_trashed_status() != TrashStatus.NOT_TRASHED)
 
-    def _matches_is_shared(self, node) -> bool:
-        return self.filter.is_shared == Ternary.NOT_SPECIFIED or node.tree_type != TreeType.GDRIVE \
-               or node.is_shared == bool(self.filter.is_shared)
+    def _matches_is_shared(self, sn: SPIDNodePair) -> bool:
+        return self.filter.is_shared == Ternary.NOT_SPECIFIED or sn.node.tree_type != TreeType.GDRIVE \
+               or sn.node.is_shared == bool(self.filter.is_shared)
 
-    def matches(self, node) -> bool:
-        if not self._matches_search_query(node):
+    def matches(self, sn) -> bool:
+        if not self._matches_search_query(sn):
             # if SUPER_DEBUG:
             #     logger.debug(f'Search query "{self.search_query}" not found in "{node.name}" (ignore_case={self.ignore_case})')
             return False
 
-        if not self._matches_trashed(node):
+        if not self._matches_trashed(sn):
             # if SUPER_DEBUG:
             #     logger.debug(f'Node with TrashStatus={node.get_trashed_status()} does not match trashed={self.is_trashed}')
             return False
 
-        if not self._matches_is_shared(node):
+        if not self._matches_is_shared(sn):
             # if SUPER_DEBUG:
             #     logger.debug(f'Node with IsShared={node.is_shared()} does not match shared={self.is_shared}')
             return False
 
         return True
 
-    def _build_cache_with_ancestors(self, parent_tree: HasGetChildren):
+    def _build_cache_with_ancestors(self, parent_tree):
         assert self.filter.show_ancestors_of_matches
         subtree_root_node = self.root_sn.node
         logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
-        node_dict: Dict[UID, List[Node]] = {}
-        dir_stats_dict: Dict[UID, DirectoryStats] = {}
+        node_dict: Dict[GUID, List[SPIDNodePair]] = {}
+        dir_stats_dict: Dict[GUID, DirectoryStats] = {}
 
-        dir_queue: Deque[Node] = deque()
-        second_pass_stack: Deque[Node] = deque()
+        dir_queue: Deque[SPIDNodePair] = deque()
+        second_pass_stack: Deque[SPIDNodePair] = deque()
 
-        if subtree_root_node.is_dir():
-            dir_queue.append(subtree_root_node)
-            second_pass_stack.append(subtree_root_node)
+        if self.root_sn.node.is_dir():
+            dir_queue.append(self.root_sn)
+            second_pass_stack.append(self.root_sn)
 
         # First pass: find all directories in BFS order and append to second_pass_stack
         while len(dir_queue) > 0:
-            node: Node = dir_queue.popleft()
+            sn: SPIDNodePair = dir_queue.popleft()
 
-            children = parent_tree.get_child_list(node)
-            if children:
-                for child in children:
-                    if child.is_dir():
-                        dir_queue.append(child)
-                        second_pass_stack.append(child)
+            child_list: List[SPIDNodePair] = parent_tree.get_child_list(sn.spid)
+            if child_list:
+                for child_sn in child_list:
+                    if child_sn.node.is_dir():
+                        dir_queue.append(child_sn)
+                        second_pass_stack.append(child_sn)
 
         # Second pass: go back up the tree, and add entries for ancestors with matching descendants:
         while len(second_pass_stack) > 0:
-            parent_node = second_pass_stack.pop()
-            child_list = parent_tree.get_child_list(parent_node)
+            parent_sn = second_pass_stack.pop()
+            parent_guid = parent_sn.spid.guid
+            child_list = parent_tree.get_child_list(parent_sn.spid)
             filtered_child_list = []
 
             # Calculate stats also. Compare with BaseTree.generate_dir_stats()
-            dir_stats = dir_stats_dict.get(parent_node.uid, None)
+            dir_stats = dir_stats_dict.get(parent_guid, None)
             if not dir_stats:
                 dir_stats = DirectoryStats()
-                dir_stats_dict[parent_node.uid] = dir_stats
+                dir_stats_dict[parent_guid] = dir_stats
 
-            for child in child_list:
+            for child_sn in child_list:
+                child_guid = child_sn.spid.guid
                 # Include dirs if any of their children are included, or if they match. Include non-dirs only if they match:
-                if (child.is_dir() and child.uid in node_dict) or self.matches(child):
-                    filtered_child_list.append(child)
+                if (child_sn.node.is_dir() and child_guid in node_dict) or self.matches(child_sn):
+                    filtered_child_list.append(child_sn)
 
-                    if child.is_dir():
-                        child_stats = dir_stats_dict.get(child.uid, None)
+                    if child_sn.node.is_dir():
+                        child_stats = dir_stats_dict.get(child_guid, None)
                         if not child_stats:
                             # should never happen
-                            raise RuntimeError(f'Internal error: no child stats in dict for dir node: {child}')
-                        dir_stats.add_dir_stats(child_stats, child.get_trashed_status() == TrashStatus.NOT_TRASHED)
+                            raise RuntimeError(f'Internal error: no child stats in dict for dir node: {child_guid}')
+                        dir_stats.add_dir_stats(child_stats, child_sn.node.get_trashed_status() == TrashStatus.NOT_TRASHED)
                     else:
-                        dir_stats.add_file_node(child)
+                        dir_stats.add_file_node(child_sn.node)
             if filtered_child_list:
-                node_dict[parent_node.uid] = filtered_child_list
+                node_dict[parent_guid] = filtered_child_list
 
         logger.debug(f'Built filtered node dict with {len(node_dict)} entries')
         self.cached_node_dict = node_dict
         self.cached_dir_stats = dir_stats_dict
 
     # If not showing ancestors, then search results will be a big flat list:
-    def _build_cache_for_flat_list(self, parent_tree: HasGetChildren):
-        root_node = self.root_sn.node
-        assert root_node
-        filtered_list: List[Node] = []
+    def _build_cache_for_flat_list(self, parent_tree):
+        filtered_list: List[SPIDNodePair] = []
         dir_stats = DirectoryStats()  # Treat the whole list like one dir
-        queue: Deque[Node] = deque()
-        for node in parent_tree.get_child_list(root_node):
-            queue.append(node)
+        queue: Deque[SPIDNodePair] = deque()
+        for sn in parent_tree.get_child_list(self.root_sn.spid):
+            queue.append(sn)
 
         while len(queue) > 0:
-            node: Node = queue.popleft()
+            sn: SPIDNodePair = queue.popleft()
 
-            if self.matches(node):
+            if self.matches(sn):
                 # Add to node_dict:
-                filtered_list.append(node)
+                filtered_list.append(sn)
 
                 # Add to dir_stats (Compare with BaseTree.generate_dir_stats())
-                if node.is_dir():
-                    if node.get_trashed_status() == TrashStatus.NOT_TRASHED:
+                if sn.node.is_dir():
+                    if sn.node.get_trashed_status() == TrashStatus.NOT_TRASHED:
                         dir_stats.trashed_dir_count += 1
                     else:
                         dir_stats.dir_count += 1
                 else:
-                    dir_stats.add_file_node(node)
+                    dir_stats.add_file_node(sn.node)
 
             # Add next level to the queue:
-            if node.is_dir():
-                for child_node in parent_tree.get_child_list(node):
-                    queue.append(child_node)
+            if sn.node.is_dir():
+                for child_sn in parent_tree.get_child_list(sn.spid):
+                    queue.append(child_sn)
 
+        root_guid: GUID = self.root_sn.spid.guid
         # This will be the only entry in the dict:
-        self.cached_node_dict[root_node.uid] = filtered_list
-        self.cached_dir_stats[root_node.uid] = dir_stats
+        self.cached_node_dict[root_guid] = filtered_list
+        self.cached_dir_stats[root_guid] = dir_stats
 
-    def ensure_cache_populated(self, parent_tree: HasGetChildren):
+    def ensure_cache_populated(self, parent_tree):
         if self.cached_node_dict or not self.root_sn.node:
             return
 
         self.rebuild_cache(parent_tree)
 
-    def rebuild_cache(self, parent_tree: HasGetChildren):
+    def rebuild_cache(self, parent_tree):
         logger.debug(f'Rebuilding cache for root: {self.root_sn.spid}')
         self.cached_node_dict.clear()
         self.cached_dir_stats.clear()
@@ -181,41 +181,41 @@ class FilterState:
         return f'{int(self.filter.show_ancestors_of_matches)}:{int(self.filter.ignore_case)}:{int(self.filter.is_trashed)}:' \
                f'{int(self.filter.is_shared)}:{self.filter.search_query}'
 
-    def get_filtered_child_list(self, parent_node: Node, parent_tree: HasGetChildren) -> List[Node]:
+    def get_filtered_child_list(self, parent_spid: SinglePathNodeIdentifier, parent_tree) -> List[SPIDNodePair]:
         assert parent_tree, 'parent_tree cannot be None!'
         if not self.filter.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
-            return parent_tree.get_child_list(parent_node)
+            return parent_tree.get_child_list(parent_spid)
 
         self.ensure_cache_populated(parent_tree)
 
-        return self.cached_node_dict.get(parent_node.uid, [])
+        return self.cached_node_dict.get(parent_spid.guid, [])
 
-    def get_dir_stats(self) -> Dict[UID, DirectoryStats]:
+    def get_dir_stats(self) -> Dict[GUID, DirectoryStats]:
         assert self.cached_dir_stats is not None
         return self.cached_dir_stats
 
     @staticmethod
-    def _make_search_query_config_key(tree_id: str) -> str:
+    def _make_search_query_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.filter.search_query'
 
     @staticmethod
-    def _make_ignore_case_config_key(tree_id: str) -> str:
+    def _make_ignore_case_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.filter.ignore_case'
 
     @staticmethod
-    def _make_is_trashed_config_key(tree_id: str) -> str:
+    def _make_is_trashed_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.filter.is_trashed'
 
     @staticmethod
-    def _make_is_shared_config_key(tree_id: str) -> str:
+    def _make_is_shared_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.filter.is_shared'
 
     @staticmethod
-    def _make_show_subtree_config_key(tree_id: str) -> str:
+    def _make_show_subtree_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.filter.show_subtrees'
 
-    def write_to_config(self, backend, tree_id: str):
+    def write_to_config(self, backend, tree_id: TreeID):
         search_query = self.filter.search_query
         if not search_query:
             search_query = ''
@@ -231,7 +231,7 @@ class FilterState:
         backend.put_config(FilterState._make_show_subtree_config_key(tree_id), self.filter.show_ancestors_of_matches)
 
     @staticmethod
-    def from_config(backend, tree_id: str, root_sn: SPIDNodePair):
+    def from_config(backend, tree_id: TreeID, root_sn: SPIDNodePair):
         assert tree_id, 'No tree_id specified!'
         logger.debug(f'[{tree_id}] Reading FilterCriteria from app_config')
         filter_criteria = FilterCriteria()

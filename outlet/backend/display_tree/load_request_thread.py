@@ -1,5 +1,6 @@
 import logging
 
+from constants import TreeID
 from util.qthread import QThread
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ class LoadRequest:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, tree_id: str, send_signals: bool):
+    def __init__(self, tree_id: TreeID, send_signals: bool):
         self.tree_id = tree_id
         self.send_signals = send_signals
 

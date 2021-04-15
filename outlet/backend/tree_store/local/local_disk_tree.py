@@ -1,18 +1,19 @@
 import logging
 import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from constants import TrashStatus
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
+from model.uid import UID
 from util import file_util
 from util.simple_tree import SimpleTree
 
 logger = logging.getLogger(__name__)
 
 
-class LocalDiskTree(SimpleTree):
+class LocalDiskTree(SimpleTree[UID, LocalNode]):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDiskTree
@@ -24,10 +25,13 @@ class LocalDiskTree(SimpleTree):
         super().__init__()
         self.backend = backend
 
+    def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
+        return self.get_node_for_identifier(uid)
+
     def can_add_without_mkdir(self, node: LocalNode) -> bool:
         parent_path: str = node.derive_parent_path()
         uid = self.backend.cacheman.get_uid_for_local_path(parent_path)
-        return self.get_node_for_uid(uid) is not None
+        return self.get_node_for_identifier(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
         root_node: LocalNode = self.get_root_node()
@@ -90,7 +94,7 @@ class LocalDiskTree(SimpleTree):
             # TODO: submit to adjudicator (eventually)
             logger.warning(f'Parent referenced by node "{sub_tree_root_node.uid}" ({sub_tree_root_node.get_single_parent()}) '
                            f'does not match actual parent ({self.get_parent(sub_tree_root_node.uid).uid})!')
-        sub_tree_root_node_identifier = self.extract_identifier(sub_tree_root_node)
+        sub_tree_root_node_identifier = self.extract_id(sub_tree_root_node)
         parent_of_subtree: LocalNode = self.get_parent(sub_tree_root_node_identifier)
         # assert parent_of_subtree, f'Could not find node in tree with parent: {sub_tree_root_node.get_single_parent()}'
         count_removed = self.remove_node(sub_tree_root_node_identifier)
@@ -113,7 +117,7 @@ class LocalDiskTree(SimpleTree):
             subtree_root_uid = subtree_root.node_uid
         else:
             subtree_root_uid = None
-        self.for_each_node_breadth_first(action_func=add_to_lists, subtree_root_uid=subtree_root_uid)
+        self.for_each_node_breadth_first(action_func=add_to_lists, subtree_root_identifier=subtree_root_uid)
 
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list

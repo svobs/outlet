@@ -142,7 +142,7 @@ class GDriveWholeTree(BaseTree):
         def action_func(visited_node):
             self.recompute_path_list_for_uid(visited_node.uid)
 
-        self.for_each_node_breadth_first(action_func=action_func, subtree_root_uid=subtree_root_uid)
+        self.for_each_node_breadth_first(action_func=action_func, subtree_root_identifier=subtree_root_uid)
 
     def remove_node(self, node: GDriveNode, fail_if_children_present: bool = True) -> Optional[GDriveNode]:
         """Remove given node from all data structures in this tree. Returns the node which was removed (which may be a different object
@@ -159,7 +159,7 @@ class GDriveWholeTree(BaseTree):
             self.recompute_path_list_for_uid(node.uid)
 
         if node.is_dir():
-            child_list = self.get_child_list(node)
+            child_list = self.get_child_list_for_node(node)
             if child_list:
                 if fail_if_children_present:
                     raise RuntimeError(f'Cannot remove non-empty folder: {node}')
@@ -259,7 +259,7 @@ class GDriveWholeTree(BaseTree):
             if node.is_dir():
                 assert isinstance(node, GDriveFolder)
                 folder_list.append(node)
-                for child in self.get_child_list(node):
+                for child in self.get_child_list_for_node(node):
                     assert isinstance(child, GDriveNode)
                     queue.append(child)
             else:
@@ -323,7 +323,7 @@ class GDriveWholeTree(BaseTree):
             path_so_far = path_so_far + '/' + name_seg
             for current in current_seg_nodes:
                 current_id: UID = current.uid
-                children: List[Node] = self.get_child_list(current)
+                children: List[Node] = self.get_child_list_for_node(current)
                 if not children:
                     if SUPER_DEBUG:
                         logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
@@ -425,13 +425,16 @@ class GDriveWholeTree(BaseTree):
         return TreeType.GDRIVE
 
     def get_child_list(self, node: GDriveNode) -> List[Node]:
+        return self.get_child_list_for_node(node)
+
+    def get_child_list_for_node(self, node: GDriveNode) -> List[Node]:
         return self.parent_child_dict.get(node.uid, [])
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
         parent = self.get_node_for_uid(parent_uid)
         if parent:
-            children = self.get_child_list(parent)
+            children = self.get_child_list_for_node(parent)
             if children:
                 for child in children:
                     assert isinstance(child, GDriveNode)
@@ -444,13 +447,16 @@ class GDriveWholeTree(BaseTree):
         This roughly matches the logic used to search for an node in Google Drive when we are unsure about its goog_id."""
         parent = self.get_node_for_uid(parent_uid)
         if parent:
-            children = self.get_child_list(parent)
+            children = self.get_child_list_for_node(parent)
             if children:
                 for child in children:
                     assert isinstance(child, GDriveNode)
                     if child.name == name:
                         return child
         return None
+
+    def get_node_for_identifier(self, identifier: UID) -> Optional[GDriveNode]:
+        return self.get_node_for_uid(identifier)
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         assert uid
@@ -549,7 +555,7 @@ class GDriveWholeTree(BaseTree):
             node: GDriveNode = queue.popleft()
             child_dict: DefaultDict[str, List[GDriveNode]] = defaultdict(list)
 
-            children = self.get_child_list(node)
+            children = self.get_child_list_for_node(node)
             if children:
                 for child in children:
                     if child.is_dir():

@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 from backend.tree_store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG, TreeID
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -30,12 +30,12 @@ class GDriveTreeLoader:
     CLASS GDriveTreeLoader
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, diskstore: GDriveDiskStore, gdrive_client: GDriveClient, device_uid: UID, tree_id: str = None):
+    def __init__(self, backend, diskstore: GDriveDiskStore, gdrive_client: GDriveClient, device_uid: UID, tree_id: TreeID = None):
         self.backend = backend
         self._diskstore: GDriveDiskStore = diskstore
         self.gdrive_client: GDriveClient = gdrive_client
         self.device_uid: UID = device_uid
-        self.tree_id: str = tree_id
+        self.tree_id: TreeID = tree_id
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         logger.debug(f'GDriveTreeLoader.load_all() called with invalidate_cache={invalidate_cache}')

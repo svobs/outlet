@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import GDRIVE_ROOT_UID
+from constants import GDRIVE_ROOT_UID, TreeID
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -49,7 +49,7 @@ class GDriveDiskStore(HasLifecycle):
         cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root)
         return cache_info.cache_location
 
-    def load_tree_from_cache(self, is_complete: bool, tree_id: str) -> GDriveWholeTree:
+    def load_tree_from_cache(self, is_complete: bool, tree_id: TreeID) -> GDriveWholeTree:
         """
         Retrieves and reassembles (to the extent it was during the download) a partially or completely downloaded
         GDrive tree.

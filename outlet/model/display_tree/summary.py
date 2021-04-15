@@ -5,11 +5,11 @@ import util.format
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
-from constants import TreeType
+from constants import TreeID, TreeType
 from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
-from model.node.node import Node
-from model.uid import UID
+from model.node.node import SPIDNodePair
+from model.node_identifier import GUID
 from model.user_op import DISPLAYED_USER_OP_TYPES
 
 logger = logging.getLogger(__name__)
@@ -18,32 +18,32 @@ logger = logging.getLogger(__name__)
 class TreeSummarizer:
 
     @staticmethod
-    def build_tree_summary(tree_id: str, root_node: Node, tree_meta: ActiveDisplayTreeMeta):
+    def build_tree_summary(tree_id: TreeID, root_sn: SPIDNodePair, tree_meta: ActiveDisplayTreeMeta):
         if tree_meta.filter_state.has_criteria():
             is_filtered = True
-            dir_stats = tree_meta.filter_state.get_dir_stats()
+            dir_stats_dict = tree_meta.filter_state.get_dir_stats()
         else:
             is_filtered = False
-            dir_stats = tree_meta.dir_stats_unfiltered
+            dir_stats_dict = tree_meta.dir_stats_unfiltered
 
         if tree_meta.change_tree:
             logger.debug(f'[{tree_id}] This is a ChangeTree: it will provide the summary')
-            return TreeSummarizer._build_change_tree_summary(tree_meta.change_tree, tree_meta.filter_state, dir_stats)
+            return TreeSummarizer._build_change_tree_summary(tree_meta.change_tree, tree_meta.filter_state, dir_stats_dict)
 
-        if not root_node:
+        if not root_sn or not root_sn.node:
             logger.debug(f'[{tree_id}] No summary (tree does not exist)')
             return 'Tree does not exist'
 
-        root_stats = dir_stats.get(root_node.uid, None)
+        root_stats = dir_stats_dict.get(root_sn.spid.guid, None)
         if not root_stats:
-            raise RuntimeError(f'[{tree_id}] (is_filtered={is_filtered}) No stats found for root node {root_node}')
+            raise RuntimeError(f'[{tree_id}] (is_filtered={is_filtered}) No stats found for root node with GUID: {root_sn.spid.guid}')
 
-        if root_node.tree_type == TreeType.GDRIVE:
-            logger.debug(f'[{tree_id}] Generating summary for GDrive tree: {root_node.node_identifier}')
+        if root_sn.spid.tree_type == TreeType.GDRIVE:
+            logger.debug(f'[{tree_id}] Generating summary for GDrive tree: {root_sn.spid}')
             return TreeSummarizer._build_summary(root_stats, is_filtered, 'folder')
         else:
-            assert root_node.tree_type == TreeType.LOCAL_DISK
-            logger.debug(f'[{tree_id}] Generating summary for LocalDisk tree: {root_node.node_identifier}')
+            assert root_sn.spid.tree_type == TreeType.LOCAL_DISK
+            logger.debug(f'[{tree_id}] Generating summary for LocalDisk tree: {root_sn.spid.node_identifier}')
             return TreeSummarizer._build_summary(root_stats, is_filtered, 'dir')
 
     @staticmethod
@@ -96,40 +96,40 @@ class TreeSummarizer:
         return ', '.join(cat_summaries)
 
     @staticmethod
-    def _build_summary_cat_map(tree: ChangeTree, uid, filter_state: FilterState, dir_stats_map: Dict[UID, DirectoryStats]):
+    def _build_summary_cat_map(tree: ChangeTree, spid, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats]):
         include_empty_op_types = False
         cat_count = 0
         if include_empty_op_types:
             cat_map = TreeSummarizer._make_cat_map()
         else:
             cat_map = {}
-        for cat_node in tree.get_child_list_for_uid(uid):
+        for cat_sn in tree.get_child_list(spid):
             cat_count += 1
-            assert isinstance(cat_node, CategoryNode), f'Not a CategoryNode: {cat_node}'
-            cat_stats = dir_stats_map.get(cat_node.uid, None)
+            assert isinstance(cat_sn.node, CategoryNode), f'Not a CategoryNode: {cat_sn.node}'
+            cat_stats = dir_stats_dict.get(cat_sn.spid.guid, None)
             if not cat_stats:
-                raise RuntimeError(f'[{tree.tree_id}] (is_filtered={filter_state.has_criteria()}) No stats found for cat node {cat_node}')
+                raise RuntimeError(f'[{tree.tree_id}] (is_filtered={filter_state.has_criteria()}) No stats found for cat node {cat_sn.spid}')
             summary = TreeSummarizer._build_simple_summary(cat_stats, 'dir')
-            cat_map[cat_node.op_type] = f'{cat_node.name}: {summary}'
+            cat_map[cat_sn.spid.op_type] = f'{cat_sn.node.name}: {summary}'
         if cat_count:
             return cat_map
         else:
             return None
 
     @staticmethod
-    def _build_change_tree_summary(tree: ChangeTree, filter_state: FilterState, dir_stats_map: Dict[UID, DirectoryStats]) -> str:
-        # FIXME: add support for filters
+    def _build_change_tree_summary(tree: ChangeTree, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats]) -> str:
+        # TODO: do we want to create a different summary for filtered views?
         if tree.show_whole_forest:
             # need to preserve ordering...
             type_summaries = []
             type_map = {}
             cat_count = 0
-            for child in tree.get_child_list(tree.get_root_node()):
-                assert isinstance(child, RootTypeNode), f'For {child}'
-                cat_map = TreeSummarizer._build_summary_cat_map(tree, child.uid, filter_state, dir_stats_map)
+            for child_sn in tree.get_child_list(tree.get_root_spid()):
+                assert isinstance(child_sn.node, RootTypeNode), f'For {child_sn}'
+                cat_map = TreeSummarizer._build_summary_cat_map(tree, child_sn.spid, filter_state, dir_stats_dict)
                 if cat_map:
                     cat_count += 1
-                    type_map[child.node_identifier.tree_type] = cat_map
+                    type_map[child_sn.spid.tree_type] = cat_map
             if cat_count == 0:
                 return 'Contents are identical'
             for tree_type, tree_type_name in (TreeType.LOCAL_DISK, 'Local Disk'), (TreeType.GDRIVE, 'Google Drive'):
@@ -138,7 +138,7 @@ class TreeSummarizer:
                     type_summaries.append(f'{tree_type_name}: {TreeSummarizer._build_cat_summaries_str(cat_map)}')
             return '; '.join(type_summaries)
         else:
-            cat_map = TreeSummarizer._build_summary_cat_map(tree.get_root_node().uid)
+            cat_map = TreeSummarizer._build_summary_cat_map(tree, tree.get_root_spid(), filter_state, dir_stats_dict)
             if not cat_map:
                 return 'Contents are identical'
             return TreeSummarizer._build_cat_summaries_str(cat_map)

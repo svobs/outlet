@@ -120,5 +120,5 @@ class OutletApplication(Gtk.Application):
         if not popped_con:
             logger.debug(f'Could not deregister controller; it was not found: {sender}')
 
-    def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
+    def get_tree_controller(self, tree_id: TreeID) -> Optional[TreePanelController]:
         return self._tree_controllers.get(tree_id, None)

@@ -2,11 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 
 from backend.display_tree.filter_state import FilterState
+from constants import TreeID
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
 from model.uid import UID
-from model.node.node import Node
-from model.node_identifier import NodeIdentifier
+from model.node.node import Node, SPIDNodePair
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from util.has_lifecycle import HasLifecycle
 
 
@@ -24,7 +25,7 @@ class TreeStore(HasLifecycle, ABC):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def load_subtree(self, subtree_root: NodeIdentifier, tree_id: str):
+    def load_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
         pass
 
     @abstractmethod
@@ -32,7 +33,7 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_child_list(self, node: Node, filter_state: FilterState) -> List[Node]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
         pass
 
     @abstractmethod
@@ -40,7 +41,7 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def refresh_subtree(self, subtree_root: NodeIdentifier, tree_id: str):
+    def refresh_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
         pass
 
     # Mutators
@@ -63,7 +64,7 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def generate_dir_stats(self, subtree_root_node: Node, tree_id: str) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self, subtree_root_node: Node, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         pass
 
     # UID <-> DomainID mapping

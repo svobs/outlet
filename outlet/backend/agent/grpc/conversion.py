@@ -249,7 +249,7 @@ class GRPCConverter:
 
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         return self.backend.node_identifier_factory.for_values(uid=grpc_node_identifier.uid, device_uid=grpc_node_identifier.device_uid,
-                                                               path_list=list(grpc_node_identifier.path_list),
+                                                               path_list=list(grpc_node_identifier.path_list), path_uid=grpc_node_identifier.path_uid,
                                                                must_be_single_path=grpc_node_identifier.path_uid > 0)
 
     # SPIDNodePair

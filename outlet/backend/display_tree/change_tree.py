@@ -1,18 +1,19 @@
+import copy
 import logging
 import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import ROOT_PATH, SUPER_DEBUG, TreeType
+from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, TreeType
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.decorator_node import DecoNode
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import get_uid_for_op_and_tree_type, UserOp, UserOpType
+from model.user_op import UserOp, UserOpType
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class ChangeTree(DisplayTree):
         # Root node will never be displayed in the UI, but tree requires a root node, as does parent class
         super().__init__(backend, state)
 
-        self._category_tree: SimpleTree = SimpleTree()
+        self._category_tree: SimpleTree = SimpleTree[GUID, SPIDNodePair](self._extract_identifier_func)
 
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
@@ -52,19 +53,24 @@ class ChangeTree(DisplayTree):
         self.count_conflict_errors = 0
         """For debugging only"""
 
-    def get_root_node(self) -> Node:
+    @staticmethod
+    def _extract_identifier_func(self, sn: SPIDNodePair) -> GUID:
+        assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
+        return sn.spid.guid
+
+    def get_root_node(self) -> SPIDNodePair:
         return self._category_tree.get_root_node()
 
-    def get_child_list_for_root(self) -> Iterable[Node]:
-        return self.get_child_list(self.get_root_node())
+    def get_child_list_for_root(self) -> Iterable[SPIDNodePair]:
+        return self.get_child_list(self.get_root_node().spid)
 
-    def get_child_list(self, parent: Node) -> Iterable[Node]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
         try:
-            return self._category_tree.get_child_list(parent)
+            return self._category_tree.get_child_list_for_identifier(parent_spid.guid)
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
                 self.print_tree_contents_debug()
-            logger.error(f'[{self.tree_id}] While retrieving children for: {parent.uid}')
+            logger.error(f'[{self.tree_id}] While retrieving children for: {parent_spid}')
             raise
 
     def print_tree_contents_debug(self):
@@ -99,71 +105,68 @@ class ChangeTree(DisplayTree):
             self._op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
-    # TODO: consider replacing this with a simple string GUID and using tree's custom identifier func
-    def _build_tree_nid(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
-        return self.backend.cacheman.get_uid_for_change_tree_node(device_uid, single_path, op)
-
-    def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: UserOpType) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, sn: SPIDNodePair) -> SPIDNodePair:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
-        tree_type: int = sn.spid.tree_type
+        tree_type: TreeType = sn.spid.tree_type
+        assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
+        op_type: UserOpType = sn.spid.op_type
         assert tree_type != TreeType.MIXED, f'For {sn.spid}'
 
-        cat_node_nid: UID = get_uid_for_op_and_tree_type(op_type, tree_type)
-        cat_node = self._category_tree.get_node_for_uid(cat_node_nid)
-        if cat_node:
-            logger.debug(f'[{self.tree_id}] Found existing CategoryNode with OpType={op_type.name} nid="{cat_node_nid}"')
-            assert isinstance(cat_node, ContainerNode)
-            return cat_node
+        cat_spid = ChangeTreeSPID(NULL_UID, sn.spid.device_uid, self.root_path, tree_type, op_type)
+        cat_sn = self._category_tree.get_node_for_uid(cat_spid.guid)
+        if cat_sn:
+            logger.debug(f'[{self.tree_id}] Found existing CategoryNode with OpType={op_type.name} guid="{cat_spid.guid}"')
+            assert isinstance(cat_sn.node, ContainerNode)
+            return cat_sn
 
         # else we need to create pre-ancestors...
 
-        parent_node = self.get_root_node()
+        parent_sn: SPIDNodePair = self.get_root_node()
 
         if self.show_whole_forest:
-            # Create tree type root (e.g. 'GDrive' or 'Local Disk')
-            nid = self._build_tree_nid(device_uid, None, None)
-            treetype_node = self._category_tree.get_node_for_uid(nid)
-            if not treetype_node:
-                # see UID to root_UID of relevant tree
-                treetype_node = RootTypeNode(node_identifier=SinglePathNodeIdentifier(UID(tree_type), ROOT_PATH, tree_type))
-                logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {treetype_node.node_identifier}')
-                self._category_tree.add_node(node=treetype_node, parent=parent_node)
-            parent_node = treetype_node
+            # Create device node (e.g. 'GDrive' or 'Local Disk')
+            device_sn = self._category_tree.get_node_for_uid(parent_sn.spid.guid)
+            if not device_sn:
+                # set UID to root_UID of relevant tree
+                node_uid = UID(tree_type)
+                device_node = RootTypeNode(node_identifier=ChangeTreeSPID(node_uid, parent_sn.spid.device_uid, ROOT_PATH, tree_type, op_type))
+                device_sn: SPIDNodePair = (device_node.node_identifier, device_node)
+                logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {device_sn.spid}')
+                self._category_tree.add_node(node=device_sn, parent=parent_sn)
+            parent_sn = device_sn
 
-        assert not cat_node
+        assert not cat_sn
+        cat_node = CategoryNode(node_identifier=cat_spid, op_type=op_type)
         # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
-        cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(cat_node_nid, self.root_path, tree_type),
-                                op_type=op_type)
+        cat_sn: SPIDNodePair = (cat_node.node_identifier, cat_node)
         logger.debug(f'[{self.tree_id}] Inserting new CategoryNode with OpType={op_type.name}: {cat_node.node_identifier}')
-        cat_node.set_parent_uids(parent_node.uid)
-        self._category_tree.add_node(node=cat_node, parent=parent_node)
-        parent_node = cat_node
+        self._category_tree.add_node(node=cat_sn, parent=parent_sn)
+        parent_sn = cat_sn
 
         # this is the last pre-ancestor.
-        return parent_node
+        return parent_sn
 
-    def _get_or_create_ancestors(self, sn: SPIDNodePair, op_type: UserOpType, parent: Node):
+    def _get_or_create_ancestors(self, sn: SPIDNodePair, parent_sn: SPIDNodePair):
         stack: Deque = deque()
         full_path = sn.spid.get_single_path()
-        tree_type = sn.spid.tree_type
         assert full_path, f'SPID does not have a path: {sn.spid}'
         assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
 
         # Walk up the source tree and compose a list of ancestors:
         logger.debug(f'[{self.tree_id}] Looking for ancestors for path "{full_path}"')
+        ancestor_spid: ChangeTreeSPID = copy.deepcopy(sn.spid)
         while True:
             # Go up one dir:
-            full_path: str = str(pathlib.Path(full_path).parent)
+            full_path: str = str(pathlib.Path(ancestor_spid.get_single_path()).parent)
             if full_path == self.root_path:
                 break
-            nid = self._build_tree_nid(device_uid, full_path, op_type)
-            ancestor = self._category_tree.get_node_for_uid(uid=nid)
+            ancestor_spid.set_path_list(full_path)
+            ancestor = self._category_tree.get_node_for_uid(ancestor_spid.guid)
             if ancestor:
                 break
             else:
-                ancestor_spid = SinglePathNodeIdentifier(nid, full_path, tree_type)
                 ancestor = ContainerNode(ancestor_spid)
                 stack.append(ancestor)
 
@@ -171,11 +174,11 @@ class ChangeTree(DisplayTree):
         while len(stack) > 0:
             child = stack.pop()
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child} under parent: {parent}')
-            self._category_tree.add_node(node=child, parent=parent)
-            parent = child
+                logger.info(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child} under parent: {parent_sn}')
+            self._category_tree.add_node(node=child, parent=parent_sn)
+            parent_sn = child
 
-        return parent
+        return parent_sn
 
     def add_node(self, sn: SPIDNodePair, op: UserOp):
         """When we add the node, we add any necessary ancestors for it as well.
@@ -188,29 +191,31 @@ class ChangeTree(DisplayTree):
         3. Add a node for the node itself.
         """
         assert isinstance(sn, SPIDNodePair), f'Wrong type: {type(sn)}'
-        assert op is not None, f'For node: {sn}'
+        assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
+        assert sn.spid.op_type == op.op_type, f'OpType in SPID ({sn.spid}) does not match op ({op})'
         self._append_op(op)
 
+        # FIXME: op_type_for_display
         op_type_for_display = op.op_type
         if op_type_for_display == UserOpType.MKDIR:
             # Group "mkdir" with "copy" for display purposes:
             op_type_for_display = UserOpType.CP
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
-        parent_nid: UID = self._build_tree_nid(sn.spid.device_uid, sn.spid.get_single_parent_path(), op_type_for_display)
-        parent: Node = self._category_tree.get_node_for_uid(uid=parent_nid)
-        if parent:
-            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}')
+        parent_sn: SPIDNodePair = self._category_tree.get_node_for_uid(uid=sn.spid.guid)
+        if parent_sn:
+            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent_sn.spid}')
         else:
-            parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
+            parent_sn = self._get_or_create_pre_ancestors(sn, op_type_for_display)
 
-            parent: Node = self._get_or_create_ancestors(sn, op_type_for_display, parent)
+            parent_sn = self._get_or_create_ancestors(sn, op_type_for_display, parent_sn)
 
         try:
             # Finally add the node itself.
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} to parent {parent.node_identifier}')
+                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} to parent {parent_sn.spid}')
 
+            # FIXME
             nid = self._build_tree_nid(sn.spid.device_uid, sn.spid.get_single_path(), op_type_for_display)
             deco_node = DecoNode(nid, parent_uid=parent.uid, delegate_node=sn.node)
 

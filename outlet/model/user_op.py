@@ -2,11 +2,9 @@ from enum import IntEnum
 import logging
 from typing import Dict, List, Optional
 
-from constants import IconId
 from model.uid import UID
-from model.node.node import Node
+from model.node.node import BaseNode, Node
 from util import time_util
-from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +38,6 @@ DISPLAYED_USER_OP_TYPES: Dict[UserOpType, str] = {
     UserOpType.UP: 'To Update',
     UserOpType.MV: 'To Move'
 }
-
-
-def get_uid_for_op_and_tree_type(op_type: UserOpType, tree_type: int):
-    return UID(tree_type*10 + op_type)
 
 
 # ENUM UserOpStatus
@@ -83,7 +77,7 @@ class UserOp(BaseNode):
     def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node,
                  dst_node: Node = None, create_ts: int = None):
         assert src_node, 'No src node!'
-        BaseNode.__init__(self, identifier=op_uid)
+        BaseNode.__init__(self)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: UserOpType = op_type
@@ -98,6 +92,10 @@ class UserOp(BaseNode):
         self.result: Optional[UserOpResult] = None
 
         self.tag = repr(self)
+
+    @property
+    def identifier(self):
+        return self.op_uid
 
     def is_completed(self) -> bool:
         return self.result and self.result.is_completed()

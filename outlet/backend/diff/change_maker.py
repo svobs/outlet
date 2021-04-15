@@ -6,7 +6,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
 from backend.display_tree.change_tree import ChangeTree
-from constants import TrashStatus, TreeType
+from constants import TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
@@ -34,18 +34,18 @@ class OneSide:
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
-        self.tree_id_src: Optional[str] = tree_id_src
+        self.tree_id_src: Optional[TreeID] = tree_id_src
         self._added_folders: Dict[str, SPIDNodePair] = {}
 
     @property
-    def tree_id(self):
+    def tree_id(self) -> TreeID:
         return self.change_tree.tree_id
 
     @property
-    def root_sn(self):
+    def root_sn(self) -> SPIDNodePair:
         return self.change_tree.get_root_sn()
 
-    def get_root_sn(self):
+    def get_root_sn(self) -> SPIDNodePair:
         return self.change_tree.get_root_sn()
 
     def add_op(self, op_type: UserOpType, src_sn: SPIDNodePair, dst_sn: SPIDNodePair = None):
@@ -208,8 +208,8 @@ class ChangeMaker:
     """
 
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
-                 tree_id_left: str = None, tree_id_right: str = None,
-                 tree_id_left_src: str = None, tree_id_right_src: str = None):
+                 tree_id_left: Optional[TreeID] = None, tree_id_right: Optional[TreeID] = None,
+                 tree_id_left_src: Optional[TreeID] = None, tree_id_right_src: Optional[TreeID] = None):
         self.backend = backend
         batch_uid: UID = self.backend.uid_generator.next_uid()
 
@@ -259,7 +259,7 @@ class ChangeMaker:
                                                                tree_type=child_node.tree_type,
                                                                path_list=os.path.join(parent_path, child_node.name), must_be_single_path=True)
 
-    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id: Optional[str]):
+    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id: Optional[TreeID]):
         """Note: here, param "tree_id" indicates which tree_id from which to request nodes from CacheManager (or None to indicate master cache)"""
         assert isinstance(subtree_root, SPIDNodePair), f'Expected SPIDNodePair but got {type(subtree_root)}: {subtree_root}'
         queue: Deque[SPIDNodePair] = collections.deque()
@@ -269,16 +269,12 @@ class ChangeMaker:
             sn: SPIDNodePair = queue.popleft()
             if sn.node.is_live():  # avoid pending op nodes
                 if sn.node.is_dir():
-                    child_list = self.backend.cacheman.get_child_list(sn.node.uid, tree_id=tree_id)
-                    if child_list:
-                        for child in child_list:
-                            if child.node_identifier.is_spid():
-                                child_spid = child.node_identifier
-                            else:
-                                child_spid = self._build_child_spid(child, sn.spid.get_single_path())
-                            assert child_spid.get_single_path() in child.get_path_list(), \
-                                f'Child path "{child_spid.get_single_path()}" does not correspond to actual node: {child}'
-                            queue.append(SPIDNodePair(child_spid, child))
+                    child_sn_list = self.backend.cacheman.get_child_list(sn.spid, tree_id=tree_id)
+                    if child_sn_list:
+                        for child_sn in child_sn_list:
+                            assert child_sn.spid.get_single_path() in child_sn.node.get_path_list(), \
+                                f'Child path "{child_sn.spid.get_single_path()}" does not correspond to actual node: {child_sn.node}'
+                            queue.append(child_sn)
                 else:
                     on_file_found(sn)
 

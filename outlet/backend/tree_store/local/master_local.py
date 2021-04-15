@@ -16,13 +16,13 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import SUPER_DEBUG, TrashStatus, TreeType
+from constants import SUPER_DEBUG, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE
@@ -111,13 +111,13 @@ class LocalDiskMasterStore(TreeStore):
 
         self._diskstore.save_subtree(cache_info, file_list, dir_list, tree_id)
 
-    def _scan_file_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str) -> LocalDiskTree:
+    def _scan_file_tree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID) -> LocalDiskTree:
         """If subtree_root is a file, then a tree is returned with only 1 node"""
         logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
         scanner = LocalDiskScanner(backend=self.backend, root_node_identifer=subtree_root, tree_id=tree_id)
         return scanner.scan()
 
-    def _resync_with_file_system(self, subtree_root: LocalNodeIdentifier, tree_id: str):
+    def _resync_with_file_system(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
         fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
 
@@ -169,11 +169,11 @@ class LocalDiskMasterStore(TreeStore):
         # logger.warning('LOCK off')
         return result
 
-    def load_subtree(self, subtree_root: LocalNodeIdentifier, tree_id: str):
+    def load_subtree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
         self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 
-    def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> None:
+    def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID, is_live_refresh: bool = False) -> None:
         """
         Performs a read-through retrieval of all the LocalFileNodes in the given subtree
         on the local filesystem.
@@ -191,7 +191,7 @@ class LocalDiskMasterStore(TreeStore):
         assert cache_info
         self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
 
-    def _create_display_tree(self, cache_info: PersistedCacheInfo, tree_id: str, requested_subtree_root: LocalNodeIdentifier = None,
+    def _create_display_tree(self, cache_info: PersistedCacheInfo, tree_id: TreeID, requested_subtree_root: LocalNodeIdentifier = None,
                              is_live_refresh: bool = False) -> None:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
@@ -314,11 +314,11 @@ class LocalDiskMasterStore(TreeStore):
         registry_needs_update = len(supertree_sets) > 0
         return registry_needs_update
 
-    def refresh_subtree(self, node_identifier: LocalNodeIdentifier, tree_id: str):
+    def refresh_subtree(self, node_identifier: LocalNodeIdentifier, tree_id: TreeID):
         assert isinstance(node_identifier, LocalNodeIdentifier)
         self._get_display_tree(node_identifier, tree_id, is_live_refresh=True)
 
-    def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: str) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         # logger.warning('LOCK ON!')
         with self._struct_lock:
             result = self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
@@ -518,7 +518,7 @@ class LocalDiskMasterStore(TreeStore):
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
-    def get_child_list(self, node: Node, filter_state: FilterState = None) -> List[Node]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_child_list(): node={node.node_identifier} filter_state={filter_state} locked={self._struct_lock.locked()}')
         if filter_state and filter_state.has_criteria():

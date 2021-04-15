@@ -23,7 +23,7 @@ from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidChangeTreeMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
-    SUPER_DEBUG, TreeDisplayMode, TreeType, UID_PATH_FILE_NAME
+    SUPER_DEBUG, TreeDisplayMode, TreeID, TreeType, UID_PATH_FILE_NAME
 from error import CacheNotLoadedError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
@@ -145,6 +145,12 @@ class CacheManager(HasLifecycle):
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
         HasLifecycle.shutdown(self)
+
+        try:
+            if self._uid_path_mapper:
+                self._uid_path_mapper.shutdown()
+        except (AttributeError, NameError):
+            pass
 
         try:
             if self._op_ledger:
@@ -490,7 +496,7 @@ class CacheManager(HasLifecycle):
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def enqueue_load_tree_task(self, tree_id: str, send_signals: bool):
+    def enqueue_load_tree_task(self, tree_id: TreeID, send_signals: bool):
         """Called from backend.start_subtree_load(). See load_data_for_display_tree() below."""
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
         self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
@@ -504,7 +510,7 @@ class CacheManager(HasLifecycle):
             4. Ensure dir stats & summary msg are up-to-date
             5. We send LOAD_SUBTREE_DONE when done
         """
-        tree_id: str = load_request.tree_id
+        tree_id: TreeID = load_request.tree_id
         logger.debug(f'Loading data for display tree: {tree_id} (send_signals={load_request.send_signals})')
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
@@ -515,7 +521,7 @@ class CacheManager(HasLifecycle):
             # This will be carried across gRPC if needed
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
-        subtree_root_node: Optional[Node] = None
+        subtree_root_sn: Optional[SPIDNodePair] = None
 
         if tree_meta.is_first_order():
             # Load meta for all nodes:
@@ -530,10 +536,13 @@ class CacheManager(HasLifecycle):
 
             if tree_meta.state.root_exists:
                 # get up-to-date root node:
-                subtree_root_node: Node = self.get_node_for_uid(spid.node_uid)
+                subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
+                if not subtree_root_node:
+                    raise RuntimeError(f'Could not find node in cache with identifier: {spid}')
+                subtree_root_sn = (spid, subtree_root_node)
 
                 # Calculate stats for all dir nodes:
-                logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
+                logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_sn.spid}')
 
                 tree_meta.dir_stats_unfiltered = store.generate_dir_stats(subtree_root_node, tree_id)
                 store.populate_filter(tree_meta.filter_state)
@@ -544,10 +553,10 @@ class CacheManager(HasLifecycle):
             logger.debug(f'Tree "{tree_id}" is a ChangeTree; loading its dir stats')
             tree_meta.dir_stats_unfiltered = tree_meta.change_tree.generate_dir_stats()
             tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
-            subtree_root_node: Node = tree_meta.change_tree.get_root_node()
+            subtree_root_sn: SPIDNodePair = tree_meta.change_tree.get_root_sn()
 
         # Now that we have all the stats, we can calculate the summary:
-        tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_id, subtree_root_node, tree_meta)
+        tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_id, subtree_root_sn, tree_meta)
         logger.debug(f'[{tree_id}] Summary msg = "{tree_meta.summary_msg}"')
 
         # Load and bring up-to-date expanded & selected rows:
@@ -563,7 +572,7 @@ class CacheManager(HasLifecycle):
         which will then asynchronously call load_data_for_display_tree()"""
         return self._active_tree_manager.request_display_tree(request)
 
-    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: str):
+    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID):
         """Kinda similar to request_display_tree(), but for change trees"""
         self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
 
@@ -572,11 +581,11 @@ class CacheManager(HasLifecycle):
         return self._active_tree_manager.get_active_display_tree_meta(tree_id)
 
     # used by the filter panel:
-    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
+    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
         return self._active_tree_manager.get_filter_criteria(tree_id)
 
     # used by the filter panel:
-    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
         self._active_tree_manager.update_filter_criteria(tree_id, filter_criteria)
 
     def is_manual_load_required(self, spid: SinglePathNodeIdentifier, is_startup: bool) -> bool:
@@ -594,11 +603,11 @@ class CacheManager(HasLifecycle):
             return False
         return True
 
-    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
         self.backend.executor.submit_async_task(self._refresh_subtree, node_identifier, tree_id)
 
-    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: TreeID):
         """DEPRECATED"""
         logger.info(f'[{tree_id}] Enqueuing task to refresh stats')
         self.backend.executor.submit_async_task(self._refresh_stats, tree_id)
@@ -794,33 +803,33 @@ class CacheManager(HasLifecycle):
         path_list = ensure_list(path_list)
         return self._get_store_for_device_uid(device_uid).get_node_list_for_path_list(path_list)
 
-    def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> List:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> List:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_child_list() for tree_id={tree_id}, parent_uid = {parent_uid}')
+            logger.debug(f'Entered get_child_list() for tree_id={tree_id}, parent_spid = {parent_spid}')
 
-        node: Node = self.get_node_for_uid(parent_uid)
+        node: Node = self.get_node_for_uid(parent_spid.node_uid)
         if not node:
-            raise RuntimeError(f'get_child_list(): could not find parent node with UID {parent_uid}')
+            raise RuntimeError(f'get_child_list(): could not find parent node with UID {parent_spid.node_uid}')
 
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
 
         # We assume that whenever get_child_list() is called, this represents a row expansion
-        self._active_tree_manager.add_expanded_row(parent_uid, tree_id)
+        self._active_tree_manager.add_expanded_row(parent_spid, tree_id)
 
         if tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Change trees have their own storage of nodes (not in master caches)
             if tree_meta.filter_state and tree_meta.filter_state.has_criteria():
-                child_list = tree_meta.filter_state.get_filtered_child_list(node, tree_meta.change_tree)
+                child_list = tree_meta.filter_state.get_filtered_child_list(parent_spid, tree_meta.change_tree)
             else:
-                child_list = tree_meta.change_tree.get_child_list(node)
+                child_list = tree_meta.change_tree.get_child_list(parent_spid)
         else:
             logger.debug(f'Found active display tree for {tree_id} with TreeDisplayMode: {tree_meta.state.tree_display_mode.name}')
             filter_state = tree_meta.filter_state
 
-            device_uid: UID = node.node_identifier.device_uid
-            child_list = self._get_store_for_device_uid(device_uid).get_child_list(node, filter_state)
+            device_uid: UID = parent_spid.device_uid
+            child_list = self._get_store_for_device_uid(device_uid).get_child_list(parent_spid, filter_state)
 
         if max_results and (len(child_list) > max_results):
             raise ResultsExceededError(len(child_list))
@@ -828,31 +837,31 @@ class CacheManager(HasLifecycle):
         self._fill_in_dir_stats(child_list, tree_meta)
 
         # The node icon is also a global change:
-        for child in child_list:
-            self._update_node_icon(child)
+        for child_sn in child_list:
+            self._update_node_icon(child_sn.node)
 
         if SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {node}')
         return child_list
 
     @staticmethod
-    def _fill_in_dir_stats(node_list: List[Node], tree_meta: ActiveDisplayTreeMeta):
+    def _fill_in_dir_stats(sn_list: List[SPIDNodePair], tree_meta: ActiveDisplayTreeMeta):
         # Fill in dir_stats. For now, we always display the unfiltered stats, even if we are applying a filter in the UI.
         # This is both more useful to the user, and less of a headache, because the stats are relevant across all views in the UI.
         dir_stats = tree_meta.dir_stats_unfiltered
-        for node in node_list:
-            if node.is_dir():
-                node.dir_stats = dir_stats.get(node.uid, None)
+        for sn in sn_list:
+            if sn.node.is_dir():
+                sn.node.dir_stats = dir_stats.get(sn.spid.guid, None)
 
-    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
         """Saves the selected rows from the UI for the given tree"""
         self._active_tree_manager.set_selected_rows(tree_id, selected)
 
-    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
         self._active_tree_manager.remove_expanded_row(row_uid, tree_id)
 
-    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self._active_tree_manager.get_rows_of_interest(tree_id)
 
     def _update_node_icon(self, node: Node):
@@ -998,7 +1007,7 @@ class CacheManager(HasLifecycle):
         self._master_gdrive.execute_load_op(op)
 
     # FIXME
-    def sync_and_get_gdrive_master_tree(self, tree_id: str):
+    def sync_and_get_gdrive_master_tree(self, tree_id: TreeID):
         """Will load from disk and sync latest changes from GDrive server before returning."""
         self._master_gdrive.load_and_sync_master_tree()
 
@@ -1014,7 +1023,7 @@ class CacheManager(HasLifecycle):
     # Drag & drop
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
         logger.info(f'Got drop of {len(src_sn_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}" is_into={is_into}')
 
         if not is_into or (dst_sn and not dst_sn.node.is_dir()):
@@ -1045,7 +1054,7 @@ class CacheManager(HasLifecycle):
             self.enqueue_op_list(op_list)
 
     @staticmethod
-    def _is_dropping_on_itself(dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair], dst_tree_id: str):
+    def _is_dropping_on_itself(dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair], dst_tree_id: TreeID):
         for sn in sn_list:
             logger.debug(f'[{dst_tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{sn.node}"')
             if dst_sn.node.is_parent_of(sn.node):
@@ -1058,12 +1067,12 @@ class CacheManager(HasLifecycle):
     def show_tree(self, subtree_root: NodeIdentifier) -> str:
         self._get_store_for_device_uid(subtree_root.device_uid).show_tree(subtree_root)
 
-    def _refresh_subtree(self, node_identifier: NodeIdentifier, tree_id: str):
+    def _refresh_subtree(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         """Called asynchronously via task executor"""
         logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
         self._get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(node_identifier, tree_id)
 
-    def _refresh_stats(self, tree_id: str):
+    def _refresh_stats(self, tree_id: TreeID):
         """Called async via task exec (See: CacheManager.enqueue_refresh_subtree_stats_task()) """
 
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)

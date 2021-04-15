@@ -77,7 +77,7 @@ class NodeIdentifierFactory:
         return self._and_deriving_tree_type_from_path(full_path_list, uid=None, device_uid=device_uid, must_be_single_path=False)
 
     def for_values(self, device_uid: Optional[UID] = None, tree_type: Optional[TreeType] = None, path_list: Optional[Union[str, List[str]]] = None,
-                   uid: Optional[UID] = None, must_be_single_path: bool = False) -> NodeIdentifier:
+                   uid: Optional[UID] = None, path_uid: Optional[UID] = None, must_be_single_path: bool = False) -> NodeIdentifier:
         """Big factory method for creating a new identifier (for example when you intend to create a new node.
         May be called either from FE or BE. For FE, it may be quite slow due to network overhead."""
         uid = ensure_uid(uid)
@@ -96,7 +96,7 @@ class NodeIdentifierFactory:
 
         elif tree_type == TreeType.GDRIVE:
             assert device_uid, f'No device_uid provided!'
-            return self._for_tree_type_gdrive(device_uid, full_path_list, uid, must_be_single_path)
+            return self._for_tree_type_gdrive(device_uid, full_path_list, uid, path_uid, must_be_single_path)
 
         elif tree_type == TreeType.MIXED:
             logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, path={full_path_list}')
@@ -174,7 +174,8 @@ class NodeIdentifierFactory:
         else:
             raise RuntimeError('Neither "uid" nor "full_path" supplied for LocalNodeIdentifier!')
 
-    def _for_tree_type_gdrive(self, device_uid: UID, full_path_list: Optional[List[str]] = None, uid: UID = None, must_be_single_path: bool = False) \
+    def _for_tree_type_gdrive(self, device_uid: UID, full_path_list: Optional[List[str]] = None, uid: UID = None, path_uid: Optional[UID] = None,
+                              must_be_single_path: bool = False) \
             -> Union[GDriveIdentifier, SinglePathNodeIdentifier]:
         if not uid:
             if full_path_list and full_path_list[0] == ROOT_PATH:
@@ -187,7 +188,8 @@ class NodeIdentifierFactory:
         if must_be_single_path:
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Could not make identifier: must_be_single_path=True but given too many paths: {full_path_list}')
-            path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
+            if not path_uid:
+                path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
             return GDriveSPID(uid=uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
         return GDriveIdentifier(uid=uid, device_uid=device_uid, path_list=full_path_list)
 

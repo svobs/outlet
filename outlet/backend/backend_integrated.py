@@ -7,7 +7,7 @@ from backend.backend_interface import OutletBackend
 from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from backend.icon_store import IconStorePy
-from constants import IconId
+from constants import IconId, TreeID
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -107,7 +107,7 @@ class BackendIntegrated(OutletBackend):
             assert request.return_async, f'No tree and return_async==False for {request.tree_id}'
             return None
 
-    def start_subtree_load(self, tree_id: str):
+    def start_subtree_load(self, tree_id: TreeID):
         self.cacheman.enqueue_load_tree_task(tree_id, send_signals=True)
 
     def get_op_execution_play_state(self) -> bool:
@@ -116,23 +116,23 @@ class BackendIntegrated(OutletBackend):
     def get_device_list(self) -> List[Device]:
         return self.cacheman.get_device_list()
 
-    def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> Iterable[Node]:
-        return self.cacheman.get_child_list(parent_uid, tree_id, max_results)
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[Node]:
+        return self.cacheman.get_child_list(parent_spid, tree_id, max_results)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         return self.cacheman.get_ancestor_list_for_spid(spid, stop_at_path=stop_at_path)
 
-    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
         self.cacheman.set_selected_rows(tree_id, selected)
 
-    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
         self.cacheman.remove_expanded_row(row_uid, tree_id)
 
-    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self.cacheman.get_rows_of_interest(tree_id)
 
-    def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)
 
     def start_diff_trees(self, tree_id_left: str, tree_id_right: str) -> DiffResultTreeIds:
@@ -143,10 +143,10 @@ class BackendIntegrated(OutletBackend):
         TreeDiffMergeTask.generate_merge_tree(self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right,
                                               selected_changes_left, selected_changes_right)
 
-    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         self.cacheman.enqueue_refresh_subtree_task(node_identifier, tree_id)
 
-    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: TreeID):
         self.cacheman.enqueue_refresh_subtree_stats_task(root_uid, tree_id)
 
     def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
@@ -158,8 +158,8 @@ class BackendIntegrated(OutletBackend):
     def delete_subtree(self, node_uid_list: List[UID]):
         self.cacheman.delete_subtree(node_uid_list)
 
-    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
+    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
         return self.cacheman.get_filter_criteria(tree_id)
 
-    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
         self.cacheman.update_filter_criteria(tree_id, filter_criteria)

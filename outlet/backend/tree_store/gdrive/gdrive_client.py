@@ -60,7 +60,7 @@ class GDriveClient(HasLifecycle):
         HasLifecycle.__init__(self)
         self.backend = backend
         self.device_uid: UID = device_uid
-        self.tree_id: str = tree_id
+        self.tree_id: TreeID = tree_id
         self.page_size: int = self.backend.get_config('gdrive.page_size')
         self.service: Optional[Resource] = None
 

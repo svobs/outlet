@@ -9,7 +9,7 @@ from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
 from backend.realtime.local_event_handler import LocalChangeEventHandler
-from constants import TreeType
+from constants import TreeID, TreeType
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import NodeIdentifier
 from signal_constants import ID_GDRIVE_POLLING_THREAD, Signal
@@ -147,7 +147,7 @@ class LiveMonitor(HasLifecycle):
             self._local_change_batching_thread.shutdown()
             self._local_change_batching_thread = None
 
-    def _start_local_disk_capture(self, full_path: str, tree_id: str):
+    def _start_local_disk_capture(self, full_path: str, tree_id: TreeID):
         logger.debug(f'[{tree_id}] Starting disk capture for path="{full_path}"')
 
         if not self._local_change_batching_thread or not self._local_change_batching_thread.is_alive():
@@ -165,7 +165,7 @@ class LiveMonitor(HasLifecycle):
         else:
             tree_id_set.add(tree_id)
 
-    def _stop_local_disk_capture(self, full_path: str, tree_id: str):
+    def _stop_local_disk_capture(self, full_path: str, tree_id: TreeID):
         tree_id_set: Set[str] = self._active_local_tree_dict.get(full_path, None)
         if not tree_id_set:
             logger.debug(f'Ignoring request to stop local capture; tree_id_set is empty for path "{full_path}"')
@@ -179,7 +179,7 @@ class LiveMonitor(HasLifecycle):
             assert watch, f'Expected a watch for: {full_path}'
             self._watchdog_observer.unschedule(watch)
 
-    def _start_gdrive_capture(self, tree_id: str):
+    def _start_gdrive_capture(self, tree_id: TreeID):
         if self._gdrive_polling_thread and self._gdrive_polling_thread.is_alive():
             logger.warning('GDriveCaptureThread is already running!')
             return
@@ -197,7 +197,7 @@ class LiveMonitor(HasLifecycle):
             self._gdrive_polling_thread.shutdown()
             self._gdrive_polling_thread = None
 
-    def start_or_update_capture(self, node_identifier: NodeIdentifier, tree_id: str):
+    def start_or_update_capture(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         """Also updates existing capture for the given tree_id"""
         with self._struct_lock:
             prev_identifier: NodeIdentifier = self._active_tree_dict.get(tree_id, None)
@@ -243,7 +243,7 @@ class LiveMonitor(HasLifecycle):
                     logger.debug(f'[{tree_id}]] Ignoring request to start local disk capture: path does not exist: '
                                  f'{node_identifier.get_single_path()}')
 
-    def stop_capture(self, tree_id: str):
+    def stop_capture(self, tree_id: TreeID):
         """If capture doesn't exist, does nothing"""
         with self._struct_lock:
             prev_identifier: NodeIdentifier = self._active_tree_dict.pop(tree_id, None)

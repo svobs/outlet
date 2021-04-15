@@ -11,6 +11,9 @@ from util.ensure import ensure_uid
 
 logger = logging.getLogger(__name__)
 
+# Explicit type alias:
+GUID = str
+
 
 class NodeIdentifier(ABC):
     """
@@ -33,7 +36,7 @@ class NodeIdentifier(ABC):
         self.set_path_list(path_list)
 
     @property
-    def guid(self):
+    def guid(self) -> GUID:
         """Currently, all node identifiers can be uniquely specified by device_uid + node_uid, except for GDrive and Mixed tree nodes,
         which also require a path_uid."""
         return f'{self.device_uid}:{self.node_uid}'
@@ -143,6 +146,7 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
         if len(self.get_path_list()) != 1:
             raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {full_path}')
 
+    # Currently this is only exposed for gRPC
     @property
     def path_uid(self) -> UID:
         # default for LocalDisk, etc
@@ -191,7 +195,7 @@ class GDriveIdentifier(NodeIdentifier):
         super().__init__(uid, device_uid, path_list)
 
     @property
-    def guid(self):
+    def guid(self) -> GUID:
         # this is impossible without more information to identify the path
         raise RuntimeError('Cannot generate GUID for GDriveIdentifier!')
 
@@ -215,11 +219,11 @@ class GDriveSPID(SinglePathNodeIdentifier):
         return TreeType.GDRIVE
 
     @property
-    def guid(self):
-        return f'{self.device_uid}:{self.node_uid}:{self.path_uid}'
+    def guid(self) -> GUID:
+        return f'{self.device_uid}:{self.node_uid}:{self._path_uid}'
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self.path_uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self._path_uid}⩨{self.get_single_path()}∣'
 
 
 class MixedTreeSPID(SinglePathNodeIdentifier):
@@ -232,6 +236,7 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
         super().__init__(uid, device_uid, full_path)
         self._path_uid: UID = path_uid
 
+    # Need to expose this property so that we can transmit to FE via gRPC, so it can generate GUIDs also
     @property
     def path_uid(self) -> UID:
         # default
@@ -242,11 +247,11 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
         return TreeType.MIXED
 
     @property
-    def guid(self):
-        return f'{self.device_uid}:{self.node_uid}:{self.path_uid}'
+    def guid(self) -> GUID:
+        return f'{self.device_uid}:{self.node_uid}:{self._path_uid}'
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self.path_uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self._path_uid}⩨{self.get_single_path()}∣'
 
 
 class LocalNodeIdentifier(SinglePathNodeIdentifier):
@@ -261,3 +266,30 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
     @property
     def tree_type(self) -> TreeType:
         return TreeType.LOCAL_DISK
+
+
+class ChangeTreeSPID(SinglePathNodeIdentifier):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS ChangeTreeSPID
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
+    def __init__(self, node_uid: UID, device_uid: UID, full_path: str, tree_type: TreeType, op_type: Optional):
+        # FIXME: we don't do anything with node_uid
+        super().__init__(node_uid, device_uid, full_path)
+        self._tree_type: TreeType = tree_type
+        self.op_type: Optional = op_type
+
+    @property
+    def tree_type(self) -> TreeType:
+        return self._tree_type
+
+    @property
+    def guid(self) -> GUID:
+        if self.op_type:
+            return f'{self.device_uid}:{self.op_type.name}:{self.get_single_path()}'
+        else:
+            return f'{self.device_uid}'
+
+    def __repr__(self):
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-{self.op_type}⩨{self.get_single_path()}∣'

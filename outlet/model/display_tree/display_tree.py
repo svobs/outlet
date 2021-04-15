@@ -1,9 +1,7 @@
 import logging
-import os
 from typing import Deque, Iterable, List, Optional, Union
 
-from constants import MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode, TreeType
-from model.has_get_children import HasGetChildren
+from constants import MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode, TreeID, TreeType
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
@@ -17,11 +15,11 @@ class DisplayTreeUiState:
     CLASS DisplayTreeUiState
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None,
+    def __init__(self, tree_id: TreeID, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None,
                  tree_display_mode: TreeDisplayMode = TreeDisplayMode.ONE_TREE_ALL_ITEMS, has_checkboxes: bool = False):
         if not tree_id:
             raise RuntimeError('Cannot build DisplayTreeUiState: tree_id cannot be empty!')
-        self.tree_id: str = tree_id
+        self.tree_id: TreeID = tree_id
 
         if not root_sn:
             raise RuntimeError('Cannot build DisplayTreeUiState: root_sn cannot be empty!')
@@ -40,7 +38,7 @@ class DisplayTreeUiState:
         self.has_checkboxes: bool = has_checkboxes
 
     @staticmethod
-    def create_change_tree_state(tree_id: str, root_sn: SPIDNodePair):
+    def create_change_tree_state(tree_id: TreeID, root_sn: SPIDNodePair):
         return DisplayTreeUiState(tree_id, root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, has_checkboxes=True)
 
     def to_display_tree(self, backend):
@@ -55,7 +53,7 @@ class DisplayTreeUiState:
                f'tree_display_mode={self.tree_display_mode.name} has_checkboxes={self.has_checkboxes}'
 
 
-class DisplayTree(HasGetChildren):
+class DisplayTree:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ABSTRACT CLASS DisplayTree
@@ -132,42 +130,15 @@ class DisplayTree(HasGetChildren):
 
         return path_list.startswith(self.root_path)
 
-    def get_child_list_for_root(self) -> Iterable[Node]:
-        return self.get_child_list(self.get_root_node())
+    def get_child_list_for_root(self) -> Iterable[SPIDNodePair]:
+        return self.get_child_list(self.get_root_sn().spid)
 
-    def get_child_list_for_uid(self, parent_uid: UID) -> List[Node]:
-        return self.backend.get_child_list(parent_uid, self.tree_id, max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
-
-    def get_child_list(self, parent: Node) -> Iterable[Node]:
-        assert parent, 'Arg "parent" cannot be null!'
-        return self.get_child_list_for_uid(parent.uid)
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
+        assert parent_spid, 'Arg "parent_spid" cannot be null!'
+        return self.backend.get_child_list_for_spid(parent_spid, self.tree_id, max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         return self.backend.get_ancestor_list(spid, stop_at_path=self.root_path)
-
-    def get_child_sn_list_for_root(self) -> Iterable[SPIDNodePair]:
-        child_node_list: Iterable[Node] = self.get_child_list_for_root()
-        return self._make_child_sn_list(child_node_list, self.root_path)
-
-    def get_child_sn_list(self, parent: SPIDNodePair) -> Iterable[SPIDNodePair]:
-        child_node_list: Iterable[Node] = self.get_child_list(parent.node)
-        return self._make_child_sn_list(child_node_list, parent.spid.get_single_path())
-
-    @staticmethod
-    def _make_child_sn_list(child_node_list: Iterable[Node], parent_path: str) -> Iterable[SPIDNodePair]:
-        child_sn_list: List[SPIDNodePair] = []
-        for child_node in child_node_list:
-            if child_node.node_identifier.is_spid():
-                # no need to do extra work!
-                child_sn = SPIDNodePair(child_node.node_identifier, child_node)
-            else:
-                child_path = os.path.join(parent_path, child_node.name)
-                if child_path not in child_node.get_path_list():
-                    # this means we're not following the rules
-                    raise RuntimeError(f'Could not find derived path ("{child_path}") in path list ({child_node.get_path_list()}) of child!')
-                child_sn = SPIDNodePair(SinglePathNodeIdentifier(child_node.uid, child_path, child_node.tree_type), child_node)
-            child_sn_list.append(child_sn)
-        return child_sn_list
 
     # Stats
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

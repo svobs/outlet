@@ -3,10 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from constants import TreeID
+from model.node.node import BaseNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
 from backend.tree_store.gdrive.gdrive_client import GDriveClient
-from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class CommandContext:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, staging_dir: str, backend, tree_id: str, needs_gdrive: bool):
+    def __init__(self, staging_dir: str, backend, tree_id: TreeID, needs_gdrive: bool):
         self.staging_dir: str = staging_dir
         self.cacheman = backend.cacheman
         if needs_gdrive:

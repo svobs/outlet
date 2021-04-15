@@ -1,6 +1,6 @@
 from typing import Set
 
-from constants import TreeDisplayMode
+from constants import TreeDisplayMode, TreeID
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 
@@ -23,12 +23,12 @@ class RowsOfInterest:
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS RowsOfInterest
 
-    Container for sets of UIDs which specify the rows of the tree which are selected and expanded.
+    Container for sets of GUIDs which specify the rows of the tree which are selected and expanded.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self):
-        self.expanded: Set[UID] = set()
-        self.selected: Set[UID] = set()
+        self.expanded: Set[str] = set()
+        self.selected: Set[str] = set()
 
 
 class DisplayTreeRequest:
@@ -39,9 +39,9 @@ class DisplayTreeRequest:
     Fat Microsoft-style struct encapsulating a bunch of params for request_display_tree()
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, tree_id: str, return_async: bool, user_path: str = None, device_uid: UID = None, spid: SinglePathNodeIdentifier = None,
+    def __init__(self, tree_id: TreeID, return_async: bool, user_path: str = None, device_uid: UID = None, spid: SinglePathNodeIdentifier = None,
                  is_startup: bool = False, tree_display_mode: TreeDisplayMode = TreeDisplayMode.ONE_TREE_ALL_ITEMS):
-        self.tree_id: str = tree_id
+        self.tree_id: TreeID = tree_id
 
         self.is_startup: bool = is_startup
         self.return_async: bool = return_async

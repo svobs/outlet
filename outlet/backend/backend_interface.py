@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from pydispatch import dispatcher
 
-from constants import IconId, TreeDisplayMode
+from constants import IconId, TreeDisplayMode, TreeID
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -68,7 +68,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def start_subtree_load(self, tree_id: str):
+    def start_subtree_load(self, tree_id: TreeID):
         pass
 
     @abstractmethod
@@ -80,7 +80,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_child_list(self, parent_uid: UID, tree_id: str, max_results: int = 0) -> Iterable[Node]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[Node]:
         """If max_results is 0, unlimited nodes are returned. If nonzero and actual node count exceeds this, ResultsExceededError is raised"""
         pass
 
@@ -89,15 +89,15 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
         pass
 
     @abstractmethod
-    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
         pass
 
     @abstractmethod
-    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         """I really could not think of a better name for this."""
         pass
 
@@ -107,21 +107,21 @@ class OutletBackend(HasLifecycle, ABC):
                                      tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)
 
-    def create_display_tree_from_config(self, tree_id: str, is_startup: bool = False) -> Optional[DisplayTree]:
+    def create_display_tree_from_config(self, tree_id: TreeID, is_startup: bool = False) -> Optional[DisplayTree]:
         # no arguments will be recognized by CacheMan as needing to read from config
         request = DisplayTreeRequest(tree_id=tree_id, return_async=False, is_startup=is_startup, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)
 
-    def create_display_tree_from_spid(self, tree_id: str, spid: SinglePathNodeIdentifier) -> Optional[DisplayTree]:
+    def create_display_tree_from_spid(self, tree_id: TreeID, spid: SinglePathNodeIdentifier) -> Optional[DisplayTree]:
         request = DisplayTreeRequest(tree_id=tree_id, return_async=True, spid=spid, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)
 
-    def create_display_tree_from_user_path(self, tree_id: str, user_path: str, device_uid: UID) -> Optional[DisplayTree]:
+    def create_display_tree_from_user_path(self, tree_id: TreeID, user_path: str, device_uid: UID) -> Optional[DisplayTree]:
         request = DisplayTreeRequest(tree_id=tree_id, return_async=True, user_path=user_path, device_uid=device_uid,
                                      tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)
 
-    def create_existing_display_tree(self, tree_id: str, tree_display_mode: TreeDisplayMode) -> Optional[DisplayTree]:
+    def create_existing_display_tree(self, tree_id: TreeID, tree_display_mode: TreeDisplayMode) -> Optional[DisplayTree]:
         request = DisplayTreeRequest(tree_id=tree_id, return_async=False, tree_display_mode=tree_display_mode)
         return self.request_display_tree(request)
 
@@ -138,7 +138,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
         pass
 
     @abstractmethod
@@ -151,11 +151,11 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         pass
 
     @abstractmethod
-    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: TreeID):
         pass
 
     @abstractmethod
@@ -171,9 +171,9 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
+    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
         pass
 
     @abstractmethod
-    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
         pass

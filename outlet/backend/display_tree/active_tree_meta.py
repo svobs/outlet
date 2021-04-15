@@ -6,7 +6,7 @@ from backend.display_tree.filter_state import FilterState
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from model.node.directory_stats import DirectoryStats
-from model.uid import UID
+from model.node_identifier import GUID
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +30,11 @@ class ActiveDisplayTreeMeta:
         """For order > 1 only"""
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
-        self.expanded_rows: Set[UID] = set()
-        self.selected_rows: Set[UID] = set()
+        self.expanded_rows: Set[str] = set()
+        self.selected_rows: Set[str] = set()
 
         self.summary_msg: Optional[str] = None
-        self.dir_stats_unfiltered: Dict[UID, DirectoryStats] = {}
+        self.dir_stats_unfiltered: Dict[GUID, DirectoryStats] = {}
         """A map containing the current stats for each dir node (with NO filter applied).
         See the filter_state for a map of stats WITH the filter applied"""
 

@@ -364,7 +364,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         return response
 
-    def get_child_list_for_node(self, request, context):
+    def get_child_list_for_spid(self, request, context):
         max_results = request.max_results
 
         response = GetChildList_Response()

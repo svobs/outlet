@@ -30,7 +30,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, parent_win: BaseDialog, device_uid: UID, current_selection: Optional[SinglePathNodeIdentifier], target_tree_id: str):
+    def __init__(self, parent_win: BaseDialog, device_uid: UID, current_selection: Optional[SinglePathNodeIdentifier], target_tree_id: TreeID):
         Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, app=parent_win.app)
 

@@ -444,7 +444,7 @@ class TreeUiListeners(HasLifecycle):
     # ACTIONS end
 
 
-def _do_default_action_for_node(node: Node, tree_id: str):
+def _do_default_action_for_node(node: Node, tree_id: TreeID):
     if node.node_identifier.tree_type == TreeType.LOCAL_DISK:
         # FIXME: this will not work for non-local files
         dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.get_single_path())

@@ -7,13 +7,13 @@ from typing import Deque, Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
+from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG, TreeID
 from error import CacheNotLoadedError
 from global_actions import GlobalActions
 from model.device import Device
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.directory_stats import DirectoryStats
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
@@ -208,14 +208,14 @@ class GDriveMasterStore(TreeStore):
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def load_subtree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str):
+    def load_subtree(self, subtree_root: SinglePathNodeIdentifier, tree_id: TreeID):
         self._load_master_cache(sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
 
     def load_and_sync_master_tree(self, invalidate_cache: bool = False):
         """This will sync the latest changes before returning."""
         self._load_master_cache(sync_latest_changes=True, invalidate_cache=invalidate_cache)
 
-    def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: str) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         logger.debug(f'refresh_subtree_stats(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
@@ -223,7 +223,7 @@ class GDriveMasterStore(TreeStore):
     def populate_filter(self, filter_state: FilterState):
         filter_state.ensure_cache_populated(self._memstore.master_tree)
 
-    def refresh_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
+    def refresh_subtree(self, subtree_root: GDriveIdentifier, tree_id: TreeID):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
         logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root})')
         stats_sw = Stopwatch()
@@ -421,12 +421,11 @@ class GDriveMasterStore(TreeStore):
             return node.goog_id
         return None
 
-    def get_child_list(self, node: Node, filter_state: FilterState = None) -> List[Node]:
-        assert isinstance(node, GDriveNode)
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
         if filter_state and filter_state.has_criteria():
-            return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
+            return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
         else:
-            return self._memstore.master_tree.get_child_list(node)
+            return self._memstore.master_tree.get_child_list(parent_spid)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)

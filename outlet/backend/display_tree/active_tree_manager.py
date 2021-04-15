@@ -11,7 +11,7 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import CONFIG_DELIMITER, NULL_UID, SUPER_DEBUG, TreeDisplayMode, TreeType
+from constants import CONFIG_DELIMITER, NULL_UID, SUPER_DEBUG, TreeDisplayMode, TreeID, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
@@ -161,7 +161,7 @@ class ActiveTreeManager(HasLifecycle):
     # Public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: str):
+    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID):
         logger.info(f'Registering ChangeTree: {change_display_tree.tree_id} (src_tree_id: {src_tree_id})')
         if SUPER_DEBUG:
             change_display_tree.print_tree_contents_debug()
@@ -189,14 +189,14 @@ class ActiveTreeManager(HasLifecycle):
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
 
-    def get_filter_criteria(self, tree_id: str) -> Optional[FilterCriteria]:
+    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
         meta = self.get_active_display_tree_meta(tree_id)
         if not meta:
             logger.error(f'get_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
             return None
         return meta.filter_state.filter
 
-    def update_filter_criteria(self, tree_id: str, filter_criteria: FilterCriteria):
+    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
         meta = self.get_active_display_tree_meta(tree_id)
         if not meta:
             raise RuntimeError(f'update_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
@@ -421,7 +421,7 @@ class ActiveTreeManager(HasLifecycle):
     # Expanded & selected row state tracking
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_rows_of_interest(self, tree_id: str) -> RowsOfInterest:
+    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         logger.debug(f'[{tree_id}] Getting rows of interest')
 
         meta = self.get_active_display_tree_meta(tree_id)
@@ -434,7 +434,7 @@ class ActiveTreeManager(HasLifecycle):
         logger.debug(f'[{tree_id}] get_rows_of_interest(): returning {meta.expanded_rows} expanded & {meta.selected_rows} selected')
         return rows_of_interest
 
-    def load_rows_of_interest(self, tree_id: str):
+    def load_rows_of_interest(self, tree_id: TreeID):
         logger.debug(f'[{tree_id}] Loading rows of interest')
 
         meta = self.get_active_display_tree_meta(tree_id)
@@ -448,7 +448,7 @@ class ActiveTreeManager(HasLifecycle):
         meta.expanded_rows = rows_of_interest.expanded
         meta.selected_rows = rows_of_interest.selected
 
-    def set_selected_rows(self, tree_id: str, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
@@ -458,21 +458,21 @@ class ActiveTreeManager(HasLifecycle):
         # TODO: use a timer for this
         self._save_selected_rows_to_config(display_tree_meta)
 
-    def add_expanded_row(self, row_uid: UID, tree_id: str):
+    def add_expanded_row(self, row_spid: SinglePathNodeIdentifier, tree_id: TreeID):
         """AKA expanding a row on the frontend"""
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
-        if display_tree_meta.root_sn.spid.node_uid == row_uid:
+        if display_tree_meta.root_sn.spid.node_uid == row_spid.node_uid:
             # ignore root
             return
 
-        display_tree_meta.expanded_rows.add(row_uid)
+        display_tree_meta.expanded_rows.add(row_spid.guid)
         # TODO: use a timer for this. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
-    def remove_expanded_row(self, row_uid: UID, tree_id: str):
+    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
         # TODO: remove descendants
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
@@ -488,15 +488,15 @@ class ActiveTreeManager(HasLifecycle):
         # TODO: use a timer for this. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
-    def _load_expanded_rows_from_config(self, tree_id: str) -> Set[UID]:
+    def _load_expanded_rows_from_config(self, tree_id: TreeID) -> Set[str]:
         """Loads the Set of expanded rows from config file"""
         logger.debug(f'[{tree_id}] Loading expanded rows from app_config')
         try:
-            expanded_rows: Set[UID] = set()
+            expanded_rows: Set[str] = set()
             expanded_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id))
             if expanded_rows_str:
-                for uid in expanded_rows_str.split(CONFIG_DELIMITER):
-                    expanded_rows.add(ensure_uid(uid))
+                for guid in expanded_rows_str.split(CONFIG_DELIMITER):
+                    expanded_rows.add(guid)
             return expanded_rows
         except RuntimeError:
             logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
@@ -506,18 +506,18 @@ class ActiveTreeManager(HasLifecycle):
         self.backend.put_config(ActiveTreeManager._make_selected_rows_config_key(display_tree_meta.tree_id), selected_rows_str)
 
     @staticmethod
-    def _make_expanded_rows_config_key(tree_id: str) -> str:
+    def _make_expanded_rows_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.expanded_rows'
 
-    def _load_selected_rows_from_config(self, tree_id: str) -> Set[UID]:
+    def _load_selected_rows_from_config(self, tree_id: TreeID) -> Set[str]:
         """Loads the Set of selected rows from app_config file"""
         logger.debug(f'[{tree_id}] Loading selected rows from app_config')
         try:
-            selected_rows: Set[UID] = set()
+            selected_rows: Set[str] = set()
             selected_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_selected_rows_config_key(tree_id))
             if selected_rows_str:
-                for uid in selected_rows_str.split(CONFIG_DELIMITER):
-                    selected_rows.add(ensure_uid(uid))
+                for guid in selected_rows_str.split(CONFIG_DELIMITER):
+                    selected_rows.add(guid)
             return selected_rows
         except RuntimeError:
             logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
@@ -527,10 +527,10 @@ class ActiveTreeManager(HasLifecycle):
         self.backend.put_config(ActiveTreeManager._make_expanded_rows_config_key(display_tree_meta.tree_id), expanded_rows_str)
 
     @staticmethod
-    def _make_selected_rows_config_key(tree_id: str) -> str:
+    def _make_selected_rows_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.selected_rows'
 
-    def _purge_dead_rows(self, expanded_cached: Set[UID], selected_cached: Set[UID], display_tree_meta: ActiveDisplayTreeMeta) -> RowsOfInterest:
+    def _purge_dead_rows(self, expanded_cached: Set[str], selected_cached: Set[str], display_tree_meta: ActiveDisplayTreeMeta) -> RowsOfInterest:
         verified = RowsOfInterest()
 
         if not display_tree_meta.root_exists:
@@ -540,20 +540,21 @@ class ActiveTreeManager(HasLifecycle):
 
         stopwatch = Stopwatch()
 
-        processing_queue: Deque[Node] = deque()
+        processing_queue: Deque[SPIDNodePair] = deque()
 
-        for node in self.backend.get_child_list(parent_uid=display_tree_meta.state.root_sn.node.uid, tree_id=display_tree_meta.tree_id):
-            processing_queue.append(node)
+        for sn in self.backend.get_child_list(parent_spid=display_tree_meta.state.root_sn.spid, tree_id=display_tree_meta.tree_id):
+            processing_queue.append(sn)
 
         while len(processing_queue) > 0:
-            node: Node = processing_queue.popleft()
-            if node.uid in selected_cached:
-                verified.selected.add(node.uid)
+            sn: SPIDNodePair = processing_queue.popleft()
+            guid = sn.spid.guid
+            if guid in selected_cached:
+                verified.selected.add(guid)
 
-            if node.uid in expanded_cached:
-                verified.expanded.add(node.uid)
-                for node in self.backend.get_child_list(parent_uid=node.uid, tree_id=display_tree_meta.tree_id):
-                    processing_queue.append(node)
+            if guid in expanded_cached:
+                verified.expanded.add(guid)
+                for sn in self.backend.get_child_list(parent_spid=sn.spid, tree_id=display_tree_meta.tree_id):
+                    processing_queue.append(sn)
 
         logger.debug(f'[{display_tree_meta.tree_id}] {stopwatch} Verified {len(verified.expanded)} of {len(expanded_cached)} expanded rows '
                      f'and {len(verified.selected)} of {len(selected_cached)} selected')

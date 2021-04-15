@@ -137,7 +137,7 @@ class DisplayMutator(HasLifecycle):
         node_count += 1
         return node_count
 
-    def _populate_and_restore_expanded_state(self, parent_iter, node: Node, node_count: int, expanded_row_uid_set: Set[UID]) -> int:
+    def _populate_and_restore_expanded_state(self, parent_iter, node: Node, node_count: int, expanded_row_guid_set: Set[str]) -> int:
         if SUPER_DEBUG:
             logger.debug(f'[{self.con.tree_id}] Populating node {node.node_identifier}')
 
@@ -300,8 +300,8 @@ class DisplayMutator(HasLifecycle):
                     for node in top_level_node_list:
                         self._populate_and_restore_expanded_state(root_iter, node, node_count, rows.expanded)
 
-                    for uid in rows.expanded:
-                        logger.debug(f'[{self.con.tree_id}] Expanding: {uid}')
+                    for guid in rows.expanded:
+                        logger.debug(f'[{self.con.tree_id}] Expanding: {guid}')
                         try:
                             tree_iter = self.con.display_store.find_uid_in_tree(uid)
                             if tree_iter:
@@ -358,7 +358,7 @@ class DisplayMutator(HasLifecycle):
 
         with self._lock:
             assert self.con.treeview_meta.has_checkboxes
-            child_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_sn_list_for_root()
+            child_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_list_for_root()
             for child_sn in child_list:
                 if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
                     whitelist.append(child_sn)
@@ -373,7 +373,7 @@ class DisplayMutator(HasLifecycle):
                     # Even an inconsistent FolderToAdd must be included as a checked item:
                     checked_items.append(parent)
 
-                for child_sn in self.con.get_tree().get_child_sn_list(parent):
+                for child_sn in self.con.get_tree().get_child_list(parent):
                     if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
                         whitelist.append(child_sn)
                     elif self.con.display_store.inconsistent_rows.get(child_sn.node.uid, None):
@@ -386,7 +386,7 @@ class DisplayMutator(HasLifecycle):
                     checked_items.append(chosen_sn)
 
                 # drill down into all descendants of nodes in the whitelist
-                for child_sn in self.con.get_tree().get_child_sn_list(chosen_sn):
+                for child_sn in self.con.get_tree().get_child_list(chosen_sn):
                     whitelist.append(child_sn)
 
             return checked_items
