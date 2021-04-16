@@ -5,7 +5,7 @@ import gi
 from pydispatch import dispatcher
 
 from backend.diff.change_maker import SPIDNodePair
-from constants import TreeType
+from constants import TreeID, TreeType
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.uid import UID
@@ -139,7 +139,7 @@ class TreeUiListeners(HasLifecycle):
 
     def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
         """Drag & Drop 1/4: collect and send data and signal from source"""
-        selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
+        selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection()
         if selected_sn_list:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.app.ui_uid_generator.next_uid()
@@ -409,29 +409,29 @@ class TreeUiListeners(HasLifecycle):
 
         return False
 
-    def on_row_right_clicked(self, event, tree_path, node_data: Node):
-        if node_data.is_ephemereal():
+    def on_row_right_clicked(self, event, tree_path, clicked_sn: SPIDNodePair):
+        if clicked_sn.node.is_ephemereal():
             logger.debug(f'[{self.con.tree_id}] User right-clicked on ephemereal node. Ignoring')
             return
-        id_clicked = node_data.uid
+        guid_clicked = clicked_sn.spid.guid
         sel_items_tuple = self.con.display_store.get_multiple_selection_and_paths()
-        selected_items: List[Node] = sel_items_tuple[0]
+        selected_sn_list: List[SPIDNodePair] = sel_items_tuple[0]
         selected_tree_paths: List[Gtk.TreePath] = sel_items_tuple[1]
 
         clicked_on_selection = False
 
-        if len(selected_items) > 1:
+        if len(selected_sn_list) > 1:
             # Multiple selected items:
-            for item in selected_items:
-                if item.uid == id_clicked:
+            for selected_sn in selected_sn_list:
+                if selected_sn.spid.guid == guid_clicked:
                     clicked_on_selection = True
 
         if clicked_on_selection:
             # User right-clicked on selection -> apply context menu to all selected items:
-            context_menu = self._context_menu.build_context_menu_multiple(selected_items, selected_tree_paths)
+            context_menu = self._context_menu.build_context_menu_multiple(selected_sn_list, selected_tree_paths)
         else:
             # Singular item, or singular selection (equivalent logic). Display context menu:
-            context_menu = self._context_menu.build_context_menu_single(tree_path, node_data)
+            context_menu = self._context_menu.build_context_menu_single(tree_path, clicked_sn)
 
         if context_menu:
             context_menu.popup_at_pointer(event)

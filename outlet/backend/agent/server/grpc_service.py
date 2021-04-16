@@ -5,7 +5,7 @@ import threading
 from pydispatch import dispatcher
 
 from collections import deque
-from typing import Deque, Dict, Optional, Set
+from typing import Deque, Dict, Iterable, Optional, Set
 
 from backend.backend_integrated import BackendIntegrated
 from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
@@ -35,7 +35,8 @@ from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
+from model.node_identifier import GUID
 from model.uid import UID
 from backend.uid.uid_generator import UidGenerator
 from signal_constants import Signal
@@ -369,21 +370,22 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         response = GetChildList_Response()
         try:
-            child_list = self.cacheman.get_child_list(request.parent_uid, request.tree_id, max_results)
-            self._converter.node_list_to_grpc(child_list, response.node_list)
-            logger.debug(f'[{request.tree_id}] Relaying {len(child_list)} children for node {request.parent_uid}')
+            parent_spid = self._converter.node_identifier_from_grpc(request.parent_spid)
+            child_list = self.cacheman.get_child_list(parent_spid, request.tree_id, max_results)
+            self._converter.sn_list_to_grpc(child_list, response.child_list)
+            logger.debug(f'[{request.tree_id}] Relaying {len(child_list)} children for {parent_spid}')
         except ResultsExceededError as err:
             response.result_exceeded_count = err.actual_count
-            logger.debug(f'[{request.tree_id}] Too many children ({response.result_exceeded_count}) for node {request.parent_uid}'
+            logger.debug(f'[{request.tree_id}] Too many children ({response.result_exceeded_count}) for {request.parent_spid}'
                          f' (max was {max_results})')
 
         return response
 
     def get_ancestor_list_for_spid(self, request, context):
         spid = self._converter.node_identifier_from_grpc(request.spid)
-        ancestor_list: Deque[Node] = self.cacheman.get_ancestor_list_for_spid(spid=spid, stop_at_path=request.stop_at_path)
+        ancestor_list: Deque[SPIDNodePair] = self.cacheman.get_ancestor_list_for_spid(spid=spid, stop_at_path=request.stop_at_path)
         response = GetAncestorList_Response()
-        self._converter.node_list_to_grpc(ancestor_list, response.node_list)
+        self._converter.sn_list_to_grpc(ancestor_list, response.ancestor_list)
         logger.debug(f'Relaying {len(ancestor_list)} ancestors for: {spid}')
         return response
 
@@ -459,23 +461,23 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return UpdateFilter_Response()
 
     def set_selected_row_set(self, request: SetSelectedRowSet_Request, context):
-        selected: Set[UID] = set()
-        for uid in request.selected_row_uid_set:
-            selected.add(uid)
+        selected: Set[GUID] = set()
+        for guid in request.selected_row_guid_set:
+            selected.add(guid)
         self.cacheman.set_selected_rows(request.tree_id, selected)
 
         return SetSelectedRowSet_Response()
 
     def remove_expanded_row(self, request: RemoveExpandedRow_Request, context):
-        self.cacheman.remove_expanded_row(request.node_uid, request.tree_id)
+        self.cacheman.remove_expanded_row(request.row_guid, request.tree_id)
         return RemoveExpandedRow_Response()
 
     def get_rows_of_interest(self, request: GetRowsOfInterest_Request, context):
         rows: RowsOfInterest = self.cacheman.get_rows_of_interest(tree_id=request.tree_id)
         response = GetRowsOfInterest_Response()
-        for uid in rows.expanded:
-            response.expanded_row_uid_set.append(uid)
-        for uid in rows.selected:
-            response.selected_row_uid_set.append(uid)
+        for guid in rows.expanded:
+            response.expanded_row_guid_set.append(guid)
+        for guid in rows.selected:
+            response.selected_row_guid_set.append(guid)
 
         return response

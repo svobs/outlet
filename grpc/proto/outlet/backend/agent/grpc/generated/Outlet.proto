@@ -80,7 +80,7 @@ message UpdateFilter_Response {
 }
 
 message SetSelectedRowSet_Request {
-	repeated uint32 selected_row_guid_set = 1;
+	repeated string selected_row_guid_set = 1;
 	string tree_id = 2;
 }
 

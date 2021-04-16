@@ -17,7 +17,7 @@ from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from signal_constants import Signal
@@ -47,7 +47,7 @@ class ActiveTreeManager(HasLifecycle):
         """Sub-module of Cache Manager which, for displayed trees, provides [close to] real-time notifications for changes
          which originated from outside this backend"""
 
-        self._display_tree_dict: Dict[str, ActiveDisplayTreeMeta] = {}
+        self._display_tree_dict: Dict[TreeID, ActiveDisplayTreeMeta] = {}
         """Keeps track of which display trees are currently being used in the UI"""
 
         self._is_live_monitoring_enabled = backend.get_config('cache.live_monitoring.live_monitoring_enabled')
@@ -167,7 +167,7 @@ class ActiveTreeManager(HasLifecycle):
             change_display_tree.print_tree_contents_debug()
             change_display_tree.print_op_structs_debug()
 
-        filter_state = FilterState.from_config(self.backend, change_display_tree.tree_id)
+        filter_state = FilterState.from_config(self.backend, change_display_tree.tree_id, change_display_tree.get_root_sn())
 
         meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state, filter_state)
         meta.change_tree = change_display_tree
@@ -186,7 +186,7 @@ class ActiveTreeManager(HasLifecycle):
         logger.debug(f'Sending signal {Signal.DISPLAY_TREE_CHANGED.name} for tree_id={sender}')
         dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=sender, tree=tree_stub)
 
-    def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
+    def get_active_display_tree_meta(self, tree_id: TreeID) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
 
     def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
@@ -337,7 +337,7 @@ class ActiveTreeManager(HasLifecycle):
 
         return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
 
-    def _return_display_tree_ui_state(self, sender_tree_id, display_tree_meta, return_async: bool) -> Optional[DisplayTreeUiState]:
+    def _return_display_tree_ui_state(self, sender_tree_id: TreeID, display_tree_meta, return_async: bool) -> Optional[DisplayTreeUiState]:
         state = display_tree_meta.state
         assert state.tree_id and state.root_sn and state.root_sn.spid, f'Bad DisplayTreeUiState: {state}'
 
@@ -448,7 +448,7 @@ class ActiveTreeManager(HasLifecycle):
         meta.expanded_rows = rows_of_interest.expanded
         meta.selected_rows = rows_of_interest.selected
 
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
@@ -472,7 +472,7 @@ class ActiveTreeManager(HasLifecycle):
         # TODO: use a timer for this. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
-    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
+    def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
         # TODO: remove descendants
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
@@ -480,7 +480,7 @@ class ActiveTreeManager(HasLifecycle):
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
         try:
-            display_tree_meta.expanded_rows.remove(row_uid)
+            display_tree_meta.expanded_rows.remove(row_guid)
         except KeyError as err:
             self.backend.report_error(sender=tree_id, msg='Failed to remove expanded row {row_uid}', secondary_msg=f'{repr(err)}')
             return
@@ -502,21 +502,21 @@ class ActiveTreeManager(HasLifecycle):
             logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
 
     def _save_selected_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
-        selected_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in display_tree_meta.selected_rows)
+        selected_rows_str: str = CONFIG_DELIMITER.join(str(guid) for guid in display_tree_meta.selected_rows)
         self.backend.put_config(ActiveTreeManager._make_selected_rows_config_key(display_tree_meta.tree_id), selected_rows_str)
 
     @staticmethod
     def _make_expanded_rows_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.expanded_rows'
 
-    def _load_selected_rows_from_config(self, tree_id: TreeID) -> Set[str]:
+    def _load_selected_rows_from_config(self, tree_id: TreeID) -> Set[GUID]:
         """Loads the Set of selected rows from app_config file"""
         logger.debug(f'[{tree_id}] Loading selected rows from app_config')
         try:
-            selected_rows: Set[str] = set()
-            selected_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_selected_rows_config_key(tree_id))
-            if selected_rows_str:
-                for guid in selected_rows_str.split(CONFIG_DELIMITER):
+            selected_rows: Set[GUID] = set()
+            selected_rows_unparsed: Optional[str] = self.backend.get_config(ActiveTreeManager._make_selected_rows_config_key(tree_id))
+            if selected_rows_unparsed:
+                for guid in selected_rows_unparsed.split(CONFIG_DELIMITER):
                     selected_rows.add(guid)
             return selected_rows
         except RuntimeError:
@@ -530,7 +530,7 @@ class ActiveTreeManager(HasLifecycle):
     def _make_selected_rows_config_key(tree_id: TreeID) -> str:
         return f'ui_state.{tree_id}.selected_rows'
 
-    def _purge_dead_rows(self, expanded_cached: Set[str], selected_cached: Set[str], display_tree_meta: ActiveDisplayTreeMeta) -> RowsOfInterest:
+    def _purge_dead_rows(self, expanded_cached: Set[GUID], selected_cached: Set[GUID], display_tree_meta: ActiveDisplayTreeMeta) -> RowsOfInterest:
         verified = RowsOfInterest()
 
         if not display_tree_meta.root_exists:

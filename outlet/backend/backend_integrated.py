@@ -116,10 +116,10 @@ class BackendIntegrated(OutletBackend):
     def get_device_list(self) -> List[Device]:
         return self.cacheman.get_device_list()
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[Node]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[SPIDNodePair]:
         return self.cacheman.get_child_list(parent_spid, tree_id, max_results)
 
-    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[SPIDNodePair]:
         return self.cacheman.get_ancestor_list_for_spid(spid, stop_at_path=stop_at_path)
 
     def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):

@@ -30,7 +30,7 @@ from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeReques
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from signal_constants import Signal
@@ -262,14 +262,14 @@ class BackendGRPCClient(OutletBackend):
             self._cached_device_list = device_list
         return self._cached_device_list
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[Node]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[SPIDNodePair]:
         if SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Entered get_child_list(): parent_spid={parent_spid}')
         assert tree_id, f'GRPCClient.get_child_list(): No tree_id provided!'
         assert max_results >= 0, f'Bad value for max_results: {max_results}'
 
         request = GetChildList_Request()
-        request.parent_spid = self._converter.node_identifier_to_grpc()
+        request.parent_spid = self._converter.node_identifier_to_grpc(parent_spid)
         request.tree_id = tree_id
         request.max_results = max_results
 
@@ -279,34 +279,18 @@ class BackendGRPCClient(OutletBackend):
             # Convert to exception on this side
             assert max_results > 0, f'Got nonzero result_exceeded_count ({response.result_exceeded_count}) but max_results was 0!'
             raise ResultsExceededError(response.result_exceeded_count)
-        return self._converter.node_list_from_grpc(response.node_list)
+        return self._converter.sn_list_from_grpc(response.child_list)
 
-    @staticmethod
-    def _make_child_sn_list(child_node_list: Iterable[Node], parent_path: str) -> Iterable[SPIDNodePair]:
-        child_sn_list: List[SPIDNodePair] = []
-        for child_node in child_node_list:
-            if child_node.node_identifier.is_spid():
-                # no need to do extra work!
-                child_sn = SPIDNodePair(child_node.node_identifier, child_node)
-            else:
-                child_path = os.path.join(parent_path, child_node.name)
-                if child_path not in child_node.get_path_list():
-                    # this means we're not following the rules
-                    raise RuntimeError(f'Could not find derived path ("{child_path}") in path list ({child_node.get_path_list()}) of child!')
-                child_sn = SPIDNodePair(SinglePathNodeIdentifier(child_node.uid, child_path, child_node.tree_type), child_node)
-            child_sn_list.append(child_sn)
-        return child_sn_list
-
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         request = SetSelectedRowSet_Request()
-        for uid in selected:
-            request.selected_row_uid_set.add(uid)
+        for guid in selected:
+            request.selected_row_guid_set.add(guid)
         request.tree_id = tree_id
         self.grpc_stub.set_selected_row_set(request)
 
-    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
+    def remove_expanded_row(self, row_uid: GUID, tree_id: TreeID):
         request = RemoveExpandedRow_Request()
-        request.node_uid = row_uid
+        request.node_guid = row_uid
         request.tree_id = tree_id
         self.grpc_stub.remove_expanded_row(request)
 
@@ -315,20 +299,20 @@ class BackendGRPCClient(OutletBackend):
         request.tree_id = tree_id
         response = self.grpc_stub.get_rows_of_interest(request)
         rows = RowsOfInterest()
-        for uid in response.expanded_row_uid_set:
-            rows.expanded.add(uid)
-        for uid in response.selected_row_uid_set:
-            rows.selected.add(uid)
+        for guid in response.expanded_row_guid_set:
+            rows.expanded.add(guid)
+        for guid in response.selected_row_guid_set:
+            rows.selected.add(guid)
         return rows
 
-    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[SPIDNodePair]:
         request = GetAncestorList_Request()
         if stop_at_path:
             request.stop_at_path = stop_at_path
         self._converter.node_identifier_to_grpc(spid, request.spid)
 
         response = self.grpc_stub.get_ancestor_list_for_spid(request)
-        return self._converter.node_list_from_grpc(response.node_list)
+        return self._converter.sn_list_from_grpc(response.ancestor_list)
 
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
         request = DragDrop_Request()

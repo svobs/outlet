@@ -10,7 +10,7 @@ from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
@@ -80,20 +80,20 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[Node]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[SPIDNodePair]:
         """If max_results is 0, unlimited nodes are returned. If nonzero and actual node count exceeds this, ResultsExceededError is raised"""
         pass
 
     @abstractmethod
-    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[SPIDNodePair]:
         pass
 
     @abstractmethod
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         pass
 
     @abstractmethod
-    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
+    def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
         pass
 
     @abstractmethod
@@ -142,11 +142,11 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def start_diff_trees(self, tree_id_left: str, tree_id_right: str) -> DiffResultTreeIds:
+    def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
         pass
 
     @abstractmethod
-    def generate_merge_tree(self, tree_id_left: str, tree_id_right: str,
+    def generate_merge_tree(self, tree_id_left: TreeID, tree_id_right: TreeID,
                             selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
         pass
 

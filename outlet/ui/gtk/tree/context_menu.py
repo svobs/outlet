@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 from constants import DATE_REGEX, GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeType
 from model.node.container_node import CategoryNode
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp
 from signal_constants import Signal
@@ -137,7 +137,6 @@ class TreeContextMenu:
             if is_gdrive:
                 label += ' from Google Drive'
             item = Gtk.MenuItem(label=label)
-            node = self.con.display_store.get_node_data(tree_path)
             item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': [node]})
             menu.append(item)
 
@@ -150,22 +149,18 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, Signal.DELETE_SINGLE_FILE, {'node': node})
             menu.append(item)
 
-    def build_context_menu_single(self, tree_path: Gtk.TreePath, node: Node) -> Optional[Gtk.Menu]:
+    def build_context_menu_single(self, tree_path: Gtk.TreePath, sn: SPIDNodePair) -> Optional[Gtk.Menu]:
         """Dynamic context menu (right-click on tree item) for the given 'node' at 'tree_path'"""
 
-        if node.is_ephemereal():
+        if sn.node.is_ephemereal():
             # 'Loading' node, 'Empty' node, etc.
             return None
 
         menu = Gtk.Menu()
 
-        if node.node_identifier.tree_type == TreeType.GDRIVE:
-            single_path = self.con.display_store.derive_single_path_from_tree_path(tree_path, include_gdrive_prefix=False)
-        else:
-            assert node.node_identifier.tree_type == TreeType.LOCAL_DISK
-            single_path = node.get_single_path()
+        single_path = sn.spid.get_single_path()
 
-        op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(node.uid)
+        op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(sn.node.uid)
         if op and op.has_dst():
             if SUPER_DEBUG:
                 logger.debug(f'Building context menu for op: {op}')
@@ -173,7 +168,7 @@ class TreeContextMenu:
             # Split into separate entries for src and dst.
 
             # (1/2) Source:
-            if op.src_node.uid == node.uid:
+            if op.src_node.uid == sn.node.uid:
                 # src node
                 src_path = single_path
             else:
@@ -182,6 +177,7 @@ class TreeContextMenu:
             if op.src_node.is_live():
                 src_submenu = Gtk.Menu()
                 item.set_submenu(src_submenu)
+                # FIXME: add BE call to retrieve SPIDNodePair from node_uid + path
                 self._build_menu_items_for_single_node(src_submenu, tree_path, op.src_node, src_path)
             else:
                 item.set_sensitive(False)
@@ -191,7 +187,7 @@ class TreeContextMenu:
             menu.append(Gtk.SeparatorMenuItem())
 
             # (2/2) Destination:
-            if op.dst_node.uid == node.uid:
+            if op.dst_node.uid == sn.node.uid:
                 # src node
                 dst_path = single_path
             else:
@@ -209,7 +205,7 @@ class TreeContextMenu:
             menu.append(Gtk.SeparatorMenuItem())
         else:
             # Single item
-            item = TreeContextMenu.build_full_path_display_item('', node, single_path)
+            item = TreeContextMenu.build_full_path_display_item('', sn.node, single_path)
             # gray it out
             item.set_sensitive(False)
             menu.append(item)
@@ -217,14 +213,14 @@ class TreeContextMenu:
             # MenuItem: ---
             menu.append(Gtk.SeparatorMenuItem())
 
-            self._build_menu_items_for_single_node(menu, tree_path, node, single_path)
+            self._build_menu_items_for_single_node(menu, tree_path, sn.node, single_path)
 
-        if node.is_dir():
+        if sn.node.is_dir():
             item = Gtk.MenuItem(label=f'Expand All')
             item.connect('activate', self.send_signal, Signal.EXPAND_ALL, {'tree_path': tree_path})
             menu.append(item)
 
-        if node.is_live():
+        if sn.node.is_live():
             # MenuItem: ---
             menu.append(Gtk.SeparatorMenuItem())
 

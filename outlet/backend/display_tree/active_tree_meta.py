@@ -3,6 +3,7 @@ from typing import Dict, Optional, Set
 
 from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
+from constants import TreeID
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from model.node.directory_stats import DirectoryStats
@@ -26,12 +27,12 @@ class ActiveDisplayTreeMeta:
 
         self.change_tree: Optional[ChangeTree] = None
         """For order > 1 only"""
-        self.src_tree_id: Optional[str] = None
+        self.src_tree_id: Optional[TreeID] = None
         """For order > 1 only"""
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
-        self.expanded_rows: Set[str] = set()
-        self.selected_rows: Set[str] = set()
+        self.expanded_rows: Set[GUID] = set()
+        self.selected_rows: Set[GUID] = set()
 
         self.summary_msg: Optional[str] = None
         self.dir_stats_unfiltered: Dict[GUID, DirectoryStats] = {}

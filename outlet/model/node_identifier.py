@@ -115,22 +115,6 @@ class NodeIdentifier(ABC):
         return not self.__eq__(other)
 
 
-class NullNodeIdentifier(NodeIdentifier):
-    """
-    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS NullNodeIdentifier
-
-    Used for EphemeralNodes.
-    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-    """
-    def __init__(self):
-        super().__init__(NULL_UID, NULL_UID, None)
-
-    @property
-    def tree_type(self) -> TreeType:
-        return TreeType.NA
-
-
 class SinglePathNodeIdentifier(NodeIdentifier, ABC):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -202,6 +186,23 @@ class GDriveIdentifier(NodeIdentifier):
     @property
     def tree_type(self) -> TreeType:
         return TreeType.GDRIVE
+
+
+class EphemeralNodeIdentifier(SinglePathNodeIdentifier):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS EphemeralNodeIdentifier
+
+    Used for EphemeralNodes.
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
+    def __init__(self):
+        # Note: GTK3 doesn't care about GUIDs, so we can just enter junk data here (unlike Mac version)
+        super().__init__(NULL_UID, NULL_UID, "")
+
+    @property
+    def tree_type(self) -> TreeType:
+        return TreeType.NA
 
 
 class GDriveSPID(SinglePathNodeIdentifier):

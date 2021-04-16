@@ -2,9 +2,9 @@ import logging
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeType
+from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeID, TreeType
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.uid import UID
 
 import gi
@@ -46,10 +46,10 @@ class DisplayStore:
         # - The 'inconsistent_rows' list is needed for display purposes.
         self.checked_rows: Dict[UID, Node] = {}
         self.inconsistent_rows: Dict[UID, Node] = {}
-        self.displayed_rows: Dict[UID, Node] = {}
+        self.displayed_rows: Dict[GUID, SPIDNodePair] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
 
-    def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> Node:
+    def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
         """
         Args
             tree_path: TreePath, or TreeIter of target node
@@ -89,9 +89,9 @@ class DisplayStore:
 
     def _set_checked_state(self, tree_iter, is_checked, is_inconsistent):
         assert not (is_checked and is_inconsistent)
-        node_data: Node = self.get_node_data(tree_iter)
+        sn: SPIDNodePair = self.get_node_data(tree_iter)
 
-        if node_data.is_ephemereal():
+        if sn.node.is_ephemereal():
             # Cannot be checked if no path (LoadingNode, etc.)
             return
 
@@ -99,18 +99,18 @@ class DisplayStore:
         row[self.treeview_meta.col_num_checked] = is_checked
         row[self.treeview_meta.col_num_inconsistent] = is_inconsistent
 
-        self._update_checked_state_tracking(node_data, is_checked, is_inconsistent)
+        self._update_checked_state_tracking(sn, is_checked, is_inconsistent)
 
-    def _update_checked_state_tracking(self, node_data: Node, is_checked: bool, is_inconsistent: bool):
-        row_id = node_data.uid
+    def _update_checked_state_tracking(self, sn: SPIDNodePair, is_checked: bool, is_inconsistent: bool):
+        row_id = sn.node.uid
         if is_checked:
-            self.checked_rows[row_id] = node_data
+            self.checked_rows[row_id] = sn.node
         else:
             if row_id in self.checked_rows:
                 del self.checked_rows[row_id]
 
         if is_inconsistent:
-            self.inconsistent_rows[row_id] = node_data
+            self.inconsistent_rows[row_id] = sn.node
         else:
             if row_id in self.inconsistent_rows:
                 del self.inconsistent_rows[row_id]
@@ -119,8 +119,8 @@ class DisplayStore:
         """LISTENER/CALLBACK: Called when checkbox in treeview is toggled"""
         if isinstance(tree_path, str):
             tree_path = Gtk.TreePath.new_from_string(tree_path)
-        data_node: Node = self.get_node_data(tree_path)
-        if data_node.is_ephemereal():
+        sn: SPIDNodePair = self.get_node_data(tree_path)
+        if sn.node.is_ephemereal():
             logger.debug(f'[{self.tree_id}] Disallowing checkbox toggle because node is ephemereal')
             return
         checked_value = not self.is_node_checked(tree_path)
@@ -182,12 +182,12 @@ class DisplayStore:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def _uid_equals_func(target_uid: UID, node: Node) -> bool:
+    def _guid_equals_func(target_guid: GUID, sn: SPIDNodePair) -> bool:
         # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemeral():
-        #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
-        return not node.is_ephemereal() and node.uid == target_uid
+        #     logger.debug(f'Examining node guid={sn.spid.guid} (looking for: {target_guid})')
+        return not sn.node.is_ephemereal() and sn.spid.guid == target_guid
 
-    def find_in_tree(self, found_func: Callable[[Node], bool], tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
+    def find_in_tree(self, found_func: Callable[[SPIDNodePair], bool], tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
         """Generic version:
         Recurses over entire tree and visits every node until is_uid_equals_func() returns True, then returns the data at that node.
         REMEMBER: if this is a lazy-loading tree, this only iterates over the VISIBLE nodes!"""
@@ -195,8 +195,8 @@ class DisplayStore:
             tree_iter = self.model.get_iter_first()
 
         while tree_iter is not None:
-            node = self.get_node_data(tree_iter)
-            if found_func(node):
+            sn = self.get_node_data(tree_iter)
+            if found_func(sn):
                 return tree_iter
             if self.model.iter_has_child(tree_iter):
                 child_iter = self.model.iter_children(tree_iter)
@@ -206,12 +206,12 @@ class DisplayStore:
             tree_iter = self.model.iter_next(tree_iter)
         return None
 
-    def find_uid_in_tree(self, target_uid: UID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
+    def find_guid_in_tree(self, target_guid: GUID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
         """Recurses over entire tree and visits every node until _uid_equals_func() returns True, then returns iter data at that node"""
-        bound_func: Callable = partial(self._uid_equals_func, target_uid)
+        bound_func: Callable = partial(self._guid_equals_func, target_guid)
         return self.find_in_tree(bound_func, tree_iter)
 
-    def find_in_children(self, parent_iter, equals_func: Callable) -> Optional[Gtk.TreeIter]:
+    def find_in_children(self, parent_iter, equals_func: Callable[[SPIDNodePair], bool]) -> Optional[Gtk.TreeIter]:
         """Generic version:
         Searches the children of the given parent_iter for the given UID, then returns the iter at that node"""
         if parent_iter:
@@ -224,34 +224,34 @@ class DisplayStore:
             child_iter = self.model.get_iter_first()
 
         while child_iter is not None:
-            node = self.get_node_data(child_iter)
-            if equals_func(node):
+            sn = self.get_node_data(child_iter)
+            if equals_func(sn):
                 return child_iter
             child_iter = self.model.iter_next(child_iter)
         return None
 
-    def find_uid_in_children(self, target_uid: UID, parent_iter) -> Optional[Gtk.TreeIter]:
+    def find_guid_in_children(self, target_guid: GUID, parent_iter) -> Optional[Gtk.TreeIter]:
         """Searches the children of the given parent_iter for the given UID, then returns the iter at that node"""
-        bound_func: Callable = partial(self._uid_equals_func, target_uid)
+        bound_func: Callable = partial(self._guid_equals_func, target_guid)
         return self.find_in_children(parent_iter, bound_func)
 
-    def get_displayed_children_of(self, parent_uid: UID) -> List[Node]:
-        if not parent_uid:
+    def get_displayed_children_of(self, parent_guid: GUID) -> List[SPIDNodePair]:
+        if not parent_guid:
             child_iter = self.model.get_iter_first()
         else:
-            parent_iter = self.find_uid_in_tree(parent_uid)
+            parent_iter = self.find_guid_in_tree(parent_guid)
             if not parent_iter:
                 return []
             child_iter = self.model.iter_children(parent_iter)
 
-        children: List[Node] = []
+        child_list: List[SPIDNodePair] = []
         while child_iter is not None:
-            node = self.get_node_data(child_iter)
-            if not node.is_ephemereal():
-                children.append(node)
+            sn = self.get_node_data(child_iter)
+            if not sn.node.is_ephemereal():
+                child_list.append(sn)
             child_iter = self.model.iter_next(child_iter)
 
-        return children
+        return child_list
 
     def recurse_over_tree(self, tree_iter: Gtk.TreeIter = None, action_func: Callable[[Gtk.TreeIter], None] = None):
         """
@@ -300,34 +300,36 @@ class DisplayStore:
         self.recurse_over_tree(tree_iter, action_func)
 
     def append_node(self, parent_node_iter, row_values: list):
-        node: Node = row_values[self.treeview_meta.col_num_data]
+        sn: SPIDNodePair = row_values[self.treeview_meta.col_num_data]
 
-        if not node.is_ephemereal():
-            self.displayed_rows[node.uid] = node
+        if not sn.node.is_ephemereal():
+            self.displayed_rows[sn.spid.guid] = sn
 
         return self.model.append(parent_node_iter, row_values)
 
-    def remove_node(self, node_uid: UID):
+    def remove_node(self, node_guid: GUID):
         """Also removes itself and any descendents from the lists"""
 
         # TODO: this can be optimized to search only the paths of the ancestors
-        initial_tree_iter = self.find_uid_in_tree(target_uid=node_uid)
+        initial_tree_iter = self.find_guid_in_tree(target_guid=node_guid)
         if not initial_tree_iter:
-            raise RuntimeError(f'Could not find node in display tree with UID: {node_uid}')
+            raise RuntimeError(f'Could not find node in display tree with GUID: {node_guid}')
 
         def remove_node_from_lists(tree_iter):
-            node = self.get_node_data(tree_iter)
-            if node.is_ephemereal():
+            sn = self.get_node_data(tree_iter)
+            if sn.node.is_ephemereal():
                 return
 
-            uid = node.uid
+            guid = sn.spid.guid
+            uid = sn.node.uid
+
             if uid in self.checked_rows:
                 del self.checked_rows[uid]
             if uid in self.inconsistent_rows:
                 del self.inconsistent_rows[uid]
-            if uid in self.displayed_rows:
-                del self.displayed_rows[node.uid]
-            self.expanded_rows.discard(uid)
+
+            if guid in self.displayed_rows:
+                del self.displayed_rows[guid]
 
         self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
 
@@ -339,12 +341,12 @@ class DisplayStore:
         if not first_child_iter:
             return False
 
-        child_data = self.get_node_data(first_child_iter)
+        child_sn = self.get_node_data(first_child_iter)
         if SUPER_DEBUG:
-            logger.debug(f'[{self.tree_id}] Removing child: {child_data}')
+            logger.debug(f'[{self.tree_id}] Removing child: {child_sn.spid}')
 
-        if not child_data.is_ephemereal():
-            logger.error(f'[{self.tree_id}] Expected LoadingNode but found: {child_data}')
+        if not child_sn.node.is_ephemereal():
+            logger.error(f'[{self.tree_id}] Expected LoadingNode but found: {child_sn.node}')
             return
 
         # remove the first child
@@ -356,12 +358,12 @@ class DisplayStore:
         if not first_child_iter:
             return False
 
-        child_node = self.get_node_data(first_child_iter)
+        child_sn = self.get_node_data(first_child_iter)
         if SUPER_DEBUG:
-            logger.debug(f'[{self.tree_id}] Removing 1st child: {child_node}')
+            logger.debug(f'[{self.tree_id}] Removing 1st child: {child_sn.spid}')
 
-        if not child_node.is_ephemereal():
-            self.displayed_rows.pop(child_node.uid)
+        if not child_sn.node.is_ephemereal():
+            self.displayed_rows.pop(child_sn.spid.guid)
 
         # remove the first child
         self.model.remove(first_child_iter)
@@ -385,11 +387,13 @@ class DisplayStore:
             removed_count += 1
         logger.debug(f'[{self.tree_id}] Removed {removed_count} children')
 
+    # FIXME: deprecate this
     def build_spid_from_tree_path(self, tree_path: Gtk.TreePath) -> SinglePathNodeIdentifier:
         node = self.get_node_data(tree_path)
         single_path = self.derive_single_path_from_tree_path(tree_path)
         return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.tree_type)
 
+    # FIXME: deprecate this
     def build_sn_from_tree_path(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
         node = self.get_node_data(tree_path)
         single_path = self.derive_single_path_from_tree_path(tree_path)
@@ -456,23 +460,14 @@ class DisplayStore:
     def get_single_selection(self) -> Node:
         return self._execute_on_current_single_selection(lambda tp: self.get_node_data(tp))
 
-    def get_multiple_selection(self) -> List[Node]:
-        """Returns a list of the selected items (empty if none)"""
-        selection = self.con.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        items = []
-        for tree_path in tree_paths:
-            item = self.get_node_data(tree_path)
-            items.append(item)
-        return items
-
-    def get_multiple_selection_sn_list(self) -> List[SPIDNodePair]:
+    def get_multiple_selection(self) -> List[SPIDNodePair]:
         """Returns a list of the selected items (empty if none)"""
         selection = self.con.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
         sn_list = []
         for tree_path in tree_paths:
-            sn_list.append(self.build_sn_from_tree_path(tree_path))
+            sn = self.get_node_data(tree_path)
+            sn_list.append(sn)
         return sn_list
 
     def get_multiple_selection_and_paths(self) -> Tuple[List[Node], List[Gtk.TreePath]]:

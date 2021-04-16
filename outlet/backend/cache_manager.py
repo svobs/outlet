@@ -34,7 +34,7 @@ from model.display_tree.summary import TreeSummarizer
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
@@ -803,7 +803,7 @@ class CacheManager(HasLifecycle):
         path_list = ensure_list(path_list)
         return self._get_store_for_device_uid(device_uid).get_node_list_for_path_list(path_list)
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> List:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> List[SPIDNodePair]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_child_list() for tree_id={tree_id}, parent_spid = {parent_spid}')
 
@@ -853,13 +853,13 @@ class CacheManager(HasLifecycle):
             if sn.node.is_dir():
                 sn.node.dir_stats = dir_stats.get(sn.spid.guid, None)
 
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         """Saves the selected rows from the UI for the given tree"""
         self._active_tree_manager.set_selected_rows(tree_id, selected)
 
-    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
+    def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
-        self._active_tree_manager.remove_expanded_row(row_uid, tree_id)
+        self._active_tree_manager.remove_expanded_row(row_guid, tree_id)
 
     def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self._active_tree_manager.get_rows_of_interest(tree_id)
@@ -922,24 +922,25 @@ class CacheManager(HasLifecycle):
                                                                       must_be_single_path=True)
         return SPIDNodePair(parent_spid, parent_node)
 
-    def get_ancestor_list_for_spid(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Deque[Node]:
+    def get_ancestor_list_for_spid(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Deque[SPIDNodePair]:
 
-        ancestor_deque: Deque[Node] = deque()
-        ancestor: Node = self.get_node_for_uid(spid.node_uid)
-        if not ancestor:
+        ancestor_deque: Deque[SPIDNodePair] = deque()
+        ancestor_node: Node = self.get_node_for_uid(spid.node_uid)
+        if not ancestor_node:
             logger.warning(f'get_ancestor_list_for_spid(): Node not found: {spid}')
             return ancestor_deque
 
-        parent_path: str = spid.get_single_path()  # not actually parent's path until it enters loop
+        ancestor_sn = SPIDNodePair(spid, ancestor_node)
 
         while True:
-            parent_path = self.derive_parent_path(parent_path)
+            parent_path = ancestor_sn.spid.get_single_path()
             if parent_path == stop_at_path:
                 return ancestor_deque
 
-            ancestor: Node = self._find_parent_matching_path(ancestor, parent_path)
-            if ancestor:
-                ancestor_deque.appendleft(ancestor)
+            ancestor_sn = self.get_parent_sn_for_sn(ancestor_sn)
+
+            if ancestor_sn:
+                ancestor_deque.appendleft(ancestor_sn)
             else:
                 return ancestor_deque
 

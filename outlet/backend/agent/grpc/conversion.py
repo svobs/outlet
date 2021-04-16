@@ -268,6 +268,18 @@ class GRPCConverter:
         node = self.optional_node_from_grpc_container(grpc_sn)
         return SPIDNodePair(spid, node)
 
+    def sn_list_to_grpc(self, sn_list: Iterable[SPIDNodePair], grpc_sn_list):
+        for sn in sn_list:
+            grpc_sn = grpc_sn_list.add()
+            self.sn_to_grpc(sn, grpc_sn)
+
+    def sn_list_from_grpc(self, grpc_sn_list) -> List[SPIDNodePair]:
+        sn_list: List[SPIDNodePair] = []
+        for grpc_sn in grpc_sn_list:
+            sn = self.sn_from_grpc(grpc_sn)
+            sn_list.append(sn)
+        return sn_list
+
     # FilterCriteria
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

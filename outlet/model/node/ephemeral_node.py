@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from constants import IconId
 from error import InvalidOperationError
 from model.node.node import Node
-from model.node_identifier import NullNodeIdentifier
+from model.node_identifier import EphemeralNodeIdentifier
 
 
 class EphemeralNode(Node, ABC):
@@ -13,7 +13,7 @@ class EphemeralNode(Node, ABC):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self):
-        super().__init__(NullNodeIdentifier())
+        super().__init__(EphemeralNodeIdentifier())
 
     def __repr__(self):
         return self.name

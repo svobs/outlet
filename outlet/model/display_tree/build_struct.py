@@ -1,7 +1,7 @@
 from typing import Set
 
 from constants import TreeDisplayMode, TreeID
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.uid import UID
 
 
@@ -27,8 +27,8 @@ class RowsOfInterest:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self):
-        self.expanded: Set[str] = set()
-        self.selected: Set[str] = set()
+        self.expanded: Set[GUID] = set()
+        self.selected: Set[GUID] = set()
 
 
 class DisplayTreeRequest:
