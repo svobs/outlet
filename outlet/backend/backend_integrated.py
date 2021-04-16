@@ -90,6 +90,9 @@ class BackendIntegrated(OutletBackend):
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self.cacheman.get_uid_for_local_path(full_path, uid_suggestion)
 
+    def get_sn_for(self, node_uid: UID, device_uid: UID, full_path: str) -> Optional[SPIDNodePair]:
+        return self.cacheman.get_sn_for(node_uid, device_uid, full_path)
+
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
         if not request.tree_id:
             raise RuntimeError(f'Invalid DisplayTree request: tree_id cannot be null for {request}')

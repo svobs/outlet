@@ -9,8 +9,7 @@ from pydispatch import dispatcher
 from constants import DATE_REGEX, OPEN, SHOW
 from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile
-from model.node.local_disk_node import LocalNode
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
@@ -50,11 +49,11 @@ class TreeActions(HasLifecycle):
     # ACTIONS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _call_exiftool_list(self, sender, node_list: List[LocalNode]):
+    def _call_exiftool_list(self, sender, sn_list: List[SPIDNodePair]):
 
         def call_exiftool():
-            for item in node_list:
-                self._call_exiftool(sender, item.get_single_path())
+            for sn in sn_list:
+                self._call_exiftool(sender, sn.spid.get_single_path())
 
         dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=call_exiftool)
 

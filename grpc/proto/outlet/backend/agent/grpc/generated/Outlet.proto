@@ -296,6 +296,16 @@ message GetUidForLocalPath_Response {
 	uint32 uid = 1;
 }
 
+message GetSnFor_Request {
+	uint32 node_uid = 1;
+	uint32 device_uid = 2;
+	string full_path = 3;
+}
+
+message GetSnFor_Response {
+	SPIDNodePair sn = 1;
+}
+
 message GetNodeForUid_Request {
 	uint32 uid = 1;
 	uint32 device_uid = 2; // optional (but encouraged!)
@@ -339,6 +349,7 @@ service Outlet {
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);
+	rpc get_sn_for(GetSnFor_Request) returns (GetSnFor_Response);
 
 	rpc start_diff_trees(StartDiffTrees_Request) returns (StartDiffTrees_Response);
 	rpc generate_merge_tree(GenerateMergeTree_Request) returns (Empty);

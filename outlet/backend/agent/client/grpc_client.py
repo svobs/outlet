@@ -19,7 +19,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
-    GetUidForLocalPath_Request, \
+    GetSnFor_Request, GetUidForLocalPath_Request, \
     PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
     SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
@@ -217,6 +217,14 @@ class BackendGRPCClient(OutletBackend):
         request.uid_suggestion = uid_suggestion
         grpc_response = self.grpc_stub.get_uid_for_local_path(request)
         return UID(grpc_response.uid)
+
+    def get_sn_for(self, node_uid: UID, device_uid: UID, full_path: str) -> Optional[SPIDNodePair]:
+        request = GetSnFor_Request()
+        request.node_uid = node_uid
+        request.device_uid = device_uid
+        request.full_path = full_path
+        grpc_response = self.grpc_stub.get_sn_for(request)
+        return self._converter.sn_from_grpc(grpc_response.sn)
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
         assert request.tree_id, f'No tree_id in: {request}'

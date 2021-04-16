@@ -54,7 +54,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.connect("response", self.on_response)
 
         # Start listening BEFORE calling backend to do the load
-        dispatcher.connect(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_selected_changed)
+        dispatcher.connect(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_selection_changed)
         dispatcher.connect(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_backend_ready)
         dispatcher.connect(signal=Signal.POPULATE_UI_TREE_DONE, receiver=self._on_populate_complete)
 
@@ -89,11 +89,11 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Backend load complete! Showing dialog')
         GLib.idle_add(self.show_all)
 
-    def _on_selection_changed(self, sender, node_list: List[Node]):
+    def _on_selection_changed(self, sender, sn_list: List[SPIDNodePair]):
         if sender != self.tree_id:
             return
         # In weird GTK-speak, "sensitive" means enabled
-        self.ok_button.set_sensitive(node_list and node_list[0].is_dir())
+        self.ok_button.set_sensitive(sn_list and sn_list[0].node.is_dir())
 
     def _on_populate_complete(self, sender):
         if sender != self.tree_id:

@@ -68,6 +68,10 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
+    def get_sn_for(self, node_uid: UID, device_uid: UID, full_path: str) -> Optional[SPIDNodePair]:
+        pass
+
+    @abstractmethod
     def start_subtree_load(self, tree_id: TreeID):
         pass
 

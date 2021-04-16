@@ -5,7 +5,7 @@ import threading
 from pydispatch import dispatcher
 
 from collections import deque
-from typing import Deque, Dict, Iterable, Optional, Set
+from typing import Deque, Dict, Optional, Set
 
 from backend.backend_integrated import BackendIntegrated
 from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
@@ -24,7 +24,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     GetLastPendingOp_Response, \
     GetNextUid_Response, \
     GetNodeForUid_Request, \
-    GetUidForLocalPath_Request, \
+    GetSnFor_Request, GetSnFor_Response, GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, RemoveExpandedRow_Response, \
     RequestDisplayTree_Response, \
     SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
@@ -236,6 +236,15 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def get_uid_for_local_path(self, request: GetUidForLocalPath_Request, context):
         response = GetUidForLocalPath_Response()
         response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
+        return response
+
+    def get_sn_for(self, request: GetSnFor_Request, context):
+        response = GetSnFor_Response()
+
+        sn = self.cacheman.get_sn_for(request.node_uid, request.device_uid, request.full_path)
+        if sn:
+            self._converter.sn_to_grpc(sn, response.sn)
+
         return response
 
     def request_display_tree(self, grpc_req, context):

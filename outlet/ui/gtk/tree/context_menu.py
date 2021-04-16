@@ -29,22 +29,22 @@ class TreeContextMenu:
         self.con = controller
 
     # TODO: does this account for logical nodes?
-    def build_context_menu_multiple(self, selected_items: List[Node], selected_tree_paths: List[Gtk.TreePath]) -> Optional[Gtk.Menu]:
+    def build_context_menu_multiple(self, selected_sn_list: List[SPIDNodePair], selected_tree_paths: List[Gtk.TreePath]) -> Optional[Gtk.Menu]:
         menu = Gtk.Menu()
 
         # Show number of items selected
         item = Gtk.MenuItem(label='')
         label = item.get_child()
-        display = GLib.markup_escape_text(f'{len(selected_items)} items selected')
+        display = GLib.markup_escape_text(f'{len(selected_sn_list)} items selected')
         label.set_markup(f'<i>{display}</i>')
         item.set_sensitive(False)
         menu.append(item)
 
         if self.con.treeview_meta.has_checkboxes:
             tree_paths: List[Gtk.TreePath] = []
-            for item, path in zip(selected_items, selected_tree_paths):
+            for sn, path in zip(selected_sn_list, selected_tree_paths):
                 # maybe I'm nitpicking here
-                if not item.is_ephemereal():
+                if not sn.node.is_ephemereal():
                     tree_paths.append(path)
 
             item = Gtk.MenuItem(label=f'Check All')
@@ -55,20 +55,20 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, Signal.SET_ROWS_UNCHECKED, {'tree_paths': tree_paths})
             menu.append(item)
 
-        is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TreeType.LOCAL_DISK
+        is_localdisk = len(selected_sn_list) > 0 and selected_sn_list[0].spid.tree_type == TreeType.LOCAL_DISK
         if is_localdisk:
             item = Gtk.MenuItem(label=f'Use EXIFTool on Dirs')
-            item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL_LIST, {'node_list': selected_items})
+            item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL_LIST, {'sn_list': selected_sn_list})
             menu.append(item)
 
         # FIXME: this does not support multiple devices or GDrives
         items_to_delete_local: List[Node] = []
         items_to_delete_gdrive: List[Node] = []
-        for selected_item in selected_items:
-            if selected_item.node_identifier.tree_type == TreeType.LOCAL_DISK and selected_item.is_live():
-                items_to_delete_local.append(selected_item)
-            elif selected_item.node_identifier.tree_type == TreeType.GDRIVE and selected_item.is_live():
-                items_to_delete_gdrive.append(selected_item)
+        for selected_sn in selected_sn_list:
+            if selected_sn.spid.tree_type == TreeType.LOCAL_DISK and selected_sn.node.is_live():
+                items_to_delete_local.append(selected_sn.node)
+            elif selected_sn.spid.tree_type == TreeType.GDRIVE and selected_sn.node.is_live():
+                items_to_delete_gdrive.append(selected_sn.node)
 
         if len(items_to_delete_local) > 0:
             item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_local)} Items from Local Disk')

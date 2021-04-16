@@ -772,18 +772,6 @@ class CacheManager(HasLifecycle):
         assert full_path and isinstance(full_path, str)
         return self._uid_path_mapper.get_uid_for_path(full_path, uid_suggestion)
 
-    def get_goog_id_for_parent(self, node: GDriveNode) -> str:
-        """Fails if there is not exactly 1 parent"""
-        parent_uids: List[UID] = node.get_parent_uids()
-        if len(parent_uids) != 1:
-            raise RuntimeError(f'Only one parent is allowed but node has {len(parent_uids)} parents: {node}')
-
-        # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.get_goog_id_list_for_uid_list(parent_uids, fail_if_missing=True)
-
-        parent_goog_id: str = parent_goog_ids[0]
-        return parent_goog_id
-
     def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[Node]:
         return self.get_node_for_uid(node_identifer.node_uid, node_identifer.device_uid)
 
@@ -947,8 +935,30 @@ class CacheManager(HasLifecycle):
     def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
         return self._get_store_for_device_uid(subtree_root.device_uid).get_all_files_and_dirs_for_subtree(subtree_root)
 
+    def get_sn_for(self, node_uid: UID, device_uid: UID, full_path: str) -> Optional[SPIDNodePair]:
+        node = self._get_store_for_device_uid(device_uid).get_node_for_uid(node_uid)
+        if not node:
+            return None
+
+        spid = self.backend.node_identifier_factory.for_values(uid=node_uid, device_uid=device_uid, tree_type=node.tree_type,
+                                                               path_list=full_path, must_be_single_path=True)
+
+        return SPIDNodePair(spid, node)
+
     # GDrive-specific
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def get_goog_id_for_parent(self, node: GDriveNode) -> str:
+        """Fails if there is not exactly 1 parent"""
+        parent_uids: List[UID] = node.get_parent_uids()
+        if len(parent_uids) != 1:
+            raise RuntimeError(f'Only one parent is allowed but node has {len(parent_uids)} parents: {node}')
+
+        # This will raise an exception if it cannot resolve:
+        parent_goog_ids: List[str] = self.get_goog_id_list_for_uid_list(parent_uids, fail_if_missing=True)
+
+        parent_goog_id: str = parent_goog_ids[0]
+        return parent_goog_id
 
     # FIXME
     def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:

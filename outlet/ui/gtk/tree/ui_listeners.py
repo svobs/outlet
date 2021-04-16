@@ -8,6 +8,7 @@ from backend.diff.change_maker import SPIDNodePair
 from constants import TreeID, TreeType
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
+from model.node_identifier import GUID
 from model.uid import UID
 from model.user_op import UserOp
 from signal_constants import Signal
@@ -236,35 +237,37 @@ class TreeUiListeners(HasLifecycle):
 
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()
-        selected_nodes: [Node] = []
+        selected_sn_list: [SPIDNodePair] = []
         if treeiter is not None:
             if len(treeiter) == 1:
-                node = self.con.display_store.get_node_data(treeiter)
-                if node.md5:
-                    md5 = f' md5="{node.md5}'
+                sn = self.con.display_store.get_node_data(treeiter)
+                if sn.md5:
+                    md5 = f' md5="{sn.node.md5}'
                 else:
                     md5 = ''
-                logger.debug(f'[{self.con.tree_id}] User selected node={node.node_identifier}{md5}"')
+                logger.debug(f'[{self.con.tree_id}] User selected node={sn.spid} md5={md5}"')
 
-                selected_nodes.append(node)
+                selected_sn_list.append(sn)
             else:
                 logger.debug(f'[{self.con.tree_id}] User selected {len(treeiter)} nodes')
                 for i in treeiter:
-                    node = self.con.display_store.get_node_data(i)
-                    selected_nodes.append(node)
+                    sn = self.con.display_store.get_node_data(i)
+                    selected_sn_list.append(sn)
 
             def report_tree_selection():
-                self._report_tree_selection(selected_nodes)
+                self._report_tree_selection(selected_sn_list)
 
             # Do this async so that there's no chance of blocking the user:
+            # TODO: put this in a HoldoffTimer so it doesn't execute in rapid-fire
             dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=self.con.tree_id, task_func=report_tree_selection)
-            dispatcher.send(signal=Signal.TREE_SELECTION_CHANGED, sender=self.con.tree_id, node_list=selected_nodes)
+
+            dispatcher.send(signal=Signal.TREE_SELECTION_CHANGED, sender=self.con.tree_id, sn_list=selected_sn_list)
         return False
 
-    def _report_tree_selection(self, selected_nodes: [Node]):
-        selected: Set[UID] = set()
-        for node in selected_nodes:
-            selected.add(node.uid)
+    def _report_tree_selection(self, selected_sn_list: [SPIDNodePair]):
+        selected: Set[GUID] = set()
+        for sn in selected_sn_list:
+            selected.add(sn.spid.guid)
 
         # Report to the backend
         self.con.backend.set_selected_rows(tree_id=self.con.tree_id, selected=selected)
@@ -343,10 +346,10 @@ class TreeUiListeners(HasLifecycle):
                 return False
 
             # tree_path, col, cell_x, cell_y = path_at_pos[0], path_at_pos[1], path_at_pos[2], path_at_pos[3]
-            node_data = self.con.display_store.get_node_data(path_at_pos[0])
-            logger.debug(f'[{self.con.tree_id}] User right-clicked on {node_data}')
+            clicked_sn = self.con.display_store.get_node_data(path_at_pos[0])
+            logger.debug(f'[{self.con.tree_id}] User right-clicked on {clicked_sn}')
 
-            if self.on_row_right_clicked(event=event, tree_path=path_at_pos[0], node_data=node_data):
+            if self.on_row_right_clicked(event=event, tree_path=path_at_pos[0], clicked_sn=clicked_sn):
                 # Suppress selection event:
                 return True
         return False

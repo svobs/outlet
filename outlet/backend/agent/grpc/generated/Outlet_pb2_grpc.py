@@ -114,6 +114,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
                 )
+        self.get_sn_for = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/get_sn_for',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.FromString,
+                )
         self.start_diff_trees = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/start_diff_trees',
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
@@ -277,6 +282,12 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def get_sn_for(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def start_diff_trees(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -421,6 +432,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.get_uid_for_local_path,
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.SerializeToString,
+            ),
+            'get_sn_for': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_sn_for,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.SerializeToString,
             ),
             'start_diff_trees': grpc.unary_unary_rpc_method_handler(
                     servicer.start_diff_trees,
@@ -804,6 +820,23 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_uid_for_local_path',
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_sn_for(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_sn_for',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
