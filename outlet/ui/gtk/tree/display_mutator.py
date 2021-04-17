@@ -309,7 +309,7 @@ class DisplayMutator(HasLifecycle):
                             if tree_iter:
                                 self._expand_row_without_event_firing(tree_path=tree_iter, expand_all=False)
                             else:
-                                logger.warning(f'[{self.con.tree_id}] Could not expand row because it was not found: {guid}')
+                                logger.info(f'[{self.con.tree_id}] Could not expand row because it was not found: {guid}')
                         except RuntimeError as e:
                             # non-fatal error
                             logger.error(f'[{self.con.tree_id}] Failed to expand row: {guid}: {e}')
@@ -397,13 +397,13 @@ class DisplayMutator(HasLifecycle):
     # LISTENERS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: Node, is_expanded: bool) -> None:
+    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, sn: SPIDNodePair, is_expanded: bool) -> None:
         # Callback for Signal.NODE_EXPANSION_TOGGLED:
         if sender != self.con.tree_id:
             return
 
         assert self.con.treeview_meta.lazy_load
-        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
+        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {sn.spid}"')
 
         if not self._enable_expand_state_listeners or not self._enable_node_signals:
             if SUPER_DEBUG:
@@ -417,7 +417,7 @@ class DisplayMutator(HasLifecycle):
                     self.con.display_store.remove_loading_node(parent_iter)
 
                     # This will also add the node to the backend set of expanded nodes:
-                    child_list = self.con.get_tree().get_child_list(node)
+                    child_list = self.con.get_tree().get_child_list(sn.spid)
                     self._append_child_list(child_list=child_list, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,
@@ -427,7 +427,7 @@ class DisplayMutator(HasLifecycle):
                     self._expand_row_without_event_firing(tree_path=parent_path, expand_all=False)
                 else:
                     # Report the collapsed row to the backend, which is tracking expanded nodes:
-                    self.con.backend.remove_expanded_row(row_uid=node.uid, tree_id=self.con.tree_id)
+                    self.con.backend.remove_expanded_row(row_uid=sn.spid.guid, tree_id=self.con.tree_id)
 
                     # Collapsed:
                     self.con.display_store.remove_all_children(parent_iter)
@@ -689,7 +689,9 @@ class DisplayMutator(HasLifecycle):
         row_values.append(None)  # Etc
         row_values.append(None)  # Modify Date
         row_values.append(None)  # Meta Changed Date / Created Date
-        row_values.append(EmptyNode())
+        node = EmptyNode()
+        sn = SPIDNodePair(node.node_identifier, node)
+        row_values.append(sn)
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
@@ -706,7 +708,9 @@ class DisplayMutator(HasLifecycle):
         row_values.append(None)  # Etc
         row_values.append(None)  # Modify Date
         row_values.append(None)  # Meta Changed Date / Created Date
-        row_values.append(LoadingNode())
+        loading_node = LoadingNode()
+        loading_sn = SPIDNodePair(loading_node.node_identifier, loading_node)
+        row_values.append(loading_sn)
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 

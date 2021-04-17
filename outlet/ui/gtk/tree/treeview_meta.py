@@ -3,7 +3,7 @@ from typing import Callable
 
 from constants import TreeDisplayMode, TreeID
 from model.node.container_node import CategoryNode
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from signal_constants import Signal
 from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
@@ -139,14 +139,13 @@ class TreeViewMeta(HasLifecycle):
     def shutdown(self):
         HasLifecycle.shutdown(self)
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: Node, is_expanded: bool):
+    def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, sn: SPIDNodePair, is_expanded: bool):
         if sender != self.tree_id:
             return
 
-        if type(node) == CategoryNode:
-            assert isinstance(node, CategoryNode)
-            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.op_type.name} = {is_expanded}')
-            cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.op_type.name}'
+        if type(sn.node) == CategoryNode:
+            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {sn.spid.op_type.name} = {is_expanded}')
+            cfg_path = f'ui_state.{self.tree_id}.expanded_state.{sn.spid.op_type.name}'
             self.backend.put_config(cfg_path, is_expanded)
         # Allow other listeners to handle this also:
         return False

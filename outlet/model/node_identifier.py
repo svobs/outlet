@@ -64,7 +64,7 @@ class NodeIdentifier(ABC):
 
     def set_path_list(self, path_list: Optional[Union[str, List[str]]]):
         """Can be None, a single full path, or a list of full paths"""
-        if not path_list:
+        if path_list is None:
             self._path_list = None
         elif isinstance(path_list, list):
             if len(path_list) == 1:
@@ -128,7 +128,7 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
         super().__init__(node_uid, device_uid, full_path)
 
         if len(self.get_path_list()) != 1:
-            raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {full_path}')
+            raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {self.get_path_list()}')
 
     # Currently this is only exposed for gRPC
     @property
@@ -198,7 +198,7 @@ class EphemeralNodeIdentifier(SinglePathNodeIdentifier):
     """
     def __init__(self):
         # Note: GTK3 doesn't care about GUIDs, so we can just enter junk data here (unlike Mac version)
-        super().__init__(NULL_UID, NULL_UID, "")
+        super().__init__(NULL_UID, NULL_UID, ".")  # note: need to make this a non-None value
 
     @property
     def tree_type(self) -> TreeType:

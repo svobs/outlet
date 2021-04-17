@@ -71,10 +71,10 @@ class NodeIdentifierFactory:
         else:
             raise RuntimeError(f'Invalid tree_type: {tree_type.name}')
 
-    def from_path(self, full_path: str, device_uid: UID):
+    def from_path(self, full_path: str, device_uid: UID) -> NodeIdentifier:
         # FIXME: clean this up! See note for ActiveTreeManager._resolve_root_meta_from_path()
         full_path_list = ensure_list(full_path)
-        return self._and_deriving_tree_type_from_path(full_path_list, node_uid=None, device_uid=device_uid, must_be_single_path=False)
+        return self._and_deriving_tree_type_from_path(full_path_list, node_uid=None, device_uid=device_uid, must_be_single_path=True)
 
     def for_values(self,
                    device_uid: Optional[UID] = None,
@@ -144,7 +144,7 @@ class NodeIdentifierFactory:
 
                 derived_list: List[str] = NodeIdentifierFactory._derive_gdrive_path_list(full_path_list)
                 if must_be_single_path:
-                    if not derived_list or not derived_list[0]:
+                    if not derived_list or not derived_list[0] or derived_list[0] == ROOT_PATH:
                         return NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
                     if len(derived_list) > 1:
                         raise RuntimeError(f'Could not make GDrive identifier: must_be_single_path=True but given too many paths:'
@@ -153,6 +153,8 @@ class NodeIdentifierFactory:
                     return GDriveSPID(uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=derived_list[0])
                 if not derived_list or not derived_list[0]:
                     return self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid)
+                assert node_uid, f'Null value for node_uid!'
+                assert device_uid, f'Null value for device_uid!'
                 return GDriveIdentifier(path_list=derived_list, uid=node_uid, device_uid=device_uid)
             else:
                 # LocalDisk

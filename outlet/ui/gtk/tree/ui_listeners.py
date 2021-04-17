@@ -241,7 +241,7 @@ class TreeUiListeners(HasLifecycle):
         if treeiter is not None:
             if len(treeiter) == 1:
                 sn = self.con.display_store.get_node_data(treeiter)
-                if sn.md5:
+                if sn.node and sn.node.md5:
                     md5 = f' md5="{sn.node.md5}'
                 else:
                     md5 = ''
@@ -295,14 +295,14 @@ class TreeUiListeners(HasLifecycle):
         return False
 
     def _on_toggle_gtk_row_expanded_state(self, tree_view, parent_iter, parent_path, is_expanded):
-        node = self.con.display_store.get_node_data(parent_iter)
+        sn = self.con.display_store.get_node_data(parent_iter)
         logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.NODE_EXPANSION_TOGGLED.name}" with is_expanded={is_expanded}'
-                     f' for node: {node}')
-        if not node.is_dir():
-            raise RuntimeError(f'Node is not a directory: {type(node)}; node_data')
+                     f' for node: {sn.spid}')
+        if not sn.node.is_dir():
+            raise RuntimeError(f'Node is not a directory: {type(sn.node)}; node_data')
 
         dispatcher.send(signal=Signal.NODE_EXPANSION_TOGGLED, sender=self.con.tree_id, parent_iter=parent_iter, parent_path=parent_path,
-                        node=node, is_expanded=is_expanded, expand_all=False)
+                        sn=sn, is_expanded=is_expanded, expand_all=False)
 
         return True
 

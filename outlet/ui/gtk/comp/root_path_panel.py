@@ -192,7 +192,7 @@ class RootPathPanel(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
-        root_exists = new_tree.is_root_exists() and new_root.uid != NULL_UID
+        root_exists = new_tree.is_root_exists() and new_root.node_uid != NULL_UID
         if root_exists:
             pre = ''
             color = ''

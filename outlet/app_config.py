@@ -1,3 +1,4 @@
+import threading
 from typing import Any
 
 import config
@@ -21,6 +22,7 @@ class AppConfig:
     """
     def __init__(self, config_file_path: str = None, executing_script_name: str = None):
         self._project_dir = get_resource_path(PROJECT_DIR)
+        self._lock = threading.Lock()
 
         if not config_file_path:
             config_file_path = get_resource_path(DEFAULT_CONFIG_PATH)
@@ -30,8 +32,9 @@ class AppConfig:
             self.cfg = config.Config(config_file_path)
             # Cache JSON in memory rather than risk loading a corrupted JSON file later while we're about
             # to write something
-            with open(self._get_ui_state_filename()) as f:
-                self._ui_state_json = json.load(f)
+            with self._lock:
+                with open(self._get_ui_state_filename()) as f:
+                    self._ui_state_json = json.load(f)
 
             self.read_only = self.get('read_only_config', False)
         except Exception as err:
@@ -95,8 +98,9 @@ class AppConfig:
         # Dump JSON to file atomically:
         json_file = self._get_ui_state_filename()
         tmp_filename = json_file + '.part'
-        with open(tmp_filename, 'w') as f:
-            json.dump(self._ui_state_json, f, indent=4, sort_keys=True)
-        os.rename(tmp_filename, json_file)
+        with self._lock:
+            with open(tmp_filename, 'w') as f:
+                json.dump(self._ui_state_json, f, indent=4, sort_keys=True)
+            os.rename(tmp_filename, json_file)
 
-        logger.info(f'Wrote {json_path} := "{value}" in file: {json_file}')
+        logger.debug(f'Wrote {json_path} := "{value}" in file: {json_file}')
