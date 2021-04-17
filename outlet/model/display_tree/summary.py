@@ -19,12 +19,18 @@ class TreeSummarizer:
 
     @staticmethod
     def build_tree_summary(tree_id: TreeID, root_sn: SPIDNodePair, tree_meta: ActiveDisplayTreeMeta):
+        uses_uid_key = False
         if tree_meta.filter_state.has_criteria():
             is_filtered = True
             dir_stats_dict = tree_meta.filter_state.get_dir_stats()
         else:
             is_filtered = False
-            dir_stats_dict = tree_meta.dir_stats_unfiltered
+            if tree_meta.dir_stats_unfiltered_by_guid:
+                dir_stats_dict = tree_meta.dir_stats_unfiltered_by_guid
+            else:
+                # this will only happen for first-order trees pulling directly from the cache:
+                uses_uid_key = True
+                dir_stats_dict = tree_meta.dir_stats_unfiltered_by_uid
 
         if tree_meta.change_tree:
             logger.debug(f'[{tree_id}] This is a ChangeTree: it will provide the summary')
@@ -34,8 +40,13 @@ class TreeSummarizer:
             logger.debug(f'[{tree_id}] No summary (tree does not exist)')
             return 'Tree does not exist'
 
-        root_stats = dir_stats_dict.get(root_sn.spid.guid, None)
+        if uses_uid_key:
+            key = root_sn.spid.node_uid
+        else:
+            key = root_sn.spid.guid
+        root_stats = dir_stats_dict.get(key, None)
         if not root_stats:
+            logger.error(f'Contents of dir_stats_dict: {dir_stats_dict}')
             raise RuntimeError(f'[{tree_id}] (is_filtered={is_filtered}) No stats found for root node with GUID: {root_sn.spid.guid}')
 
         if root_sn.spid.tree_type == TreeType.GDRIVE:
@@ -43,7 +54,7 @@ class TreeSummarizer:
             return TreeSummarizer._build_summary(root_stats, is_filtered, 'folder')
         else:
             assert root_sn.spid.tree_type == TreeType.LOCAL_DISK
-            logger.debug(f'[{tree_id}] Generating summary for LocalDisk tree: {root_sn.spid.node_identifier}')
+            logger.debug(f'[{tree_id}] Generating summary for LocalDisk tree: {root_sn.spid}')
             return TreeSummarizer._build_summary(root_stats, is_filtered, 'dir')
 
     @staticmethod
@@ -103,7 +114,7 @@ class TreeSummarizer:
             cat_map = TreeSummarizer._make_cat_map()
         else:
             cat_map = {}
-        for cat_sn in tree.get_child_list(spid):
+        for cat_sn in tree.get_child_list_for_spid(spid):
             cat_count += 1
             assert isinstance(cat_sn.node, CategoryNode), f'Not a CategoryNode: {cat_sn.node}'
             cat_stats = dir_stats_dict.get(cat_sn.spid.guid, None)
@@ -124,7 +135,7 @@ class TreeSummarizer:
             type_summaries = []
             type_map = {}
             cat_count = 0
-            for child_sn in tree.get_child_list(tree.get_root_spid()):
+            for child_sn in tree.get_child_list_for_spid(tree.get_root_spid()):
                 assert isinstance(child_sn.node, RootTypeNode), f'For {child_sn}'
                 cat_map = TreeSummarizer._build_summary_cat_map(tree, child_sn.spid, filter_state, dir_stats_dict)
                 if cat_map:

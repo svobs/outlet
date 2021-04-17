@@ -277,7 +277,7 @@ class BackendGRPCClient(OutletBackend):
         assert max_results >= 0, f'Bad value for max_results: {max_results}'
 
         request = GetChildList_Request()
-        request.parent_spid = self._converter.node_identifier_to_grpc(parent_spid)
+        self._converter.node_identifier_to_grpc(parent_spid, request.parent_spid)
         request.tree_id = tree_id
         request.max_results = max_results
 

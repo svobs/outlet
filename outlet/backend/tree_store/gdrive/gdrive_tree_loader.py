@@ -77,7 +77,7 @@ class GDriveTreeLoader:
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
-            tree = GDriveWholeTree(self.device_uid, self.backend.node_identifier_factory)
+            tree = GDriveWholeTree(self.backend, self.device_uid)
         else:
             # Start/resume: read cache
             msg = 'Reading disk cache...'

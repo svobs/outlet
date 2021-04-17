@@ -62,9 +62,9 @@ class ChangeTree(DisplayTree):
         return self._category_tree.get_root_node()
 
     def get_child_list_for_root(self) -> Iterable[SPIDNodePair]:
-        return self.get_child_list(self.get_root_node().spid)
+        return self.get_child_list_for_spid(self.get_root_node().spid)
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
         try:
             return self._category_tree.get_child_list_for_identifier(parent_spid.guid)
         except Exception:
@@ -240,5 +240,5 @@ class ChangeTree(DisplayTree):
     def __repr__(self):
         return f'ChangeTree(tree_id=[{self.tree_id}], {len(self._category_tree)})'
 
-    def generate_dir_stats(self) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self) -> Dict[GUID, DirectoryStats]:
         return self._category_tree.generate_dir_stats(self.tree_id)

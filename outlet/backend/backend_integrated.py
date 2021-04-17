@@ -13,7 +13,7 @@ from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeReques
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
@@ -125,10 +125,10 @@ class BackendIntegrated(OutletBackend):
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[SPIDNodePair]:
         return self.cacheman.get_ancestor_list_for_spid(spid, stop_at_path=stop_at_path)
 
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[UID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         self.cacheman.set_selected_rows(tree_id, selected)
 
-    def remove_expanded_row(self, row_uid: UID, tree_id: TreeID):
+    def remove_expanded_row(self, row_uid: GUID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
         self.cacheman.remove_expanded_row(row_uid, tree_id)
 

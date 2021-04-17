@@ -112,7 +112,13 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             dir_stats_dict: Dict[UID, DirectoryStats] = {}
             for dir_meta_grpc in signal_msg.stats_update.dir_meta_list:
                 dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
-                dir_stats_dict[dir_meta_grpc.uid] = dir_stats
+                if dir_meta_grpc.HasField('uid'):
+                    key = dir_meta_grpc.uid
+                    kwargs['key_is_uid'] = True
+                else:
+                    key = dir_meta_grpc.guid
+                    kwargs['key_is_uid'] = False
+                dir_stats_dict[key] = dir_stats
             kwargs['dir_stats'] = dir_stats_dict
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename

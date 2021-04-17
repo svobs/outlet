@@ -1,4 +1,5 @@
 import logging
+import os
 from collections import Counter, defaultdict, deque
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
@@ -7,8 +8,8 @@ from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TrashStatus, \
 from error import GDriveItemNotFoundError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.node import Node
-from model.node_identifier import GDriveIdentifier, NodeIdentifier
+from model.node.node import Node, SPIDNodePair
+from model.node_identifier import GDriveIdentifier, GDriveSPID, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from util import file_util
@@ -26,12 +27,16 @@ class GDriveWholeTree(BaseTree):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, device_uid: UID, node_identifier_factory: NodeIdentifierFactory):
+    def __init__(self, backend, device_uid: UID):
+        super().__init__()
+
+        self.backend = backend
+
+        self.node_identifier_factory: NodeIdentifierFactory = self.backend.node_identifier_factory
+        """This is sometimes needed for lookups"""
+
         self.device_uid: UID = device_uid
         """Uniquely identifies this GDrive account"""
-
-        self.node_identifier_factory: NodeIdentifierFactory = node_identifier_factory
-        """This is sometimes needed for lookups"""
 
         # Keep track of parentless nodes. These include the 'My Drive' node, as well as shared nodes.
         self.uid_dict: Dict[UID, GDriveNode] = {}
@@ -250,7 +255,7 @@ class GDriveWholeTree(BaseTree):
         file_list: List[GDriveFile] = []
         folder_list: List[GDriveFolder] = []
         queue: Deque[GDriveNode] = deque()
-        node = self.get_node_for_uid(uid=subtree_root.uid)
+        node = self.get_node_for_uid(uid=subtree_root.node_uid)
         if node:
             queue.append(node)
 
@@ -424,8 +429,19 @@ class GDriveWholeTree(BaseTree):
     def tree_type(self) -> TreeType:
         return TreeType.GDRIVE
 
-    def get_child_list(self, node: GDriveNode) -> List[Node]:
-        return self.get_child_list_for_node(node)
+    def get_child_list_for_identifier(self, node_uid: UID) -> List[Node]:
+        return self.parent_child_dict.get(node_uid, [])
+
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
+        assert isinstance(parent_spid, GDriveSPID), f'Not the correct type: {parent_spid}'
+        child_sn_list = []
+        for child_node in self.get_child_list_for_identifier(parent_spid.node_uid):
+            child_path: str = os.path.join(parent_spid.get_single_path(), child_node.name)
+            # Yuck...this is more expensive than preferred... at least there's no network call
+            child_sn = self.backend.cacheman.get_sn_for(node_uid=child_node.uid, device_uid=child_node.device_uid, full_path=child_path)
+            child_sn_list.append(child_sn)
+
+        return child_sn_list
 
     def get_child_list_for_node(self, node: GDriveNode) -> List[Node]:
         return self.parent_child_dict.get(node.uid, [])

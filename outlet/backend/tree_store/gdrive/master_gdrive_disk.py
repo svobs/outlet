@@ -57,7 +57,7 @@ class GDriveDiskStore(HasLifecycle):
         logger.debug(f'[{tree_id}] Loading GDrive tree from disk cache...')
         sw_total = Stopwatch()
         max_uid = GDRIVE_ROOT_UID + 1
-        tree = GDriveWholeTree(self.device_uid, self.backend.node_identifier_factory)
+        tree = GDriveWholeTree(self.backend, self.device_uid)
         invalidate_uids: Dict[UID, str] = {}
 
         # DIRs:

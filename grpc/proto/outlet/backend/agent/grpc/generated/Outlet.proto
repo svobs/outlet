@@ -184,8 +184,11 @@ message DragDrop_Response {
 }
 
 message DirMetaUpdate {
-	uint32 uid = 1;
-	DirMeta dir_meta = 2;
+	oneof key {
+		string guid = 1;
+		uint32 uid = 2;
+	}
+	DirMeta dir_meta = 3;
 }
 
 // StatsUpdate is sent:

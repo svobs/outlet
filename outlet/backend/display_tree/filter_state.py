@@ -1,12 +1,13 @@
 import logging
 from collections import deque
-from typing import Deque, Dict, List
+from typing import Deque, Dict, List, Union
 
 from constants import TrashStatus, TreeID, TreeType
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
+from model.uid import UID
 from util.ensure import ensure_bool
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class FilterState:
         self.filter: FilterCriteria = filter_criteria
         self.root_sn: SPIDNodePair = root_sn
         self.cached_node_dict: Dict[GUID, List[SPIDNodePair]] = {}
-        self.cached_dir_stats: Dict[GUID, DirectoryStats] = {}
+        self.cached_dir_stats: Dict[Union[UID, GUID], DirectoryStats] = {}
 
     def has_criteria(self) -> bool:
         return self.filter.has_criteria()
@@ -73,7 +74,7 @@ class FilterState:
         subtree_root_node = self.root_sn.node
         logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
         node_dict: Dict[GUID, List[SPIDNodePair]] = {}
-        dir_stats_dict: Dict[GUID, DirectoryStats] = {}
+        dir_stats_dict: Dict[UID, DirectoryStats] = {}
 
         dir_queue: Deque[SPIDNodePair] = deque()
         second_pass_stack: Deque[SPIDNodePair] = deque()
@@ -86,7 +87,7 @@ class FilterState:
         while len(dir_queue) > 0:
             sn: SPIDNodePair = dir_queue.popleft()
 
-            child_list: List[SPIDNodePair] = parent_tree.get_child_list(sn.spid)
+            child_list: List[SPIDNodePair] = parent_tree.get_child_list_for_spid(sn.spid)
             if child_list:
                 for child_sn in child_list:
                     if child_sn.node.is_dir():
@@ -97,7 +98,7 @@ class FilterState:
         while len(second_pass_stack) > 0:
             parent_sn = second_pass_stack.pop()
             parent_guid = parent_sn.spid.guid
-            child_list = parent_tree.get_child_list(parent_sn.spid)
+            child_list = parent_tree.get_child_list_for_spid(parent_sn.spid)
             filtered_child_list = []
 
             # Calculate stats also. Compare with BaseTree.generate_dir_stats()
@@ -116,7 +117,8 @@ class FilterState:
                         child_stats = dir_stats_dict.get(child_guid, None)
                         if not child_stats:
                             # should never happen
-                            raise RuntimeError(f'Internal error: no child stats in dict for dir node: {child_guid}')
+                            logger.error(f'DirStatsDict contents: {dir_stats_dict}')
+                            raise RuntimeError(f'Internal error: no child stats in dict for dir node: {child_guid} ({child_sn.spid})')
                         dir_stats.add_dir_stats(child_stats, child_sn.node.get_trashed_status() == TrashStatus.NOT_TRASHED)
                     else:
                         dir_stats.add_file_node(child_sn.node)
@@ -127,12 +129,16 @@ class FilterState:
         self.cached_node_dict = node_dict
         self.cached_dir_stats = dir_stats_dict
 
-    # If not showing ancestors, then search results will be a big flat list:
     def _build_cache_for_flat_list(self, parent_tree):
+        """
+        If not showing ancestors, then search results will be a big flat list.
+
+        Builds the node cache and the dir stats.
+        """
         filtered_list: List[SPIDNodePair] = []
         dir_stats = DirectoryStats()  # Treat the whole list like one dir
         queue: Deque[SPIDNodePair] = deque()
-        for sn in parent_tree.get_child_list(self.root_sn.spid):
+        for sn in parent_tree.get_child_list_for_spid(self.root_sn.spid):
             queue.append(sn)
 
         while len(queue) > 0:
@@ -153,7 +159,7 @@ class FilterState:
 
             # Add next level to the queue:
             if sn.node.is_dir():
-                for child_sn in parent_tree.get_child_list(sn.spid):
+                for child_sn in parent_tree.get_child_list_for_spid(sn.spid):
                     queue.append(child_sn)
 
         root_guid: GUID = self.root_sn.spid.guid
@@ -185,7 +191,7 @@ class FilterState:
         assert parent_tree, 'parent_tree cannot be None!'
         if not self.filter.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
-            return parent_tree.get_child_list(parent_spid)
+            return parent_tree.get_child_list_for_spid(parent_spid)
 
         self.ensure_cache_populated(parent_tree)
 

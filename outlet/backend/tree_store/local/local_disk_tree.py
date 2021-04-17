@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 
 from constants import TrashStatus
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from model.uid import UID
 from util import file_util
@@ -121,3 +121,10 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
 
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
+
+    def get_child_list_for_spid(self, spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
+        sn_list = []
+        for node in self.get_child_list_for_identifier(spid.node_uid):
+            sn_list.append(SPIDNodePair(node.node_identifier, node))
+
+        return sn_list

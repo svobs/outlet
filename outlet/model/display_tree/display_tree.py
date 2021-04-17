@@ -131,9 +131,9 @@ class DisplayTree:
         return path_list.startswith(self.root_path)
 
     def get_child_list_for_root(self) -> Iterable[SPIDNodePair]:
-        return self.get_child_list(self.get_root_spid())
+        return self.get_child_list_for_spid(self.get_root_spid())
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
         assert parent_spid, 'Arg "parent_spid" cannot be null!'
         return self.backend.get_child_list_for_spid(parent_spid, self.tree_id, max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
 
@@ -163,8 +163,8 @@ class NullDisplayTree(DisplayTree):
         super().__init__(backend, state)
         assert not state.root_exists, f'For state: {state}'
 
-    def get_child_list_for_root(self) -> Iterable[Node]:
+    def get_child_list_for_root(self) -> Iterable[SPIDNodePair]:
         return []
 
-    def get_child_list(self, parent: Node) -> Iterable[Node]:
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
         return []

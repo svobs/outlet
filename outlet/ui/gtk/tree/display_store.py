@@ -2,9 +2,9 @@ import logging
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeID, TreeType
+from constants import SUPER_DEBUG, TreeID
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import GUID, SinglePathNodeIdentifier
+from model.node_identifier import GUID
 from model.uid import UID
 
 import gi
@@ -387,61 +387,6 @@ class DisplayStore:
             removed_count += 1
         logger.debug(f'[{self.tree_id}] Removed {removed_count} children')
 
-    # FIXME: deprecate this
-    def build_spid_from_tree_path(self, tree_path: Gtk.TreePath) -> SinglePathNodeIdentifier:
-        node = self.get_node_data(tree_path)
-        single_path = self.derive_single_path_from_tree_path(tree_path)
-        return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.tree_type)
-
-    # FIXME: deprecate this
-    def build_sn_from_tree_path(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
-        node = self.get_node_data(tree_path)
-        single_path = self.derive_single_path_from_tree_path(tree_path)
-        spid = SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.tree_type)
-        return SPIDNodePair(spid, node)
-
-    def derive_single_path_from_tree_path(self, tree_path: Gtk.TreePath, include_gdrive_prefix: bool = False) -> str:
-        """Travels up the display tree and constructs a single path for the given node.
-        Some background: while a node can have several paths associated with it, each display tree node can only be associated
-        with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
-        tree_path = self.ensure_tree_path(tree_path)
-
-        # FIXME!
-        logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter! '
-                       f'Will arbitrarily choose the first path in list')
-        # if self.treeview_meta.filter_criteria and self.treeview_meta.filter_criteria.has_criteria():
-        #     # FIXME: this may choose a less correct path when a filter is applied
-        #     logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter!'
-        #                    f'Will arbitrarily choose the first path in list')
-        #     node = self.get_node_data(tree_path)
-        #     return node.get_path_list()[0]
-        # don't mess up the caller; make a copy before modifying:
-        tree_path_copy = tree_path.copy()
-
-        node = self.get_node_data(tree_path_copy)
-        is_gdrive: bool = node.tree_type == TreeType.GDRIVE
-
-        single_path = ''
-
-        while True:
-            node = self.get_node_data(tree_path_copy)
-            single_path = f'/{node.name}{single_path}'
-            # Go up the tree, one level per loop,
-            # with each node updating itself based on its immediate children
-            tree_path_copy.up()
-            if tree_path_copy.get_depth() < 1:
-                # Stop at root
-                break
-
-        base_path = self.con.get_tree().get_root_spid().get_single_path()
-        if base_path != '/':
-            single_path = f'{base_path}{single_path}'
-
-        if is_gdrive and include_gdrive_prefix:
-            single_path = f'{GDRIVE_PATH_PREFIX}{single_path}'
-        logger.debug(f'derive_single_path_from_tree_path(): derived path: {single_path}')
-        return single_path
-
     def _execute_on_current_single_selection(self, action_func: Callable[[Gtk.TreePath], Any]):
         """Assumes that only one node can be selected at a given time"""
         selection = self.con.tree_view.get_selection()
@@ -455,27 +400,24 @@ class DisplayStore:
             raise Exception(f'Selection has more rows than expected: count={len(tree_path_list)}')
 
     def get_single_selection_sn(self) -> SPIDNodePair:
-        return self._execute_on_current_single_selection(self.build_sn_from_tree_path)
-
-    def get_single_selection(self) -> Node:
-        return self._execute_on_current_single_selection(lambda tp: self.get_node_data(tp))
+        return self._execute_on_current_single_selection(self.get_node_data)
 
     def get_multiple_selection(self) -> List[SPIDNodePair]:
         """Returns a list of the selected items (empty if none)"""
         selection = self.con.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
+        model, tree_path_list = selection.get_selected_rows()
         sn_list = []
-        for tree_path in tree_paths:
+        for tree_path in tree_path_list:
             sn = self.get_node_data(tree_path)
             sn_list.append(sn)
         return sn_list
 
-    def get_multiple_selection_and_paths(self) -> Tuple[List[Node], List[Gtk.TreePath]]:
+    def get_multiple_selection_and_paths(self) -> Tuple[List[SPIDNodePair], List[Gtk.TreePath]]:
         """Returns a list of the selected items (empty if none)"""
         selection = self.con.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        items = []
-        for tree_path in tree_paths:
-            item = self.get_node_data(tree_path)
-            items.append(item)
-        return items, tree_paths
+        model, tree_path_list = selection.get_selected_rows()
+        sn_list = []
+        for tree_path in tree_path_list:
+            sn = self.get_node_data(tree_path)
+            sn_list.append(sn)
+        return sn_list, tree_path_list

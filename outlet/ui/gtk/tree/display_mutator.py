@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 from datetime import datetime
-from typing import Deque, Dict, Iterable, List, Set
+from typing import Deque, Dict, Iterable, List, Set, Union
 
 import humanfriendly
 from pydispatch import dispatcher
@@ -597,7 +597,7 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Requesting subtree stats refresh')
         self.con.app.backend.enqueue_refresh_subtree_stats_task(root_uid=self.con.get_tree().root_uid, tree_id=self.con.tree_id)
 
-    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats_dict: Dict[GUID, DirectoryStats]):
+    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats_dict: Dict[Union[UID, GUID], DirectoryStats], key_is_uid: bool):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
         if sender != self.con.tree_id:
@@ -620,7 +620,11 @@ class DisplayMutator(HasLifecycle):
             if sn.node.is_ephemereal() or not sn.node.is_dir():
                 return
 
-            dir_stats_for_node = dir_stats_dict.get(sn.spid.guid, None)
+            if key_is_uid:
+                key = sn.spid.node_uid
+            else:
+                key = sn.spid.guid
+            dir_stats_for_node = dir_stats_dict.get(key, None)
             if dir_stats_for_node:
                 if SUPER_DEBUG:
                     logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {sn.spid}; tree_path="{ds.model.get_path(tree_iter)}"; '

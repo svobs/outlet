@@ -21,6 +21,10 @@ class DirectoryStats:
         self._size_bytes: int = 0
         """Set this to None to signify that stats are not yet calculated"""
 
+    def __repr__(self):
+        return f'DirStats(normal=({self.file_count}f {self.dir_count}d {self._size_bytes}b) ' \
+               f'trashed=({self.trashed_file_count}f {self.trashed_dir_count}d {self.trashed_bytes}b))'
+
     def update_from(self, other):
         if not isinstance(other, DirectoryStats):
             raise RuntimeError(f'Bad: {other} (we are: {self})')

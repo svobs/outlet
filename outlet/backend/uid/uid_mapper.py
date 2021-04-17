@@ -47,6 +47,7 @@ class UidPathMapper(HasLifecycle):
         self._write_to_disk()
 
     def _add(self, path: str, uid: UID):
+        assert path and uid, f'Missing param: path={path}, uid={uid}'
         self._path_uid_dict[path] = uid
         self._uid_path_dict[uid] = path
         self._to_write.append((uid, path))
@@ -67,7 +68,7 @@ class UidPathMapper(HasLifecycle):
                     uid = uid_suggestion
                 else:
                     uid = self.uid_generator.next_uid()
-                self._add(path, uid_suggestion)
+                self._add(path, uid)
                 needs_write = True
             elif uid_suggestion and uid_suggestion != uid:
                 logger.warning(f'UID was requested ({uid_suggestion}) but found existing UID ({uid}) for key: "{path}"')

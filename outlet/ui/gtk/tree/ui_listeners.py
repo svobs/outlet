@@ -186,7 +186,7 @@ class TreeUiListeners(HasLifecycle):
         logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.sn_list)} nodes!')
 
         if tree_path:
-            sn_dst: SPIDNodePair = self.con.display_store.build_sn_from_tree_path(tree_path)
+            sn_dst: SPIDNodePair = self.con.display_store.get_node_data(tree_path)
         else:
             # Assume we are dropping into the tree root
             is_into = True

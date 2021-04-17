@@ -15,7 +15,7 @@ from model.gdrive_meta import GDriveUser, MimeType
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GDriveIdentifier, GDriveSPID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from backend.tree_store.gdrive.change_observer import GDriveChange, PagePersistingChangeObserver
 from backend.tree_store.gdrive.gdrive_client import GDriveClient
@@ -421,11 +421,12 @@ class GDriveMasterStore(TreeStore):
             return node.goog_id
         return None
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: Optional[FilterState]) -> List[SPIDNodePair]:
+        assert isinstance(parent_spid, GDriveSPID), f'Not the correct type: {parent_spid}'
         if filter_state and filter_state.has_criteria():
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
         else:
-            return self._memstore.master_tree.get_child_list(parent_spid)
+            return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)

@@ -31,6 +31,7 @@ from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
 from model.display_tree.summary import TreeSummarizer
+from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
@@ -40,6 +41,7 @@ from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
+from util.base_tree import BaseTree
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
@@ -539,19 +541,20 @@ class CacheManager(HasLifecycle):
                 subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
                 if not subtree_root_node:
                     raise RuntimeError(f'Could not find node in cache with identifier: {spid}')
-                subtree_root_sn = (spid, subtree_root_node)
+                subtree_root_sn = SPIDNodePair(spid, subtree_root_node)
 
                 # Calculate stats for all dir nodes:
                 logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_sn.spid}')
 
-                tree_meta.dir_stats_unfiltered = store.generate_dir_stats(subtree_root_node, tree_id)
+                tree_meta.dir_stats_unfiltered_by_uid = store.generate_dir_stats(subtree_root_node, tree_id)
+
                 store.populate_filter(tree_meta.filter_state)
 
         else:
             # ChangeTree
             assert not tree_meta.is_first_order()
             logger.debug(f'Tree "{tree_id}" is a ChangeTree; loading its dir stats')
-            tree_meta.dir_stats_unfiltered = tree_meta.change_tree.generate_dir_stats()
+            tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
             tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
             subtree_root_sn: SPIDNodePair = tree_meta.change_tree.get_root_sn()
 
@@ -794,6 +797,10 @@ class CacheManager(HasLifecycle):
     def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> List[SPIDNodePair]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_child_list() for tree_id={tree_id}, parent_spid = {parent_spid}')
+        if not parent_spid:
+            raise RuntimeError('get_child_list(): parent_spid not provided!')
+        if not isinstance(parent_spid, SinglePathNodeIdentifier):
+            raise RuntimeError(f'get_child_list(): not a SPID (type={type(parent_spid)}): {parent_spid}')
 
         node: Node = self.get_node_for_uid(parent_spid.node_uid)
         if not node:
@@ -811,13 +818,13 @@ class CacheManager(HasLifecycle):
             if tree_meta.filter_state and tree_meta.filter_state.has_criteria():
                 child_list = tree_meta.filter_state.get_filtered_child_list(parent_spid, tree_meta.change_tree)
             else:
-                child_list = tree_meta.change_tree.get_child_list(parent_spid)
+                child_list = tree_meta.change_tree.get_child_list_for_spid(parent_spid)
         else:
             logger.debug(f'Found active display tree for {tree_id} with TreeDisplayMode: {tree_meta.state.tree_display_mode.name}')
             filter_state = tree_meta.filter_state
 
             device_uid: UID = parent_spid.device_uid
-            child_list = self._get_store_for_device_uid(device_uid).get_child_list(parent_spid, filter_state)
+            child_list = self._get_store_for_device_uid(device_uid).get_child_list_for_spid(parent_spid, filter_state)
 
         if max_results and (len(child_list) > max_results):
             raise ResultsExceededError(len(child_list))
@@ -836,10 +843,20 @@ class CacheManager(HasLifecycle):
     def _fill_in_dir_stats(sn_list: List[SPIDNodePair], tree_meta: ActiveDisplayTreeMeta):
         # Fill in dir_stats. For now, we always display the unfiltered stats, even if we are applying a filter in the UI.
         # This is both more useful to the user, and less of a headache, because the stats are relevant across all views in the UI.
-        dir_stats = tree_meta.dir_stats_unfiltered
+        if tree_meta.dir_stats_unfiltered_by_guid:
+            uses_uid_key = False
+            dir_stats_dict = tree_meta.dir_stats_unfiltered_by_guid
+        else:
+            # this will only happen for first-order trees pulling directly from the cache:
+            uses_uid_key = True
+            dir_stats_dict = tree_meta.dir_stats_unfiltered_by_uid
         for sn in sn_list:
             if sn.node.is_dir():
-                sn.node.dir_stats = dir_stats.get(sn.spid.guid, None)
+                if uses_uid_key:
+                    key = sn.spid.node_uid
+                else:
+                    key = sn.spid.guid
+                sn.node.dir_stats = dir_stats_dict.get(key, None)
 
     def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         """Saves the selected rows from the UI for the given tree"""
@@ -911,6 +928,10 @@ class CacheManager(HasLifecycle):
         return SPIDNodePair(parent_spid, parent_node)
 
     def get_ancestor_list_for_spid(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Deque[SPIDNodePair]:
+        if not spid:
+            raise RuntimeError('get_ancestor_list_for_spid(): SPID not provided!')
+        if not isinstance(spid, SinglePathNodeIdentifier):
+            raise RuntimeError(f'get_ancestor_list_for_spid(): not a SPID (type={type(spid)}): {spid}')
 
         ancestor_deque: Deque[SPIDNodePair] = deque()
         ancestor_node: Node = self.get_node_for_uid(spid.node_uid)
@@ -1084,18 +1105,28 @@ class CacheManager(HasLifecycle):
         self._get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(node_identifier, tree_id)
 
     def _refresh_stats(self, tree_id: TreeID):
-        """Called async via task exec (See: CacheManager.enqueue_refresh_subtree_stats_task()) """
+        """Called async via task exec (See: CacheManager.enqueue_refresh_subtree_stats_task()).
+        Note that depending on the type of tree, the dir_stats_dict may be keyed by either Node UID or GUID. Ideally we'd use GUID for everything,
+        but it's a lot more efficient to just reference Node UIDs because that's how our master caches are stored.
+        """
 
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if not tree_meta:
             raise RuntimeError(f'_refresh_stats(): DisplayTree not registered: {tree_id}')
 
         if tree_meta.filter_state.has_criteria():
+            key_is_uid = False
             dir_stats = tree_meta.filter_state.get_dir_stats()
         else:
-            dir_stats = tree_meta.dir_stats_unfiltered
+            if tree_meta.dir_stats_unfiltered_by_guid:
+                key_is_uid = False
+                dir_stats = tree_meta.dir_stats_unfiltered_by_guid
+            else:
+                key_is_uid = True
+                dir_stats = tree_meta.dir_stats_unfiltered_by_uid
 
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats=dir_stats)
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats=dir_stats,
+                        key_is_uid=key_is_uid)
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         return self._op_ledger.get_last_pending_op_for_node(node_uid)

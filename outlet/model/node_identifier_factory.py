@@ -107,7 +107,8 @@ class NodeIdentifierFactory:
             logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, path={full_path_list}')
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Too many paths for tree_type MIXED: {full_path_list}')
-            path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
+            if not path_uid:
+                path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
             return MixedTreeSPID(uid=uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
         else:
             raise RuntimeError('bad')

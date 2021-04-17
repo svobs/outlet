@@ -518,15 +518,15 @@ class LocalDiskMasterStore(TreeStore):
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
+    def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_child_list(): node={node.node_identifier} filter_state={filter_state} locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
         if filter_state and filter_state.has_criteria():
-            return filter_state.get_filtered_child_list(node, self._memstore.master_tree)
+            return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
         else:
             # logger.warning('LOCK ON!')
             with self._struct_lock:
-                child_nodes = self._memstore.master_tree.get_child_list(node)
+                child_nodes = self._memstore.master_tree.get_child_list_for_spid(parent_spid)
             # logger.warning('LOCK off')
         return child_nodes
 
