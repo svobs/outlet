@@ -18,8 +18,8 @@ class NodeIdentifierFactory:
     def __init__(self, backend):
         self.backend = backend
 
-    @staticmethod
-    def get_root_constant_gdrive_identifier(device_uid: UID) -> GDriveIdentifier:
+    def get_root_constant_gdrive_identifier(self, device_uid: UID) -> GDriveIdentifier:
+        assert self._get_tree_type_for_device_uid(device_uid) == TreeType.GDRIVE, f'Device UID {device_uid} is not GDrive!'
         return GDriveIdentifier(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
     @staticmethod
@@ -152,7 +152,7 @@ class NodeIdentifierFactory:
                     path_uid = self.backend.get_uid_for_local_path(derived_list[0])
                     return GDriveSPID(uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=derived_list[0])
                 if not derived_list or not derived_list[0]:
-                    return NodeIdentifierFactory.get_root_constant_gdrive_identifier(device_uid)
+                    return self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid)
                 return GDriveIdentifier(path_list=derived_list, uid=node_uid, device_uid=device_uid)
             else:
                 # LocalDisk

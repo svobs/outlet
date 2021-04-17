@@ -80,7 +80,9 @@ class CacheRegistry(MetaDatabase):
         for row in rows:
             cache_location, device_uid, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
             subtree_root_path = file_util.normalize_path(subtree_root_path)
-            node_identifier = self.node_identifier_factory.for_values(uid=subtree_root_uid, device_uid=device_uid, path_list=subtree_root_path)
+            node_identifier = self.node_identifier_factory.for_values(uid=subtree_root_uid, device_uid=device_uid,
+                                                                      path_list=subtree_root_path, must_be_single_path=True)
+            assert node_identifier.is_spid(), f'Not a SPID: {node_identifier}'
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier,
                                           sync_ts=sync_ts, is_complete=is_complete))
         return entries
@@ -105,7 +107,8 @@ class CacheRegistry(MetaDatabase):
         self.table_cache_registry.insert_many(rows)
 
     def get_device_list(self) -> List[Device]:
-        return self.table_device.select_object_list()
+        device_list = self.table_device.select_object_list()
+        return device_list
 
     def upsert_device(self, device: Device):
         self.table_device.create_table_if_not_exist()

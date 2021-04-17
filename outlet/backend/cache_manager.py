@@ -323,7 +323,7 @@ class CacheManager(HasLifecycle):
                 logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
                 skipped_count += 1
                 continue
-            existing = self._cache_info_dict.get_single(info.subtree_root.tree_type, info.subtree_root.get_path_list()[0])
+            existing = self._cache_info_dict.get_single(info.subtree_root.device_uid, info.subtree_root.get_single_path())
             if existing:
                 if info.sync_ts < existing.sync_ts:
                     logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
@@ -461,8 +461,8 @@ class CacheManager(HasLifecycle):
                 assert isinstance(existing_disk_cache.subtree_root, LocalNodeIdentifier)
                 store.load_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif tree_type == TreeType.GDRIVE:
-            assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_root_constant_gdrive_identifier(device_uid), \
-                f'Expected GDrive root ({NodeIdentifierFactory.get_root_constant_gdrive_identifier(device_uid)}) ' \
+            assert existing_disk_cache.subtree_root == self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid), \
+                f'Expected GDrive root ({self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid)}) ' \
                 f'but found: {existing_disk_cache.subtree_root}'
             assert isinstance(store, GDriveMasterStore)
             store.load_and_sync_master_tree()
@@ -682,6 +682,9 @@ class CacheManager(HasLifecycle):
                     store.load_subtree(cache.subtree_root, ID_GLOBAL_CACHE)
 
     def _create_new_cache_info(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
+        if not subtree_root.is_spid():
+            raise RuntimeError(f'Internal error: not a SPID: {subtree_root}')
+
         if subtree_root.tree_type == TreeType.LOCAL_DISK:
             unique_path = subtree_root.get_single_path().replace('/', '_')
             file_name = f'{subtree_root.device_uid}_LO_{unique_path}.{INDEX_FILE_SUFFIX}'

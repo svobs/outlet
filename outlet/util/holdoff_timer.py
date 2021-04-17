@@ -3,8 +3,6 @@ import time
 from typing import Callable, Optional
 import logging
 
-from constants import SUPER_DEBUG
-
 logger = logging.getLogger(__name__)
 counter: int = 0
 
@@ -42,9 +40,9 @@ class HoldOffTimer:
                 self._thread = threading.Thread(target=self._run, name=f'HoldOffTimer-{counter}', args=self.args, kwargs=self.kwargs, daemon=True)
                 logger.debug(f'Starting new timer "{self._thread.name}" for {self._initial_delay_sec}s...')
                 self._thread.start()
-            elif SUPER_DEBUG:
-                # May see a lot of these in a row due to Python's single-threaded nature
-                logger.debug(f'Set expiry = {self._initial_delay_sec}s from now for existing timer "{self._thread.name}"')
+            # elif SUPER_DEBUG:
+            #     # May see a lot of these in a row due to Python's single-threaded nature
+            #     logger.debug(f'Set expiry = {self._initial_delay_sec}s from now for existing timer "{self._thread.name}"')
 
     def cancel(self):
         """Stop the timer if it hasn't finished yet."""

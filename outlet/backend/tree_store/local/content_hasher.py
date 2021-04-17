@@ -60,6 +60,7 @@ def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opti
         sha256: Optional[str] = None
         return md5, sha256
     except FileNotFoundError as err:
+        # FIXME: Mac version incorrectly reports broken links
         if os.path.islink(full_path):
             target = os.readlink(full_path)
             logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')

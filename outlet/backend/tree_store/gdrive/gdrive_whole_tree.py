@@ -43,7 +43,7 @@ class GDriveWholeTree(BaseTree):
         """ Forward lookup table: nodes are indexed by UID"""
 
         # It's a lot cleaner to have a single root node, even if it does not map to anything in GDrive:
-        self.root = GDriveWholeTree.get_gdrive_root(self.device_uid)
+        self.root = self._make_gdrive_root_node(self.device_uid)
         self.uid_dict[self.root.uid] = self.root
 
         self.parent_child_dict: Dict[UID, List[GDriveNode]] = {}
@@ -54,18 +54,17 @@ class GDriveWholeTree(BaseTree):
 
         self.me: Optional[GDriveUser] = None
 
-    @staticmethod
-    def get_gdrive_root(device_uid: UID):
+    def _make_gdrive_root_node(self, device_uid: UID):
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
-        return GDriveFolder(NodeIdentifierFactory.get_root_constant_gdrive_identifier(device_uid), None, None, TrashStatus.NOT_TRASHED,
-                            None, None, None, None, None, None, None, False)
+        node_identifier = self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid)
+        return GDriveFolder(node_identifier, None, '', TrashStatus.NOT_TRASHED, None, None, None, None, False, None, None, False)
 
     def get_root_node(self) -> Optional[GDriveNode]:
         return self.root
 
     @property
     def node_identifier(self):
-        return NodeIdentifierFactory.get_root_constant_gdrive_identifier(self.device_uid)
+        return self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)
 
     def upsert_folder_and_children(self, parent_node: GDriveFolder, child_list: List[GDriveNode]) -> List[GDriveNode]:
         """Adds or replaces the given parent_node and its children. Any previous children which are not in the given list are
@@ -301,7 +300,7 @@ class GDriveWholeTree(BaseTree):
         if SUPER_DEBUG:
             logger.debug(f'GDriveWholeTree.get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
         if full_path == ROOT_PATH:
-            return [NodeIdentifierFactory.get_root_constant_gdrive_identifier(self.device_uid)]
+            return [self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)]
         name_segments = file_util.split_path(full_path)
         if len(name_segments) == 0:
             raise RuntimeError(f'Bad path: "{full_path}"')
