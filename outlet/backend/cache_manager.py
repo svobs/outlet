@@ -813,6 +813,9 @@ class CacheManager(HasLifecycle):
         if not tree_meta:
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
 
+        if SUPER_DEBUG:
+            logger.debug(f'[{tree_id}] with TreeDisplayMode: {tree_meta.state.tree_display_mode.name}')
+
         # We assume that whenever get_child_list() is called, this represents a row expansion
         self._active_tree_manager.add_expanded_row(parent_spid, tree_id)
 
@@ -823,7 +826,6 @@ class CacheManager(HasLifecycle):
             else:
                 child_list = tree_meta.change_tree.get_child_list_for_spid(parent_spid)
         else:
-            logger.debug(f'Found active display tree for {tree_id} with TreeDisplayMode: {tree_meta.state.tree_display_mode.name}')
             filter_state = tree_meta.filter_state
 
             device_uid: UID = parent_spid.device_uid

@@ -73,6 +73,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         HasLifecycle.start(self)
 
         # PyDispatcher signals to be sent across gRPC:
+
         # complex:
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_grpcserver)
         self.connect_dispatch_listener(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
@@ -87,16 +88,22 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved)
 
         self.connect_dispatch_listener(signal=Signal.DEVICE_UPSERTED, receiver=self._on_device_upserted)
-
-        # simple:
-        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
-        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
-        self.connect_dispatch_listener(signal=Signal.DIFF_TREES_FAILED, receiver=self._on_diff_failed)
-        self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_done)
-        self.connect_dispatch_listener(signal=Signal.GENERATE_MERGE_TREE_FAILED, receiver=self._on_generate_merge_tree_failed)
         self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
 
+        # simple:
+        self.forward_signal_to_clients(signal=Signal.LOAD_SUBTREE_STARTED)
+        self.forward_signal_to_clients(signal=Signal.LOAD_SUBTREE_DONE)
+        self.forward_signal_to_clients(signal=Signal.DIFF_TREES_FAILED)
+        self.forward_signal_to_clients(signal=Signal.DIFF_TREES_DONE)
+        self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
+        self.forward_signal_to_clients(signal=Signal.REFRESH_SUBTREE_STATS_DONE)
+        self.forward_signal_to_clients(signal=Signal.SHUTDOWN_APP)
+        self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
+
         logger.debug("OutletGRPCService started")
+
+    def forward_signal_to_clients(self, signal: Signal):
+        self.connect_dispatch_listener(signal=signal, receiver=self._send_signal_to_all_clients, weak=False)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -108,12 +115,15 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def _send_signal_to_all_clients(self, signal: Signal, sender: str):
         """Convenience method to create a simple gRPC SignalMsg and then enqueue it to be sent to all connected clients"""
         assert sender, f'Sender is required for signal {signal.name}'
+        if SUPER_DEBUG:
+            logger.debug(f'Forwarding signal to gRPC clients: {signal} sender={sender}')
+
         self._send_grpc_signal_to_all_clients(SignalMsg(sig_int=signal, sender=sender))
 
     def _send_grpc_signal_to_all_clients(self, signal_grpc: SignalMsg):
         """Sends the gRPC signal to all connected clients (well, it actually passively enqueues it to be picked up by each of their threads,
         but the whole process should happen very quickly)"""
-        if self._shutdown:
+        if self._shutdown and signal_grpc != Signal.SHUTDOWN_APP:
             return
 
         with self._queue_lock:
@@ -151,7 +161,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
                 while True:  # empty the queue
                     with self._queue_lock:
-                        logger.debug(f'Checking signal queue for ThreadID {thread_id}')
+                        if SUPER_DEBUG:
+                            logger.debug(f'Checking signal queue for ThreadID {thread_id}')
                         signal_queue: Optional[Deque] = self._thread_signal_queues.get(thread_id, None)
                         if signal_queue is None:
                             logger.debug(f'Looks like  ThreadID {thread_id} signal subscription ended (queue is not there). Cleaning up our end.')
@@ -162,7 +173,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                             break
 
                     if signal:
-                        logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
+                        if SUPER_DEBUG:
+                            logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
                         yield signal
 
                 logger.debug(f'Signal queue for ThreadID {thread_id} emptied. Will wait for more signals')
@@ -267,21 +279,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def start_subtree_load(self, request: StartSubtreeLoad_Request, context):
         self.backend.start_subtree_load(request.tree_id)
         return StartSubtreeLoad_Response()
-
-    def _on_subtree_load_started(self, sender: str):
-        self._send_signal_to_all_clients(Signal.LOAD_SUBTREE_STARTED, sender)
-
-    def _on_subtree_load_done(self, sender: str):
-        self._send_signal_to_all_clients(Signal.LOAD_SUBTREE_DONE, sender)
-
-    def _on_diff_failed(self, sender: str):
-        self._send_signal_to_all_clients(Signal.DIFF_TREES_FAILED, sender)
-
-    def _on_generate_merge_tree_failed(self, sender: str):
-        self._send_signal_to_all_clients(Signal.GENERATE_MERGE_TREE_FAILED, sender)
-
-    def _on_diff_done(self, sender: str):
-        self._send_signal_to_all_clients(Signal.DIFF_TREES_DONE, sender)
 
     def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats: Dict, key_is_uid: bool):
         signal = SignalMsg(sig_int=Signal.REFRESH_SUBTREE_STATS_DONE, sender=sender)

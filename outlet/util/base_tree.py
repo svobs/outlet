@@ -47,7 +47,7 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
         return self.get_child_list_for_node(self.get_root_node())
 
     def generate_dir_stats(self, tree_id: TreeID, subtree_root_node: Optional[NodeT] = None) -> Dict[IdentifierT, DirectoryStats]:
-        logger.debug(f'[{tree_id}] Generating stats for tree with root: {subtree_root_node.node_identifier}')
+        logger.debug(f'[{tree_id}] Generating unfiltered stats for tree with root: {subtree_root_node.node_identifier}')
         stats_sw = Stopwatch()
 
         dir_stats_dict: Dict[IdentifierT, DirectoryStats] = {}
