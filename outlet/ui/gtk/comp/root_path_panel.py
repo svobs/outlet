@@ -197,14 +197,14 @@ class RootPathPanel(HasLifecycle):
             pre = ''
             color = ''
             root_part_regular, root_part_bold = os.path.split(new_root.get_single_path())
-            if len(self.alert_image_box.get_child_list()) > 0:
+            if len(self.alert_image_box.get_children()) > 0:
                 self.alert_image_box.remove(self.alert_image)
         else:
             root_part_regular, root_part_bold = os.path.split(new_root.get_single_path())
             if not new_tree.is_root_exists() and new_tree.get_offending_path():
                 root_part_regular = new_tree.get_offending_path()
                 root_part_bold = file_util.strip_root(new_root.get_single_path(), new_tree.get_offending_path())
-            if not self.alert_image_box.get_child_list():
+            if not self.alert_image_box.get_children():
                 self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
             pre = f"<span foreground='red' size='medium'>Not found:  </span>"
@@ -241,7 +241,7 @@ class RootPathPanel(HasLifecycle):
             return False
 
         # Remove alert image if present; only show path_entry box
-        if len(self.alert_image_box.get_child_list()) > 0:
+        if len(self.alert_image_box.get_children()) > 0:
             self.alert_image_box.remove(self.alert_image)
 
         self.path_entry = Gtk.Entry()

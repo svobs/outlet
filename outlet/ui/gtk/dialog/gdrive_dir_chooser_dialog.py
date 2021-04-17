@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
+from constants import TreeID
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier

@@ -119,7 +119,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                     key = dir_meta_grpc.guid
                     kwargs['key_is_uid'] = False
                 dir_stats_dict[key] = dir_stats
-            kwargs['dir_stats'] = dir_stats_dict
+            kwargs['dir_stats_dict'] = dir_stats_dict
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
         elif signal == Signal.DEVICE_UPSERTED:

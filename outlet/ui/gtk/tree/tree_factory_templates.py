@@ -269,7 +269,7 @@ def _compare_data(model, row1, row2, args):
 def replace_widget(old, new):
     parent = old.get_parent()
 
-    children = parent.get_child_list()
+    children = parent.get_children()
 
     for child in children:
         if child == old:

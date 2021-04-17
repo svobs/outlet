@@ -1128,7 +1128,7 @@ class CacheManager(HasLifecycle):
                 key_is_uid = True
                 dir_stats = tree_meta.dir_stats_unfiltered_by_uid
 
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats=dir_stats,
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats_dict=dir_stats,
                         key_is_uid=key_is_uid)
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:

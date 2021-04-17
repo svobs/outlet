@@ -1,7 +1,7 @@
 import logging
 from typing import Callable
 
-from constants import TreeDisplayMode
+from constants import TreeDisplayMode, TreeID
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from signal_constants import Signal
