@@ -2,7 +2,7 @@ import logging
 from collections import deque
 from typing import Deque, Dict, List, Union
 
-from constants import TrashStatus, TreeID, TreeType
+from constants import SUPER_DEBUG, TrashStatus, TreeID, TreeType
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
@@ -189,6 +189,8 @@ class FilterState:
 
     def get_filtered_child_list(self, parent_spid: SinglePathNodeIdentifier, parent_tree) -> List[SPIDNodePair]:
         assert parent_tree, 'parent_tree cannot be None!'
+        if SUPER_DEBUG:
+            logger.debug(f'get_filtered_child_list(spid={parent_spid})')
         if not self.filter.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
             return parent_tree.get_child_list_for_spid(parent_spid)
