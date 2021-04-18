@@ -555,7 +555,8 @@ class CacheManager(HasLifecycle):
             assert not tree_meta.is_first_order()
             logger.debug(f'Tree "{tree_id}" is a ChangeTree; loading its dir stats')
             tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
-            tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
+            if tree_meta.filter_state.has_criteria():
+                tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
             subtree_root_sn: SPIDNodePair = tree_meta.change_tree.get_root_sn()
 
         # Now that we have all the stats, we can calculate the summary:
@@ -1012,7 +1013,10 @@ class CacheManager(HasLifecycle):
         return self._master_gdrive.get_node_for_domain_id(goog_id)
 
     # FIXME
-    def get_gdrive_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
+    def get_gdrive_identifier_list_for_full_path_list(self, device_uid: UID, path_list: List[str], error_if_not_found: bool = False) \
+            -> List[NodeIdentifier]:
+        # store = self._get_store_for_device_uid(device_uid)
+        # assert isinstance(store, GDriveMasterStore), f'Expected GDrive store for device_uid {device_uid} but got: {type(store)}'
         return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
     # FIXME

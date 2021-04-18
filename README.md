@@ -37,6 +37,9 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* [3] Device selection for root path
+* [5] BFS loading of tree, instead of all-at-once
+* [3] Stats updating - needs cleanup
 * [7] Mac OS support
 * [1] Put GDrive files in trash
 * [3] Put local files in trash

@@ -65,7 +65,6 @@ class GDriveMemoryStore:
 
             if existing_node == node:
                 logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
                 node = existing_node
                 return node, False
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
@@ -88,7 +87,7 @@ class GDriveMemoryStore:
             raise RuntimeError(f'Not supported: to_trash=true!')
 
         if node.is_dir():
-            children: List[GDriveNode] = self.master_tree.get_child_list(node)
+            children: List[GDriveNode] = self.master_tree.get_child_list_for_node(node)
             if children:
                 raise RuntimeError(f'Cannot remove GDrive folder from cache: it contains {len(children)} children!')
 

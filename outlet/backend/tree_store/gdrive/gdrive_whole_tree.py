@@ -273,6 +273,7 @@ class GDriveWholeTree(BaseTree):
         return file_list, folder_list
 
     def get_identifier_list_for_path_list(self, path_list: List[str], error_if_not_found: bool = False):
+        assert isinstance(path_list, List)
         identifiers_found: List[NodeIdentifier] = []
 
         for single_path in path_list:
@@ -442,7 +443,7 @@ class GDriveWholeTree(BaseTree):
 
         return child_sn_list
 
-    def get_child_list_for_node(self, node: GDriveNode) -> List[Node]:
+    def get_child_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self.parent_child_dict.get(node.uid, [])
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:

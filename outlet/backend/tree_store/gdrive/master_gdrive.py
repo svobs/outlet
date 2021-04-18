@@ -241,7 +241,8 @@ class GDriveMasterStore(TreeStore):
             # TODO: better handling
             raise RuntimeError(f'Node with goog_id "{subtree_root_node.goog_id}" was not found in Google Drive: {subtree_root_node}')
         if not parent_node.is_dir():
-            self._execute_write_op(UpsertSingleNodeOp(parent_node))
+            with self._struct_lock:
+                self._execute_write_op(UpsertSingleNodeOp(parent_node))
             return
 
         assert isinstance(parent_node, GDriveFolder)

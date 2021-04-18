@@ -129,10 +129,10 @@ class LocalDiskMasterStore(TreeStore):
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out.
             # Need extra logic to find removed nodes and pending op nodes though:
             root_node: LocalNode = fresh_tree.get_root_node()
+            remove_node_list: List[LocalNode] = []
             if root_node.is_dir():
                 # "Pending op" nodes are not stored in the regular cache (they should all have is_live()==False)
                 pending_op_nodes: List[LocalNode] = []
-                remove_node_list: List[LocalNode] = []
 
                 for existing_node in self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid):
                     if not fresh_tree.get_node_for_uid(existing_node.uid):

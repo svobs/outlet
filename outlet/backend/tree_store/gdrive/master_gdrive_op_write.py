@@ -326,7 +326,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
         logger.debug(f'RefreshFolderOp: done with disk cache')
 
     def send_signals(self):
-        logger.debug(f'RefreshFolderOp: sending "{Signal.NODE_UPSERTED_IN_CACHE}" signal for {len(self._updated_node_list)} nodes')
+        logger.debug(f'RefreshFolderOp: sending "{Signal.NODE_UPSERTED_IN_CACHE.name}" signal for {len(self._updated_node_list)} nodes')
         for node in self._updated_node_list:
             dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
 

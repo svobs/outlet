@@ -229,7 +229,7 @@ class TreeContextMenu:
 
             # MenuItem: Refresh
             item = Gtk.MenuItem(label='Refresh')
-            item.connect('activate', lambda: self.con.backend.enqueue_refresh_subtree_task(node.node_identifier))
+            item.connect('activate', self.refresh_subtree, sn.node.node_identifier)
             menu.append(item)
 
         menu.show_all()
@@ -250,3 +250,6 @@ class TreeContextMenu:
     def send_signal(self, menu_item, signal: Signal, kwargs: dict):
         logger.debug(f'[{self.con.tree_id}] Sending signal: {signal.name} with kwargs: {kwargs}')
         dispatcher.send(signal=signal, sender=self.con.tree_id, **kwargs)
+
+    def refresh_subtree(self, menu_item, node_identifier):
+        self.con.backend.enqueue_refresh_subtree_task(node_identifier, tree_id=self.con.tree_id)

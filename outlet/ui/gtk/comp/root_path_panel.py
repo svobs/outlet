@@ -223,7 +223,9 @@ class RootPathPanel(HasLifecycle):
         logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
 
         # Call into backend to update display tree. We'll get updated via the dispatcher
-        self.con.app.backend.create_display_tree_from_user_path(self.con.tree_id, new_root_path, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+        # FIXME: add switch for device_uid. This is broken!
+        device_uid = 99
+        self.con.app.backend.create_display_tree_from_user_path(self.con.tree_id, new_root_path, device_uid)
 
     def _on_change_btn_clicked(self, widget):
         if self._ui_enabled:

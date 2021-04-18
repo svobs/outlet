@@ -80,7 +80,6 @@ class DisplayMutator(HasLifecycle):
         if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
             self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
-            self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved)
 
         # TODO: The 'sender' arg fails when relayed from gRPC! Dump PyDispatcher and replace with homegrown code
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_load_subtree_done)
@@ -487,10 +486,10 @@ class DisplayMutator(HasLifecycle):
                         if SUPER_DEBUG:
                             logger.debug(f'[{self.con.tree_id}] Examining parent {parent_uid} for displayed node {sn.node.node_identifier}')
 
-                        if self.con.get_tree().get_root_spid().uid == parent_uid:
+                        if self.con.get_tree().get_root_spid().node_uid == parent_uid:
                             logger.debug(f'[{self.con.tree_id}] Node is topmost level: {sn.node.node_identifier}')
                             parent_iter = None
-                            child_iter = self.con.display_store.find_uid_in_children(sn.node.uid, parent_iter)
+                            child_iter = self.con.display_store.find_guid_in_children(sn.spid.guid, parent_iter)
                             self._update_or_append(sn, parent_iter, child_iter)
                         else:
                             # Node is not topmost.
@@ -579,18 +578,6 @@ class DisplayMutator(HasLifecycle):
                 logger.exception(f'While removing node {guid} ("{sn.node.name}") from UI')
 
         GLib.idle_add(update_ui)
-
-    def _on_node_moved(self, sender: str, src_sn: SPIDNodePair, dst_sn: SPIDNodePair):
-        if sender != self.con.tree_id:
-            return
-
-        if not self._enable_node_signals:
-            if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_REMOVED.name}": node listeners disabled')
-            return
-            
-        self._on_node_removed(sender, src_sn)
-        self._on_node_upserted(sender, dst_sn)
 
     def _request_subtree_stats_refresh(self):
         # Requests the cacheman to recalculate stats for this subtree. Sends Signal.REFRESH_SUBTREE_STATS_DONE when done

@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, ROOT_PATH_UID, SUPER_ROOT_UID, TreeType
 from model.node_identifier import GDriveIdentifier, GDriveSPID, GUID, LocalNodeIdentifier, MixedTreeSPID, NodeIdentifier, SinglePathNodeIdentifier
@@ -71,10 +71,12 @@ class NodeIdentifierFactory:
         else:
             raise RuntimeError(f'Invalid tree_type: {tree_type.name}')
 
-    def from_path(self, full_path: str, device_uid: UID) -> NodeIdentifier:
+    def parse_path(self, full_path: str) -> Tuple[TreeType, str]:
         # FIXME: clean this up! See note for ActiveTreeManager._resolve_root_meta_from_path()
-        full_path_list = ensure_list(full_path)
-        return self._and_deriving_tree_type_from_path(full_path_list, node_uid=None, device_uid=device_uid, must_be_single_path=True)
+        if full_path.startswith(GDRIVE_PATH_PREFIX):
+            # GDrive
+            return TreeType.GDRIVE, NodeIdentifierFactory.strip_gdrive(full_path)
+        return TreeType.LOCAL_DISK, full_path
 
     def for_values(self,
                    device_uid: Optional[UID] = None,

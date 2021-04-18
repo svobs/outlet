@@ -65,7 +65,6 @@ class ActiveTreeManager(HasLifecycle):
         # These take the signal from the cache and route it to the relevant display trees (if any) based on each node's location:
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED_IN_CACHE, receiver=self._on_node_removed)
-        self.connect_dispatch_listener(signal=Signal.NODE_MOVED_IN_CACHE, receiver=self._on_node_moved)
 
         self._live_monitor.start()
 
@@ -84,42 +83,59 @@ class ActiveTreeManager(HasLifecycle):
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _is_in_subtree(self, node: Node, subtree_root_spid: SinglePathNodeIdentifier):
+    def _filtered_sn(self, node: Node, full_path: str, filter_state: FilterState) -> Optional[SPIDNodePair]:
+        sn = self.backend.cacheman.get_sn_for(node_uid=node.uid, device_uid=node.device_uid, full_path=full_path)
+        if not filter_state.has_criteria() or filter_state.matches(sn):
+            return sn
+        else:
+            return None
+
+    def _to_subtree_sn(self, node: Node, subtree_root_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> Optional[SPIDNodePair]:
         cacheman = self.backend.cacheman
 
-        node_list = [node]
-        while True:
-            if not node_list:
-                return False
+        if node.device_uid != subtree_root_spid.device_uid:
+            return None
 
-            new_node_list = []
-            for node in node_list:
-                if node.uid == subtree_root_spid.node_uid:
-                    return True
-                for parent_node in cacheman.get_parent_list_for_node(node):
-                    new_node_list.append(parent_node)
-            node_list = new_node_list
+        # LocalDisk: easy: check path
+        if node.tree_type == TreeType.LOCAL_DISK and node.node_identifier.has_path_in_subtree(subtree_root_spid.get_single_path()):
+            return self._filtered_sn(node, node.get_single_path(), filter_state)
+
+        # GDrive: laborious
+        ancestor_list = [node]
+        while True:
+            new_ancestor_list = []
+            for ancestor in ancestor_list:
+                if ancestor.uid == subtree_root_spid.node_uid:
+                    # OK, yes: we are in subtree. Now just create SN:
+
+                    subtree_root_path = subtree_root_spid.get_single_path()
+                    for path in node.get_path_list():
+                        if path.startswith(subtree_root_path):
+                            return self._filtered_sn(node, path, filter_state)
+
+                    assert False, f'Something is wrong: node={node}, subtree_root_spid={subtree_root_spid}'
+
+                for parent_node in cacheman.get_parent_list_for_node(ancestor):
+                    new_ancestor_list.append(parent_node)
+
+            ancestor_list = new_ancestor_list
+
+            if not ancestor_list:
+                return None
 
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            # FIXME: change this to derive_sn_list()
-            if self._is_in_subtree(node, tree_meta.root_sn.spid):
-                logger.debug(f'[{tree_id}] Notifying tree for upserted node: {node.node_identifier}')
-                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, node=node)
+            sn: Optional[SPIDNodePair] = self._to_subtree_sn(node, tree_meta.root_sn.spid, tree_meta.filter_state)
+            if sn:
+                logger.debug(f'[{tree_id}] Notifying tree of upserted node: {sn.spid}')
+                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
 
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            # FIXME: change this to derive_sn_list()
-            if self._is_in_subtree(node, tree_meta.root_sn.spid):
-                logger.debug(f'[{tree_id}] Notifying tree for removed node: {node.node_identifier}')
-                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, node=node)
-
-    def _on_node_moved(self, sender: str, src_node: Node, dst_node: Node):
-        for tree_id, tree_meta in self._display_tree_dict.items():
-            # FIXME: change this to derive_sn_list()
-            if self._is_in_subtree(src_node, tree_meta.root_sn.spid) or self._is_in_subtree(dst_node, tree_meta.root_sn.spid):
-                logger.debug(f'[{tree_id}] Notifying tree for moved node: {src_node.node_identifier} -> {dst_node.node_identifier}')
-                dispatcher.send(signal=Signal.NODE_MOVED, src_node=src_node, dst_node=dst_node)
+            sn: Optional[SPIDNodePair] = self._to_subtree_sn(node, tree_meta.root_sn.spid, tree_meta.filter_state)
+            if sn:
+                logger.debug(f'[{tree_id}] Notifying tree of removed node: {sn.spid}')
+                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=sn)
 
     def _on_merge_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')
@@ -228,7 +244,7 @@ class ActiveTreeManager(HasLifecycle):
         sender_tree_id = request.tree_id
         spid = request.spid
         logger.debug(f'[{sender_tree_id}] Got request to load display tree (user_path="{request.user_path}", spid={spid}, '
-                     f'is_startup={request.is_startup}, tree_display_mode={request.tree_display_mode}')
+                     f'device_uid={request.device_uid}, is_startup={request.is_startup}, tree_display_mode={request.tree_display_mode}')
 
         root_path_persister = None
 
@@ -365,32 +381,27 @@ class ActiveTreeManager(HasLifecycle):
             # Assume the user means the local disk (for now). In the future, maybe we can add support for some kind of server name syntax
             full_path = file_util.normalize_path(full_path)
             # FIXME: did I really write this code? Looks like "node_identifier" is only being used as a storage for paths & tree_type. Clean up!
-            node_identifier: NodeIdentifier = self.backend.node_identifier_factory.from_path(full_path=full_path, device_uid=device_uid)
-            if node_identifier.tree_type == TreeType.GDRIVE:
+            tree_type, single_path = self.backend.node_identifier_factory.parse_path(full_path=full_path)
+            if tree_type == TreeType.GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.backend.cacheman.wait_for_startup_done()
                 # this will load the GDrive master tree if needed:
-                identifier_list = self.backend.cacheman.get_gdrive_identifier_list_for_full_path_list(
-                    node_identifier.get_path_list(), error_if_not_found=True)
+                identifier_list = self.backend.cacheman.get_gdrive_identifier_list_for_full_path_list(device_uid, [single_path],
+                                                                                                      error_if_not_found=True)
             else:  # LocalNode
-                if not os.path.exists(full_path):
-                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
-                uid = self.backend.cacheman.get_uid_for_local_path(full_path)
+                if not os.path.exists(single_path):
+                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), single_path)
+                uid = self.backend.cacheman.get_uid_for_local_path(single_path)
                 identifier_list = [LocalNodeIdentifier(uid=uid, device_uid=self.backend.cacheman.get_device_uid_for_this_local_disk(),
-                                                       full_path=full_path)]
+                                                       full_path=single_path)]
 
-            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
+            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {single_path}'
             logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
             if len(identifier_list) > 1:
                 # Create the appropriate
                 candidate_list = []
                 for identifier in identifier_list:
-                    if identifier.tree_type == TreeType.GDRIVE:
-                        path_to_find = NodeIdentifierFactory.strip_gdrive(full_path)
-                    else:
-                        path_to_find = full_path
-
-                    if path_to_find in identifier.get_path_list():
+                    if single_path in identifier.get_path_list():
                         candidate_list.append(identifier)
                 if len(candidate_list) != 1:
                     raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
