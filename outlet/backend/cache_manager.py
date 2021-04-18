@@ -941,7 +941,7 @@ class CacheManager(HasLifecycle):
         ancestor_deque: Deque[SPIDNodePair] = deque()
         ancestor_node: Node = self.get_node_for_uid(spid.node_uid)
         if not ancestor_node:
-            logger.warning(f'get_ancestor_list_for_spid(): Node not found: {spid}')
+            logger.debug(f'get_ancestor_list_for_spid(): Node not found: {spid}')
             return ancestor_deque
 
         ancestor_sn = SPIDNodePair(spid, ancestor_node)
@@ -1130,6 +1130,7 @@ class CacheManager(HasLifecycle):
                 key_is_uid = True
                 dir_stats = tree_meta.dir_stats_unfiltered_by_uid
 
+        logger.debug(f'[{tree_id}] Generated {len(dir_stats)} dir_stats entries. StatusMsg={tree_meta.summary_msg}')
         dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats_dict=dir_stats,
                         key_is_uid=key_is_uid)
 

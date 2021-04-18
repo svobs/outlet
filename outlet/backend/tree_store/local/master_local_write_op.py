@@ -172,7 +172,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
     def update_memstore(self, memstore: LocalDiskMemoryStore):
         for subtree in self.subtree_list:
             logger.debug(f'Upserting {len(subtree.upsert_node_list)} and removing {len(subtree.remove_node_list)} nodes at memstore subroot '
-                         f'"{subtree.subtree_root.get_path_list()}"')
+                         f'"{subtree.subtree_root}"')
             # Deletes must occur from bottom up:
             if subtree.remove_node_list:
                 for node in reversed(subtree.remove_node_list):

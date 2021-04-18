@@ -221,10 +221,10 @@ class LocalDiskMasterStore(TreeStore):
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
 
         # FS SYNC
-        if is_live_refresh or not cache_info.is_loaded or \
-                (cache_info.needs_refresh and self.backend.cacheman.sync_from_local_disk_on_cache_load):
+        if is_live_refresh or cache_info.needs_refresh or \
+                (not cache_info.is_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
             logger.debug(f'[{tree_id}] Will resync with file system (is_loaded={cache_info.is_loaded}, sync_on_cache_load='
-                         f'{self.backend.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh},'
+                         f'{self.backend.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh}, '
                          f'is_live_refresh={is_live_refresh})')
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(requested_subtree_root, tree_id)

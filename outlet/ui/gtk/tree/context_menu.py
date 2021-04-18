@@ -120,7 +120,7 @@ class TreeContextMenu:
         if node.is_live() and node.is_dir() and self.con.treeview_meta.can_change_root:
             item = Gtk.MenuItem(label=f'Go Into "{node.name}"')
 
-            def go_into():
+            def go_into(menu_item):
                 self.con.app.backend.create_display_tree_from_spid(self.con.tree_id, sn.spid)
 
             item.connect('activate', go_into)

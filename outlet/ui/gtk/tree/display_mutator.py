@@ -129,7 +129,7 @@ class DisplayMutator(HasLifecycle):
         if sn.node.is_dir():
             parent_iter = self._append_dir_node(parent_iter, sn)
 
-            for child in self.con.get_tree().get_child_list(sn.spid):
+            for child in self.con.get_tree().get_child_list_for_spid(sn.spid):
                 node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, sn)
@@ -162,7 +162,7 @@ class DisplayMutator(HasLifecycle):
                 if SUPER_DEBUG:
                     logger.debug(f'[{self.con.tree_id}] Row will be expanded: {guid} ("{node.name}")')
 
-                child_list = self.con.get_tree().get_child_list(sn.spid)
+                child_list = self.con.get_tree().get_child_list_for_spid(sn.spid)
                 for child in child_list:
                     node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, expanded_row_guid_set)
 
@@ -243,7 +243,7 @@ class DisplayMutator(HasLifecycle):
         sn: SPIDNodePair = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        child_sn_list: List[SPIDNodePair] = self.con.get_tree().get_child_list(sn.spid)
+        child_sn_list: List[SPIDNodePair] = self.con.get_tree().get_child_list_for_spid(sn.spid)
 
         if expand_all:
             # populate all descendants
@@ -376,7 +376,7 @@ class DisplayMutator(HasLifecycle):
                     # Even an inconsistent FolderToAdd must be included as a checked item:
                     checked_items.append(parent)
 
-                for child_sn in self.con.get_tree().get_child_list(parent.spid):
+                for child_sn in self.con.get_tree().get_child_list_for_spid(parent.spid):
                     if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
                         whitelist.append(child_sn)
                     elif self.con.display_store.inconsistent_rows.get(child_sn.node.uid, None):
@@ -389,7 +389,7 @@ class DisplayMutator(HasLifecycle):
                     checked_items.append(chosen_sn)
 
                 # drill down into all descendants of nodes in the whitelist
-                for child_sn in self.con.get_tree().get_child_list(chosen_sn.spid):
+                for child_sn in self.con.get_tree().get_child_list_for_spid(chosen_sn.spid):
                     whitelist.append(child_sn)
 
             return checked_items
@@ -417,7 +417,7 @@ class DisplayMutator(HasLifecycle):
                     self.con.display_store.remove_loading_node(parent_iter)
 
                     # This will also add the node to the backend set of expanded nodes:
-                    child_list = self.con.get_tree().get_child_list(sn.spid)
+                    child_list = self.con.get_tree().get_child_list_for_spid(sn.spid)
                     self._append_child_list(child_list=child_list, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,
@@ -638,7 +638,10 @@ class DisplayMutator(HasLifecycle):
 
         def do_in_ui():
             logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats in UI')
-            self.con.status_bar.set_label(status_msg)
+            if status_msg is None:
+                logger.error(f'Status msg is None!')
+            else:
+                self.con.status_bar.set_label(status_msg)
             with self._lock:
                 if not self._is_shutdown:
                     self.con.display_store.recurse_over_tree(action_func=redraw_displayed_node)

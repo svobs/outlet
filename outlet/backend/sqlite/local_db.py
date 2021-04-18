@@ -161,10 +161,12 @@ class LocalDiskDatabase(MetaDatabase):
         file_list: List[LocalFileNode] = []
         for node in node_list:
             if node.is_dir():
-                assert isinstance(node, LocalDirNode)
+                if not isinstance(node, LocalDirNode):
+                    logger.debug('TODO')  # TODO
+                assert isinstance(node, LocalDirNode), f'Not a LocalDirNode: {node}'
                 dir_list.append(node)
             else:
-                assert isinstance(node, LocalFileNode)
+                assert isinstance(node, LocalFileNode), f'Not a LocalFileNode: {node}'
                 file_list.append(node)
         if dir_list:
             self.upsert_local_dir_list(dir_list, commit=False)

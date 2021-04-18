@@ -41,6 +41,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
 
         # A trailing '/' will really screw us up:
         assert file_util.is_normalized(root_node_identifier.get_single_path()), f'Path: {root_node_identifier.get_single_path()}'
+
         node_rel_path = file_util.strip_root(node.get_single_path(), root_node_identifier.get_single_path())
         path_segments = file_util.split_path(node_rel_path)
         if path_segments:
@@ -53,7 +54,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                 uid = self.backend.cacheman.get_uid_for_local_path(path_so_far)
                 child: LocalNode = self.get_node_for_uid(uid)
                 if not child:
-                    # logger.debug(f'Creating dir node: nid={uid}')
+                    logger.debug(f'Creating dir node: uid={uid} full_path={path_so_far}')
                     node_identifier = LocalNodeIdentifier(full_path=path_so_far, uid=uid, device_uid=root_node_identifier.device_uid)
                     child = LocalDirNode(node_identifier=node_identifier,
                                          parent_uid=parent.uid, trashed=TrashStatus.NOT_TRASHED, is_live=True)

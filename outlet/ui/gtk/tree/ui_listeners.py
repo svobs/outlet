@@ -362,8 +362,8 @@ class TreeUiListeners(HasLifecycle):
 
     def on_single_row_activated(self, tree_view, tree_path):
         """Fired when an node is double-clicked or when an node is selected and Enter is pressed"""
-        node: Node = self.con.display_store.get_node_data(tree_path)
-        if node.is_dir():
+        sn: SPIDNodePair = self.con.display_store.get_node_data(tree_path)
+        if sn.node.is_dir():
             # Expand/collapse row:
             if tree_view.row_expanded(tree_path):
                 tree_view.collapse_row(tree_path)
@@ -374,7 +374,7 @@ class TreeUiListeners(HasLifecycle):
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
 
-            op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(node.uid)
+            op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(sn.spid.node_uid)
             if op and op.has_dst():
                 logger.warning('TODO: test this!')
 
@@ -384,11 +384,11 @@ class TreeUiListeners(HasLifecycle):
                 elif op.dst_node.is_live():
                     _do_default_action_for_node(op.dst_node, self.con.tree_id)
                     return True
-            elif node.is_live():
-                _do_default_action_for_node(node, self.con.tree_id)
+            elif sn.node.is_live():
+                _do_default_action_for_node(sn, self.con.tree_id)
                 return True
             else:
-                logger.debug(f'Aborting activation: file does not exist: {node}')
+                logger.debug(f'Aborting activation: file does not exist: {sn.node}')
         return False
 
     def on_multiple_rows_activated(self, tree_view, tree_paths):
@@ -447,12 +447,12 @@ class TreeUiListeners(HasLifecycle):
     # ACTIONS end
 
 
-def _do_default_action_for_node(node: Node, tree_id: TreeID):
-    if node.node_identifier.tree_type == TreeType.LOCAL_DISK:
+def _do_default_action_for_node(sn: SPIDNodePair, tree_id: TreeID):
+    if sn.spid.tree_type == TreeType.LOCAL_DISK:
         # FIXME: this will not work for non-local files
-        dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.get_single_path())
+        dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=sn.spid.get_single_path())
         return True
-    elif node.node_identifier.tree_type == TreeType.GDRIVE:
-        dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
+    elif sn.spid.tree_type == TreeType.GDRIVE:
+        dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=sn.node)
         return True
 

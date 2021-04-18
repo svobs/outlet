@@ -102,18 +102,21 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
+            # FIXME: change this to derive_sn_list()
             if self._is_in_subtree(node, tree_meta.root_sn.spid):
                 logger.debug(f'[{tree_id}] Notifying tree for upserted node: {node.node_identifier}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, node=node)
 
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
+            # FIXME: change this to derive_sn_list()
             if self._is_in_subtree(node, tree_meta.root_sn.spid):
                 logger.debug(f'[{tree_id}] Notifying tree for removed node: {node.node_identifier}')
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, node=node)
 
     def _on_node_moved(self, sender: str, src_node: Node, dst_node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
+            # FIXME: change this to derive_sn_list()
             if self._is_in_subtree(src_node, tree_meta.root_sn.spid) or self._is_in_subtree(dst_node, tree_meta.root_sn.spid):
                 logger.debug(f'[{tree_id}] Notifying tree for moved node: {src_node.node_identifier} -> {dst_node.node_identifier}')
                 dispatcher.send(signal=Signal.NODE_MOVED, src_node=src_node, dst_node=dst_node)
