@@ -1,7 +1,6 @@
 import fnmatch
 import os
 import shutil
-import re
 import errno
 import platform
 import logging
@@ -84,7 +83,7 @@ def strip_root(full_path: str, root_path: str) -> str:
     if root_path.endswith('/'):
         # strip off trailing '/' from root:
         root_path = root_path[:-1]
-    rel_path = re.sub(root_path, '', full_path, count=1)
+    rel_path = full_path.replace(root_path, '', 1)
     if rel_path.endswith('/'):
         # strip off trailing '/'
         rel_path = rel_path[:-1]
