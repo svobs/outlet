@@ -2,7 +2,6 @@ import io
 import logging
 from typing import Dict, Iterable, List, Optional, Set
 
-import PIL
 from PIL import Image
 from zeroconf import ServiceBrowser, Zeroconf
 
@@ -14,7 +13,7 @@ from backend.agent.grpc.generated import Outlet_pb2_grpc
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
     GenerateMergeTree_Request, \
     GetAncestorList_Request, GetChildList_Request, \
-    GetConfig_Request, GetConfig_Response, GetIcon_Request, GetRowsOfInterest_Request, GetFilter_Request, GetFilter_Response, \
+    GetConfig_Request, GetConfig_Response, GetDeviceList_Request, GetIcon_Request, GetRowsOfInterest_Request, GetFilter_Request, GetFilter_Response, \
     GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForUid_Request, \
@@ -187,14 +186,14 @@ class BackendGRPCClient(OutletBackend):
             request.config_list.append(config)
         self.grpc_stub.put_config(request)
 
-    def get_icon(self, icon_id: IconId) -> Optional[Image]:
+    def get_icon(self, icon_id: IconId) -> Optional:
         request = GetIcon_Request()
         request.icon_id = icon_id
         response = self.grpc_stub.get_icon(request)
         if response.HasField('icon'):
             assert icon_id == response.icon.icon_id
             img_byte_arr = io.BytesIO(response.icon.content)
-            return PIL.Image.open(img_byte_arr)
+            return Image.open(img_byte_arr)
         return None
 
     def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None) -> Optional[Node]:
@@ -262,7 +261,8 @@ class BackendGRPCClient(OutletBackend):
 
     def get_device_list(self) -> List[Device]:
         if not self._cached_device_list:
-            response = self.grpc_stub.get_device_list()
+            request = GetDeviceList_Request()
+            response = self.grpc_stub.get_device_list(request)
             device_list = []
             for grpc_device in response.device_list:
                 device_list.append(Device(device_uid=grpc_device.device_uid, long_device_id=grpc_device.long_device_id, tree_type=grpc_device.tree_type,

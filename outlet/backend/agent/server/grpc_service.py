@@ -95,7 +95,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.forward_signal_to_clients(signal=Signal.DIFF_TREES_FAILED)
         self.forward_signal_to_clients(signal=Signal.DIFF_TREES_DONE)
         self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
-        self.forward_signal_to_clients(signal=Signal.REFRESH_SUBTREE_STATS_DONE)
         self.forward_signal_to_clients(signal=Signal.SHUTDOWN_APP)
         self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
 

@@ -36,9 +36,8 @@ class ChangeTree(DisplayTree):
 
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
-        root_node = ContainerNode(self.get_root_spid())
-        logger.debug(f'[{self.tree_id}] ChangeTree: inserting root node: {root_node}')
-        self._category_tree.add_node(root_node, parent=None)
+        logger.debug(f'[{self.tree_id}] ChangeTree: inserting root node: {self.state.root_sn}')
+        self._category_tree.add_node(self.state.root_sn, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
 
@@ -54,7 +53,7 @@ class ChangeTree(DisplayTree):
         """For debugging only"""
 
     @staticmethod
-    def _extract_identifier_func(self, sn: SPIDNodePair) -> GUID:
+    def _extract_identifier_func(sn: SPIDNodePair) -> GUID:
         assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
         return sn.spid.guid
 

@@ -169,11 +169,9 @@ class NodeIdentifierFactory:
             raise RuntimeError('Neither tree_type nor full_path supplied for GDriveIdentifier!')
 
     def _for_tree_type_local(self, device_uid: UID, full_path_list: Optional[List[str]] = None, node_uid: UID = None) -> LocalNodeIdentifier:
-        if node_uid and full_path_list:
-            return LocalNodeIdentifier(uid=node_uid, device_uid=device_uid, full_path=full_path_list[0])
-
         if full_path_list:
-            node_uid = self.backend.get_uid_for_local_path(full_path_list[0], node_uid)
+            if not node_uid:
+                node_uid = self.backend.get_uid_for_local_path(full_path_list[0])
 
             return LocalNodeIdentifier(uid=node_uid, device_uid=device_uid, full_path=full_path_list[0])
         elif node_uid:

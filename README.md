@@ -37,6 +37,8 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* [3] Rewrite all SQLite stuff with SQL-injection safe code
+* [3] Disable UI elements for trees until cache loaded
 * [3] Device selection for root path
 * [5] BFS loading of tree, instead of all-at-once
 * [3] Stats updating - needs cleanup

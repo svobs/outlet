@@ -29,6 +29,8 @@ class OutletBackend(HasLifecycle, ABC):
     """
     def __init__(self):
         HasLifecycle.__init__(self)
+        # This works for both Application & thin client FE:
+        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
 
     @staticmethod
     def report_error(sender: str, msg: str, secondary_msg: Optional[str] = None):

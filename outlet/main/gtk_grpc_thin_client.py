@@ -8,6 +8,9 @@ from util.ensure import ensure_bool
 
 logger = logging.getLogger(__name__)
 
+import gi
+gi.require_version("Gtk", "3.0")
+
 
 # GTK3 THIN CLIENT with GRPC COMMUNICATION TO BACKEND SERVER
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

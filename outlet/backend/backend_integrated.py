@@ -14,7 +14,6 @@ from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
-from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
 from backend.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
@@ -38,7 +37,6 @@ class BackendIntegrated(OutletBackend):
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(app_config)
         self.cacheman: CacheManager = CacheManager(self)
         self.icon_cache = IconStorePy(self)
-        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
 
     def start(self):
         logger.debug('Starting up backend')
