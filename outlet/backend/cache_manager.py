@@ -987,6 +987,11 @@ class CacheManager(HasLifecycle):
         parent_goog_id: str = parent_goog_ids[0]
         return parent_goog_id
 
+    def get_gdrive_client(self, device_uid: UID):
+        store = self._get_store_for_device_uid(device_uid)
+        assert isinstance(store, GDriveMasterStore), f'Expected GDriveMasterStore: {type(store)}'
+        return store.get_gdrive_client()
+
     # FIXME
     def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
         return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)

@@ -98,6 +98,9 @@ class GDriveMasterStore(TreeStore):
         except (AttributeError, NameError):
             pass
 
+    def get_gdrive_client(self) -> GDriveClient:
+        return self.gdrive_client
+
     def execute_load_op(self, operation: GDriveDiskLoadOp):
         """Executes a single GDriveDiskLoadOp ({start}->disk->memory"""
         if not self.backend.cacheman.enable_load_from_disk:
@@ -345,9 +348,8 @@ class GDriveMasterStore(TreeStore):
         dest_file = os.path.join(self.download_dir, node.name)
 
         # TODO: add to front of task queue
-        gdrive_client: GDriveClient = self.backend.cacheman.get_gdrive_client()
         try:
-            gdrive_client.download_file(node.goog_id, dest_file)
+            self.gdrive_client.download_file(node.goog_id, dest_file)
             # notify async when done:
             dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, sender=requestor_id, filename=dest_file)
         except Exception as err:

@@ -1,13 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
 
-from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
-from constants import TreeID
 from model.node.node import BaseNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
-from backend.tree_store.gdrive.gdrive_client import GDriveClient
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +15,9 @@ class CommandContext:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, staging_dir: str, backend, tree_id: TreeID, needs_gdrive: bool):
+    def __init__(self, staging_dir: str, backend):
         self.staging_dir: str = staging_dir
         self.cacheman = backend.cacheman
-        if needs_gdrive:
-            self.gdrive_client: Optional[GDriveClient] = self.cacheman.get_gdrive_client()
-            # This will sync latest changes before returning, which will be somewhat slow but should keep us consistent
-            self.gdrive_tree: Optional[GDriveWholeTree] = self.cacheman.sync_and_get_gdrive_master_tree(tree_id=tree_id)
-        else:
-            self.gdrive_client: Optional[GDriveClient] = None
-            self.gdrive_tree: Optional[GDriveWholeTree] = None
 
     def __del__(self):
         self.shutdown()

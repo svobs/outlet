@@ -33,7 +33,7 @@ class CommandExecutor:
 
         try:
             if not context:
-                context = CommandContext(self.staging_dir, self.backend, ID_COMMAND_EXECUTOR, command.needs_gdrive())
+                context = CommandContext(self.staging_dir, self.backend)
 
             if command.status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.status()}')
@@ -64,7 +64,6 @@ class CommandExecutor:
     def execute_batch(self, command_batch: List[Command]):
         """deprecated - use execute_command()"""
         total = 0
-        needs_gdrive = False
         count_commands = len(command_batch)
 
         if count_commands == 0:
@@ -75,13 +74,11 @@ class CommandExecutor:
 
         for command in command_batch:
             total += command.get_total_work()
-            if command.needs_gdrive():
-                needs_gdrive = True
 
         dispatcher.send(signal=Signal.START_PROGRESS, sender=ID_COMMAND_EXECUTOR, total=total)
         context = None
         try:
-            context = CommandContext(self.staging_dir, self.backend, ID_COMMAND_EXECUTOR, needs_gdrive)
+            context = CommandContext(self.staging_dir, self.backend)
 
             for command_num, command in enumerate(command_batch):
                 self.execute_command(command, context, False)
