@@ -85,7 +85,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
-        self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved)
 
         self.connect_dispatch_listener(signal=Signal.DEVICE_UPSERTED, receiver=self._on_device_upserted)
         self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
@@ -320,20 +319,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.download_msg.filename = filename
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_node_upserted(self, sender: str, node: Node):
+    def _on_node_upserted(self, sender: str, sn: SPIDNodePair):
         signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)
-        self._converter.node_to_grpc(node, signal.node)
+        self._converter.sn_to_grpc(sn, signal.sn)
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_node_removed(self, sender: str, node: Node):
+    def _on_node_removed(self, sender: str, sn: SPIDNodePair):
         signal = SignalMsg(sig_int=Signal.NODE_REMOVED, sender=sender)
-        self._converter.node_to_grpc(node, signal.node)
-        self._send_grpc_signal_to_all_clients(signal)
-
-    def _on_node_moved(self, sender: str, src_node: Node, dst_node: Node):
-        signal = SignalMsg(sig_int=Signal.NODE_MOVED, sender=sender)
-        self._converter.node_to_grpc(src_node, signal.src_dst_node_list.src_node)
-        self._converter.node_to_grpc(dst_node, signal.src_dst_node_list.dst_node)
+        self._converter.sn_to_grpc(sn, signal.sn)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_device_upserted(self, sender: str, device: Device):

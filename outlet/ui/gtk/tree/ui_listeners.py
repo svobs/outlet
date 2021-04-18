@@ -385,7 +385,7 @@ class TreeUiListeners(HasLifecycle):
                     _do_default_action_for_node(op.dst_node, self.con.tree_id)
                     return True
             elif sn.node.is_live():
-                _do_default_action_for_node(sn, self.con.tree_id)
+                _do_default_action_for_node(sn.node, self.con.tree_id)
                 return True
             else:
                 logger.debug(f'Aborting activation: file does not exist: {sn.node}')
@@ -447,12 +447,12 @@ class TreeUiListeners(HasLifecycle):
     # ACTIONS end
 
 
-def _do_default_action_for_node(sn: SPIDNodePair, tree_id: TreeID):
-    if sn.spid.tree_type == TreeType.LOCAL_DISK:
+def _do_default_action_for_node(node: Node, tree_id: TreeID):
+    if node.tree_type == TreeType.LOCAL_DISK:
         # FIXME: this will not work for non-local files
-        dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=sn.spid.get_single_path())
+        dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.node_identifier.get_single_path())
         return True
-    elif sn.spid.tree_type == TreeType.GDRIVE:
-        dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=sn.node)
+    elif node.tree_type == TreeType.GDRIVE:
+        dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
         return True
 

@@ -58,8 +58,6 @@ class Signal(IntEnum):
     """Sent from BE and received by FE"""
     NODE_REMOVED = 47
     """Sent from BE and received by FE"""
-    NODE_MOVED = 48
-    """Sent from BE and received by FE"""
     EXIT_DIFF_MODE = 49
     ERROR_OCCURRED = 50
     REFRESH_SUBTREE_STATS_DONE = 51
