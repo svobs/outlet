@@ -18,7 +18,7 @@ from pydispatch import dispatcher
 from backend.tree_store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
-    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG, TrashStatus
+    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG, TrashStatus, TreeID
 from backend.tree_store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
@@ -56,9 +56,10 @@ class GDriveClient(HasLifecycle):
     CLASS GDriveClient
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, device_uid: UID, tree_id=None):
+    def __init__(self, backend, gdrive_store, device_uid: UID, tree_id=None):
         HasLifecycle.__init__(self)
         self.backend = backend
+        self.gdrive_store = gdrive_store
         self.device_uid: UID = device_uid
         self.tree_id: TreeID = tree_id
         self.page_size: int = self.backend.get_config('gdrive.page_size')
@@ -162,7 +163,7 @@ class GDriveClient(HasLifecycle):
 
     def _store_user(self, user: Dict) -> GDriveUser:
         permission_id = user.get('permissionId', None)
-        gdrive_user: Optional[GDriveUser] = self.backend.cacheman.get_gdrive_user_for_permission_id(permission_id)
+        gdrive_user: Optional[GDriveUser] = self.gdrive_store.get_gdrive_user_for_permission_id(permission_id)
         if not gdrive_user:
             # Completely new user
             user_name = user.get('displayName', None)
@@ -171,7 +172,7 @@ class GDriveClient(HasLifecycle):
             user_is_me = user.get('me', None)
             gdrive_user: GDriveUser = GDriveUser(display_name=user_name, permission_id=permission_id, email_address=user_email,
                                                  photo_link=user_photo_link, is_me=user_is_me)
-            self.backend.cacheman.create_gdrive_user(gdrive_user)
+            self.gdrive_store.create_gdrive_user(gdrive_user)
         return gdrive_user
 
     def _convert_dict_to_gdrive_folder(self, item: Dict, sync_ts: int = 0, uid: UID = None) -> GDriveFolder:
@@ -181,7 +182,7 @@ class GDriveClient(HasLifecycle):
             sync_ts = time_util.now_sec()
 
         goog_id = item['id']
-        uid = self.backend.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
+        uid = self.gdrive_store.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
 
         owners = item.get('owners', None)
         if owners:
@@ -207,7 +208,7 @@ class GDriveClient(HasLifecycle):
                                  sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
-        parent_uids = self.backend.cacheman.get_uid_list_for_goog_id_list(parent_goog_ids)
+        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(self.device_uid, parent_goog_ids)
         goog_node.set_parent_uids(parent_uids)
 
         return goog_node
@@ -238,11 +239,11 @@ class GDriveClient(HasLifecycle):
         size = None if size_str is None else int(size_str)
         version = item.get('version', None)
         mime_type_string = item.get('mimeType', None)
-        mime_type: MimeType = self.backend.cacheman.get_or_create_gdrive_mime_type(mime_type_string)
+        mime_type: MimeType = self.gdrive_store.get_or_create_gdrive_mime_type(mime_type_string)
 
         goog_id = item['id']
 
-        uid = self.backend.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
+        uid = self.gdrive_store.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, device_uid=self.device_uid, path_list=None),
                                            goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveClient._convert_trashed(item),
@@ -252,7 +253,7 @@ class GDriveClient(HasLifecycle):
                                            sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])
-        parent_uids = self.backend.cacheman.get_uid_list_for_goog_id_list(parent_goog_ids)
+        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(self.device_uid, parent_goog_ids)
         goog_node.set_parent_uids(parent_uids)
 
         return goog_node
@@ -399,7 +400,7 @@ class GDriveClient(HasLifecycle):
 
     def get_single_node_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
             -> Optional[GDriveNode]:
-        src_parent_goog_id: str = self.backend.cacheman.get_goog_id_for_parent(node)
+        src_parent_goog_id: str = self.gdrive_store.get_goog_id_for_parent(node)
         result: SimpleNodeCollector = self.get_existing_node_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive nodes with parent={src_parent_goog_id} and name={node.name}')
 
@@ -459,7 +460,7 @@ class GDriveClient(HasLifecycle):
         return goog_node
 
     def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) -> Tuple:
-        src_parent_goog_id: str = self.backend.cacheman.get_goog_id_for_parent(node)
+        src_parent_goog_id: str = self.gdrive_store.get_goog_id_for_parent(node)
         result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id} and name={node.name}')
 
@@ -740,7 +741,7 @@ class GDriveClient(HasLifecycle):
                 is_removed = item['removed']
                 if is_removed:
                     # Fill in node for removal change;
-                    node = self.backend.cacheman.get_node_for_goog_id(goog_id)
+                    node = self.gdrive_store.get_node_for_goog_id(goog_id)
                     change: GDriveRM = GDriveRM(change_ts, goog_id, node)
                 else:
                     if item['changeType'] == 'file':

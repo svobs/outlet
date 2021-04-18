@@ -24,6 +24,10 @@ class TreeStore(HasLifecycle, ABC):
     # Getters / Loaders
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    @property
+    def device_uid(self) -> UID:
+        return self.device.uid
+
     @abstractmethod
     def load_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
         pass

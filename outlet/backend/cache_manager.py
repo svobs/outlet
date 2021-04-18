@@ -982,23 +982,24 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Only one parent is allowed but node has {len(parent_uids)} parents: {node}')
 
         # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.get_goog_id_list_for_uid_list(parent_uids, fail_if_missing=True)
+        parent_goog_ids: List[str] = self.get_goog_id_list_for_uid_list(node.device_uid, parent_uids)
 
         parent_goog_id: str = parent_goog_ids[0]
         return parent_goog_id
 
-    def get_gdrive_client(self, device_uid: UID):
+    def _get_gdrive_store_for_device_uid(self, device_uid: UID) -> GDriveMasterStore:
         store = self._get_store_for_device_uid(device_uid)
         assert isinstance(store, GDriveMasterStore), f'Expected GDriveMasterStore: {type(store)}'
-        return store.get_gdrive_client()
+        return store
 
-    # FIXME
-    def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
-        return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
+    def get_gdrive_client(self, device_uid: UID):
+        return self._get_gdrive_store_for_device_uid(device_uid).get_gdrive_client()
 
-    # FIXME
-    def get_uid_list_for_goog_id_list(self, goog_id_list: List[str]) -> List[UID]:
-        return self._master_gdrive.get_uid_list_for_goog_id_list(goog_id_list)
+    def get_goog_id_list_for_uid_list(self, device_uid: UID, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
+        return self._get_gdrive_store_for_device_uid(device_uid).get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
+
+    def get_uid_list_for_goog_id_list(self, device_uid: UID, goog_id_list: List[str]) -> List[UID]:
+        return self._get_gdrive_store_for_device_uid(device_uid).get_uid_list_for_goog_id_list(goog_id_list)
 
     # FIXME
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
@@ -1008,49 +1009,21 @@ class CacheManager(HasLifecycle):
         return self._master_gdrive.get_uid_for_goog_id(goog_id, uid_suggestion)
 
     # FIXME
-    def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
-        """Returns the first GDrive node found with the given name and parent.
-        This roughly matches the logic used to search for an node in Google Drive when we are unsure about its goog_id."""
-        return self._master_gdrive.get_node_for_name_and_parent_uid(name, parent_uid)
-
-    # FIXME
-    def get_node_for_goog_id(self, goog_id: str) -> GDriveNode:
-        return self._master_gdrive.get_node_for_domain_id(goog_id)
-
-    # FIXME
     def get_gdrive_identifier_list_for_full_path_list(self, device_uid: UID, path_list: List[str], error_if_not_found: bool = False) \
             -> List[NodeIdentifier]:
         # store = self._get_store_for_device_uid(device_uid)
         # assert isinstance(store, GDriveMasterStore), f'Expected GDrive store for device_uid {device_uid} but got: {type(store)}'
         return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
-    # FIXME
-    def get_gdrive_user_for_permission_id(self, permission_id: str):
-        return self._master_gdrive.get_gdrive_user_for_permission_id(permission_id)
+    def delete_all_gdrive_data(self, device_uid: UID):
+        self._get_gdrive_store_for_device_uid(device_uid).delete_all_gdrive_data()
 
-    # FIXME
-    def create_gdrive_user(self, user):
-        return self._master_gdrive.create_gdrive_user(user)
-
-    # FIXME
-    def get_or_create_gdrive_mime_type(self, mime_type_string: str):
-        return self._master_gdrive.get_or_create_gdrive_mime_type(mime_type_string)
-
-    # FIXME
-    def delete_all_gdrive_data(self):
-        return self._master_gdrive.delete_all_gdrive_data()
-
-    # FIXME
-    def apply_gdrive_changes(self, gdrive_change_list):
-        self._master_gdrive.apply_gdrive_changes(gdrive_change_list)
+    def execute_gdrive_load_op(self, device_uid: UID, op: GDriveDiskLoadOp):
+        self._get_gdrive_store_for_device_uid(device_uid).execute_load_op(op)
 
     # FIXME
     def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
         self._master_gdrive.download_file_from_gdrive(node_uid, requestor_id)
-
-    # FIXME
-    def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
-        self._master_gdrive.execute_load_op(op)
 
     # FIXME
     def sync_and_get_gdrive_master_tree(self, tree_id: TreeID):

@@ -87,7 +87,7 @@ class GDriveTreeLoader:
                 dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             # Load all users and MIME types
-            self.backend.cacheman.execute_gdrive_load_op(GDriveLoadAllMetaOp())
+            self.backend.cacheman.execute_gdrive_load_op(self.device_uid, GDriveLoadAllMetaOp())
 
             tree: GDriveWholeTree = self._diskstore.load_tree_from_cache(initial_download.is_complete(), self.tree_id)
 
@@ -101,7 +101,7 @@ class GDriveTreeLoader:
         # BEGIN STATE MACHINE:
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
-            self.backend.cacheman.delete_all_gdrive_data()
+            self.backend.cacheman.delete_all_gdrive_data(self.device_uid)
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:

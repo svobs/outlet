@@ -221,7 +221,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
                 parent_mapping_list = []
                 parent_uids = change.node.get_parent_uids()
                 if parent_uids:
-                    parent_goog_ids = self.backend.cacheman.get_goog_id_list_for_uid_list(parent_uids)
+                    parent_goog_ids = self.backend.cacheman.get_goog_id_list_for_uid_list(change.node.device_uid, parent_uids)
                     if len(parent_uids) != len(parent_goog_ids):
                         raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
                                            f'({len(parent_uids)}) for node: {change.node}')
@@ -296,7 +296,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
             parent_mapping_list = []
             parent_uids = node.get_parent_uids()
             if parent_uids:
-                parent_goog_ids = self.backend.cacheman.get_goog_id_list_for_uid_list(parent_uids)
+                parent_goog_ids = self.backend.cacheman.get_goog_id_list_for_uid_list(node.device_uid, parent_uids)
                 if len(parent_uids) != len(parent_goog_ids):
                     raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
                                        f'({len(parent_uids)}) for node: {node}')

@@ -98,9 +98,9 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
     See: GDriveMasterStore.sync_latest_changes()
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
+    def __init__(self, gdrive_store):
         super().__init__()
-        self.backend = backend
+        self.gdrive_store = gdrive_store
         self.change_list: List[GDriveChange] = []
         self.total_change_count = 0
 
@@ -110,7 +110,7 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
     def end_of_page(self, next_page_token: str):
         self.total_change_count += len(self.change_list)
         logger.debug(f'End of page: sending {len(self.change_list)} changes to cacheman (total count: {self.total_change_count})')
-        self.backend.cacheman.apply_gdrive_changes(self.change_list)
+        self.gdrive_store.apply_gdrive_changes(self.change_list)
         self.change_list.clear()
 
 

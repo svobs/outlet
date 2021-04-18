@@ -69,7 +69,7 @@ class GDriveMasterStore(TreeStore):
         """Used to protect structures inside memstore"""
         self._memstore: GDriveMemoryStore = GDriveMemoryStore(backend, self._uid_mapper, device.uid)
         self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore, device.uid)
-        self.gdrive_client: GDriveClient = GDriveClient(self.backend, device.uid, ID_GLOBAL_CACHE)
+        self.gdrive_client: GDriveClient = GDriveClient(self.backend, self, ID_GLOBAL_CACHE)
         self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, gdrive_client=self.gdrive_client,
                                             device_uid=device.uid, tree_id=ID_GLOBAL_CACHE)
 
@@ -182,7 +182,7 @@ class GDriveMasterStore(TreeStore):
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
-        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.backend)
+        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self)
         sync_ts = time_util.now_sec()
         self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
 
@@ -399,9 +399,12 @@ class GDriveMasterStore(TreeStore):
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._uid_mapper.get_uid_for_goog_id(goog_id, uid_suggestion)
 
-    def get_node_for_domain_id(self, goog_id: str) -> Optional[GDriveNode]:
+    def get_node_for_goog_id(self, goog_id: str) -> Optional[GDriveNode]:
         uid = self._uid_mapper.get_uid_for_goog_id(goog_id)
         return self._memstore.master_tree.get_node_for_uid(uid)
+
+    def get_node_for_domain_id(self, goog_id: str) -> Optional[GDriveNode]:
+        return self.get_node_for_goog_id(goog_id)
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         if not self._memstore.master_tree:
