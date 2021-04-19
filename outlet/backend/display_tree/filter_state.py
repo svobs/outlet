@@ -163,6 +163,7 @@ class FilterState:
                     queue.append(child_sn)
 
         root_guid: GUID = self.root_sn.spid.guid
+        logger.info(f'Built node cache for flat list with root_guid: {root_guid}')
         # This will be the only entry in the dict:
         self.cached_node_dict[root_guid] = filtered_list
         self.cached_dir_stats[root_guid] = dir_stats
@@ -197,7 +198,11 @@ class FilterState:
 
         self.ensure_cache_populated(parent_tree)
 
-        return self.cached_node_dict.get(parent_spid.guid, [])
+        guid = parent_spid.guid
+        sn_list = self.cached_node_dict.get(guid, [])
+
+        logger.info(f'Got {len(sn_list)} child nodes for parent GUID: {guid}')
+        return sn_list
 
     def get_dir_stats(self) -> Dict[GUID, DirectoryStats]:
         assert self.cached_dir_stats is not None

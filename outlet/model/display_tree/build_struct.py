@@ -30,6 +30,9 @@ class RowsOfInterest:
         self.expanded: Set[GUID] = set()
         self.selected: Set[GUID] = set()
 
+    def __repr__(self):
+        return f'RowsOfInterest(expanded={self.expanded} selected={self.selected})'
+
 
 class DisplayTreeRequest:
     """

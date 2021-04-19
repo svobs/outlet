@@ -22,7 +22,6 @@ from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from signal_constants import Signal
 from util import file_util
-from util.ensure import ensure_uid
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
 from util.stopwatch_sec import Stopwatch

@@ -292,7 +292,8 @@ class BackendGRPCClient(OutletBackend):
     def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         request = SetSelectedRowSet_Request()
         for guid in selected:
-            request.selected_row_guid_set.add(guid)
+            # Note: gRPC Python uses "append" for repeated scalar fields, and "add" for repeated object fields
+            request.selected_row_guid_set.append(guid)
         request.tree_id = tree_id
         self.grpc_stub.set_selected_row_set(request)
 

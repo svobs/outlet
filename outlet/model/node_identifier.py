@@ -162,7 +162,7 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
         if single_path not in node_identifier.get_path_list():
             raise RuntimeError('bad!')
         if node_identifier.tree_type == TreeType.GDRIVE:
-            return GDriveSPID(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_uid=path_uid, full_path=single_path)
+            return GDriveSPID(node_uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_uid=path_uid, full_path=single_path)
         elif node_identifier.tree_type == TreeType.LOCAL_DISK:
             return LocalNodeIdentifier(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, full_path=single_path)
         else:
@@ -211,8 +211,10 @@ class GDriveSPID(SinglePathNodeIdentifier):
         CLASS GDriveSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, path_uid: UID, full_path: str):
-        super().__init__(uid, device_uid, full_path)
+    def __init__(self, node_uid: UID, device_uid: UID, path_uid: UID, full_path: str):
+        assert node_uid != path_uid, f'Invalid: node_uid ({node_uid}) cannot be the same as path_uid ({path_uid}) for GDriveSPID! ' \
+                                     f'(full_path={full_path})'
+        super().__init__(node_uid, device_uid, full_path)
         self._path_uid: UID = path_uid
 
     @property

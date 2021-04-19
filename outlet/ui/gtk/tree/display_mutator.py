@@ -151,7 +151,7 @@ class DisplayMutator(HasLifecycle):
                 is_expand = True
             elif guid in expanded_row_guid_set:
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Found guid "{guid}" in expanded_rows"')
+                    logger.debug(f'[{self.con.tree_id}] Found GUID "{guid}" in expanded_rows"')
                 is_expand = True
 
             if is_expand:

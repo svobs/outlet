@@ -68,6 +68,7 @@ class UidPathMapper(HasLifecycle):
                     uid = uid_suggestion
                 else:
                     uid = self.uid_generator.next_uid()
+                logger.info(f'New UID {uid} = "{path}"')
                 self._add(path, uid)
                 needs_write = True
             elif uid_suggestion and uid_suggestion != uid:
@@ -112,14 +113,15 @@ class UidPathMapper(HasLifecycle):
 
     def _write_to_disk(self):
         with self._uid_lock:
+            logger.debug(f'Writing {len(self._to_write)} UID-path mappings to disk cache: {self.uid_path_cache_path}')
             to_write = self._to_write
             self._to_write = []
 
-            if self._to_write:
+            if to_write:
                 with UidPathMapperDb(self.uid_path_cache_path, self.backend) as db:
                     db.upsert_uid_path_mapping_list(to_write)
 
-                logger.debug(f'Wrote {len(to_write)} UID-path mappings to disk cache')
+                logger.info(f'Wrote {len(to_write)} UID-path mappings to disk cache ({self.uid_path_cache_path})')
 
 
 class UidGoogIdMapper:

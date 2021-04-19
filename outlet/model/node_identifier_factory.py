@@ -38,7 +38,7 @@ class NodeIdentifierFactory:
 
     @staticmethod
     def get_root_constant_gdrive_spid(device_uid: UID) -> SinglePathNodeIdentifier:
-        return GDriveSPID(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_uid=ROOT_PATH_UID, full_path=ROOT_PATH)
+        return GDriveSPID(node_uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_uid=ROOT_PATH_UID, full_path=ROOT_PATH)
 
     @staticmethod
     def get_root_constant_local_disk_spid(device_uid: UID) -> SinglePathNodeIdentifier:
@@ -67,7 +67,7 @@ class NodeIdentifierFactory:
                 raise RuntimeError(f'Tree type ({tree_type.name}) does not contain path_uid!')
             path_uid = UID(uid_list[2])
             full_path = self.backend.cacheman.get_path_for_uid(path_uid)
-            return GDriveSPID(node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path)
+            return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path)
         else:
             raise RuntimeError(f'Invalid tree_type: {tree_type.name}')
 
@@ -152,7 +152,7 @@ class NodeIdentifierFactory:
                         raise RuntimeError(f'Could not make GDrive identifier: must_be_single_path=True but given too many paths:'
                                            f' {derived_list}')
                     path_uid = self.backend.get_uid_for_local_path(derived_list[0])
-                    return GDriveSPID(uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=derived_list[0])
+                    return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=derived_list[0])
                 if not derived_list or not derived_list[0]:
                     return self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid)
                 assert node_uid, f'Null value for node_uid!'
@@ -198,6 +198,6 @@ class NodeIdentifierFactory:
                 raise RuntimeError(f'Could not make identifier: must_be_single_path=True but given too many paths: {full_path_list}')
             if not path_uid:
                 path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
-            return GDriveSPID(uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
+            return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
         return GDriveIdentifier(uid=node_uid, device_uid=device_uid, path_list=full_path_list)
 
