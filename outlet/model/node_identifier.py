@@ -217,6 +217,12 @@ class GDriveSPID(SinglePathNodeIdentifier):
         super().__init__(node_uid, device_uid, full_path)
         self._path_uid: UID = path_uid
 
+    # Need to expose this property so that we can transmit to FE via gRPC, so it can generate GUIDs also
+    @property
+    def path_uid(self) -> UID:
+        # default
+        return self._path_uid
+
     @property
     def tree_type(self) -> TreeType:
         return TreeType.GDRIVE
