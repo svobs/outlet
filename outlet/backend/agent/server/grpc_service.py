@@ -125,8 +125,9 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             return
 
         with self._queue_lock:
-            logger.debug(f'Queuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
-                         f'{signal_grpc.sender}" to {len(self._thread_signal_queues)} connected clients')
+            if SUPER_DEBUG:
+                logger.debug(f'Queuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
+                             f'{signal_grpc.sender}" to {len(self._thread_signal_queues)} connected clients')
             for queue in self._thread_signal_queues.values():
                 queue.append(signal_grpc)
 

@@ -422,10 +422,10 @@ class ActiveTreeManager(HasLifecycle):
             root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
             root_path_meta.offending_path = ginf.offending_path
         except FileNotFoundError as fnf:
-            root = self.backend.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+            root = self.backend.node_identifier_factory.for_values(device_uid=device_uid, path_list=full_path, uid=NULL_UID, must_be_single_path=True)
             root_path_meta = RootPathMeta(root, root_exists=False)
         except CacheNotLoadedError as cnlf:
-            root = self.backend.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+            root = self.backend.node_identifier_factory.for_values(device_uid=device_uid, path_list=full_path, uid=NULL_UID, must_be_single_path=True)
             root_path_meta = RootPathMeta(root, root_exists=False)
 
         logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
