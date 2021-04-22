@@ -22,7 +22,8 @@ class LocalNode(Node, ABC):
     """
 
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, trashed: TrashStatus, is_live: bool):
-        super().__init__(node_identifier, parent_uids=parent_uid, trashed=trashed)
+        super().__init__(node_identifier, parent_uids=parent_uid)
+        self._trashed: TrashStatus = trashed
         self._is_live = ensure_bool(is_live)
 
     def is_live(self) -> bool:
@@ -34,6 +35,7 @@ class LocalNode(Node, ABC):
 
     def update_from(self, other_node):
         Node.update_from(self, other_node)
+        self._trashed = other_node.get_trashed_status()
         self._is_live = other_node.is_live()
 
     def derive_parent_path(self) -> str:

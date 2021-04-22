@@ -10,8 +10,8 @@ from constants import TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
-from model.node.node import Node, SPIDNodePair
-from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
+from model.node.node import ChangeNodePair, Node, SPIDNodePair
+from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from util import file_util

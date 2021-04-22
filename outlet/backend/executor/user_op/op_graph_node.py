@@ -4,13 +4,14 @@ from abc import ABC, abstractmethod
 from typing import Any, Deque, Dict, List, Optional
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
+from model.node.node import BaseNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 
 logger = logging.getLogger(__name__)
 
 
-class OpGraphNode(ABC):
+class OpGraphNode(BaseNode, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ABSTRACT CLASS OpGraphNode
@@ -19,6 +20,7 @@ class OpGraphNode(ABC):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, uid: UID, op: Optional[UserOp]):
+        BaseNode.__init__(self)
         self.node_uid: UID = uid
         self.op: UserOp = op
         """The UserOp (i.e. "operation")"""
@@ -51,10 +53,12 @@ class OpGraphNode(ABC):
             pass
         return None
 
-    def get_parent_list(self) -> Optional[List]:
+    @staticmethod
+    def get_parent_list() -> Optional[List]:
         return []
 
-    def get_child_list(self) -> Optional[List]:
+    @staticmethod
+    def get_child_list() -> Optional[List]:
         return []
 
     def link_parent(self, parent):

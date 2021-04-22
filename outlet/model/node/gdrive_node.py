@@ -23,7 +23,9 @@ class GDriveNode(Node, ABC):
     def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: TrashStatus,
                  create_ts: Optional[int], modify_ts: Optional[int],
                  owner_uid: Optional[UID], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[UID], sync_ts: Optional[int]):
-        Node.__init__(self, node_identifier, trashed=trashed)
+        Node.__init__(self, node_identifier)
+
+        self._trashed: TrashStatus = trashed
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
@@ -51,6 +53,7 @@ class GDriveNode(Node, ABC):
         if not isinstance(other_node, GDriveNode):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         Node.update_from(self, other_node)
+        self._trashed: TrashStatus = other_node.get_trashed_status()
         self.goog_id = other_node.goog_id
         self._name = other_node.name
         self._trashed = other_node.get_trashed_status()
@@ -270,6 +273,7 @@ class GDriveFile(GDriveNode):
         self.version = other_node.version
         self._md5 = other_node.md5
         self._size_bytes = other_node.get_size_bytes()
+        self._trashed: TrashStatus = other_node.get_trashed_status()
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
         # A file can never be the parent of anything

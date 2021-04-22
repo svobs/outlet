@@ -8,7 +8,6 @@ from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from backend.display_tree.change_tree import ChangeTree
 from backend.tree_store.local import content_hasher
 from constants import TreeType
-from model.node.node import Node
 from model.user_op import UserOpType
 from util.stopwatch_sec import Stopwatch
 
@@ -257,8 +256,7 @@ class ContentFirstDiffer(ChangeMaker):
         for sn_r in sn_list_only_r:
             if compare_paths_also:
                 right_on_left_path: str = self.get_path_moved_to_left(sn_r.spid)
-                existing_node_list_s: List[Node] = meta_s.path_dict.get(right_on_left_path)
-                if existing_node_list_s:
+                if meta_s.path_dict.get(right_on_left_path):
                     # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                     continue
             # DUPLICATE ADDED on right + DELETED on left

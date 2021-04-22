@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 # TYPEDEF SPIDNodePair
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 SPIDNodePair = collections.namedtuple('SPIDNodePair', 'spid node')
+ChangeNodePair = collections.namedtuple('ChangNodePair', 'spid node')  # used for ChangeTrees
 
 
 class BaseNode(ABC):
@@ -46,18 +47,12 @@ class Node(BaseNode, HasParentList, ABC):
     Base class for all data nodes.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: NodeIdentifier, parent_uids: Optional[Union[UID, List[UID]]] = None,
-                 trashed: TrashStatus = TrashStatus.NOT_TRASHED):
+    def __init__(self,
+                 node_identifier: NodeIdentifier,
+                 parent_uids: Optional[Union[UID, List[UID]]] = None):
         BaseNode.__init__(self)
         HasParentList.__init__(self, parent_uids)
         self.node_identifier: NodeIdentifier = node_identifier
-
-        if not trashed:
-            self._trashed: TrashStatus = TrashStatus.NOT_TRASHED
-        elif trashed < TrashStatus.NOT_TRASHED or trashed > TrashStatus.DELETED:
-            raise RuntimeError(f'Invalid value for "trashed": {trashed}')
-        else:
-            self._trashed: TrashStatus = TrashStatus(trashed)
 
         self._icon: Optional[IconId] = None
 
@@ -138,7 +133,7 @@ class Node(BaseNode, HasParentList, ABC):
         return os.path.basename(self.node_identifier.get_path_list()[0])
 
     def get_trashed_status(self) -> TrashStatus:
-        return self._trashed
+        return TrashStatus.NOT_TRASHED
 
     @staticmethod
     def get_etc():
@@ -210,4 +205,3 @@ class Node(BaseNode, HasParentList, ABC):
         HasParentList.update_from(self, other_node)
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
-        self._trashed = other_node._trashed

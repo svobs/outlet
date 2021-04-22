@@ -1,5 +1,5 @@
 import copy
-from typing import Tuple
+from typing import List, Optional, Tuple, Union
 
 from constants import IconId, TrashStatus, TreeType
 from model.node.node import Node
@@ -13,14 +13,16 @@ class DecoNode(Node):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS DecoNode
 
-    Wraps a delegate node and passes all methods to the delegate, except for node_identifier and parent_uid, which instead point to their
+    DEPRECATED! We're now using a beter solution for ChangeTree identifiers. Might keep this code around a while longer in case it's useful though...
+
+    Wraps a delegate node and passes all methods to the delegate, except for node_identifier and parent_uids, which instead point to their
     display-tree-dependent values.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, parent_uid: UID, delegate_node):
+    def __init__(self, uid: UID, parent_uids: Optional[Union[UID, List[UID]]], delegate_node):
         node_identifier: NodeIdentifier = copy.copy(delegate_node.node_identifier)
         node_identifier.node_uid = uid
-        super().__init__(node_identifier, parent_uid, delegate_node.get_trashed_status())
+        super().__init__(node_identifier, parent_uids)
         self.delegate = delegate_node
 
     @classmethod

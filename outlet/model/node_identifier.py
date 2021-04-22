@@ -279,26 +279,24 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
 
 class ChangeTreeSPID(SinglePathNodeIdentifier):
     """
-    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-        CLASS ChangeTreeSPID
-    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    NOTE: path_uid is stored as node_uid for ChangeTreeSPIDs, but node_uid is not used and should not be assumed to be the same value as
+    the underlying Node.
     """
-    def __init__(self, node_uid: UID, device_uid: UID, full_path: str, tree_type: TreeType, op_type: Optional):
-        # FIXME: we don't do anything with node_uid
-        super().__init__(node_uid, device_uid, full_path)
-        self._tree_type: TreeType = tree_type
+    def __init__(self, path_uid: UID, device_uid: UID, full_path: str, op_type: Optional):
+        super().__init__(path_uid, device_uid, full_path)
         self.op_type: Optional = op_type
 
     @property
     def tree_type(self) -> TreeType:
-        return self._tree_type
+        # TODO: this is bad API
+        return TreeType.MIXED
 
     @property
     def guid(self) -> GUID:
         if self.op_type:
-            return f'{self.device_uid}:{self.op_type.name}:{self.get_single_path()}'
+            return f'{self.device_uid}:{self.op_type.name}:{self.path_uid}'
         else:
             return f'{self.device_uid}'
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-{self.op_type}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.device_uid}:{self.op_type}:{self.path_uid}⩨{self.get_single_path()}∣'
