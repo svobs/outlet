@@ -208,7 +208,7 @@ class GDriveClient(HasLifecycle):
                                  sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
-        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(self.device_uid, parent_goog_ids)
+        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(parent_goog_ids)
         goog_node.set_parent_uids(parent_uids)
 
         return goog_node
@@ -253,7 +253,7 @@ class GDriveClient(HasLifecycle):
                                            sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])
-        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(self.device_uid, parent_goog_ids)
+        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(parent_goog_ids)
         goog_node.set_parent_uids(parent_uids)
 
         return goog_node
