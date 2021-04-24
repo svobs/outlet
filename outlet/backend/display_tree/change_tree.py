@@ -9,7 +9,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.node import ChangeNodePair, Node, SPIDNodePair
-from model.node_identifier import ChangeTreeSPID, GUID
+from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
@@ -35,9 +35,9 @@ class ChangeTree(DisplayTree):
 
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
+        # self.root_cn = self._make_change_node_pair(self.state.root_sn, op_type=None)
         logger.debug(f'[{self.tree_id}] ChangeTree: inserting root node: {self.state.root_sn}')
-        root_cn = self._make_change_node_pair(self.state.root_sn, op_type=None)
-        self._category_tree.add_node(root_cn, parent=None)
+        self._category_tree.add_node(self.state.root_sn, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
 
@@ -58,7 +58,7 @@ class ChangeTree(DisplayTree):
 
     @staticmethod
     def _extract_identifier_func(sn: ChangeNodePair) -> GUID:
-        assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
+        # assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
         return sn.spid.guid
 
     def get_root_node(self) -> ChangeNodePair:
@@ -67,7 +67,7 @@ class ChangeTree(DisplayTree):
     def get_child_list_for_root(self) -> Iterable[ChangeNodePair]:
         return self.get_child_list_for_spid(self.get_root_node().spid)
 
-    def get_child_list_for_spid(self, parent_spid: ChangeTreeSPID) -> Iterable[ChangeNodePair]:
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[ChangeNodePair]:
         try:
             return self._category_tree.get_child_list_for_identifier(parent_spid.guid)
         except Exception:

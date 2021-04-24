@@ -3,15 +3,15 @@ import logging
 import os
 import pathlib
 from collections import deque
-from typing import Callable, Deque, Dict, List, Optional
+from typing import Callable, Deque, Dict, List, NamedTuple, Optional, Tuple
 
 from backend.display_tree.change_tree import ChangeTree
 from constants import TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
-from model.node.node import ChangeNodePair, Node, SPIDNodePair
-from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
+from model.node.node import Node, SPIDNodePair
+from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from util import file_util
@@ -261,7 +261,8 @@ class ChangeMaker:
 
     def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id: Optional[TreeID]):
         """Note: here, param "tree_id" indicates which tree_id from which to request nodes from CacheManager (or None to indicate master cache)"""
-        assert isinstance(subtree_root, SPIDNodePair), f'Expected SPIDNodePair but got {type(subtree_root)}: {subtree_root}'
+        assert isinstance(subtree_root, Tuple), \
+            f'Expected NamedTuple with SinglePathNodeIdentifier but got {type(subtree_root)}: {subtree_root}'
         queue: Deque[SPIDNodePair] = collections.deque()
         queue.append(subtree_root)
 

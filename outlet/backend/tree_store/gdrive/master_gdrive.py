@@ -428,7 +428,7 @@ class GDriveMasterStore(TreeStore):
         return None
 
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: Optional[FilterState]) -> List[SPIDNodePair]:
-        assert isinstance(parent_spid, GDriveSPID), f'Not the correct type: {parent_spid}'
+        assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
         if filter_state and filter_state.has_criteria():
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
         else:

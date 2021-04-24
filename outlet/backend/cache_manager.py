@@ -35,7 +35,7 @@ from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import ChangeTreeSPID, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
@@ -806,10 +806,6 @@ class CacheManager(HasLifecycle):
         if not isinstance(parent_spid, SinglePathNodeIdentifier):
             raise RuntimeError(f'get_child_list(): not a SPID (type={type(parent_spid)}): {parent_spid}')
 
-        node: Node = self.get_node_for_uid(parent_spid.node_uid)
-        if not node:
-            raise RuntimeError(f'get_child_list(): could not find parent node with UID {parent_spid.node_uid}')
-
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
@@ -842,7 +838,7 @@ class CacheManager(HasLifecycle):
             self._update_node_icon(child_sn.node)
 
         if SUPER_DEBUG:
-            logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {node}')
+            logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {parent_spid}')
         return child_list
 
     @staticmethod

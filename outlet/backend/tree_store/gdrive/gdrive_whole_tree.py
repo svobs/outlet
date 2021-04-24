@@ -433,7 +433,7 @@ class GDriveWholeTree(BaseTree):
         return self.parent_child_dict.get(node_uid, [])
 
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
-        assert isinstance(parent_spid, GDriveSPID), f'Not the correct type: {parent_spid}'
+        assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
         child_sn_list = []
         for child_node in self.get_child_list_for_identifier(parent_spid.node_uid):
             child_path: str = os.path.join(parent_spid.get_single_path(), child_node.name)
