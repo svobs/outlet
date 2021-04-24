@@ -17,7 +17,7 @@ from model.display_tree.filter_criteria import FilterCriteria
 from model.node.container_node import CategoryNode
 from model.node.directory_stats import DirectoryStats
 from model.node.ephemeral_node import EmptyNode, LoadingNode
-from model.node.node import ChangeNodePair, Node, SPIDNodePair
+from model.node.node import SPIDNodePair, Node, SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
@@ -342,26 +342,26 @@ class DisplayMutator(HasLifecycle):
 
         self._request_subtree_stats_refresh()
 
-    def get_checked_rows_as_list(self) -> List[ChangeNodePair]:
+    def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the nodes of the items which are currently checked by the user
         (including collapsed rows). This will be a subset of the DisplayTree which was used to
         populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd.
 
-        This method assumes that we are a ChangeTree and thus returns instances of ChangeNodePair. However, it groups nodes by node UID."""
+        This method assumes that we are a ChangeTree and thus returns instances of SPIDNodePair. However, it groups nodes by node UID."""
         # subtree root will be the same as the current subtree's
-        checked_items: List[ChangeNodePair] = []
+        checked_items: List[SPIDNodePair] = []
 
         # Algorithm:
         # Iterate over display nodes. Start with top-level nodes.
         # - Add each checked row to DFS queue (whitelist). It and all of its descendants will be added
         # - Ignore each unchecked row
         # - Each inconsistent row needs to be drilled down into.
-        whitelist: Deque[ChangeNodePair] = collections.deque()
-        secondary_screening: Deque[ChangeNodePair] = collections.deque()
+        whitelist: Deque[SPIDNodePair] = collections.deque()
+        secondary_screening: Deque[SPIDNodePair] = collections.deque()
 
         with self._lock:
             assert self.con.treeview_meta.has_checkboxes
-            child_list: Iterable[ChangeNodePair] = self.con.get_tree().get_child_list_for_root()
+            child_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_list_for_root()
             for child_sn in child_list:
                 if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
                     whitelist.append(child_sn)
@@ -369,7 +369,7 @@ class DisplayMutator(HasLifecycle):
                     secondary_screening.append(child_sn)
 
             while len(secondary_screening) > 0:
-                parent: ChangeNodePair = secondary_screening.popleft()
+                parent: SPIDNodePair = secondary_screening.popleft()
                 assert parent.node.is_dir(), f'Expected a dir-type node: {parent}'
 
                 if not parent.node.is_display_only() and not parent.node.is_live():
@@ -383,7 +383,7 @@ class DisplayMutator(HasLifecycle):
                         secondary_screening.append(child_sn)
 
             while len(whitelist) > 0:
-                chosen_sn: ChangeNodePair = whitelist.popleft()
+                chosen_sn: SPIDNodePair = whitelist.popleft()
                 # all files and all non-existent dirs must be added
                 if not parent.node.is_display_only() and not chosen_sn.node.is_dir() or not chosen_sn.node.is_live():
                     checked_items.append(chosen_sn)

@@ -88,7 +88,7 @@ class TreeContextMenu:
 
         sn: SPIDNodePair = self.con.backend.get_sn_for(node.uid, node.device_uid, single_path)
         if not sn:
-            raise RuntimeError(f'Unexpectedly could not find node for: N{node.uid}, D{node.device_uid}, {single_path}')
+            raise RuntimeError(f'Unexpectedly could not find node for: N:{node.uid}, D:{node.device_uid}, {single_path}')
 
         # MenuItem: 'Show in Nautilus'
         if node.is_live() and node.node_identifier.tree_type == TreeType.LOCAL_DISK:

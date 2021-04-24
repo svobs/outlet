@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 # TYPEDEF SPIDNodePair
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 SPIDNodePair = collections.namedtuple('SPIDNodePair', 'spid node')
-ChangeNodePair = collections.namedtuple('ChangNodePair', 'spid node')  # used for ChangeTrees
 
 
 class BaseNode(ABC):

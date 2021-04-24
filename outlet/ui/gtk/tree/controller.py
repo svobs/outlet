@@ -3,9 +3,8 @@ from typing import List
 from pydispatch import dispatcher
 
 from constants import SUPER_DEBUG
-from backend.diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
-from model.node.node import ChangeNodePair
+from model.node.node import SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.gtk.dialog.base_dialog import BaseDialog
 from signal_constants import Signal
@@ -161,7 +160,7 @@ class TreePanelController(HasLifecycle):
 
     def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         timer = Stopwatch()
-        checked_rows: List[ChangeNodePair] = self.display_mutator.get_checked_rows_as_list()
+        checked_rows: List[SPIDNodePair] = self.display_mutator.get_checked_rows_as_list()
         if SUPER_DEBUG:
             more = ': ' + ', '.join([str(sn.spid.node_uid) for sn in checked_rows])
         else:
@@ -170,14 +169,14 @@ class TreePanelController(HasLifecycle):
 
         checked_rows_dedecorated: List[SPIDNodePair] = []
 
-        for cn in checked_rows:
-            checked_rows_dedecorated.append(self._cn_to_sn(cn))
+        for sn in checked_rows:
+            checked_rows_dedecorated.append(self._from_change_node_pair(sn))
         return checked_rows_dedecorated
 
     @staticmethod
-    def _cn_to_sn(cn: ChangeNodePair) -> SPIDNodePair:
-        return SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(cn.node.delegate.node_identifier, cn.spid.path_uid,
-                                                                          cn.spid.get_single_path()), cn.node)
+    def _from_change_node_pair(sn: SPIDNodePair) -> SPIDNodePair:
+        return SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.delegate.node_identifier, sn.spid.path_uid,
+                                                                          sn.spid.get_single_path()), sn.node)
 
     @property
     def backend(self):
