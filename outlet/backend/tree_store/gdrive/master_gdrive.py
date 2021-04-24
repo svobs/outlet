@@ -221,7 +221,7 @@ class GDriveMasterStore(TreeStore):
     def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         logger.debug(f'refresh_subtree_stats(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
-            return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
+            return self._memstore.master_tree.generate_dir_stats(tree_id=tree_id, subtree_root_node=subtree_root_node)
 
     def populate_filter(self, filter_state: FilterState):
         filter_state.ensure_cache_populated(self._memstore.master_tree)

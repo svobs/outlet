@@ -16,8 +16,8 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
     Originally based on a simplifications of treelib.Tree.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, extract_identifier_func: Callable[[NodeT], IdentifierT] = None):
-        super().__init__(extract_identifier_func)
+    def __init__(self, extract_identifier_func: Callable[[NodeT], IdentifierT] = None, extract_node_func: Callable = None):
+        super().__init__(extract_identifier_func, extract_node_func)
         self._node_dict: Dict[IdentifierT, NodeT] = {}
         self._parent_child_list_dict: Dict[IdentifierT, List[NodeT]] = {}
         self._child_parent_dict: Dict[IdentifierT, NodeT] = {}
@@ -207,10 +207,10 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
         # Factory for proper get_label() function
         if show_identifier:
             def get_label(node):
-                return f'{node.get_tag()}  [{self.extract_id(node)}]'
+                return f'{self.extract_node_func(node).get_tag()}  [{self.extract_id(node)}]'
         else:
             def get_label(node):
-                return node.get_tag()
+                return self.extract_node_func(node).get_tag()
 
         # legacy ordering
         if key is None:

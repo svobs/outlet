@@ -232,7 +232,7 @@ class GDriveSPID(SinglePathNodeIdentifier):
         return f'{self.device_uid}:{self.node_uid}:{self._path_uid}'
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self._path_uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_single_path()}∣'
 
 
 class MixedTreeSPID(SinglePathNodeIdentifier):
@@ -260,7 +260,7 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
         return f'{self.device_uid}:{self.node_uid}:{self._path_uid}'
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}-P{self._path_uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_single_path()}∣'
 
 
 class LocalNodeIdentifier(SinglePathNodeIdentifier):
@@ -298,5 +298,37 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
         else:
             return f'{self.device_uid}'
 
+    def __lt__(self, other):
+        if self.device_uid == other.device_uid:
+            if self.op_type == other.op_type:
+                return self.device_uid < other.device_uid
+            elif self.op_type is None:
+                return True
+            elif other.op_type is None:
+                return False
+            else:
+                return self.op_type < other.op_type
+        else:
+            return self.device_uid < other.device_uid
+
+    def __gt__(self, other):
+        if self.device_uid == other.device_uid:
+            if self.op_type == other.op_type:
+                return self.device_uid > other.device_uid
+            elif self.op_type is None:
+                return False
+            elif other.op_type is None:
+                return True
+            else:
+                return self.op_type > other.op_type
+        else:
+            return self.device_uid > other.device_uid
+
+    def __eq__(self, other):
+        return self.device_uid == other.device_uid and self.op_type == other.op_type and self.device_uid == other.device_uid
+
+    def __ne__(self, other):
+        return not self == other
+
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.device_uid}:{self.op_type}:{self.path_uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_single_path()}∣'

@@ -22,10 +22,13 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, extract_identifier_func: Callable[[NodeT], IdentifierT] = None):
+    def __init__(self, extract_identifier_func: Callable[[NodeT], IdentifierT] = None, extract_node_func: Callable = None):
         self.extract_id: Callable[[NodeT], IdentifierT] = self._default_identifier_func
         if extract_identifier_func:
             self.extract_id = extract_identifier_func
+        self.extract_node_func: Callable = self._default_get_node
+        if extract_node_func:
+            self.extract_node_func = extract_node_func
 
     @staticmethod
     def _default_identifier_func(node: NodeT):
@@ -46,8 +49,13 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
     def get_child_list_for_root(self) -> List[NodeT]:
         return self.get_child_list_for_node(self.get_root_node())
 
-    def generate_dir_stats(self, tree_id: TreeID, subtree_root_node: Optional[NodeT] = None) -> Dict[IdentifierT, DirectoryStats]:
-        logger.debug(f'[{tree_id}] Generating unfiltered stats for tree with root: {subtree_root_node.node_identifier}')
+    @staticmethod
+    def _default_get_node(n):
+        return n
+
+    def generate_dir_stats(self, tree_id: TreeID, subtree_root_node: Optional[NodeT] = None) \
+            -> Dict[IdentifierT, DirectoryStats]:
+        logger.debug(f'[{tree_id}] Generating unfiltered stats for tree, subtree_root_node={subtree_root_node}')
         stats_sw = Stopwatch()
 
         dir_stats_dict: Dict[IdentifierT, DirectoryStats] = {}
@@ -59,7 +67,8 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
         second_pass_stack.append(subtree_root_node)
 
         def add_dirs_to_stack(n):
-            if n.is_dir():
+            n_node = self.extract_node_func(n)
+            if n_node.is_dir():
                 second_pass_stack.append(n)
 
         # go down tree, zeroing out existing stats and adding children to stack
@@ -68,7 +77,7 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
         # now go back up the tree by popping the stack and building stats as we go:
         while len(second_pass_stack) > 0:
             node = second_pass_stack.pop()
-            assert node.is_dir()
+            assert self.extract_node_func(node).is_dir()
 
             dir_stats = DirectoryStats()
             node_identifier = self.extract_id(node)
@@ -77,16 +86,17 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
             child_list = self.get_child_list_for_node(node)
             if child_list:
                 for child in child_list:
-                    if child.is_dir():
+                    child_node = self.extract_node_func(child)
+                    if child_node.is_dir():
                         child_stats = dir_stats_dict[self.extract_id(child)]
-                        dir_stats.add_dir_stats(child_stats, child.get_trashed_status() == TrashStatus.NOT_TRASHED)
+                        dir_stats.add_dir_stats(child_stats, child_node.get_trashed_status() == TrashStatus.NOT_TRASHED)
                     else:
-                        dir_stats.add_file_node(child)
+                        dir_stats.add_file_node(child_node)
 
             # if SUPER_DEBUG:
             #     logger.debug(f'DirNode {self.extract_id(child)} ("{node.name}") has size={dir_stats.get_size_bytes()}, etc="{dir_stats.get_etc()}"')
 
-        logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node.node_identifier}")')
+        logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node}")')
         return dir_stats_dict
 
     def for_each_node_breadth_first(self, action_func: Callable[[NodeT], None], subtree_root_identifier: Optional[IdentifierT] = None):
@@ -102,7 +112,8 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
 
         action_func(subtree_root)
 
-        if subtree_root.is_dir():
+        subtree_root_node = self.extract_node_func(subtree_root)
+        if subtree_root_node.is_dir():
             dir_queue.append(subtree_root)
 
         while len(dir_queue) > 0:
@@ -111,7 +122,8 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
             children = self.get_child_list_for_node(node)
             if children:
                 for child in children:
-                    if child.is_dir():
+                    child_node = self.extract_node_func(child)
+                    if child_node.is_dir():
                         dir_queue.append(child)
                     action_func(child)
 

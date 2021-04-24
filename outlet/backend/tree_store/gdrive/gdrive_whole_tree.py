@@ -290,7 +290,7 @@ class GDriveWholeTree(BaseTree):
 
         # In Google Drive it is legal to have two different files with the same path
         logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"')
-        return list(map(lambda x: self.get_node_for_uid(x.uid), identifiers_found))
+        return list(map(lambda x: self.get_node_for_uid(x.node_uid), identifiers_found))
 
     def _get_identifier_list_for_single_path(self, full_path: str, error_if_not_found: bool) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
