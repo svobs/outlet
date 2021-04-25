@@ -175,7 +175,8 @@ class TreePanelController(HasLifecycle):
 
     @staticmethod
     def _from_change_node_pair(sn: SPIDNodePair) -> SPIDNodePair:
-        return SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.delegate.node_identifier, sn.spid.path_uid,
+        # Replaces the "ChangeTreeSPID" component of the SPIDNodePair with a standard SPID
+        return SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.node_identifier, sn.spid.path_uid,
                                                                           sn.spid.get_single_path()), sn.node)
 
     @property
