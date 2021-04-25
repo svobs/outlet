@@ -85,7 +85,9 @@ class TreeSummarizer:
         if not dir_stats or (not dir_stats.file_count and not dir_stats.dir_count):
             return '0 items'
         size = util.format.humanfriendlier_size(dir_stats.get_size_bytes())
-        return f'{size} in {dir_stats.file_count:n} files and {dir_stats.dir_count:n} {dir_str}'
+        file_s = '' if dir_stats.file_count == 1 else 's'
+        dir_s = '' if dir_stats.dir_count == 1 else 's'
+        return f'{size} in {dir_stats.file_count:n} file{file_s} and {dir_stats.dir_count:n} {dir_str}{dir_s}'
 
     # ChangeTree
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
