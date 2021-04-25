@@ -560,7 +560,7 @@ class CacheManager(HasLifecycle):
             subtree_root_sn: SPIDNodePair = tree_meta.change_tree.get_root_sn()
 
         # Now that we have all the stats, we can calculate the summary:
-        tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_id, subtree_root_sn, tree_meta)
+        tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_id, subtree_root_sn, tree_meta, self.get_device_list())
         logger.debug(f'[{tree_id}] Summary msg = "{tree_meta.summary_msg}"')
 
         # Load and bring up-to-date expanded & selected rows:

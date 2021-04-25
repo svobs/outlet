@@ -1,11 +1,12 @@
 import logging
-from typing import Dict
+from typing import Dict, List
 
 import util.format
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from constants import TreeID, TreeType
+from model.device import Device
 from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class TreeSummarizer:
 
     @staticmethod
-    def build_tree_summary(tree_id: TreeID, root_sn: SPIDNodePair, tree_meta: ActiveDisplayTreeMeta):
+    def build_tree_summary(tree_id: TreeID, root_sn: SPIDNodePair, tree_meta: ActiveDisplayTreeMeta, device_list: List[Device]):
         uses_uid_key = False
         if tree_meta.filter_state.has_criteria():
             is_filtered = True
@@ -34,7 +35,7 @@ class TreeSummarizer:
 
         if tree_meta.change_tree:
             logger.debug(f'[{tree_id}] This is a ChangeTree: it will provide the summary')
-            return TreeSummarizer._build_change_tree_summary(tree_meta.change_tree, tree_meta.filter_state, dir_stats_dict)
+            return TreeSummarizer._build_change_tree_summary(tree_meta.change_tree, tree_meta.filter_state, dir_stats_dict, device_list)
 
         if not root_sn or not root_sn.node:
             logger.debug(f'[{tree_id}] No summary (tree does not exist)')
@@ -130,25 +131,26 @@ class TreeSummarizer:
             return None
 
     @staticmethod
-    def _build_change_tree_summary(tree: ChangeTree, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats]) -> str:
+    def _build_change_tree_summary(tree: ChangeTree, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats], device_list: List[Device])\
+            -> str:
         # TODO: do we want to create a different summary for filtered views?
         if tree.show_whole_forest:
             # need to preserve ordering...
             type_summaries = []
-            type_map = {}
+            device_map = {}
             cat_count = 0
-            for child_sn in tree.get_child_list_for_spid(tree.get_root_spid()):
-                assert isinstance(child_sn.node, RootTypeNode), f'For {child_sn}'
-                cat_map = TreeSummarizer._build_summary_cat_map(tree, child_sn.spid, filter_state, dir_stats_dict)
+            for device_sn in tree.get_child_list_for_spid(tree.get_root_spid()):
+                assert isinstance(device_sn.node, RootTypeNode), f'For {device_sn}'
+                cat_map = TreeSummarizer._build_summary_cat_map(tree, device_sn.spid, filter_state, dir_stats_dict)
                 if cat_map:
                     cat_count += 1
-                    type_map[child_sn.spid.tree_type] = cat_map
+                    device_map[device_sn.spid.device_uid] = cat_map
             if cat_count == 0:
                 return 'Contents are identical'
-            for tree_type, tree_type_name in (TreeType.LOCAL_DISK, 'Local Disk'), (TreeType.GDRIVE, 'Google Drive'):
-                cat_map = type_map.get(tree_type, None)
+            for device in device_list:
+                cat_map = device_map.get(device.uid, None)
                 if cat_map:
-                    type_summaries.append(f'{tree_type_name}: {TreeSummarizer._build_cat_summaries_str(cat_map)}')
+                    type_summaries.append(f'{device.friendly_name}: {TreeSummarizer._build_cat_summaries_str(cat_map)}')
             return '; '.join(type_summaries)
         else:
             cat_map = TreeSummarizer._build_summary_cat_map(tree, tree.get_root_spid(), filter_state, dir_stats_dict)
