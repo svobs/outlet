@@ -86,10 +86,6 @@ class TreeContextMenu:
     def _build_menu_items_for_single_node(self, menu, tree_path, node: Node, single_path: str):
         is_gdrive = node.node_identifier.tree_type == TreeType.GDRIVE
 
-        sn: SPIDNodePair = self.con.backend.get_sn_for(node.uid, node.device_uid, single_path)
-        if not sn:
-            raise RuntimeError(f'Unexpectedly could not find node for: N:{node.uid}, D:{node.device_uid}, {single_path}')
-
         # MenuItem: 'Show in Nautilus'
         if node.is_live() and node.node_identifier.tree_type == TreeType.LOCAL_DISK:
             item = Gtk.MenuItem(label='Show in Nautilus')
@@ -121,7 +117,9 @@ class TreeContextMenu:
             item = Gtk.MenuItem(label=f'Go Into "{node.name}"')
 
             def go_into(menu_item):
-                self.con.app.backend.create_display_tree_from_spid(self.con.tree_id, sn.spid)
+                spid = self.con.app.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid, tree_type=node.tree_type,
+                                                                               path_list=single_path, must_be_single_path=True)
+                self.con.app.backend.create_display_tree_from_spid(self.con.tree_id, spid)
 
             item.connect('activate', go_into)
             menu.append(item)
