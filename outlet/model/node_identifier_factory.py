@@ -22,6 +22,10 @@ class NodeIdentifierFactory:
         assert self._get_tree_type_for_device_uid(device_uid) == TreeType.GDRIVE, f'Device UID {device_uid} is not GDrive!'
         return GDriveIdentifier(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
+    def get_device_root_spid(self, device_uid: UID) -> SinglePathNodeIdentifier:
+        tree_type = self._get_tree_type_for_device_uid(device_uid)
+        return NodeIdentifierFactory.get_root_constant_spid(tree_type=tree_type, device_uid=device_uid)
+
     @staticmethod
     def get_root_constant_spid(tree_type: TreeType, device_uid: UID) -> SinglePathNodeIdentifier:
         if tree_type == TreeType.GDRIVE:

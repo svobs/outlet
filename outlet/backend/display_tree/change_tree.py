@@ -128,12 +128,12 @@ class ChangeTree(DisplayTree):
 
         if self.show_whole_forest:
             # Create device node (e.g. 'GDrive' or 'Local Disk')
-            device_sn = self._category_tree.get_node_for_identifier(parent_sn.spid.guid)
+            # set UID to root_UID of relevant tree
+            device_spid = self.backend.node_identifier_factory.get_device_root_spid(sn.spid.device_uid)
+            device_sn = self._category_tree.get_node_for_identifier(device_spid.guid)
             if not device_sn:
-                # set UID to root_UID of relevant tree
-                device_spid = ChangeTreeSPID(ROOT_PATH_UID, parent_sn.spid.device_uid, ROOT_PATH, op_type)
                 device_node = RootTypeNode(node_identifier=device_spid)
-                device_sn: SPIDNodePair = (device_spid, device_node)
+                device_sn: SPIDNodePair = SPIDNodePair(device_spid, device_node)
                 logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {device_sn.spid.guid} (under parent: {parent_sn.spid.guid}')
                 self._category_tree.add_node(node=device_sn, parent=parent_sn)
             parent_sn = device_sn

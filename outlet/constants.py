@@ -128,7 +128,7 @@ class TreeType(IntEnum):
     GDRIVE = 3
 
 
-TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G', TreeType.MIXED: 'M'}
+TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.MIXED: 'M', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G'}
 
 # UID reserved values:
 NULL_UID = UID(TreeType.NA)

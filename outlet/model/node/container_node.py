@@ -143,6 +143,8 @@ class RootTypeNode(ContainerNode):
             return 'Local Disk'
         elif self.node_identifier.tree_type == TreeType.GDRIVE:
             return 'Google Drive'
+        elif self.node_identifier.tree_type == TreeType.MIXED:
+            return 'Super Root'
         return 'Unknown'
 
     def __repr__(self):
