@@ -134,7 +134,7 @@ class ChangeTree(DisplayTree):
                 device_spid = ChangeTreeSPID(ROOT_PATH_UID, parent_sn.spid.device_uid, ROOT_PATH, op_type)
                 device_node = RootTypeNode(node_identifier=device_spid)
                 device_sn: SPIDNodePair = (device_spid, device_node)
-                logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {device_sn.spid}')
+                logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {device_sn.spid.guid} (under parent: {parent_sn.spid.guid}')
                 self._category_tree.add_node(node=device_sn, parent=parent_sn)
             parent_sn = device_sn
 
@@ -142,7 +142,7 @@ class ChangeTree(DisplayTree):
         cat_node = CategoryNode(node_identifier=cat_spid, op_type=op_type)
         # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
         cat_sn: SPIDNodePair = SPIDNodePair(cat_spid, cat_node)
-        logger.debug(f'[{self.tree_id}] Inserting new CategoryNode with OpType={op_type.name}: {cat_node.node_identifier}')
+        logger.debug(f'[{self.tree_id}] Inserting new CategoryNode: {cat_spid.guid}')
         self._category_tree.add_node(node=cat_sn, parent=parent_sn)
 
         # this is the last pre-ancestor.
@@ -167,6 +167,7 @@ class ChangeTree(DisplayTree):
             ancestor_spid: ChangeTreeSPID = ChangeTreeSPID(ancestor_path_uid, ancestor_spid.device_uid, full_path, ancestor_spid.op_type)
             ancestor_sn = self._category_tree.get_node_for_identifier(ancestor_spid.guid)
             if ancestor_sn:
+                parent_sn = ancestor_sn
                 break
             else:
                 # create ancestor & push to stack for later insertion in correct order
@@ -235,7 +236,7 @@ class ChangeTree(DisplayTree):
             else:
                 self.count_conflict_errors += 1
                 if SUPER_DEBUG:
-                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_sn.node} new={cn.node}')
+                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & different content: existing={conflict_sn.node} new={sn.node}')
                 # raise
 
         if SUPER_DEBUG:
