@@ -147,7 +147,9 @@ class DisplayMutator(HasLifecycle):
             is_expand = False
 
             if type(node) == CategoryNode and self.con.treeview_meta.is_display_persisted and self.con.treeview_meta.is_category_node_expanded(node):
-                logger.debug(f'[{self.con.tree_id}] Category node {sn.node.name} is expanded')
+                cat_guid = sn.spid.guid
+                expanded_row_guid_set.add(cat_guid)  # add to expanded set for later expansion
+                logger.debug(f'[{self.con.tree_id}] Category node {sn.node.name} ({cat_guid}) is expanded')
                 is_expand = True
             elif guid in expanded_row_guid_set:
                 if SUPER_DEBUG:
