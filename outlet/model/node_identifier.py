@@ -104,7 +104,7 @@ class NodeIdentifier(ABC):
         return False
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-D{self.device_uid}-N{self.node_uid}⩨{self.get_path_list()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_path_list()}∣'
 
     def __eq__(self, other):
         if isinstance(other, NodeIdentifier):
@@ -155,7 +155,7 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
         return str(pathlib.Path(self.get_single_path()).parent)
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.device_uid}-{self.node_uid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_single_path()}∣'
 
     @staticmethod
     def from_node_identifier(node_identifier, path_uid: UID, single_path: str):
@@ -182,6 +182,9 @@ class GDriveIdentifier(NodeIdentifier):
     def guid(self) -> GUID:
         # this is impossible without more information to identify the path
         raise RuntimeError('Cannot generate GUID for GDriveIdentifier!')
+
+    def __repr__(self):
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.device_uid}:{self.node_uid}:X⩨{self.get_path_list()}∣'
 
     @property
     def tree_type(self) -> TreeType:
@@ -288,8 +291,8 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
 
     @property
     def tree_type(self) -> TreeType:
-        # TODO: this is bad API
-        return TreeType.MIXED
+        # TODO: deprecate tree_type: this is a bad API
+        raise RuntimeError('ChangeTreeSPID does not have tree_type!')
 
     @property
     def guid(self) -> GUID:

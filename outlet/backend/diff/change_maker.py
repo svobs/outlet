@@ -3,7 +3,7 @@ import logging
 import os
 import pathlib
 from collections import deque
-from typing import Callable, Deque, Dict, List, NamedTuple, Optional, Tuple
+from typing import Callable, Deque, Dict, List, Optional, Tuple
 
 from backend.display_tree.change_tree import ChangeTree
 from constants import TrashStatus, TreeID, TreeType

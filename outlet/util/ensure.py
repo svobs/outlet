@@ -1,6 +1,6 @@
 import logging
 
-from constants import TreeType
+from constants import TrashStatus, TreeType
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,15 @@ def ensure_tree_type(val):
     try:
         if val and not isinstance(val, TreeType):
             return TreeType(ensure_int(val))
+    except ValueError:
+        logger.error(f'Bad value: {val}')
+    return val
+
+
+def ensure_trash_status(val):
+    try:
+        if val and not isinstance(val, TrashStatus):
+            return TrashStatus(ensure_int(val))
     except ValueError:
         logger.error(f'Bad value: {val}')
     return val

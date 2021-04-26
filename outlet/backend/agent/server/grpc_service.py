@@ -296,7 +296,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats_dict: Dict, key_is_uid: bool):
         signal = SignalMsg(sig_int=Signal.REFRESH_SUBTREE_STATS_DONE, sender=sender)
-        logger.info(status_msg)
         signal.stats_update.status_msg = status_msg
 
         for key, dir_stats in dir_stats_dict.items():

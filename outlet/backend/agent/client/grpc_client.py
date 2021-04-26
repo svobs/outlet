@@ -265,8 +265,8 @@ class BackendGRPCClient(OutletBackend):
             response = self.grpc_stub.get_device_list(request)
             device_list = []
             for grpc_device in response.device_list:
-                device_list.append(Device(device_uid=grpc_device.device_uid, long_device_id=grpc_device.long_device_id, tree_type=grpc_device.tree_type,
-                                          friendly_name=grpc_device.friendly_name))
+                device_list.append(Device(device_uid=grpc_device.device_uid, long_device_id=grpc_device.long_device_id,
+                                          tree_type=grpc_device.tree_type, friendly_name=grpc_device.friendly_name))
             self._cached_device_list = device_list
         return self._cached_device_list
 

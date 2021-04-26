@@ -11,12 +11,20 @@ from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID
+from model.uid import UID
 from model.user_op import DISPLAYED_USER_OP_TYPES
 
 logger = logging.getLogger(__name__)
 
 
 class TreeSummarizer:
+
+    @staticmethod
+    def _get_tree_type_for_device_uid(device_uid: UID, device_list: List[Device]) -> TreeType:
+        for device in device_list:
+            if device.uid == device_uid:
+                return device.tree_type
+        raise RuntimeError(f'Could not find device with UID: {device_uid}')
 
     @staticmethod
     def build_tree_summary(tree_id: TreeID, root_sn: SPIDNodePair, tree_meta: ActiveDisplayTreeMeta, device_list: List[Device]):
@@ -50,11 +58,13 @@ class TreeSummarizer:
             logger.error(f'Contents of dir_stats_dict: {dir_stats_dict}')
             raise RuntimeError(f'[{tree_id}] (is_filtered={is_filtered}) No stats found for root node with GUID: {root_sn.spid.guid}')
 
-        if root_sn.spid.tree_type == TreeType.GDRIVE:
+        tree_type = TreeSummarizer._get_tree_type_for_device_uid(root_sn.spid.device_uid, device_list)
+
+        if tree_type == TreeType.GDRIVE:
             logger.debug(f'[{tree_id}] Generating summary for GDrive tree: {root_sn.spid}')
             return TreeSummarizer._build_summary(root_stats, is_filtered, 'folder')
         else:
-            assert root_sn.spid.tree_type == TreeType.LOCAL_DISK
+            assert tree_type == TreeType.LOCAL_DISK
             logger.debug(f'[{tree_id}] Generating summary for LocalDisk tree: {root_sn.spid}')
             return TreeSummarizer._build_summary(root_stats, is_filtered, 'dir')
 

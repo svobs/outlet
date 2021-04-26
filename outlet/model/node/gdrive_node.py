@@ -8,7 +8,7 @@ from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import GDriveIdentifier
 from model.uid import UID
-from util.ensure import ensure_bool, ensure_int, ensure_uid
+from util.ensure import ensure_bool, ensure_int, ensure_trash_status, ensure_uid
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class GDriveNode(Node, ABC):
                  owner_uid: Optional[UID], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[UID], sync_ts: Optional[int]):
         Node.__init__(self, node_identifier)
 
-        self._trashed: TrashStatus = trashed
+        self._trashed: TrashStatus = ensure_trash_status(trashed)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
@@ -108,7 +108,7 @@ class GDriveNode(Node, ABC):
         self._name = name
 
     def get_trashed_status(self) -> TrashStatus:
-        assert not self._trashed or isinstance(self._trashed, TrashStatus)
+        assert not self._trashed or isinstance(self._trashed, TrashStatus), f'Invalid trashed status: {self._trashed}'
         return self._trashed
 
     def set_trashed_status(self, trashed: TrashStatus):
