@@ -151,6 +151,8 @@ class LiveTable(Table):
     def upsert_many(self, tuple_list: List[Tuple], commit=True):
         sql = self.build_upsert()
         logger.debug(f"Upserting {len(tuple_list)} tuples into table {self.name}")
+        if len(tuple_list) == 1:
+            logger.debug(f"Upserting tuple: {tuple_list[0]}")
         self.conn.executemany(sql, tuple_list)
         if commit:
             logger.debug('Committing!')

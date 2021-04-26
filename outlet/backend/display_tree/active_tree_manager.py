@@ -271,6 +271,11 @@ class ActiveTreeManager(HasLifecycle):
         else:
             raise RuntimeError(f'Invalid args supplied to get_display_tree_ui_state()! (tree_id={sender_tree_id})')
 
+        if not (request.is_startup or (request.device_uid and request.user_path) or spid):
+            raise RuntimeError(f'Invalid DisplayTree request for tree_id={request.tree_id}: is_startup={request.is_startup}'
+                               f' device_uid={request.device_uid}, user_path="{request.user_path}", spid={spid}'
+                               f' (tree_display_mode={request.tree_display_mode})')
+
         response_tree_id = sender_tree_id
         if display_tree_meta:
             if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:

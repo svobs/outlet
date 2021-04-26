@@ -25,7 +25,7 @@ ARCHIVE = 'archive'
 SRC = 'src'
 DST = 'dst'
 
-ACTION_UID_COL_NAME = 'op_uid'
+OP_UID_COL_NAME = 'op_uid'
 
 
 # CLASS UserOpRef
@@ -359,15 +359,19 @@ class OpDatabase(MetaDatabase):
                     parent_goog_id = self.cacheman.get_goog_id_for_parent(node)
                 except RuntimeError:
                     logger.debug(f'Could not resolve goog_id for UID {parent_uid}; assuming parent is not yet created')
-            return op_uid, *node.to_tuple(), parent_uid, parent_goog_id
+            return op_uid, node.device_uid, *node.to_tuple(), parent_uid, parent_goog_id
 
-        return op_uid, *node.to_tuple()
+        assert node.tree_type == TreeType.LOCAL_DISK
+        return op_uid, node.device_uid, *node.to_tuple()
 
     def _copy_and_augment_table(self, src_table: Table, prefix: str, suffix: str) -> LiveTable:
         table: Table = copy.deepcopy(src_table)
         table.name = f'{prefix}_{table.name}_{suffix}'
-        # uid is no longer primary key
-        table.cols.update({'uid': 'INTEGER'})
+        # Rename column 'uid' to 'node_uid', & it is no longer primary key
+        table.cols.pop('uid')
+        table.cols['node_uid'] = 'INTEGER'
+        # move to front:
+        table.cols.move_to_end('node_uid', last=False)
 
         # add device_uid:
         table.cols.update({('device_uid', 'INTEGER')})
@@ -375,9 +379,9 @@ class OpDatabase(MetaDatabase):
         table.cols.move_to_end('device_uid', last=False)
 
         # primary key is also foreign key (not enforced) to UserOp (ergo, only one row per UserOp):
-        table.cols.update({ACTION_UID_COL_NAME: 'INTEGER PRIMARY KEY'})
+        table.cols.update({OP_UID_COL_NAME: 'INTEGER PRIMARY KEY'})
         # move to front:
-        table.cols.move_to_end(ACTION_UID_COL_NAME, last=False)
+        table.cols.move_to_end(OP_UID_COL_NAME, last=False)
 
         if src_table.name == LocalDiskDatabase.TABLE_LOCAL_FILE.name:
             live_table = LiveTable(table, self.conn, None, None)
@@ -519,9 +523,9 @@ class OpDatabase(MetaDatabase):
         # Delete for all child tables (src and dst nodes):
         for table in itertools.chain(self.table_lists.src_pending, self.table_lists.dst_pending):
             if len(uid_tuple_list) == 1:
-                table.delete_for_uid(uid_tuple_list[0][0], uid_col_name=ACTION_UID_COL_NAME, commit=False)
+                table.delete_for_uid(uid_tuple_list[0][0], uid_col_name=OP_UID_COL_NAME, commit=False)
             else:
-                table.delete_for_uid_list(uid_tuple_list, uid_col_name=ACTION_UID_COL_NAME, commit=False)
+                table.delete_for_uid_list(uid_tuple_list, uid_col_name=OP_UID_COL_NAME, commit=False)
 
         # Finally delete the Ops
         self.table_pending_op.delete_for_uid_list(uid_tuple_list, commit=commit)
