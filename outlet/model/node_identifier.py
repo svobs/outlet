@@ -108,7 +108,7 @@ class NodeIdentifier(ABC):
 
     def __eq__(self, other):
         if isinstance(other, NodeIdentifier):
-            return self.get_path_list() == other.get_path_list() and self.node_uid == other.node_uid and self.tree_type == other.tree_type
+            return self.get_path_list() == other.get_path_list() and self.node_uid == other.node_uid and self.device_uid == other.device_uid
         return False
 
     def __ne__(self, other):
@@ -156,6 +156,11 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
 
     def __repr__(self):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_single_path()}∣'
+
+    def __eq__(self, other):
+        if isinstance(other, SinglePathNodeIdentifier):
+            return self.get_single_path() == other.get_single_path() and self.guid == other.guid
+        return False
 
     @staticmethod
     def from_node_identifier(node_identifier, path_uid: UID, single_path: str):
@@ -334,4 +339,4 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
         return not self == other
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_single_path()}∣'
+        return f'∣{self.guid}⩨{self.get_single_path()}∣'

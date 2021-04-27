@@ -205,16 +205,22 @@ class GDriveFolder(GDriveNode):
         return IconId.ICON_DIR_TRASHED
 
     def __eq__(self, other):
-        if not isinstance(other, GDriveFolder):
-            return False
+        """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
+        if isinstance(other, GDriveFolder) and \
+                other.uid == self.uid and \
+                other.goog_id == self.goog_id and \
+                other.name == self.name and \
+                other.get_trashed_status() == self.get_trashed_status() and \
+                other.create_ts == self.create_ts and \
+                other._modify_ts == self._modify_ts and \
+                other.owner_uid == self.owner_uid and \
+                other.drive_id == self.drive_id and \
+                other.is_shared == self._is_shared and \
+                other.shared_by_user_uid and \
+                other.get_icon() == self.get_icon():
+            return True
 
-        if not other.has_same_parents(self):
-            return False
-
-        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name \
-            and other.get_trashed_status() == self.get_trashed_status() and other.create_ts == self.create_ts \
-            and other._modify_ts == self._modify_ts and other.owner_uid == self.owner_uid and other.drive_id == self.drive_id \
-            and other.is_shared == self._is_shared and other.shared_by_user_uid
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -243,20 +249,30 @@ class GDriveFile(GDriveNode):
         return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" mime_type_uid={self.mime_type_uid} ' \
                f'trashed={self.trashed_str} size={self.get_size_bytes()} md5={self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} ' \
                f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self.is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
-               f'version={self.version} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'
+               f'version={self.version} sync_ts={self.sync_ts} icon={self.get_icon()} parent_uids={self.get_parent_uids()})'
 
     def __eq__(self, other):
-        if not isinstance(other, GDriveFile):
-            return False
+        """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
+        if isinstance(other, GDriveFile) and \
+                other.uid == self.uid and \
+                other.device_uid == other.device_uid and \
+                other.goog_id == self.goog_id and \
+                other.name == self.name and \
+                other.mime_type_uid == self.mime_type_uid and \
+                other.get_trashed_status() == self.get_trashed_status() and \
+                other.get_size_bytes() == self.get_size_bytes() and \
+                other.md5 == self._md5 and \
+                other.version == self.version and \
+                other.create_ts == self.create_ts and \
+                other.modify_ts == self.modify_ts and \
+                other.owner_uid == self.owner_uid and \
+                other.drive_id == self.drive_id and \
+                other.is_shared == self.is_shared and \
+                other.shared_by_user_uid == self.shared_by_user_uid and \
+                other.get_icon() == self.get_icon():
+            return True
 
-        if not other.has_same_parents(self):
-            return False
-
-        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \
-            other.mime_type_uid == self.mime_type_uid and other.get_trashed_status() == self.get_trashed_status() and \
-            other.drive_id == self.drive_id and other.version == self.version and other.is_shared == self.is_shared and \
-            other.get_size_bytes() == self.get_size_bytes() and other.owner_uid == self.owner_uid and \
-            other.shared_by_user_uid == self.shared_by_user_uid and other.create_ts == self.create_ts and other.modify_ts == self.modify_ts
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
