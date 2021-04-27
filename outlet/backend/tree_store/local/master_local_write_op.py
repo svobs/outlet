@@ -113,8 +113,8 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
             cache.upsert_single_node(self.node, commit=False)
 
     def send_signals(self):
-        # Always update:
-        dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
+        if self.was_updated and self.node.is_live():
+            dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
     def __repr__(self):
         return f'UpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
