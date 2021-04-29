@@ -1,8 +1,9 @@
+import collections
 import errno
 import logging
 import os
 from collections import deque
-from typing import Deque, Dict, List, Optional, Set
+from typing import Deque, Dict, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
@@ -82,22 +83,30 @@ class ActiveTreeManager(HasLifecycle):
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _filtered_sn(self, node: Node, full_path: str, filter_state: FilterState) -> Optional[SPIDNodePair]:
+    SPIDNodePairWithParent = collections.namedtuple('SPIDNodePairWithParent', 'sn parent_guid')
+
+    def _get_filtered_snp(self, node: Node, full_path: str, filter_state: FilterState) -> Optional[SPIDNodePairWithParent]:
         sn = self.backend.cacheman.get_sn_for(node_uid=node.uid, device_uid=node.device_uid, full_path=full_path)
         if not filter_state.has_criteria() or filter_state.matches(sn):
-            return sn
+
+            parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
+            return SPIDNodePairWithParent(sn, parent_sn.spid.guid)
         else:
             return None
 
-    def _to_subtree_sn(self, node: Node, subtree_root_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> Optional[SPIDNodePair]:
+    def _to_subtree_sn_list(self, node: Node, subtree_root_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePairWithParent]:
         cacheman = self.backend.cacheman
 
         if node.device_uid != subtree_root_spid.device_uid:
-            return None
+            return []
 
         # LocalDisk: easy: check path
         if node.tree_type == TreeType.LOCAL_DISK and node.node_identifier.has_path_in_subtree(subtree_root_spid.get_single_path()):
-            return self._filtered_sn(node, node.get_single_path(), filter_state)
+            snp = self._get_filtered_snp(node, node.get_single_path(), filter_state)
+            if snp:
+                return [snp]
+            else:
+                return []
 
         # GDrive: laborious
         ancestor_list = [node]
@@ -108,11 +117,14 @@ class ActiveTreeManager(HasLifecycle):
                     # OK, yes: we are in subtree. Now just create SN:
 
                     subtree_root_path = subtree_root_spid.get_single_path()
+                    return_list = []
                     for path in node.get_path_list():
                         if path.startswith(subtree_root_path):
-                            return self._filtered_sn(node, path, filter_state)
+                            snp = self._get_filtered_snp(node, path, filter_state)
+                            if snp:
+                                return_list.append(snp)
 
-                    assert False, f'Something is wrong: node={node}, subtree_root_spid={subtree_root_spid}'
+                    return return_list
 
                 for parent_node in cacheman.get_parent_list_for_node(ancestor):
                     new_ancestor_list.append(parent_node)
@@ -120,21 +132,19 @@ class ActiveTreeManager(HasLifecycle):
             ancestor_list = new_ancestor_list
 
             if not ancestor_list:
-                return None
+                return []
 
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            sn: Optional[SPIDNodePair] = self._to_subtree_sn(node, tree_meta.root_sn.spid, tree_meta.filter_state)
-            if sn:
-                logger.debug(f'[{tree_id}] Notifying tree of upserted node: {sn.spid}')
-                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
+            for snp in self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state):
+                logger.debug(f'[{tree_id}] Notifying tree of upserted node: {snp.sn.spid}, parent_guid={snp.parent_guid}')
+                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            sn: Optional[SPIDNodePair] = self._to_subtree_sn(node, tree_meta.root_sn.spid, tree_meta.filter_state)
-            if sn:
-                logger.debug(f'[{tree_id}] Notifying tree of removed node: {sn.spid}')
-                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=sn)
+            for snp in self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state):
+                logger.debug(f'[{tree_id}] Notifying tree of removed node: {snp.sn.spid}')
+                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=snp.sn)
 
     def _on_merge_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')

@@ -530,6 +530,17 @@ class LocalDiskMasterStore(TreeStore):
             # logger.warning('LOCK off')
         return child_nodes
 
+    @staticmethod
+    def to_sn(node) -> SPIDNodePair:
+        # Trivial for LocalNodes
+        return SPIDNodePair(node.node_identifier, node)
+
+    def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        parent_node = self.get_single_parent_for_node(sn.node)
+        if parent_node:
+            return self.to_sn(parent_node)
+        return None
+
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')

@@ -41,6 +41,10 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
+    def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        pass
+
+    @abstractmethod
     def get_parent_list_for_node(self, node: Node) -> List[Node]:
         pass
 

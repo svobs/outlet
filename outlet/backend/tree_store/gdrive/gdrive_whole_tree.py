@@ -386,8 +386,8 @@ class GDriveWholeTree(BaseTree):
         return full_path.startswith(subtree_root_path)
 
     def get_parent_list_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> List[GDriveNode]:
-        if node.tree_type != TreeType.GDRIVE:
-            logger.debug(f'get_parent_list_for_node(): node has wrong tree type ({node.tree_type}); returning None')
+        if node.device_uid != self.device_uid:
+            logger.debug(f'get_parent_list_for_node(): node has wrong device_uid (got {node.device_uid}, expected {self.device_uid}) returning None')
             return []
 
         assert isinstance(node, GDriveNode)
@@ -400,6 +400,21 @@ class GDriveWholeTree(BaseTree):
                     resolved_parents.append(parent)
             return resolved_parents
         return []
+
+    def to_sn(self, node, single_path) -> SPIDNodePair:
+        spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid, tree_type=node.tree_type,
+                                                               path_list=single_path, must_be_single_path=True)
+        return SPIDNodePair(spid, node)
+
+    def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        parent_uids = sn.node.get_parent_uids()
+        if parent_uids:
+            parent_path = sn.spid.get_single_parent_path()
+            for par_id in sn.node.get_parent_uids():
+                parent_node = self.get_node_for_uid(par_id)
+                if parent_node and parent_path in parent_node.get_path_list():
+                    return self.to_sn(node=parent_node, single_path=parent_path)
+        return None
 
     def validate(self):
         logger.debug(f'Validating GDriveWholeTree')

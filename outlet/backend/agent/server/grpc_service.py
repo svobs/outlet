@@ -318,9 +318,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.download_msg.filename = filename
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_node_upserted(self, sender: str, sn: SPIDNodePair):
+    def _on_node_upserted(self, sender: str, sn: SPIDNodePair, parent_guid: GUID):
         signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)
         self._converter.sn_to_grpc(sn, signal.sn)
+        signal.parent_guid = parent_guid
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_node_removed(self, sender: str, sn: SPIDNodePair):

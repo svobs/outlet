@@ -962,6 +962,9 @@ class CacheManager(HasLifecycle):
 
         return SPIDNodePair(spid, node)
 
+    def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        return self._get_store_for_device_uid(sn.spid.device_uid).get_parent_for_sn(sn)
+
     # GDrive-specific
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

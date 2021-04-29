@@ -102,6 +102,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['secondary_msg'] = signal_msg.error_occurred.secondary_msg
         elif signal == Signal.NODE_UPSERTED or signal == Signal.NODE_REMOVED:
             kwargs['sn'] = self._converter.sn_from_grpc(signal_msg.sn)
+            kwargs['parent_guid'] = signal_msg.parent_guid
         elif signal == Signal.SET_STATUS:
             kwargs['status_msg'] = signal_msg.status_msg.msg
         elif signal == Signal.REFRESH_SUBTREE_STATS_DONE:

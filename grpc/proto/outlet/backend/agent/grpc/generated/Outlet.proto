@@ -209,7 +209,8 @@ message SignalMsg {
 		DisplayTreeUiState display_tree_ui_state = 12;
 		PlayState play_state = 13;
 		ToggleUiEnablement ui_enablement = 14;
-		SPIDNodePair sn = 15;
+		SPIDNodePair sn = 15;  // for NODE_UPSERTED, NODE_REMOVED
+		string parent_spid = 16; // for NODE_UPSERTED
 		StatusMsg status_msg = 17;
 		DownloadMsg download_msg = 18;
 		StatsUpdate stats_update = 19;

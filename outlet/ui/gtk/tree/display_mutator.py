@@ -456,9 +456,7 @@ class DisplayMutator(HasLifecycle):
             else:
                 self._append_file_node(parent_iter, sn)
 
-    def _on_node_upserted(self, sender: str, sn: SPIDNodePair) -> None:
-        assert sn
-
+    def _on_node_upserted(self, sender: str, sn: SPIDNodePair, parent_guid: GUID) -> None:
         if sender != self.con.tree_id:
             return
 
@@ -467,79 +465,56 @@ class DisplayMutator(HasLifecycle):
                 logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_UPSERTED.name}": node listeners disabled')
             return
 
-        # Possibly long-running op to load lazy tree. Also has a nasty lock. Do this outside the UI thread.
-        tree: DisplayTree = self.con.get_tree()
-
         guid = sn.spid.guid
 
         def update_ui():
             with self._lock:
-                # FIXME: need to re-examine all the logic for this now that we're using SPIDNodePairs instead of Nodes
-                parent_uid_list: List[UID] = sn.node.get_parent_uids()
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for {sn.spid}, parent={parent_guid}')
 
-                # Often we want to refresh the stats, even if the node is not displayed, because it can affect other parts of the tree:
-                needs_refresh = True
+                if SUPER_DEBUG:
+                    logger.debug(f'[{self.con.tree_id}] Examining parent {parent_guid} for displayed node {sn.node.node_identifier}')
 
-                if parent_uid_list:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {sn.node.node_identifier} '
-                                     f'with parents {parent_uid_list}')
-
-                    for parent_uid in parent_uid_list:
-                        if SUPER_DEBUG:
-                            logger.debug(f'[{self.con.tree_id}] Examining parent {parent_uid} for displayed node {sn.node.node_identifier}')
-
-                        if self.con.get_tree().get_root_spid().node_uid == parent_uid:
-                            logger.debug(f'[{self.con.tree_id}] Node is topmost level: {sn.node.node_identifier}')
-                            parent_iter = None
-                            child_iter = self.con.display_store.find_guid_in_children(sn.spid.guid, parent_iter)
+                if self.con.get_tree().get_root_spid().guid == parent_guid:
+                    logger.debug(f'[{self.con.tree_id}] Node is topmost level: {sn.node.node_identifier}')
+                    child_iter = self.con.display_store.find_guid_in_children(sn.spid.guid, None)
+                    self._update_or_append(sn, None, child_iter)
+                else:
+                    # Node is not topmost.
+                    logger.debug(f'[{self.con.tree_id}] Node is not topmost: {sn.spid}')
+                    parent_iter = self.con.display_store.find_guid_in_tree(target_guid=parent_guid)
+                    if parent_iter:
+                        parent_tree_path = self.con.display_store.model.get_path(parent_iter)
+                        if self.con.tree_view.row_expanded(parent_tree_path):
+                            # Parent is present and expanded. Now check whether the "upserted node" already exists:
+                            child_iter = self.con.display_store.find_guid_in_children(guid, parent_iter)
                             self._update_or_append(sn, parent_iter, child_iter)
                         else:
-                            # Node is not topmost.
-                            logger.debug(f'[{self.con.tree_id}] Node is not topmost: {sn.node.node_identifier}')
-                            parent_iter = self.con.display_store.find_guid_in_tree(target_guid=parent_uid)
-                            if parent_iter:
-                                parent_tree_path = self.con.display_store.model.get_path(parent_iter)
-                                if self.con.tree_view.row_expanded(parent_tree_path):
-                                    # Parent is present and expanded. Now check whether the "upserted node" already exists:
-                                    child_iter = self.con.display_store.find_guid_in_children(guid, parent_iter)
-                                    self._update_or_append(sn, parent_iter, child_iter)
-                                else:
-                                    # Parent present but not expanded. Make sure it has a loading node (which allows child toggle):
-                                    if self.con.display_store.model.iter_has_child(parent_iter):
-                                        logger.debug(f'[{self.con.tree_id}] Will not upsert node {guid}: Parent is not expanded: {parent_uid}')
-                                    else:
-                                        # May have added a child to formerly childless parent: add loading node
-                                        logger.debug(f'[{self.con.tree_id}] Parent ({parent_uid}) is not expanded; adding loading node')
-                                        self._append_loading_child(parent_iter)
+                            # Parent present but not expanded. Make sure it has a loading node (which allows child toggle):
+                            if self.con.display_store.model.iter_has_child(parent_iter):
+                                logger.debug(f'[{self.con.tree_id}] Will not upsert node {guid}: Parent is not expanded: {parent_guid}')
                             else:
-                                # Not even parent is displayed. Probably an ancestor isn't expanded. Just skip
-                                assert parent_uid not in self.con.display_store.displayed_rows, \
-                                    f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
-                                logger.debug(f'[{self.con.tree_id}] Will not upsert node: Could not find parent node in display tree: {parent_uid}')
-
-                else:
-                    # No parent found in tree
-                    if guid in self.con.display_store.displayed_rows:
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {sn.spid} '
-                                     f'but its parent is no longer in the tree; removing node from display store: {guid}')
-                        self.con.display_store.remove_node(guid)
-                    elif tree.is_path_in_subtree(sn.spid.get_single_path()):
-                        # At least in subtree? If so, refresh stats to reflect change
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {sn.spid}')
+                                # May have added a child to formerly childless parent: add loading node
+                                logger.debug(f'[{self.con.tree_id}] Parent ({parent_guid}) is not expanded; adding loading node')
+                                self._append_loading_child(parent_iter)
                     else:
-                        needs_refresh = False
-                        if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_UPSERTED.name} for node {sn.spid}')
+                        # Not even parent is displayed. Probably an ancestor isn't expanded. Just skip
+                        assert parent_guid not in self.con.display_store.displayed_rows, \
+                            f'DisplayedRows ({self.con.display_store.displayed_rows}) contains GUID ({parent_guid})!'
+                        logger.debug(f'[{self.con.tree_id}] Will not upsert node: Could not find parent GUID in display tree: {parent_guid}')
 
-                if needs_refresh:
-                    self._stats_refresh_timer.start_or_delay()
+                        # sanity check
+                        if guid in self.con.display_store.displayed_rows:
+                            logger.warning(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {sn.spid} '
+                                           f'but its parent is no longer in the tree; removing node from display store: {guid}')
+                            self.con.display_store.remove_node(guid)
+
+                # If we received the update, it is somewhere in our subtree (even if invisible) and thus affects our stats:
+                self._stats_refresh_timer.start_or_delay()
 
         GLib.idle_add(update_ui)
 
     def _on_node_removed(self, sender: str, sn: SPIDNodePair):
-        assert sn
-
         if sender != self.con.tree_id:
             return
 
@@ -561,9 +536,9 @@ class DisplayMutator(HasLifecycle):
 
                         stats_refresh_needed = True
 
-                        logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
+                        logger.debug(f'[{self.con.tree_id}] Removing node from display store: {guid}')
                         self.con.display_store.remove_node(guid)
-                        logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
+                        logger.debug(f'[{self.con.tree_id}] Node removed: {guid}')
                     elif self.con.get_tree().is_path_in_subtree(sn.spid.get_single_path()):
                         # not visible, but stats still need refresh
                         if logger.isEnabledFor(logging.DEBUG):

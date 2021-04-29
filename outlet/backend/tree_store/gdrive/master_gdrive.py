@@ -434,6 +434,9 @@ class GDriveMasterStore(TreeStore):
         else:
             return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
 
+    def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        return self._memstore.master_tree.get_parent_for_sn(sn)
+
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)
 
