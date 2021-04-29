@@ -36,7 +36,7 @@ class AppConfig:
                 with open(self._get_ui_state_filename()) as f:
                     self._ui_state_json = json.load(f)
 
-            self.read_only = self.get('read_only_config', False)
+            self.read_only = self.get('read_only_config', False, required=False)
         except Exception as err:
             raise RuntimeError(f'Could not read config file ({config_file_path})') from err
 
@@ -44,19 +44,23 @@ class AppConfig:
         if self.read_only:
             logger.info('Config is set to read-only')
 
-    def get(self, cfg_path, default_val=None, required: bool = False):
+    def get(self, cfg_path, default_val=None, required: bool = True):
         try:
             val = self.cfg[cfg_path]
-            if not val and not default_val and required:
+            if val is None and default_val is None and required:
                 raise RuntimeError(f'Config entry not found but is required: "{cfg_path}"')
 
             if val is not None and type(val) == str:
                 val = val.replace(PROJECT_DIR_TOKEN, self._project_dir)
             logger.debug(f'Read config entry "{cfg_path}" = "{val}"')
             return val
-        except config.KeyNotFoundError:
+        except (KeyError, config.KeyNotFoundError):
             logger.debug(f'Path not found: {cfg_path}')
-            return default_val
+
+        # throw this outside the except block above (putting it in the block seems to print out 2 extra exceptions):
+        if required:
+            raise RuntimeError(f'Path not found but is required: "{cfg_path}"')
+        return default_val
 
     def _get_ui_state_filename(self):
         filename = self.get('ui_state_filename')

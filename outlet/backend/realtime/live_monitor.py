@@ -127,7 +127,7 @@ class LiveMonitor(HasLifecycle):
         self._active_local_tree_dict: Dict[str, Set[str]] = {}
         """A dict of [local_path -> set of tree_ids]"""
 
-        self.enable_gdrive_polling_thread: bool = ensure_bool(self.backend.get_config('cache.live_monitoring.enable_gdrive_polling_thread'))
+        self.enable_gdrive_polling_thread: bool = ensure_bool(self.backend.get_config('cache.monitoring.enable_gdrive_polling_thread'))
         self._gdrive_polling_thread: Optional[GDrivePollingThread] = None
         self._count_gdrive_threads: int = 0
         self._local_change_batching_thread: Optional[LocalFileChangeBatchingThread] = None

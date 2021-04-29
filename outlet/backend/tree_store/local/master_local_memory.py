@@ -53,7 +53,7 @@ class LocalDiskMemoryStore:
         existing: Node = self.master_tree.get_node_for_uid(node.uid)
         if existing:
             if existing.is_dir():
-                children = self.master_tree.get_child_list(existing.identifier)
+                children = self.master_tree.get_child_list_for_identifier(existing.uid)
                 if children:
                     # maybe allow deletion of dir with children in the future, but for now be careful
                     raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')

@@ -31,17 +31,14 @@ from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
 from model.display_tree.summary import TreeSummarizer
-from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import ChangeTreeSPID, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
-from model.node_identifier_factory import NodeIdentifierFactory
+from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
-from util.base_tree import BaseTree
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
