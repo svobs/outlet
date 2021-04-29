@@ -63,7 +63,7 @@ class SignatureCalcThread(QThread):
         node_with_signature.md5 = md5
         node_with_signature.sha256 = sha256
 
-        logger.debug(f'[{self.name}] Node {node_with_signature.uid} has MD5: {node_with_signature.md5}')
+        logger.debug(f'[{self.name}] Node {node_with_signature.node_identifier.guid} has MD5: {node_with_signature.md5}')
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:

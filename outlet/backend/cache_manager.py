@@ -461,8 +461,8 @@ class CacheManager(HasLifecycle):
                 assert isinstance(existing_disk_cache.subtree_root, LocalNodeIdentifier)
                 store.load_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif tree_type == TreeType.GDRIVE:
-            assert existing_disk_cache.subtree_root == self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid), \
-                f'Expected GDrive root ({self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid)}) ' \
+            assert existing_disk_cache.subtree_root == self.backend.node_identifier_factory.get_root_constant_gdrive_spid(device_uid), \
+                f'Expected GDrive root ({self.backend.node_identifier_factory.get_root_constant_gdrive_spid(device_uid)}) ' \
                 f'but found: {existing_disk_cache.subtree_root}'
             assert isinstance(store, GDriveMasterStore)
             store.load_and_sync_master_tree()
@@ -800,7 +800,7 @@ class CacheManager(HasLifecycle):
 
     def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> List[SPIDNodePair]:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_child_list() for tree_id={tree_id}, parent_spid = {parent_spid}')
+            logger.debug(f'[{tree_id}] Entered get_child_list() for parent_spid={parent_spid}')
         if not parent_spid:
             raise RuntimeError('get_child_list(): parent_spid not provided!')
         if not isinstance(parent_spid, SinglePathNodeIdentifier):
@@ -809,9 +809,6 @@ class CacheManager(HasLifecycle):
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
-
-        if SUPER_DEBUG:
-            logger.debug(f'[{tree_id}] with TreeDisplayMode: {tree_meta.state.tree_display_mode.name}')
 
         # We assume that whenever get_child_list() is called, this represents a row expansion
         self._active_tree_manager.add_expanded_row(parent_spid, tree_id)

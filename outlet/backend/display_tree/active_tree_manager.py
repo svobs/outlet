@@ -49,7 +49,7 @@ class ActiveTreeManager(HasLifecycle):
         self._display_tree_dict: Dict[TreeID, ActiveDisplayTreeMeta] = {}
         """Keeps track of which display trees are currently being used in the UI"""
 
-        self._is_live_monitoring_enabled = backend.get_config('cache.live_monitoring.live_monitoring_enabled')
+        self._is_live_monitoring_enabled = backend.get_config('cache.monitoring.live_monitoring_enabled')
 
     def start(self):
         gdrive_live_monitor_enabled = self._is_live_monitoring_enabled and self._live_monitor.enable_gdrive_polling_thread
@@ -357,6 +357,8 @@ class ActiveTreeManager(HasLifecycle):
                 self._live_monitor.start_or_update_capture(display_tree_meta.root_sn.spid, response_tree_id)
             else:
                 self._live_monitor.stop_capture(response_tree_id)
+        else:
+            logger.debug(f'[{sender_tree_id}] Live monitoring is disabled: will not capture')
 
         return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
 
