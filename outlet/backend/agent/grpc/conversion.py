@@ -257,7 +257,10 @@ class GRPCConverter:
 
     def sn_to_grpc(self, sn: SPIDNodePair, grpc_sn: backend.agent.grpc.generated.Node_pb2.SPIDNodePair):
         if not sn:
-            return
+            raise RuntimeError(f'sn_to_grpc(): no sn!')
+
+        if not sn.spid:
+            raise RuntimeError(f'sn_to_grpc(): no SPID!')
 
         self.node_identifier_to_grpc(sn.spid, grpc_sn.spid)
         if sn.node:

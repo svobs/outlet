@@ -203,6 +203,8 @@ message SignalMsg {
 	uint32 sig_int = 1;
 	string sender = 2;
 
+	string parent_guid = 3; // for NODE_UPSERTED
+
 	oneof signal_data {
 		Empty empty = 10;
 		ErrorOccurred error_occurred = 11;
@@ -210,7 +212,6 @@ message SignalMsg {
 		PlayState play_state = 13;
 		ToggleUiEnablement ui_enablement = 14;
 		SPIDNodePair sn = 15;  // for NODE_UPSERTED, NODE_REMOVED
-		string parent_guid = 16; // for NODE_UPSERTED
 		StatusMsg status_msg = 17;
 		DownloadMsg download_msg = 18;
 		StatsUpdate stats_update = 19;
