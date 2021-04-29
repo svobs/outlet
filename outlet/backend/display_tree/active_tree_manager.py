@@ -29,6 +29,7 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
+SPIDNodePairWithParent = collections.namedtuple('SPIDNodePairWithParent', 'sn parent_guid')
 
 class ActiveTreeManager(HasLifecycle):
     """
@@ -83,14 +84,15 @@ class ActiveTreeManager(HasLifecycle):
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    SPIDNodePairWithParent = collections.namedtuple('SPIDNodePairWithParent', 'sn parent_guid')
-
     def _get_filtered_snp(self, node: Node, full_path: str, filter_state: FilterState) -> Optional[SPIDNodePairWithParent]:
-        sn = self.backend.cacheman.get_sn_for(node_uid=node.uid, device_uid=node.device_uid, full_path=full_path)
+        sn = SPIDNodePair(self.backend.cacheman.make_spid_for(node_uid=node.uid, device_uid=node.device_uid, full_path=full_path), node)
         if not filter_state.has_criteria() or filter_state.matches(sn):
-
             parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
-            return SPIDNodePairWithParent(sn, parent_sn.spid.guid)
+            if parent_sn:
+                return SPIDNodePairWithParent(sn, parent_sn.spid.guid)
+            else:
+                logger.warning(f'No parent found for: {sn.spid}. Will discard notification!')
+                return None
         else:
             return None
 

@@ -26,10 +26,11 @@ class GDrivePollingThread(HasLifecycle, threading.Thread):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, thread_num):
-        super().__init__(target=self._run_gdrive_polling_thread, name=f'GDrivePollingThread-{thread_num}', daemon=True)
+        HasLifecycle.__init__(self)
+        threading.Thread.__init__(self, target=self._run_gdrive_polling_thread, name=f'GDrivePollingThread-{thread_num}', daemon=True)
         self._shutdown: bool = False
         self.backend = backend
-        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.backend.get_config('cache.live_monitoring.gdrive_thread_polling_interval_sec'))
+        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.backend.get_config('cache.monitoring.gdrive_thread_polling_interval_sec'))
 
     def start(self):
         HasLifecycle.start(self)
@@ -62,7 +63,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
         threading.Thread.__init__(self, target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
         self.backend = backend
-        self.local_change_batch_interval_ms: int = ensure_int(self.backend.get_config('cache.live_monitoring.local_change_batch_interval_ms'))
+        self.local_change_batch_interval_ms: int = ensure_int(self.backend.get_config('cache.monitoring.local_change_batch_interval_ms'))
         self.change_set: Set = set()
 
     def enqueue(self, file_path: str):
