@@ -514,7 +514,8 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(update_ui)
 
-    def _on_node_removed(self, sender: str, sn: SPIDNodePair):
+    def _on_node_removed(self, sender: str, sn: SPIDNodePair, parent_guid: GUID):
+        # Note: parent_guid is not used for Linux version but is needed for Mac
         if sender != self.con.tree_id:
             return
 

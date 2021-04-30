@@ -203,7 +203,7 @@ message SignalMsg {
 	uint32 sig_int = 1;
 	string sender = 2;
 
-	string parent_guid = 3; // for NODE_UPSERTED
+	string parent_guid = 3; // for NODE_UPSERTED, NODE_REMOVED
 
 	oneof signal_data {
 		Empty empty = 10;

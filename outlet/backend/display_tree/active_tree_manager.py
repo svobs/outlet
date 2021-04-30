@@ -146,7 +146,7 @@ class ActiveTreeManager(HasLifecycle):
         for tree_id, tree_meta in self._display_tree_dict.items():
             for snp in self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state):
                 logger.debug(f'[{tree_id}] Notifying tree of removed node: {snp.sn.spid}')
-                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=snp.sn)
+                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 
     def _on_merge_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')
