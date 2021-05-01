@@ -526,7 +526,8 @@ class ActiveTreeManager(HasLifecycle):
         logger.debug(f'[{tree_id}] Loading expanded rows from app_config')
         try:
             expanded_row_set: Set[str] = set()
-            expanded_rows_str: Optional[str] = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id))
+            expanded_rows_str: str = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id), default_val='',
+                                                                       required=False)
             if expanded_rows_str:
                 for guid in expanded_rows_str.split(CONFIG_DELIMITER):
                     expanded_row_set.add(guid)
@@ -547,7 +548,8 @@ class ActiveTreeManager(HasLifecycle):
         logger.debug(f'[{tree_id}] Loading selected rows from app_config')
         try:
             selected_row_set: Set[GUID] = set()
-            selected_rows_unparsed: Optional[str] = self.backend.get_config(ActiveTreeManager._make_selected_rows_config_key(tree_id))
+            selected_rows_unparsed: str = self.backend.get_config(ActiveTreeManager._make_selected_rows_config_key(tree_id), default_val='',
+                                                                            required=False)
             if selected_rows_unparsed:
                 for guid in selected_rows_unparsed.split(CONFIG_DELIMITER):
                     selected_row_set.add(guid)
