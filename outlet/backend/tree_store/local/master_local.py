@@ -16,7 +16,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import SUPER_DEBUG, TrashStatus, TreeID, TreeType
+from constants import MAX_FS_LINK_DEPTH, SUPER_DEBUG, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
@@ -595,11 +595,24 @@ class LocalDiskMasterStore(TreeStore):
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
 
+        # Check for broken links:
         if os.path.islink(full_path):
-            target = os.readlink(full_path)
-            if not os.path.exists(target):
-                logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
-                return None
+            pointer = full_path
+            # Links can be nested too (can there be cycles? Use max depth just in case):
+            count_attempt = 0
+            while os.path.islink(pointer):
+                target = pathlib.Path(os.readlink(pointer)).resolve()
+                logger.debug(f'Resolved link (iteration {count_attempt}): "{pointer}" -> "{target}"')
+                if not os.path.exists(target):
+                    logger.error(f'Broken link, skipping: "{pointer}" -> "{target}"')
+                    if pointer != full_path:
+                        logger.error(f'(original link: "{full_path}")')
+                    return None
+                count_attempt = count_attempt + 1
+                if count_attempt == MAX_FS_LINK_DEPTH:
+                    logger.error(f'Max link depth ({MAX_FS_LINK_DEPTH}) exceeded for: "{full_path}"')
+                    return None
+                pointer = target
 
         if self.lazy_load_signatures and not must_scan_signature:
             # Skip MD5 and set it NULL for now. Node will be added to content scanning queue when it is upserted into cache (above)

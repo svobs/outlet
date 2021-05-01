@@ -14,8 +14,9 @@ import hashlib
 # From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
 import logging
 import os
+import pathlib
 from typing import Optional, Tuple
-from constants import READ_CHUNK_SIZE, TreeType
+from constants import MAX_FS_LINK_DEPTH, READ_CHUNK_SIZE, TreeType
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +60,27 @@ def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opti
         # sha256 = local.content_hasher.dropbox_hash(full_path)
         sha256: Optional[str] = None
         return md5, sha256
-    except FileNotFoundError as err:
-        # FIXME: Mac version incorrectly reports broken links
+    except FileNotFoundError:
+        # Possibly a link instead:
         if os.path.islink(full_path):
-            target = os.readlink(full_path)
-            logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
+            count_attempt = 0
+            while count_attempt < MAX_FS_LINK_DEPTH:
+                target = pathlib.Path(os.readlink(full_path)).resolve()
+                if not target:
+                    logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
+                    return None, None
+                logger.debug(f'Resolved link (iteration {count_attempt}): "{full_path}" -> "{target}"')
+                full_path = target
+                try:
+                    md5: Optional[str] = compute_md5(full_path)
+                    # sha256 = local.content_hasher.dropbox_hash(full_path)
+                    sha256: Optional[str] = None
+                    return md5, sha256
+                except FileNotFoundError:
+                    count_attempt += 1
+
+            # exceeded max attempts
+            logger.error(f'Max link depth ({MAX_FS_LINK_DEPTH}) exceeded: "{full_path}"')
         else:
             # Can happen often if temp files are rapidly created/destroyed. Assume it will be cleaned up elsewhere
             logger.debug(f'Could not calculate signature: file not found; skipping: {full_path}')
