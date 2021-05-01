@@ -150,17 +150,21 @@ class BackendGRPCClient(OutletBackend):
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._fe_task_runner.enqueue(task_func, *args)
 
-    def get_config(self, config_key: str, default_val: Optional[str] = None) -> Optional[str]:
-        logger.debug(f'Getting config "{config_key}"')
+    def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = True) -> Optional[str]:
+        """Note: params 'default_val' and 'required' are only enforced locally, not by the server"""
+        logger.debug(f'Getting config "{config_key}" (default_val={default_val}, required={required})')
         request = GetConfig_Request()
         request.config_key_list.append(config_key)
+
         response: GetConfig_Response = self.grpc_stub.get_config(request)
-        assert len(response.config_list) == 1, f'Expected exactly 1 entry in response but found {len(response.config_list)} for key "{config_key}"'
-        config_val = response.config_list[0].val
-        if config_val:
-            return config_val
+        assert len(response.config_list) <= 1, f'Expected 1 or less entry in response but found {len(response.config_list)} for key "{config_key}"'
+        if len(response.config_list) == 1:
+            return response.config_list[0].val
         else:
-            return default_val
+            if required:
+                raise RuntimeError(f'Config entry not found but is required: "{config_key}"')
+            else:
+                return default_val
 
     def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
         request = GetConfig_Request()
