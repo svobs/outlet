@@ -73,12 +73,12 @@ class OpGDriveTest(OpTestBase):
         self._delete_all_files_in_gdrive_test_folder()
 
     def _delete_all_right_tree_displayed_rows_from_cacheman(self):
-        displayed_rows: List[Node] = list(self.right_con.display_store.displayed_rows.values())
-        if not displayed_rows:
+        displayed_row_list: List[Node] = list(self.right_con.display_store.displayed_row_dict.values())
+        if not displayed_row_list:
             logger.info('No displayed rows found in right tree; nothing to clean up')
             return
 
-        logger.info(f'Found {len(displayed_rows)} displayed rows (will delete) for right tree: {self.right_tree_root_path}')
+        logger.info(f'Found {len(displayed_row_list)} displayed rows (will delete) for right tree: {self.right_tree_root_path}')
 
         # If we have displayed rows to delete, then need to wait for StatsUpdated signal before we proceed
         right_stats_updated = threading.Event()
@@ -90,7 +90,7 @@ class OpGDriveTest(OpTestBase):
 
         dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
 
-        for node in displayed_rows:
+        for node in displayed_row_list:
             logger.warning(f'Deleting node via cacheman: {node}')
             assert isinstance(node, GDriveNode)
             self.backend.cacheman.remove_subtree(node, to_trash=False)

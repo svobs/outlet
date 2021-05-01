@@ -160,16 +160,16 @@ class TreePanelController(HasLifecycle):
 
     def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         timer = Stopwatch()
-        checked_rows: List[SPIDNodePair] = self.display_mutator.get_checked_rows_as_list()
+        checked_sn_list: List[SPIDNodePair] = self.display_mutator.get_checked_rows_as_list()
         if SUPER_DEBUG:
-            more = ': ' + ', '.join([str(sn.spid.node_uid) for sn in checked_rows])
+            more = ': ' + ', '.join([str(sn.spid.node_uid) for sn in checked_sn_list])
         else:
             more = ''
-        logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_rows)} checked rows{more}')
+        logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_sn_list)} checked items{more}')
 
         checked_rows_dedecorated: List[SPIDNodePair] = []
 
-        for sn in checked_rows:
+        for sn in checked_sn_list:
             checked_rows_dedecorated.append(self._from_change_node_pair(sn))
         return checked_rows_dedecorated
 

@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from constants import SUPER_DEBUG, TreeID
 from model.node.node import Node, SPIDNodePair
@@ -36,17 +36,17 @@ class DisplayStore:
 
         # Track the checkbox states here. For increased speed and to accommodate lazy loading strategies,
         # we employ the following heuristic:
-        # - When a user checks a row, it goes in the 'checked_rows' set below.
-        # - When it is placed in the checked_rows set, it is implied that all its descendants are also checked.
+        # - When a user checks a row, it goes in 'checked_node_set' below.
+        # - When it is placed in checked_node_set, it is implied that all its descendants are also checked.
         # - Similarly, when an item is unchecked by the user, all of its descendants are implied to be unchecked.
-        # - HOWEVER, un-checking an item will not delete any descendants that may be in the 'checked_rows' list.
-        #   Anything in the 'checked_rows' and 'inconsistent_rows' lists is only relevant if its parent is 'inconsistent',
+        # - HOWEVER, un-checking an item will not delete any descendants that may be in the 'checked_node_set' list.
+        #   Anything in the 'checked_node_set' and 'inconsistent_node_set' sets is only relevant if its parent is 'inconsistent',
         #   thus, having a parent which is either checked or unchecked overrides any presence in either of these two lists.
         # - At the same time as an item is checked, the checked & inconsistent state of its all ancestors must be recorded.
-        # - The 'inconsistent_rows' list is needed for display purposes.
-        self.checked_rows: Dict[UID, Node] = {}
-        self.inconsistent_rows: Dict[UID, Node] = {}
-        self.displayed_rows: Dict[GUID, SPIDNodePair] = {}
+        # - The 'inconsistent_node_set' set is needed for display purposes.
+        self.checked_node_set: Set[UID] = set()
+        self.inconsistent_node_set: Set[UID] = set()
+        self.displayed_row_dict: Dict[GUID, SPIDNodePair] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
@@ -82,9 +82,9 @@ class DisplayStore:
 
     def clear_model(self) -> TreeIter:
         self.model.clear()
-        self.checked_rows.clear()
-        self.inconsistent_rows.clear()
-        self.displayed_rows.clear()
+        self.checked_node_set.clear()
+        self.inconsistent_node_set.clear()
+        self.displayed_row_dict.clear()
         return self.model.get_iter_first()
 
     def _set_checked_state(self, tree_iter, is_checked, is_inconsistent):
@@ -104,16 +104,14 @@ class DisplayStore:
     def _update_checked_state_tracking(self, sn: SPIDNodePair, is_checked: bool, is_inconsistent: bool):
         row_id = sn.node.uid
         if is_checked:
-            self.checked_rows[row_id] = sn.node
+            self.checked_node_set.add(row_id)
         else:
-            if row_id in self.checked_rows:
-                del self.checked_rows[row_id]
+            self.checked_node_set.discard(row_id)
 
         if is_inconsistent:
-            self.inconsistent_rows[row_id] = sn.node
+            self.inconsistent_node_set.add(row_id)
         else:
-            if row_id in self.inconsistent_rows:
-                del self.inconsistent_rows[row_id]
+            self.inconsistent_node_set.discard(row_id)
 
     def on_cell_checkbox_toggled(self, widget, tree_path):
         """LISTENER/CALLBACK: Called when checkbox in treeview is toggled"""
@@ -303,7 +301,7 @@ class DisplayStore:
         sn: SPIDNodePair = row_values[self.treeview_meta.col_num_data]
 
         if not sn.node.is_ephemereal():
-            self.displayed_rows[sn.spid.guid] = sn
+            self.displayed_row_dict[sn.spid.guid] = sn
 
         return self.model.append(parent_node_iter, row_values)
 
@@ -323,13 +321,11 @@ class DisplayStore:
             guid = sn.spid.guid
             uid = sn.node.uid
 
-            if uid in self.checked_rows:
-                del self.checked_rows[uid]
-            if uid in self.inconsistent_rows:
-                del self.inconsistent_rows[uid]
+            self.checked_node_set.discard(uid)
+            self.inconsistent_node_set.discard(uid)
 
-            if guid in self.displayed_rows:
-                del self.displayed_rows[guid]
+            if guid in self.displayed_row_dict:
+                del self.displayed_row_dict[guid]
 
         self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
 
@@ -363,7 +359,7 @@ class DisplayStore:
             logger.debug(f'[{self.tree_id}] Removing 1st child: {child_sn.spid}')
 
         if not child_sn.node.is_ephemereal():
-            self.displayed_rows.pop(child_sn.spid.guid)
+            self.displayed_row_dict.pop(child_sn.spid.guid)
 
         # remove the first child
         self.model.remove(first_child_iter)

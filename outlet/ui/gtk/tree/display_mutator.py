@@ -12,12 +12,11 @@ from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, STATS_REFRESH_
 from error import ResultsExceededError
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest
-from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.container_node import CategoryNode
 from model.node.directory_stats import DirectoryStats
 from model.node.ephemeral_node import EmptyNode, LoadingNode
-from model.node.node import SPIDNodePair, Node, SPIDNodePair
+from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
@@ -153,7 +152,7 @@ class DisplayMutator(HasLifecycle):
                 is_expand = True
             elif guid in expanded_row_guid_set:
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Found GUID "{guid}" in expanded_rows"')
+                    logger.debug(f'[{self.con.tree_id}] Found GUID "{guid}" in expanded_row_set"')
                 is_expand = True
 
             if is_expand:
@@ -266,7 +265,7 @@ class DisplayMutator(HasLifecycle):
         rows: RowsOfInterest = self.con.backend.get_rows_of_interest(self.con.tree_id)
 
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
-                     f' expanded_rows={rows.expanded} selected_rows={rows.selected}')
+                     f' expanded_row_set={rows.expanded} selected_row_set={rows.selected}')
 
         too_many_results: bool = False
         count_results: int = 0
@@ -365,9 +364,9 @@ class DisplayMutator(HasLifecycle):
             assert self.con.treeview_meta.has_checkboxes
             child_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_list_for_root()
             for child_sn in child_list:
-                if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
+                if child_sn.node.uid in self.con.display_store.checked_node_set:
                     whitelist.append(child_sn)
-                elif self.con.display_store.inconsistent_rows.get(child_sn.node.uid, None):
+                elif child_sn.node.uid in self.con.display_store.inconsistent_node_set:
                     secondary_screening.append(child_sn)
 
             while len(secondary_screening) > 0:
@@ -379,9 +378,9 @@ class DisplayMutator(HasLifecycle):
                     checked_items.append(parent)
 
                 for child_sn in self.con.get_tree().get_child_list_for_spid(parent.spid):
-                    if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
+                    if child_sn.node.uid in self.con.display_store.checked_node_set:
                         whitelist.append(child_sn)
-                    elif self.con.display_store.inconsistent_rows.get(child_sn.node.uid, None):
+                    elif child_sn.node.uid in self.con.display_store.inconsistent_node_set:
                         secondary_screening.append(child_sn)
 
             while len(whitelist) > 0:
@@ -437,7 +436,7 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'Collapsing tree: adding loading node')
                     self._append_loading_child(parent_iter)
 
-                logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
+                logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_row_dict)}')
                 dispatcher.send(signal=Signal.NODE_EXPANSION_DONE, sender=self.con.tree_id)
         GLib.idle_add(expand_or_contract)
 
@@ -499,12 +498,12 @@ class DisplayMutator(HasLifecycle):
                                 self._append_loading_child(parent_iter)
                     else:
                         # Not even parent is displayed. Probably an ancestor isn't expanded. Just skip
-                        assert parent_guid not in self.con.display_store.displayed_rows, \
-                            f'DisplayedRows ({self.con.display_store.displayed_rows}) contains GUID ({parent_guid})!'
+                        assert parent_guid not in self.con.display_store.displayed_row_dict, \
+                            f'DisplayedRows ({self.con.display_store.displayed_row_dict}) contains GUID ({parent_guid})!'
                         logger.debug(f'[{self.con.tree_id}] Will not upsert node: Could not find parent GUID in display tree: {parent_guid}')
 
                         # sanity check
-                        if guid in self.con.display_store.displayed_rows:
+                        if guid in self.con.display_store.displayed_row_dict:
                             logger.warning(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {sn.spid} '
                                            f'but its parent is no longer in the tree; removing node from display store: {guid}')
                             self.con.display_store.remove_node(guid)
@@ -529,7 +528,7 @@ class DisplayMutator(HasLifecycle):
         def update_ui():
             try:
                 with self._lock:
-                    displayed_item = self.con.display_store.displayed_rows.get(guid, None)
+                    displayed_item = self.con.display_store.displayed_row_dict.get(guid, None)
 
                     if displayed_item:
                         if logger.isEnabledFor(logging.DEBUG):
@@ -761,12 +760,12 @@ class DisplayMutator(HasLifecycle):
                     row_values.append(False)  # Inconsistent
                     return
                 # Otherwise: inconsistent. Look up individual values below:
-            row_id = sn.node.uid
-            # TODO: will this automatically set checked state for duplicated nodes?
-            checked = self.con.display_store.checked_rows.get(row_id, None)
-            inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
-            row_values.append(checked)  # Checked
-            row_values.append(inconsistent)  # Inconsistent
+            node_uid = sn.node.uid
+            # This will automatically set checked state for nodes which are duplicated in the GUI
+            is_checked: bool = node_uid in self.con.display_store.checked_node_set.get(node_uid, None)
+            is_inconsistent: bool = node_uid in self.con.display_store.inconsistent_node_set
+            row_values.append(is_checked)  # Checked
+            row_values.append(is_inconsistent)  # Inconsistent
 
 
 def _format_size_bytes(node):

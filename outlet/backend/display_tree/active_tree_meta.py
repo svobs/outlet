@@ -32,8 +32,8 @@ class ActiveDisplayTreeMeta:
         """For order > 1 only"""
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
-        self.expanded_rows: Set[GUID] = set()
-        self.selected_rows: Set[GUID] = set()
+        self.expanded_row_set: Set[GUID] = set()
+        self.selected_row_set: Set[GUID] = set()
 
         self.summary_msg: Optional[str] = None
         self.dir_stats_unfiltered_by_uid: Dict[UID, DirectoryStats] = {}
