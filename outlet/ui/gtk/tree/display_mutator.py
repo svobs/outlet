@@ -762,7 +762,7 @@ class DisplayMutator(HasLifecycle):
                 # Otherwise: inconsistent. Look up individual values below:
             node_uid = sn.node.uid
             # This will automatically set checked state for nodes which are duplicated in the GUI
-            is_checked: bool = node_uid in self.con.display_store.checked_node_set.get(node_uid, None)
+            is_checked: bool = node_uid in self.con.display_store.checked_node_set
             is_inconsistent: bool = node_uid in self.con.display_store.inconsistent_node_set
             row_values.append(is_checked)  # Checked
             row_values.append(is_inconsistent)  # Inconsistent

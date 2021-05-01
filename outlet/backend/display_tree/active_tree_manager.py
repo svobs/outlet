@@ -540,7 +540,7 @@ class ActiveTreeManager(HasLifecycle):
 
     @staticmethod
     def _make_expanded_rows_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.expanded_row_set'
+        return f'ui_state.{tree_id}.expanded_rows'
 
     def _load_selected_rows_from_config(self, tree_id: TreeID) -> Set[GUID]:
         """Loads the Set of selected rows from app_config file"""
@@ -561,7 +561,7 @@ class ActiveTreeManager(HasLifecycle):
 
     @staticmethod
     def _make_selected_rows_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.selected_row_set'
+        return f'ui_state.{tree_id}.selected_rows'
 
     def _purge_dead_rows(self, expanded_cached: Set[GUID], selected_cached: Set[GUID], display_tree_meta: ActiveDisplayTreeMeta) -> RowsOfInterest:
         verified = RowsOfInterest()

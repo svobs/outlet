@@ -249,21 +249,21 @@ class FilterState:
         logger.debug(f'[{tree_id}] Reading FilterCriteria from app_config')
         filter_criteria = FilterCriteria()
 
-        search_query = backend.get_config(FilterState._make_search_query_config_key(tree_id), '')
+        search_query = backend.get_config(FilterState._make_search_query_config_key(tree_id), default_val='', required=False)
         filter_criteria.search_query = search_query
 
-        ignore_case = ensure_bool(backend.get_config(FilterState._make_ignore_case_config_key(tree_id), False))
+        ignore_case = ensure_bool(backend.get_config(FilterState._make_ignore_case_config_key(tree_id), default_val=False, required=False))
         filter_criteria.ignore_case = ignore_case
 
-        is_trashed = backend.get_config(FilterState._make_is_trashed_config_key(tree_id), Ternary.NOT_SPECIFIED)
+        is_trashed = backend.get_config(FilterState._make_is_trashed_config_key(tree_id), default_val=Ternary.NOT_SPECIFIED, required=False)
         is_trashed = Ternary(is_trashed)
         filter_criteria.is_trashed = is_trashed
 
-        is_shared = backend.get_config(FilterState._make_is_shared_config_key(tree_id), Ternary.NOT_SPECIFIED)
+        is_shared = backend.get_config(FilterState._make_is_shared_config_key(tree_id), default_val=Ternary.NOT_SPECIFIED, required=False)
         is_shared = Ternary(is_shared)
         filter_criteria.is_shared = is_shared
 
-        show_ancestors_of_matches = ensure_bool(backend.get_config(FilterState._make_show_subtree_config_key(tree_id)))
+        show_ancestors_of_matches = ensure_bool(backend.get_config(FilterState._make_show_subtree_config_key(tree_id), default_val=False, required=False))
         filter_criteria.show_ancestors_of_matches = show_ancestors_of_matches
 
         if filter_criteria.has_criteria():
