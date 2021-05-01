@@ -348,7 +348,9 @@ class DisplayMutator(HasLifecycle):
         (including collapsed rows). This will be a subset of the DisplayTree which was used to
         populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd.
 
-        This method assumes that we are a ChangeTree and thus returns instances of SPIDNodePair. However, it groups nodes by node UID."""
+        This method assumes that we are a ChangeTree and thus returns instances of SPIDNodePair. However, it groups nodes by node UID.
+        If some of these nodes correspond to multiple SPIDNodePairs, then the resulting list may be larger than the number of visible checked items,
+        but it should correct from a SPIDNodePair perspective."""
         # subtree root will be the same as the current subtree's
         checked_items: List[SPIDNodePair] = []
 

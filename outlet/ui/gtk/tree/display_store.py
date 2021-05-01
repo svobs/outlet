@@ -102,7 +102,7 @@ class DisplayStore:
         self._update_checked_state_tracking(sn, is_checked, is_inconsistent)
 
     def _update_checked_state_tracking(self, sn: SPIDNodePair, is_checked: bool, is_inconsistent: bool):
-        row_id = sn.node.uid
+        row_id = sn.spid.node_uid
         if is_checked:
             self.checked_node_set.add(row_id)
         else:
@@ -127,29 +127,31 @@ class DisplayStore:
     def set_row_checked(self, tree_path: Gtk.TreePath, checked_value: bool):
         logger.debug(f'[{self.tree_id}] Toggling {checked_value}: {self.get_node_name(tree_path)}')
 
+        # 1. Siblings
         # Need to update all the siblings (children of parent) because their checked state may not be tracked.
         # We can assume that if a parent is not inconsistent (i.e. is either checked or unchecked), the state of its children are implied.
         # But if the parent is inconsistent, we must track the state of ALL of its children.
         tree_iter = self.model.get_iter(tree_path)
         parent_iter = self.model.iter_parent(tree_iter)
         if parent_iter:
-            child_iter = self.model.iter_children(parent_iter)
-            while child_iter:
-                child_data = self.get_node_data(child_iter)
-                child_checked = self.model[child_iter][self.treeview_meta.col_num_checked]
-                child_inconsistent = self.model[child_iter][self.treeview_meta.col_num_inconsistent]
+            sibling_iter = self.model.iter_children(parent_iter)
+            while sibling_iter:
+                sibling_data = self.get_node_data(sibling_iter)
+                sibling_checked = self.model[sibling_iter][self.treeview_meta.col_num_checked]
+                sibling_inconsistent = self.model[sibling_iter][self.treeview_meta.col_num_inconsistent]
 
-                self._update_checked_state_tracking(child_data, child_checked, child_inconsistent)
+                self._update_checked_state_tracking(sibling_data, sibling_checked, sibling_inconsistent)
 
-                child_iter = self.model.iter_next(child_iter)
+                sibling_iter = self.model.iter_next(sibling_iter)
 
+        # 2. Children
         # Update all of the node's children to match its check state:
         def update_checked_state(t_iter):
             self._set_checked_state(t_iter, checked_value, False)
 
         self.do_for_self_and_descendants(tree_path, update_checked_state)
 
-        # Now update its ancestors' states:
+        # 3. Ancestors
         while True:
             # Go up the tree, one level per loop,
             # with each node updating itself based on its immediate children
