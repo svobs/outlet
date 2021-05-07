@@ -808,7 +808,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
 
         # We assume that whenever get_child_list() is called, this represents a row expansion
-        self._active_tree_manager.add_expanded_row(parent_spid, tree_id)
+        self._active_tree_manager.add_expanded_row(parent_spid.guid, tree_id)
 
         if tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Change trees have their own storage of nodes (not in master caches)

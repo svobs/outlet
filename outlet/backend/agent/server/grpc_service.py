@@ -336,6 +336,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
+        logger.warning(f'[{sender}] Relaying signal across gRPC: "{Signal.ERROR_OCCURRED.name}", msg="{msg}", secondary_msg="{secondary_msg}"')
         signal = SignalMsg(sig_int=Signal.ERROR_OCCURRED, sender=sender)
         signal.error_occurred.msg = msg
         if secondary_msg:

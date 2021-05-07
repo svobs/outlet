@@ -491,17 +491,18 @@ class ActiveTreeManager(HasLifecycle):
         # TODO: use a timer for this
         self._save_selected_rows_to_config(display_tree_meta)
 
-    def add_expanded_row(self, row_spid: SinglePathNodeIdentifier, tree_id: TreeID):
+    def add_expanded_row(self, guid: GUID, tree_id: TreeID):
         """AKA expanding a row on the frontend"""
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
-        if display_tree_meta.root_sn.spid.node_uid == row_spid.node_uid:
-            # ignore root
+        if display_tree_meta.root_sn.spid.guid == guid:
+            logger.debug(f'[{tree_id}] add_expanded_row(): ignoring root: {guid}')
             return
 
-        display_tree_meta.expanded_row_set.add(row_spid.guid)
+        logger.debug(f'[{tree_id}] Adding row to expanded_row_set: {guid}')
+        display_tree_meta.expanded_row_set.add(guid)
         # TODO: use a timer for this. Also write selection to file
         self._save_expanded_rows_to_config(display_tree_meta)
 
@@ -512,10 +513,15 @@ class ActiveTreeManager(HasLifecycle):
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
+        if display_tree_meta.root_sn.spid.guid == row_guid:
+            logger.debug(f'[{tree_id}] remove_expanded_row(): ignoring root: {row_guid}')
+            return
+
         try:
+            logger.debug(f'[{tree_id}] Removing row from expanded_row_set: {row_guid}')
             display_tree_meta.expanded_row_set.remove(row_guid)
         except KeyError as err:
-            self.backend.report_error(sender=tree_id, msg='Failed to remove expanded row {row_uid}', secondary_msg=f'{repr(err)}')
+            self.backend.report_error(sender=tree_id, msg=f'Failed to remove expanded row {row_guid}', secondary_msg=f'{repr(err)}')
             return
 
         # TODO: use a timer for this. Also write selection to file
@@ -527,7 +533,7 @@ class ActiveTreeManager(HasLifecycle):
         try:
             expanded_row_set: Set[str] = set()
             expanded_rows_str: str = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id), default_val='',
-                                                                       required=False)
+                                                             required=False)
             if expanded_rows_str:
                 for guid in expanded_rows_str.split(CONFIG_DELIMITER):
                     expanded_row_set.add(guid)
@@ -549,7 +555,7 @@ class ActiveTreeManager(HasLifecycle):
         try:
             selected_row_set: Set[GUID] = set()
             selected_rows_unparsed: str = self.backend.get_config(ActiveTreeManager._make_selected_rows_config_key(tree_id), default_val='',
-                                                                            required=False)
+                                                                  required=False)
             if selected_rows_unparsed:
                 for guid in selected_rows_unparsed.split(CONFIG_DELIMITER):
                     selected_row_set.add(guid)
