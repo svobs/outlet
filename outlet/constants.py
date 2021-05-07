@@ -8,6 +8,8 @@ COUNT_MULTIPLE_GDRIVE_PARENTS = False
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')
 
+GRPC_CHANGE_TREE_NO_OP = 9
+
 MAX_FS_LINK_DEPTH = 10
 
 CACHE_LOAD_TIMEOUT_SEC = 3000

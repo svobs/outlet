@@ -35,6 +35,7 @@ message NodeIdentifier {
   uint32 device_uid = 2;
   repeated string path_list = 3;
   uint32 path_uid = 4;  // If nonzero, is single path
+  uint32 op_type = 5;   // If nonzero, is ChangeTreeSPID. 1 to 5 = UserOpType. 9 = no UserOpType.
 }
 
 message Node {

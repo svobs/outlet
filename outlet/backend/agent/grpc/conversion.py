@@ -2,7 +2,7 @@ import logging
 from typing import Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
-from constants import IconId, TreeType
+from constants import GRPC_CHANGE_TREE_NO_OP, IconId, TreeType
 from model.device import Device
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
@@ -12,7 +12,7 @@ from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from outlet.backend.agent.grpc.generated import Outlet_pb2
 
@@ -240,6 +240,11 @@ class GRPCConverter:
             return
         grpc_node_identifier.uid = node_identifier.node_uid
         grpc_node_identifier.device_uid = node_identifier.device_uid
+        if isinstance(node_identifier, ChangeTreeSPID):
+            if not node_identifier.op_type:
+                grpc_node_identifier.op_type = GRPC_CHANGE_TREE_NO_OP
+            else:
+                grpc_node_identifier.op_type = node_identifier.op_type
         for full_path in node_identifier.get_path_list():
             grpc_node_identifier.path_list.append(full_path)
         if node_identifier.is_spid():
@@ -250,6 +255,7 @@ class GRPCConverter:
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         return self.backend.node_identifier_factory.for_values(uid=grpc_node_identifier.uid, device_uid=grpc_node_identifier.device_uid,
                                                                path_list=list(grpc_node_identifier.path_list), path_uid=grpc_node_identifier.path_uid,
+                                                               op_type=grpc_node_identifier.op_type,
                                                                must_be_single_path=grpc_node_identifier.path_uid > 0)
 
     # SPIDNodePair

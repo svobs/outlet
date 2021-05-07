@@ -1,9 +1,12 @@
 import logging
 from typing import List, Optional, Tuple, Union
 
-from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, ROOT_PATH_UID, SUPER_ROOT_UID, TreeType
-from model.node_identifier import GDriveIdentifier, GDriveSPID, GUID, LocalNodeIdentifier, MixedTreeSPID, NodeIdentifier, SinglePathNodeIdentifier
+from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, GRPC_CHANGE_TREE_NO_OP, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, ROOT_PATH_UID, SUPER_ROOT_UID, \
+    TreeType
+from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GDriveSPID, GUID, LocalNodeIdentifier, MixedTreeSPID, NodeIdentifier, \
+    SinglePathNodeIdentifier
 from model.uid import UID
+from model.user_op import UserOpType
 from util.ensure import ensure_list, ensure_uid
 
 logger = logging.getLogger(__name__)
@@ -88,12 +91,21 @@ class NodeIdentifierFactory:
                    path_list: Optional[Union[str, List[str]]] = None,
                    uid: Optional[UID] = None,
                    path_uid: Optional[UID] = None,
+                   op_type: Optional[int] = None,
                    must_be_single_path: bool = False) -> NodeIdentifier:
         """Big factory method for creating a new identifier (for example when you intend to create a new node.
         May be called either from FE or BE. For FE, it may be quite slow due to network overhead."""
         uid = ensure_uid(uid)
         device_uid = ensure_uid(device_uid)
         full_path_list = ensure_list(path_list)
+
+        if op_type:
+            # ChangeTreeSPID (we must be coming from gRPC)
+            if op_type == GRPC_CHANGE_TREE_NO_OP:
+                op_type = None
+            else:
+                op_type = UserOpType(op_type)
+            return ChangeTreeSPID(path_uid=path_uid, device_uid=device_uid, full_path=path_list, op_type=op_type)
 
         if not tree_type:
             if device_uid:
