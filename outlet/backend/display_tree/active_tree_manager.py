@@ -465,6 +465,9 @@ class ActiveTreeManager(HasLifecycle):
         rows_of_interest.expanded = meta.expanded_row_set
         rows_of_interest.selected = meta.selected_row_set
         logger.debug(f'[{tree_id}] get_rows_of_interest(): returning {len(meta.expanded_row_set)} expanded & {len(meta.selected_row_set)} selected')
+        if SUPER_DEBUG:
+            logger.debug(f'[{tree_id}] get_rows_of_interest(): Returning: expanded={meta.expanded_row_set}, selected={meta.selected_row_set}')
+
         return rows_of_interest
 
     def load_rows_of_interest(self, tree_id: TreeID):
