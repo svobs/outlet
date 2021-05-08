@@ -127,7 +127,14 @@ class DisplayStore:
     def set_row_checked(self, tree_path: Gtk.TreePath, checked_value: bool):
         logger.debug(f'[{self.tree_id}] Toggling {checked_value}: {self.get_node_name(tree_path)}')
 
-        # 1. Siblings
+        # 1. Self and Children
+        # Update all of the node's children to match its check state:
+        def update_checked_state(t_iter):
+            self._set_checked_state(t_iter, checked_value, False)
+
+        self.do_for_self_and_descendants(tree_path, update_checked_state)
+
+        # 2. Siblings
         # Need to update all the siblings (children of parent) because their checked state may not be tracked.
         # We can assume that if a parent is not inconsistent (i.e. is either checked or unchecked), the state of its children are implied.
         # But if the parent is inconsistent, we must track the state of ALL of its children.
@@ -143,13 +150,6 @@ class DisplayStore:
                 self._update_checked_state_tracking(sibling_data, sibling_checked, sibling_inconsistent)
 
                 sibling_iter = self.model.iter_next(sibling_iter)
-
-        # 2. Children
-        # Update all of the node's children to match its check state:
-        def update_checked_state(t_iter):
-            self._set_checked_state(t_iter, checked_value, False)
-
-        self.do_for_self_and_descendants(tree_path, update_checked_state)
 
         # 3. Ancestors
         while True:
