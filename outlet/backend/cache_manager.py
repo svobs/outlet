@@ -23,7 +23,7 @@ from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidChangeTreeMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
-    SUPER_DEBUG, TreeDisplayMode, TreeID, TreeType, UID_PATH_FILE_NAME
+    SUPER_DEBUG, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType, UID_PATH_FILE_NAME
 from error import CacheNotLoadedError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
@@ -278,21 +278,39 @@ class CacheManager(HasLifecycle):
 
     def _init_store_dict(self):
         logger.debug('Init store dict')
+        has_super_root = False
         for device in self._read_device_list():
-            if device.tree_type == TreeType.LOCAL_DISK:
+            if device.tree_type == TreeType.MIXED:
+                if device.uid != SUPER_ROOT_DEVICE_UID:
+                    raise RuntimeError(f'Invalid device_uid: {device.uid} (expected {SUPER_ROOT_DEVICE_UID}) for super-root device {device}')
+                has_super_root = True
+            elif device.tree_type == TreeType.LOCAL_DISK:
                 store = LocalDiskMasterStore(self.backend, self._uid_path_mapper, device)
 
                 if device.long_device_id == self._device_uuid:
                     self._this_disk_local_store = store
+
+                self._store_dict[device.uid] = store
             elif device.tree_type == TreeType.GDRIVE:
                 store = GDriveMasterStore(self.backend, device)
                 # TODO: add true support for multiple GDrives
                 self._master_gdrive = store
+
+                self._store_dict[device.uid] = store
             else:
                 raise RuntimeError(f'Invalid tree type: {device.tree_type} for device {device}')
-            self._store_dict[device.uid] = store
 
-        if not self._this_disk_local_store:
+        if has_super_root:
+            logger.debug(f'Writing super-root device to registry')
+        else:
+            logger.debug(f'Found super-root in registry')
+            # Need to create new device for this disk (first run)
+            device = Device(SUPER_ROOT_DEVICE_UID, "ROOT", TreeType.MIXED, "Super Root")
+            self._write_new_device(device)
+
+        if self._this_disk_local_store:
+            logger.debug(f'Found this_local_disk in registry')
+        else:
             # Need to create new device for this disk (first run)
             device = Device(NULL_UID, self._device_uuid, TreeType.LOCAL_DISK, "My Local Disk")
             self._write_new_device(device)
@@ -301,7 +319,9 @@ class CacheManager(HasLifecycle):
             self._this_disk_local_store = store
 
         # TODO: add true support for multiple GDrives
-        if not self._master_gdrive:
+        if self._master_gdrive:
+            logger.debug(f'Found master_gdrive in registry')
+        else:
             device = Device(NULL_UID, 'GDriveTODO', TreeType.GDRIVE, "GDrive!")
             self._write_new_device(device)
             store = GDriveMasterStore(self.backend, device)
@@ -632,8 +652,11 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
-        if not cache_info and create_if_not_found:
-            cache_info = self._create_new_cache_info(subtree_root)
+        if not cache_info:
+            if create_if_not_found:
+                cache_info = self._create_new_cache_info(subtree_root)
+            else:
+                logger.warning(f'Could not find cache_info in memory for: {subtree_root}')
 
         return cache_info
 

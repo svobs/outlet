@@ -1,7 +1,8 @@
 import logging
 from typing import List, Optional, Tuple, Union
 
-from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, GRPC_CHANGE_TREE_NO_OP, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, ROOT_PATH_UID, SUPER_ROOT_UID, \
+from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, GRPC_CHANGE_TREE_NO_OP, LOCAL_ROOT_UID, NULL_UID, ROOT_PATH, ROOT_PATH_UID, \
+    SUPER_ROOT_DEVICE_UID, SUPER_ROOT_UID, \
     TreeType
 from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GDriveSPID, GUID, LocalNodeIdentifier, MixedTreeSPID, NodeIdentifier, \
     SinglePathNodeIdentifier
@@ -38,8 +39,8 @@ class NodeIdentifierFactory:
             return NodeIdentifierFactory.get_root_constant_local_disk_spid(device_uid)
 
         if tree_type == TreeType.MIXED:
-            assert device_uid == NULL_UID, f'Expected NULL_UID for device_uid but found: {device_uid}'
-            return MixedTreeSPID(uid=SUPER_ROOT_UID, device_uid=device_uid, path_uid=ROOT_PATH_UID, full_path=ROOT_PATH)
+            assert device_uid == SUPER_ROOT_DEVICE_UID, f'Expected {SUPER_ROOT_DEVICE_UID} for MixedTreeSPID device_uid but found: {device_uid}'
+            return MixedTreeSPID(node_uid=SUPER_ROOT_UID, device_uid=device_uid, path_uid=ROOT_PATH_UID, full_path=ROOT_PATH)
 
         raise RuntimeError(f'get_root_constant_spid(): invalid tree type: {tree_type}')
 
@@ -69,12 +70,18 @@ class NodeIdentifierFactory:
         if tree_type == TreeType.LOCAL_DISK:
             full_path = self.backend.cacheman.get_path_for_uid(node_uid)
             return LocalNodeIdentifier(node_uid, device_uid=device_uid, full_path=full_path)
-        elif tree_type == TreeType.GDRIVE or tree_type == TreeType.MIXED:
+        elif tree_type == TreeType.GDRIVE:
             if len(uid_list) != 3:
                 raise RuntimeError(f'Tree type ({tree_type.name}) does not contain path_uid!')
             path_uid = UID(uid_list[2])
             full_path = self.backend.cacheman.get_path_for_uid(path_uid)
             return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path)
+        elif tree_type == TreeType.MIXED:
+            if len(uid_list) != 3:
+                raise RuntimeError(f'Tree type ({tree_type.name}) does not contain path_uid!')
+            path_uid = UID(uid_list[2])
+            full_path = self.backend.cacheman.get_path_for_uid(path_uid)
+            return MixedTreeSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path)
         else:
             raise RuntimeError(f'Invalid tree_type: {tree_type.name}')
 
@@ -122,19 +129,25 @@ class NodeIdentifierFactory:
             return self._for_tree_type_gdrive(device_uid, full_path_list, uid, path_uid, must_be_single_path)
 
         elif tree_type == TreeType.MIXED:
-            logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, path={full_path_list}')
+            logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, device_uid={device_uid}, path={full_path_list}')
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Too many paths for tree_type MIXED: {full_path_list}')
             if not path_uid:
                 path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
-            return MixedTreeSPID(uid=uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
+            if device_uid != SUPER_ROOT_DEVICE_UID:
+                raise RuntimeError(f'Invalid device_uid for TreeType MIXED: expected {SUPER_ROOT_DEVICE_UID} but found: {device_uid}')
+            return MixedTreeSPID(node_uid=uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
         else:
             raise RuntimeError('bad')
 
     def _get_tree_type_for_device_uid(self, device_uid: UID) -> TreeType:
+        if device_uid == SUPER_ROOT_DEVICE_UID:
+            return TreeType.MIXED
+
         for device in self.backend.get_device_list():
             if device.uid == device_uid:
                 return device.tree_type
+
         raise RuntimeError(f'Could not find device with UID: {device_uid}')
 
     @staticmethod

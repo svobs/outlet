@@ -343,59 +343,66 @@ class DisplayMutator(HasLifecycle):
 
         self._request_subtree_stats_refresh()
 
-    def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
+    def generate_checked_row_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the nodes of the items which are currently checked by the user
         (including collapsed rows). This will be a subset of the DisplayTree which was used to
-        populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd.
+        populate this tree. Includes file nodes only, with the exception of MKDIR nodes.
 
         This method assumes that we are a ChangeTree and thus returns instances of SPIDNodePair. However, it groups nodes by node UID.
         If some of these nodes correspond to multiple SPIDNodePairs, then the resulting list may be larger than the number of visible checked items,
-        but it should correct from a SPIDNodePair perspective."""
-        # subtree root will be the same as the current subtree's
-        checked_items: List[SPIDNodePair] = []
+        but it should correct from a SPIDNodePair perspective.
 
-        # Algorithm:
-        # Iterate over display nodes. Start with top-level nodes.
-        # - Add each checked row to DFS queue (whitelist). It and all of its descendants will be added
-        # - Ignore each unchecked row
-        # - Each inconsistent row needs to be drilled down into.
+        Algorithm:
+            Iterate over display nodes. Start with top-level nodes.
+          - Add each checked row to DFS queue (whitelist). It and all of its descendants will be added
+          - Ignore each unchecked row
+          - Each inconsistent row needs to be drilled down into.
+        """
+        checked_row_list: List[SPIDNodePair] = []
+
         whitelist: Deque[SPIDNodePair] = collections.deque()
         secondary_screening: Deque[SPIDNodePair] = collections.deque()
 
         with self._lock:
             assert self.con.treeview_meta.has_checkboxes
-            child_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_list_for_root()
-            for child_sn in child_list:
-                if child_sn.node.uid in self.con.display_store.checked_node_set:
-                    whitelist.append(child_sn)
-                elif child_sn.node.uid in self.con.display_store.inconsistent_node_set:
-                    secondary_screening.append(child_sn)
+
+            # We will iterate through the master cache, which is necessary since we may have implicitly checked nodes which are not visible in the UI.
+            top_level_sn_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_list_for_root()
+            for top_level_sn in top_level_sn_list:
+                if top_level_sn.node.uid in self.con.display_store.checked_node_set:
+                    whitelist.append(top_level_sn)
+                elif top_level_sn.node.uid in self.con.display_store.inconsistent_node_set:
+                    secondary_screening.append(top_level_sn)
 
             while len(secondary_screening) > 0:
-                parent: SPIDNodePair = secondary_screening.popleft()
-                assert parent.node.is_dir(), f'Expected a dir-type node: {parent}'
+                inconsistent_dir_sn: SPIDNodePair = secondary_screening.popleft()
+                # only dir nodes can be inconsistent
+                assert inconsistent_dir_sn.node.is_dir(), f'Expected a dir-type node: {inconsistent_dir_sn}'
 
-                if not parent.node.is_display_only() and not parent.node.is_live():
-                    # Even an inconsistent FolderToAdd must be included as a checked item:
-                    checked_items.append(parent)
+                if not (inconsistent_dir_sn.node.is_display_only() or inconsistent_dir_sn.node.is_live()):
+                    # Even an inconsistent MKDIR node must be included as a checked item:
+                    checked_row_list.append(inconsistent_dir_sn)
 
-                for child_sn in self.con.get_tree().get_child_list_for_spid(parent.spid):
+                # Check each child of an inconsistent dir for checked or inconsistent status.
+                for child_sn in self.con.get_tree().get_child_list_for_spid(inconsistent_dir_sn.spid):
                     if child_sn.node.uid in self.con.display_store.checked_node_set:
                         whitelist.append(child_sn)
                     elif child_sn.node.uid in self.con.display_store.inconsistent_node_set:
                         secondary_screening.append(child_sn)
 
+            # Whitelist contains nothing but trees full of checked items
             while len(whitelist) > 0:
                 chosen_sn: SPIDNodePair = whitelist.popleft()
                 # all files and all non-existent dirs must be added
-                if not parent.node.is_display_only() and not chosen_sn.node.is_dir() or not chosen_sn.node.is_live():
-                    checked_items.append(chosen_sn)
+                if not (chosen_sn.node.is_display_only() or chosen_sn.node.is_live()):
+                    checked_row_list.append(chosen_sn)
 
-                # drill down into all descendants of nodes in the whitelist
-                for child_sn in self.con.get_tree().get_child_list_for_spid(chosen_sn.spid):
-                    whitelist.append(child_sn)
+                # Drill down into all descendants of nodes in the whitelist.
+                if chosen_sn.node.is_dir:
+                    for child_sn in self.con.get_tree().get_child_list_for_spid(chosen_sn.spid):
+                        whitelist.append(child_sn)
 
-            return checked_items
+            return checked_row_list
 
     # LISTENERS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

@@ -158,9 +158,9 @@ class TreePanelController(HasLifecycle):
 
         GLib.idle_add(_reload)
 
-    def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
+    def generate_checked_row_list(self) -> List[SPIDNodePair]:
         timer = Stopwatch()
-        checked_sn_list: List[SPIDNodePair] = self.display_mutator.get_checked_rows_as_list()
+        checked_sn_list: List[SPIDNodePair] = self.display_mutator.generate_checked_row_list()
         if SUPER_DEBUG:
             more = ': ' + ', '.join([str(sn.spid.node_uid) for sn in checked_sn_list])
         else:

@@ -264,8 +264,8 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         """
         logger.debug('Merge btn clicked')
 
-        selected_changes_left: List[SPIDNodePair] = self.tree_con_left.get_checked_rows_as_list()
-        selected_changes_right: List[SPIDNodePair] = self.tree_con_right.get_checked_rows_as_list()
+        selected_changes_left: List[SPIDNodePair] = self.tree_con_left.generate_checked_row_list()
+        selected_changes_right: List[SPIDNodePair] = self.tree_con_right.generate_checked_row_list()
 
         GlobalActions.disable_ui(sender=self.win_id)
 
