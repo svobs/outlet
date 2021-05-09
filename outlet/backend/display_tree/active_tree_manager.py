@@ -317,7 +317,11 @@ class ActiveTreeManager(HasLifecycle):
                 root_path_persister = display_tree_meta.root_path_config_persister
 
         # Try to retrieve the root node from the cache:
-        node: Node = self.backend.cacheman.read_single_node(spid)
+        try:
+            node: Optional[Node] = self.backend.cacheman.read_single_node(spid)
+        except RuntimeError:
+            logger.error(f'Could not retrieve root node while loading tree (will try to recover): {spid}')
+            node = None
 
         if spid.tree_type == TreeType.LOCAL_DISK:
             if node:
