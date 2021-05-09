@@ -39,14 +39,10 @@ message NodeIdentifier {
 }
 
 message Node {
-  uint32 uid = 1;
-  uint32 device_uid = 2;
-  repeated string path_list = 3;
-  uint32 trashed = 4;
-  bool is_shared = 5;
-  uint32 icon_id = 6;
-  uint32 decorator_nid = 7;
-  uint32 decorator_parent_nid = 8;
+  NodeIdentifier node_identifier = 1;
+  uint32 trashed = 2;
+  bool is_shared = 3;
+  uint32 icon_id = 4;
 
   oneof node_type {
     ContainerNodeMeta container_meta = 10;

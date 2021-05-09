@@ -374,7 +374,7 @@ class TreeUiListeners(HasLifecycle):
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
 
-            op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(sn.spid.node_uid)
+            op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(sn.node.uid)
             if op and op.has_dst():
                 logger.warning('TODO: test this!')
 

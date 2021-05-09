@@ -161,7 +161,7 @@ class OneSide:
             # AddedFolder already generated and added?
             existing_ancestor: Optional[SPIDNodePair] = self._added_folders.get(parent_path, None)
             if existing_ancestor:
-                child.set_parent_uids(existing_ancestor.spid.node_uid)
+                child.set_parent_uids(existing_ancestor.node.uid)
                 break
 
             # Folder already existed in original tree?
@@ -192,7 +192,7 @@ class OneSide:
             self._added_folders[parent_path] = new_ancestor_sn
             ancestor_stack.append(new_ancestor_sn)
 
-            child.set_parent_uids(new_ancestor_sn.spid.node_uid)
+            child.set_parent_uids(new_ancestor_sn.node.uid)
 
             child_path = parent_path
             child = new_ancestor_sn.node

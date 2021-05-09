@@ -102,7 +102,7 @@ class DisplayStore:
         self._update_checked_state_tracking(sn, is_checked, is_inconsistent)
 
     def _update_checked_state_tracking(self, sn: SPIDNodePair, is_checked: bool, is_inconsistent: bool):
-        row_id = sn.spid.node_uid
+        row_id = sn.node.uid
         if is_checked:
             self.checked_node_set.add(row_id)
         else:

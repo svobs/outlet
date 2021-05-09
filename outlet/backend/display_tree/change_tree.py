@@ -243,7 +243,7 @@ class ChangeTree(DisplayTree):
             self.print_tree_contents_debug()
 
     def __repr__(self):
-        return f'ChangeTree(tree_id=[{self.tree_id}], {len(self._category_tree)})'
+        return f'ChangeTree(state=[{self.state}], {len(self._category_tree)} nodes)'
 
     def generate_dir_stats(self) -> Dict[GUID, DirectoryStats]:
         return self._category_tree.generate_dir_stats(self.tree_id)

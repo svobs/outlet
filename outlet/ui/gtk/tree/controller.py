@@ -162,7 +162,7 @@ class TreePanelController(HasLifecycle):
         timer = Stopwatch()
         checked_sn_list: List[SPIDNodePair] = self.display_mutator.generate_checked_row_list()
         if SUPER_DEBUG:
-            more = ': ' + ', '.join([str(sn.spid.node_uid) for sn in checked_sn_list])
+            more = ': ' + ', '.join([str(sn.node.uid) for sn in checked_sn_list])
         else:
             more = ''
         logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_sn_list)} checked items{more}')

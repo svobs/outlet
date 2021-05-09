@@ -7,7 +7,6 @@ from model.device import Device
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.decorator_node import DecoNode, decorate_node
 from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -37,22 +36,8 @@ class GRPCConverter:
 
     def node_to_grpc(self, node: Node, grpc_node: backend.agent.grpc.generated.Node_pb2.Node):
         assert isinstance(node, Node), f'Not a Node: {node}'
-        if node.is_decorator():
-            grpc_node.decorator_nid = int(node.uid)
-            grpc_node.decorator_parent_nid = int(node.get_parent_uids()[0])
 
-            assert isinstance(node, DecoNode), f'Not a DecoNode: {node}'
-            # Fill out the delegate node identifier down below.
-            # Remember: we still want to keep the DecoNode for its DirStats (way below)
-            node_identifier = node.delegate.node_identifier
-        else:
-            node_identifier = node.node_identifier
-
-        # node_identifier fields:
-        grpc_node.uid = int(node_identifier.node_uid)
-        grpc_node.device_uid = int(node_identifier.device_uid)
-        for full_path in node_identifier.get_path_list():
-            grpc_node.path_list.append(full_path)
+        self.node_identifier_to_grpc(node.node_identifier, grpc_node.node_identifier)
 
         # Node common fields:
         grpc_node.trashed = node.get_trashed_status()
@@ -140,8 +125,7 @@ class GRPCConverter:
         return self.node_from_grpc(grpc_node)
 
     def node_from_grpc(self, grpc_node: backend.agent.grpc.generated.Node_pb2.Node) -> Node:
-        node_identifier = self.backend.node_identifier_factory.for_values(uid=grpc_node.uid, device_uid=grpc_node.device_uid,
-                                                                          path_list=list(grpc_node.path_list), must_be_single_path=False)
+        node_identifier = self.node_identifier_from_grpc(grpc_node.node_identifier)
 
         if grpc_node.HasField("gdrive_file_meta"):
             meta = grpc_node.gdrive_file_meta
@@ -184,9 +168,6 @@ class GRPCConverter:
 
         node.set_icon(IconId(grpc_node.icon_id))
 
-        if grpc_node.decorator_nid:
-            assert grpc_node.decorator_parent_nid, f'No parent_nid for decorator node! (node so far: {node})'
-            node = decorate_node(grpc_node.decorator_nid, grpc_node.decorator_parent_nid, node)
         return node
 
     @staticmethod
@@ -238,13 +219,17 @@ class GRPCConverter:
     def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         if not node_identifier:
             return
-        grpc_node_identifier.uid = node_identifier.node_uid
         grpc_node_identifier.device_uid = node_identifier.device_uid
         if isinstance(node_identifier, ChangeTreeSPID):
+            # ChangeTreeSPIDs use path_uids instead of node_uids. We can use this field to smuggle the path_uid across gRPC
+            grpc_node_identifier.uid = node_identifier.path_uid
             if not node_identifier.op_type:
                 grpc_node_identifier.op_type = GRPC_CHANGE_TREE_NO_OP
             else:
                 grpc_node_identifier.op_type = node_identifier.op_type
+        else:
+            grpc_node_identifier.uid = node_identifier.node_uid
+
         for full_path in node_identifier.get_path_list():
             grpc_node_identifier.path_list.append(full_path)
         if node_identifier.is_spid():

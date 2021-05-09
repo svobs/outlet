@@ -595,7 +595,7 @@ class DisplayMutator(HasLifecycle):
                 return
 
             if key_is_uid:
-                key = sn.spid.node_uid
+                key = sn.node.uid
             else:
                 key = sn.spid.guid
             dir_stats_for_node = dir_stats_dict.get(key, None)

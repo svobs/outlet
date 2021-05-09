@@ -288,11 +288,18 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
 class ChangeTreeSPID(SinglePathNodeIdentifier):
     """
     NOTE: path_uid is stored as node_uid for ChangeTreeSPIDs, but node_uid is not used and should not be assumed to be the same value as
-    the underlying Node.
+    the underlying Node. ChangeTreeSPIDs do not correspond to actual node_uids
     """
     def __init__(self, path_uid: UID, device_uid: UID, full_path: str, op_type: Optional):
-        super().__init__(path_uid, device_uid, full_path)
+        # set node_uid to NULL_UID, to fail fast if we get confused
+        super().__init__(NULL_UID, device_uid, full_path)
+        self._path_uid = path_uid
         self.op_type: Optional = op_type
+
+    @property
+    def path_uid(self) -> UID:
+        # default
+        return self._path_uid
 
     @property
     def tree_type(self) -> TreeType:
