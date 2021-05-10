@@ -73,7 +73,7 @@ class OpGDriveTest(OpTestBase):
         self._delete_all_files_in_gdrive_test_folder()
 
     def _delete_all_right_tree_displayed_rows_from_cacheman(self):
-        displayed_row_list: List[Node] = list(self.right_con.display_store.displayed_row_dict.values())
+        displayed_row_list: List[Node] = list(self.right_con.display_store.displayed_guid_dict.values())
         if not displayed_row_list:
             logger.info('No displayed rows found in right tree; nothing to clean up')
             return

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 from collections import deque
-from typing import Any, Callable, Deque, Dict, Generic, List, Optional, TypeVar
+from typing import Callable, Deque, Dict, Generic, List, Optional, TypeVar
 
 from util.stopwatch_sec import Stopwatch
 from model.node.directory_stats import DirectoryStats

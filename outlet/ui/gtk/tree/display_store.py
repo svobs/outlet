@@ -36,17 +36,17 @@ class DisplayStore:
 
         # Track the checkbox states here. For increased speed and to accommodate lazy loading strategies,
         # we employ the following heuristic:
-        # - When a user checks a row, it goes in 'checked_node_set' below.
-        # - When it is placed in checked_node_set, it is implied that all its descendants are also checked.
+        # - When a user checks a row, it goes in 'checked_guid_set' below.
+        # - When it is placed in checked_guid_set, it is implied that all its descendants are also checked.
         # - Similarly, when an item is unchecked by the user, all of its descendants are implied to be unchecked.
-        # - HOWEVER, un-checking an item will not delete any descendants that may be in the 'checked_node_set' list.
-        #   Anything in the 'checked_node_set' and 'inconsistent_node_set' sets is only relevant if its parent is 'inconsistent',
+        # - HOWEVER, un-checking an item will not delete any descendants that may be in the 'checked_guid_set' list.
+        #   Anything in the 'checked_guid_set' and 'inconsistent_guid_set' sets is only relevant if its parent is 'inconsistent',
         #   thus, having a parent which is either checked or unchecked overrides any presence in either of these two lists.
         # - At the same time as an item is checked, the checked & inconsistent state of its all ancestors must be recorded.
-        # - The 'inconsistent_node_set' set is needed for display purposes.
-        self.checked_node_set: Set[UID] = set()
-        self.inconsistent_node_set: Set[UID] = set()
-        self.displayed_row_dict: Dict[GUID, SPIDNodePair] = {}
+        # - The 'inconsistent_guid_set' set is needed for display purposes.
+        self.checked_guid_set: Set[GUID] = set()
+        self.inconsistent_guid_set: Set[GUID] = set()
+        self.displayed_guid_dict: Dict[GUID, SPIDNodePair] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
@@ -82,9 +82,9 @@ class DisplayStore:
 
     def clear_model(self) -> TreeIter:
         self.model.clear()
-        self.checked_node_set.clear()
-        self.inconsistent_node_set.clear()
-        self.displayed_row_dict.clear()
+        self.checked_guid_set.clear()
+        self.inconsistent_guid_set.clear()
+        self.displayed_guid_dict.clear()
         return self.model.get_iter_first()
 
     def _set_checked_state(self, tree_iter, is_checked, is_inconsistent):
@@ -104,14 +104,14 @@ class DisplayStore:
     def _update_checked_state_tracking(self, sn: SPIDNodePair, is_checked: bool, is_inconsistent: bool):
         row_id = sn.node.uid
         if is_checked:
-            self.checked_node_set.add(row_id)
+            self.checked_guid_set.add(row_id)
         else:
-            self.checked_node_set.discard(row_id)
+            self.checked_guid_set.discard(row_id)
 
         if is_inconsistent:
-            self.inconsistent_node_set.add(row_id)
+            self.inconsistent_guid_set.add(row_id)
         else:
-            self.inconsistent_node_set.discard(row_id)
+            self.inconsistent_guid_set.discard(row_id)
 
     def on_cell_checkbox_toggled(self, widget, tree_path):
         """LISTENER/CALLBACK: Called when checkbox in treeview is toggled"""
@@ -303,7 +303,7 @@ class DisplayStore:
         sn: SPIDNodePair = row_values[self.treeview_meta.col_num_data]
 
         if not sn.node.is_ephemereal():
-            self.displayed_row_dict[sn.spid.guid] = sn
+            self.displayed_guid_dict[sn.spid.guid] = sn
 
         return self.model.append(parent_node_iter, row_values)
 
@@ -321,13 +321,12 @@ class DisplayStore:
                 return
 
             guid = sn.spid.guid
-            uid = sn.node.uid
 
-            self.checked_node_set.discard(uid)
-            self.inconsistent_node_set.discard(uid)
+            self.checked_guid_set.discard(guid)
+            self.inconsistent_guid_set.discard(guid)
 
-            if guid in self.displayed_row_dict:
-                del self.displayed_row_dict[guid]
+            if guid in self.displayed_guid_dict:
+                del self.displayed_guid_dict[guid]
 
         self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
 
@@ -361,7 +360,7 @@ class DisplayStore:
             logger.debug(f'[{self.tree_id}] Removing 1st child: {child_sn.spid}')
 
         if not child_sn.node.is_ephemereal():
-            self.displayed_row_dict.pop(child_sn.spid.guid)
+            self.displayed_guid_dict.pop(child_sn.spid.guid)
 
         # remove the first child
         self.model.remove(first_child_iter)

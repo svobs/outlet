@@ -2,7 +2,7 @@ import logging
 from collections import deque
 from typing import Deque, Dict, List, Union
 
-from constants import SUPER_DEBUG, TrashStatus, TreeID, TreeType
+from constants import SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID, TreeType
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
@@ -53,18 +53,18 @@ class FilterState:
 
     def matches(self, sn) -> bool:
         if not self._matches_search_query(sn):
-            # if SUPER_DEBUG:
-            #     logger.debug(f'Search query "{self.search_query}" not found in "{node.name}" (ignore_case={self.ignore_case})')
+            if TRACELOG_ENABLED:
+                logger.debug(f'Search query "{self.filter.search_query}" not found in "{sn.node.name}" (ignore_case={self.filter.ignore_case})')
             return False
 
         if not self._matches_trashed(sn):
-            # if SUPER_DEBUG:
-            #     logger.debug(f'Node with TrashStatus={node.get_trashed_status()} does not match trashed={self.is_trashed}')
+            if TRACELOG_ENABLED:
+                logger.debug(f'Node with TrashStatus={sn.node.get_trashed_status()} does not match trashed={self.filter.is_trashed}')
             return False
 
         if not self._matches_is_shared(sn):
-            # if SUPER_DEBUG:
-            #     logger.debug(f'Node with IsShared={node.is_shared()} does not match shared={self.is_shared}')
+            if TRACELOG_ENABLED:
+                logger.debug(f'Node with IsShared={sn.node.is_shared()} does not match shared={self.filter.is_shared}')
             return False
 
         return True
@@ -74,7 +74,7 @@ class FilterState:
         subtree_root_node = self.root_sn.node
         logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
         node_dict: Dict[GUID, List[SPIDNodePair]] = {}
-        dir_stats_dict: Dict[UID, DirectoryStats] = {}
+        dir_stats_dict: Dict[GUID, DirectoryStats] = {}
 
         dir_queue: Deque[SPIDNodePair] = deque()
         second_pass_stack: Deque[SPIDNodePair] = deque()

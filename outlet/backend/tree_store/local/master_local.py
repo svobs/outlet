@@ -39,7 +39,7 @@ class LocalDiskMasterStore(TreeStore):
 
     Singleton in-memory cache for local filesystem
 
-    # TODO: consider scanning only root dir at first, then enqueuing subdirectories
+    # TODO: Scan only root dir at first, then enqueuing subdirectories
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, uid_path_mapper, device: Device):
