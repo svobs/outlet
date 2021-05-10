@@ -16,7 +16,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import MAX_FS_LINK_DEPTH, SUPER_DEBUG, TrashStatus, TreeID, TreeType
+from constants import MAX_FS_LINK_DEPTH, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
@@ -542,7 +542,7 @@ class LocalDiskMasterStore(TreeStore):
         return None
 
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
-        if SUPER_DEBUG:
+        if TRACELOG_ENABLED:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
         return self._memstore.master_tree.get_node_for_uid(uid)
 
@@ -554,7 +554,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None) -> Optional[LocalNode]:
         """LocalNodes are guaranteed to have at most 1 parent."""
-        if SUPER_DEBUG:
+        if TRACELOG_ENABLED:
             logger.debug(f'Entered get_single_parent_for_node({node.node_identifier}): locked={self._struct_lock.locked()}')
         try:
             # logger.warning('LOCK ON!')

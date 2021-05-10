@@ -5,7 +5,7 @@ from typing import Any, Callable, Deque, Dict, Generic, List, Optional, TypeVar
 
 from util.stopwatch_sec import Stopwatch
 from model.node.directory_stats import DirectoryStats
-from constants import TrashStatus, TreeID
+from constants import SUPER_DEBUG, TrashStatus, TreeID
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +93,8 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
                     else:
                         dir_stats.add_file_node(child_node)
 
-            # if SUPER_DEBUG:
-            #     logger.debug(f'DirNode {self.extract_id(child)} ("{node.name}") has size={dir_stats.get_size_bytes()}, etc="{dir_stats.get_etc()}"')
+            if SUPER_DEBUG:
+                logger.debug(f'DirNode {node_identifier} has {dir_stats}"')
 
         logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node}")')
         return dir_stats_dict

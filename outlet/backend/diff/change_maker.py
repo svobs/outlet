@@ -268,6 +268,9 @@ class ChangeMaker:
 
         while len(queue) > 0:
             sn: SPIDNodePair = queue.popleft()
+            if not sn.node:
+                raise RuntimeError(f'Node is null for: {sn.spid}')
+
             if sn.node.is_live():  # avoid pending op nodes
                 if sn.node.is_dir():
                     child_sn_list = self.backend.cacheman.get_child_list(sn.spid, tree_id=tree_id)

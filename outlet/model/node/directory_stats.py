@@ -48,7 +48,7 @@ class DirectoryStats:
         self.file_count += child_dir_stats.file_count
 
         self.trashed_dir_count += child_dir_stats.trashed_dir_count
-        self.trashed_file_count += child_dir_stats.file_count + child_dir_stats.trashed_file_count
+        self.trashed_file_count += child_dir_stats.trashed_file_count
         self.trashed_bytes += child_dir_stats.trashed_bytes
 
         if child_is_trashed:
