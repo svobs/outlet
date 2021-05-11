@@ -77,7 +77,7 @@ class QThread(HasLifecycle, threading.Thread, ABC):
                 except RuntimeError:
                     logger.exception(f'Unexpected error while processing item: {item}')
             else:
-                logger.debug(f'[{self.name}] Queue is empty; sleeping {self.initial_sleep_sec} sec then waiting till notified...')
+                logger.debug(f'{self.name}: Queue is empty; sleeping {self.initial_sleep_sec} sec then waiting till notified...')
                 time.sleep(self.initial_sleep_sec)  # in seconds
 
                 with self._cv_can_get:

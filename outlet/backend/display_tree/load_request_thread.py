@@ -39,10 +39,10 @@ class LoadRequestThread(QThread):
 
     def on_thread_start(self):
         # Wait for CacheMan to finish starting up so as not to deprive it of resources:
-        logger.debug(f'[{self.name}] Waiting for CacheMan startup to complete...')
+        logger.debug(f'{self.name}: Waiting for CacheMan startup to complete...')
         self.cacheman.wait_for_startup_done()
 
     def process_single_item(self, load_request: LoadRequest):
-        logger.debug(f'[{self.name}] Submitting load request for tree_id: {load_request.tree_id}, send_signals={load_request.send_signals}')
+        logger.debug(f'[{load_request.tree_id}] Submitting load request for tree, send_signals={load_request.send_signals}')
         self.backend.executor.submit_async_task(self.cacheman.load_data_for_display_tree, load_request)
 

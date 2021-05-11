@@ -530,10 +530,10 @@ class CacheManager(HasLifecycle):
             5. We send LOAD_SUBTREE_DONE when done
         """
         tree_id: TreeID = load_request.tree_id
-        logger.debug(f'Loading data for display tree: {tree_id} (send_signals={load_request.send_signals})')
+        logger.debug(f'[{tree_id}] Loading data for display tree (send_signals={load_request.send_signals})')
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
-            logger.info(f'Display tree is no longer tracked; discarding data load: {tree_id}')
+            logger.info(f'[{tree_id}] Display tree is no longer tracked; discarding data load')
             return
 
         if load_request.send_signals:
@@ -557,7 +557,7 @@ class CacheManager(HasLifecycle):
                 # get up-to-date root node:
                 subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
                 if not subtree_root_node:
-                    raise RuntimeError(f'Could not find node in cache with identifier: {spid}')
+                    raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_id})')
                 subtree_root_sn = SPIDNodePair(spid, subtree_root_node)
 
                 # Calculate stats for all dir nodes:
@@ -570,7 +570,7 @@ class CacheManager(HasLifecycle):
         else:
             # ChangeTree
             assert not tree_meta.is_first_order()
-            logger.debug(f'Tree "{tree_id}" is a ChangeTree; loading its dir stats')
+            logger.debug(f'[{tree_id}] Tree is a ChangeTree; loading its dir stats')
             tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
