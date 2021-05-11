@@ -28,7 +28,7 @@ from error import CacheNotLoadedError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
-from model.display_tree.display_tree import DisplayTreeUiState
+from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
 from model.display_tree.summary import TreeSummarizer
 from model.node.gdrive_node import GDriveNode
@@ -593,9 +593,9 @@ class CacheManager(HasLifecycle):
         which will then asynchronously call load_data_for_display_tree()"""
         return self._active_tree_manager.request_display_tree(request)
 
-    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID):
+    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID) -> DisplayTree:
         """Kinda similar to request_display_tree(), but for change trees"""
-        self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
+        return self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
 
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         """Gets an existing ActiveDisplayTreeMeta. The FE should not call this directly."""

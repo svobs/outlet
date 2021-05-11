@@ -8,7 +8,7 @@ from backend.executor.command.cmd_executor import CommandExecutor
 from util.task_runner import TaskRunner
 from global_actions import GlobalActions
 from model.display_tree.build_struct import DiffResultTreeIds
-from signal_constants import ID_CENTRAL_EXEC, Signal
+from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_DIFF_TREE, ID_LEFT_TREE, ID_RIGHT_DIFF_TREE, ID_RIGHT_TREE, Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -125,6 +125,7 @@ class CentralExecutor(HasLifecycle):
 
     def start_tree_diff(self, tree_id_left, tree_id_right) -> DiffResultTreeIds:
         """Starts the Diff Trees task async"""
-        tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(f'{tree_id_left}_diff', f'{tree_id_right}_diff')
+        assert tree_id_left == ID_LEFT_TREE and tree_id_right == ID_RIGHT_TREE, f'Wrong tree IDs: {ID_LEFT_TREE}, {ID_RIGHT_TREE}'
+        tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE)
         self.submit_async_task(TreeDiffTask.do_tree_diff, self.backend, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct)
         return tree_id_struct

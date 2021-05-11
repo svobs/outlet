@@ -87,12 +87,14 @@ class OpGraph(HasLifecycle):
         logger.debug(f'Constructing OpNode tree for UserOp batch...')
 
         # Verify batch sort:
-        last_uid = 0
+        last_op_uid = 0
         for op in op_batch:
             # Changes MUST be sorted in ascending time of creation!
-            if op.op_uid < last_uid:
-                raise RuntimeError(f'Batch items are not in order! ({op.op_uid} < {last_uid}')
-            last_uid = op.op_uid
+            if op.op_uid < last_op_uid:
+                op_batch_str = '\n'.join(f'{op_batch}')
+                logger.error(f'OpBatch:\n {op_batch_str}')
+                raise RuntimeError(f'Batch items are not in order! ({op.op_uid} < {last_op_uid})')
+            last_op_uid = op.op_uid
 
         # Put all in dict as wrapped OpGraphNodes
         reentrant_tgt_node_dict: DefaultDict[UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())

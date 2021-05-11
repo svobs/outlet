@@ -12,7 +12,7 @@ class Signal(IntEnum):
     START_CACHEMAN_DONE = 5
     DIFF_TREES_DONE = 7
     DIFF_TREES_FAILED = 8
-    DIFF_ONE_SIDE_RESULT = 9
+    DIFF_TREES_CANCELLED = 9
     SYNC_GDRIVE_CHANGES = 10
     DOWNLOAD_ALL_GDRIVE_META = 11
     COMMAND_COMPLETE = 12
@@ -58,7 +58,10 @@ class Signal(IntEnum):
     """Sent from BE and received by FE"""
     NODE_REMOVED = 47
     """Sent from BE and received by FE"""
+
     EXIT_DIFF_MODE = 49
+    """Sent from FE and received by BE"""
+
     ERROR_OCCURRED = 50
     REFRESH_SUBTREE_STATS_DONE = 51
     REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 52
@@ -97,7 +100,10 @@ class Signal(IntEnum):
 ID_MAIN_WINDOW = 'main_win'
 ID_LEFT_TREE = 'left_tree'
 ID_RIGHT_TREE = 'right_tree'
+ID_LEFT_DIFF_TREE = f'{ID_LEFT_TREE}_diff'
+ID_RIGHT_DIFF_TREE = f'{ID_RIGHT_TREE}_diff'
 ID_MERGE_TREE = 'merge_tree'
+
 ID_GDRIVE_DIR_SELECT = 'gdrive_dir_select'
 ID_GLOBAL_CACHE = 'global_cache'
 ID_COMMAND_EXECUTOR = 'command-executor'

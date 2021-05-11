@@ -81,6 +81,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
         self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, receiver=self._on_gdrive_download_done)
+        self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_trees_done)
         self.connect_dispatch_listener(signal=Signal.GENERATE_MERGE_TREE_DONE, receiver=self._on_generate_merge_tree_done)
 
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
@@ -93,7 +94,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.forward_signal_to_clients(signal=Signal.LOAD_SUBTREE_STARTED)
         self.forward_signal_to_clients(signal=Signal.LOAD_SUBTREE_DONE)
         self.forward_signal_to_clients(signal=Signal.DIFF_TREES_FAILED)
-        self.forward_signal_to_clients(signal=Signal.DIFF_TREES_DONE)
         self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
         self.forward_signal_to_clients(signal=Signal.SHUTDOWN_APP)
 
@@ -278,21 +278,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.backend.start_subtree_load(request.tree_id)
         return StartSubtreeLoad_Response()
 
-    def _on_subtree_load_started(self, sender: str):
-        self._send_signal_to_all_clients(Signal.LOAD_SUBTREE_STARTED, sender)
-
-    def _on_subtree_load_done(self, sender: str):
-        self._send_signal_to_all_clients(Signal.LOAD_SUBTREE_DONE, sender)
-
-    def _on_diff_failed(self, sender: str):
-        self._send_signal_to_all_clients(Signal.DIFF_TREES_FAILED, sender)
-
-    def _on_generate_merge_tree_failed(self, sender: str):
-        self._send_signal_to_all_clients(Signal.GENERATE_MERGE_TREE_FAILED, sender)
-
-    def _on_diff_done(self, sender: str):
-        self._send_signal_to_all_clients(Signal.DIFF_TREES_DONE, sender)
-
     def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats_dict: Dict, key_is_uid: bool):
         signal = SignalMsg(sig_int=Signal.REFRESH_SUBTREE_STATS_DONE, sender=sender)
         signal.stats_update.status_msg = status_msg
@@ -352,6 +337,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
         logger.debug(f'Relaying signal across gRPC: "{Signal.DISPLAY_TREE_CHANGED.name}", sender={sender}, tree={tree}')
+        self._send_grpc_signal_to_all_clients(signal)
+
+    def _on_diff_trees_done(self, sender: str, tree_left: DisplayTree, tree_right: DisplayTree):
+        signal = SignalMsg(sig_int=Signal.DIFF_TREES_DONE, sender=sender)
+        self._converter.display_tree_ui_state_to_grpc(tree_left.state, signal.dual_display_tree.left_tree)
+        self._converter.display_tree_ui_state_to_grpc(tree_right.state, signal.dual_display_tree.right_tree)
+
+        logger.debug(f'Relaying signal across gRPC: "{Signal.DIFF_TREES_DONE.name}", sender={sender}, tree_left={tree_left}, tree_right={tree_right}')
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_generate_merge_tree_done(self, sender: str, tree: DisplayTree):

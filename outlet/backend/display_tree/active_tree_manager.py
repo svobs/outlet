@@ -21,7 +21,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from signal_constants import ID_GLOBAL_CACHE, Signal
+from signal_constants import ID_GLOBAL_CACHE, ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE, Signal
 from util import file_util
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
@@ -63,6 +63,7 @@ class ActiveTreeManager(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
         self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
         self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._on_merge_requested)
+        self.connect_dispatch_listener(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_exit_diff_mode_requested)
 
         # These take the signal from the cache and route it to the relevant display trees (if any) based on each node's location:
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted)
@@ -163,8 +164,17 @@ class ActiveTreeManager(HasLifecycle):
             logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
             self.backend.cacheman.enqueue_op_list(op_list=op_list)
         except RuntimeError as err:
+            logger.exception(f'[{sender}] Failed to merge {len(meta.change_tree.get_ops())} operations')
             self.backend.report_error(sender=ID_GLOBAL_CACHE, msg=f'Failed to merge {len(meta.change_tree.get_ops())} operations',
                                       secondary_msg=f'{repr(err)}')
+
+    def _on_exit_diff_mode_requested(self, sender: str):
+        logger.info(f'Received signal: {Signal.EXIT_DIFF_MODE.name} for tree "{sender}"')
+
+        left_tree = self.backend.create_existing_display_tree(ID_LEFT_DIFF_TREE, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+        right_tree = self.backend.create_existing_display_tree(ID_RIGHT_DIFF_TREE, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+
+        dispatcher.send(signal=Signal.DIFF_TREES_CANCELLED, sender=ID_GLOBAL_CACHE, tree_left=left_tree, tree_right=right_tree)
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str, device_uid: UID):
         # If GDrive cache was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
@@ -196,7 +206,7 @@ class ActiveTreeManager(HasLifecycle):
     # Public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID):
+    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID) -> DisplayTree:
         logger.info(f'Registering ChangeTree: {change_display_tree.tree_id} (src_tree_id: {src_tree_id})')
         if SUPER_DEBUG:
             change_display_tree.print_tree_contents_debug()
@@ -210,16 +220,7 @@ class ActiveTreeManager(HasLifecycle):
         self._display_tree_dict[change_display_tree.tree_id] = meta
 
         # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
-        tree_stub = DisplayTree(self.backend, change_display_tree.state)
-
-        # TODO: this is janky and is gonna break
-        if src_tree_id:
-            sender = src_tree_id
-        else:
-            sender = change_display_tree.tree_id
-
-        logger.debug(f'Sending signal {Signal.DISPLAY_TREE_CHANGED.name} for tree_id={sender}')
-        dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=sender, tree=tree_stub)
+        return DisplayTree(self.backend, change_display_tree.state)
 
     def get_active_display_tree_meta(self, tree_id: TreeID) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)

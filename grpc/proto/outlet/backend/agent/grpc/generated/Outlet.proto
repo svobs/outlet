@@ -216,7 +216,13 @@ message SignalMsg {
 		DownloadMsg download_msg = 18;
 		StatsUpdate stats_update = 19;
 		Device device = 20;
+		DualDisplayTree dual_display_tree = 21;
 	}
+}
+
+message DualDisplayTree {
+	DisplayTreeUiState left_tree = 1;
+	DisplayTreeUiState right_tree = 2;
 }
 
 message DownloadMsg {
@@ -363,5 +369,3 @@ service Outlet {
 	rpc download_file_from_gdrive(DownloadFromGDrive_Request) returns (Empty);
 	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);
 }
-
-

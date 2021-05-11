@@ -93,6 +93,13 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             display_tree_ui_state = self._converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
+        elif signal == Signal.DIFF_TREES_DONE or signal == Signal.DIFF_TREES_CANCELLED:
+            display_tree_ui_state = self._converter.display_tree_ui_state_from_grpc(signal.dual_display_tree.left_tree)
+            tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
+            kwargs['tree_left'] = tree
+            display_tree_ui_state = self._converter.display_tree_ui_state_from_grpc(signal.dual_display_tree.right_tree)
+            tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
+            kwargs['right_tree'] = tree
         elif signal == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
             kwargs['is_enabled'] = signal_msg.play_state.is_enabled
         elif signal == Signal.TOGGLE_UI_ENABLEMENT:

@@ -7,6 +7,7 @@ from backend.diff.diff_content_first import ContentFirstDiffer
 from constants import TreeType
 from global_actions import GlobalActions
 from model.display_tree.build_struct import DiffResultTreeIds
+from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from signal_constants import ID_CENTRAL_EXEC, Signal
@@ -54,12 +55,17 @@ class TreeDiffTask:
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=sender, msg='Populating UI trees...')
 
             # Send each side's result to its UI tree:
-            backend.cacheman.register_change_tree(change_tree_left, src_tree_id=tree_id_left)
-            backend.cacheman.register_change_tree(change_tree_right, src_tree_id=tree_id_right)
+            left_change_tree: DisplayTree = backend.cacheman.register_change_tree(change_tree_left, src_tree_id=tree_id_left)
+            right_change_tree: DisplayTree = backend.cacheman.register_change_tree(change_tree_right, src_tree_id=tree_id_right)
 
             # Send general notification that we are done:
             dispatcher.send(Signal.STOP_PROGRESS, sender=sender)
-            dispatcher.send(signal=Signal.DIFF_TREES_DONE, sender=sender)
+
+            # Rather than sending the usual DISPLAY_TREE_CHANGED signal, we send both new trees simultaneously when the diff is done.
+            # This is necessary to avoid a race condition on the client where certain UI elements (e.g. button bar) need to be updated at the same
+            # time as each of the two trees.
+            logger.debug(f'Sending signal {Signal.DIFF_TREES_DONE.name} for sender={sender}')
+            dispatcher.send(signal=Signal.DIFF_TREES_DONE, sender=sender, tree_left=left_change_tree, tree_right=right_change_tree)
             logger.debug(f'{stopwatch_diff_total} Finished diff')
         except Exception as err:
             # Clean up progress bar:

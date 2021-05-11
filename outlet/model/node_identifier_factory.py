@@ -129,7 +129,7 @@ class NodeIdentifierFactory:
             return self._for_tree_type_gdrive(device_uid, full_path_list, uid, path_uid, must_be_single_path)
 
         elif tree_type == TreeType.MIXED:
-            logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, device_uid={device_uid}, path={full_path_list}')
+            logger.debug(f'Creating a node identifier of type MIXED for uid={uid}, device_uid={device_uid}, path={full_path_list}')
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Too many paths for tree_type MIXED: {full_path_list}')
             if not path_uid:
@@ -229,4 +229,3 @@ class NodeIdentifierFactory:
                 path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
             return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
         return GDriveIdentifier(uid=node_uid, device_uid=device_uid, path_list=full_path_list)
-

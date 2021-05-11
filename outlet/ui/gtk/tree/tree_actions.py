@@ -44,7 +44,6 @@ class TreeActions(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
         self.connect_dispatch_listener(signal=Signal.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
         self.connect_dispatch_listener(signal=Signal.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
-        self.connect_dispatch_listener(signal=Signal.DIFF_ONE_SIDE_RESULT, receiver=self._receive_diff_result)
 
     # ACTIONS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -137,8 +136,3 @@ class TreeActions(HasLifecycle):
     def _uncheck_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:
             self.con.display_store.set_row_checked(tree_path, False)
-
-    def _receive_diff_result(self, sender: str, new_tree: DisplayTree):
-        if sender != self.con.tree_id:
-            return
-        self.con.reload(new_tree=new_tree)

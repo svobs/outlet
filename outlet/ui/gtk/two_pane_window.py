@@ -122,8 +122,8 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         dispatcher.connect(signal=Signal.DIFF_TREES_DONE, receiver=self._after_diff_done)
         dispatcher.connect(signal=Signal.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
-        dispatcher.connect(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_diff_exited)
-        dispatcher.connect(signal=Signal.COMPLETE_MERGE, receiver=self._on_diff_exited)
+        dispatcher.connect(signal=Signal.DIFF_TREES_CANCELLED, receiver=self._on_diff_exited)
+        dispatcher.connect(signal=Signal.COMPLETE_MERGE, receiver=self._on_diff_cancelled)
         dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_DONE, receiver=self._after_merge_tree_generated)
         dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_FAILED, receiver=self._after_gen_merge_tree_failed)
 
@@ -294,6 +294,7 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         self.toolbar.show_all()
 
     def _after_display_tree_changed_twopane(self, sender, tree: DisplayTree):
+        # FIXME: put all this logic in the BE
         logger.debug(f'Received signal: "{Signal.DISPLAY_TREE_CHANGED.name}"')
         if tree.state.tree_display_mode != TreeDisplayMode.ONE_TREE_ALL_ITEMS:
             return
@@ -314,12 +315,18 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
 
         GLib.idle_add(self._set_default_button_bar)
 
+    def _reload_tree(self, tree_con):
+        """Reload the given tree in regular mode. This will tell the backend to discard the diff information, and in turn the
+        backend will provide us with our old tree_id"""
+        new_tree = self.backend.create_existing_display_tree(tree_con.tree_id, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+        tree_con.reload(new_tree)
+
     def _after_diff_failed(self, sender):
         logger.debug(f'Received signal: "{Signal.DIFF_TREES_FAILED.name}"')
         GLib.idle_add(self._set_default_button_bar)
         GlobalActions.enable_ui(sender=self.win_id)
 
-    def _after_diff_done(self, sender):
+    def _after_diff_done(self, sender, tree_left: DisplayTree, tree_right: DisplayTree):
         logger.debug(f'Received signal: "{Signal.DIFF_TREES_DONE.name}"')
 
         def change_button_bar():
@@ -338,12 +345,16 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
             GlobalActions.enable_ui(sender=self.win_id)
         GLib.idle_add(change_button_bar)
 
-    def _on_diff_exited(self, sender):
-        logger.debug(f'Received signal {Signal.EXIT_DIFF_MODE.name}. Reloading both trees')
-        self._reload_tree(self.tree_con_left)
-        self._reload_tree(self.tree_con_right)
+        self.tree_con_left.reload(tree_left)
+        self.tree_con_right.reload(tree_right)
+
+    def _on_diff_exited(self, sender, tree_left: DisplayTree, tree_right: DisplayTree):
+        logger.debug(f'Received signal that we are exiting diff mode. Reloading both trees')
 
         GLib.idle_add(self._set_default_button_bar)
+
+        self.tree_con_left.reload(tree_left)
+        self.tree_con_right.reload(tree_right)
 
     def _after_merge_tree_generated(self, sender, tree: DisplayTree):
         logger.debug(f'Received signal: "{Signal.GENERATE_MERGE_TREE_DONE.name}"')
@@ -368,9 +379,3 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
     def _on_error_occurred(self, msg: str, secondary_msg: str = None):
         logger.debug(f'Received signal: "{Signal.ERROR_OCCURRED.name}"')
         self.show_error_ui(msg, secondary_msg)
-
-    def _reload_tree(self, tree_con):
-        """Reload the given tree in regular mode. This will tell the backend to discard the diff information, and in turn the
-        backend will provide us with our old tree_id"""
-        new_tree = self.backend.create_existing_display_tree(tree_con.tree_id, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
-        tree_con.reload(new_tree)

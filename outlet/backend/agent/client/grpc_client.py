@@ -77,11 +77,12 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=Signal.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
 
         # Some requests are so simple that they can be encapsulated by a single signal:
-        self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._send_pause_op_exec_signal)
-        self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
-        self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._send_complete_merge_signal)
-        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_gdrive_download_meta_requested)
-        self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree_signal)
+        self.forward_signal_to_server(signal=Signal.PAUSE_OP_EXECUTION)
+        self.forward_signal_to_server(signal=Signal.RESUME_OP_EXECUTION)
+        self.forward_signal_to_server(signal=Signal.COMPLETE_MERGE)
+        self.forward_signal_to_server(signal=Signal.DOWNLOAD_ALL_GDRIVE_META)
+        self.forward_signal_to_server(signal=Signal.DEREGISTER_DISPLAY_TREE)
+        self.forward_signal_to_server(signal=Signal.EXIT_DIFF_MODE)
 
         # TODO: hmm...looks like a chicken & egg problem here. Ideally we should get the config from the server
         use_fixed_address = ensure_bool(self._app_config.get('agent.grpc.use_fixed_address'))
@@ -132,20 +133,11 @@ class BackendGRPCClient(OutletBackend):
         except grpc.FutureTimeoutError:
             return False
 
-    def _send_pause_op_exec_signal(self, sender: str):
-        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.PAUSE_OP_EXECUTION, sender=sender))
+    def forward_signal_to_server(self, signal: Signal):
+        def _forward_signal(sender: str):
+            self.grpc_stub.send_signal(SignalMsg(sig_int=signal, sender=sender))
 
-    def _send_resume_op_exec_signal(self, sender: str):
-        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.RESUME_OP_EXECUTION, sender=sender))
-
-    def _send_complete_merge_signal(self, sender: str):
-        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.COMPLETE_MERGE, sender=sender))
-
-    def _on_gdrive_download_meta_requested(self, sender):
-        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.DOWNLOAD_ALL_GDRIVE_META, sender=sender))
-
-    def _deregister_display_tree_signal(self, sender: str):
-        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.DEREGISTER_DISPLAY_TREE, sender=sender))
+        self.connect_dispatch_listener(signal=signal, receiver=_forward_signal, weak=False)
 
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._fe_task_runner.enqueue(task_func, *args)
