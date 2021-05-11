@@ -30,6 +30,7 @@ class GDriveNode(Node, ABC):
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
 
+        assert node_name, f'Node name is null! node_identifier={node_identifier} goog_id={goog_id}'
         self._name = node_name
 
         self.create_ts = ensure_int(create_ts)

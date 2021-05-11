@@ -109,10 +109,12 @@ class OneSide:
             dst_parent_path = self.backend.cacheman.derive_parent_path(dst_path)
             dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
             dst_node: Node = LocalFileNode(node_identifier, dst_parent_uid, src_node.md5, src_node.sha256, src_node.get_size_bytes(),
-                                           None, None, None, TrashStatus.NOT_TRASHED, False)
+                                           sync_ts=None, modify_ts=None, change_ts=None, trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
-            dst_node: Node = GDriveFile(node_identifier, dst_node_goog_id, src_node.name, None, TrashStatus.NOT_TRASHED, None, None, src_node.md5,
-                                        False, None, None, src_node.get_size_bytes(), None, None, None)
+            dst_node: Node = GDriveFile(node_identifier=node_identifier, goog_id=dst_node_goog_id, node_name=src_node.name, mime_type_uid=None,
+                                        trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=src_node.md5,
+                                        is_shared=False, create_ts=None, modify_ts=None, size_bytes=src_node.get_size_bytes(),
+                                        owner_uid=None, shared_by_user_uid=None, sync_ts=None)
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={node_identifier}")
 

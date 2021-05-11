@@ -57,7 +57,7 @@ class GDriveWholeTree(BaseTree):
     def _make_gdrive_root_node(self, device_uid: UID):
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
         node_identifier = self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(device_uid)
-        return GDriveFolder(node_identifier, None, '', TrashStatus.NOT_TRASHED, None, None, None, None, False, None, None, False)
+        return GDriveFolder(node_identifier, None, '/', TrashStatus.NOT_TRASHED, None, None, None, None, False, None, None, False)
 
     def get_root_node(self) -> Optional[GDriveNode]:
         return self.root
