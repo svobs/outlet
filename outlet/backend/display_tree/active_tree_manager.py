@@ -21,7 +21,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from signal_constants import Signal
+from signal_constants import ID_GLOBAL_CACHE, Signal
 from util import file_util
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
@@ -158,9 +158,13 @@ class ActiveTreeManager(HasLifecycle):
         if not meta.change_tree:
             raise RuntimeError(f'Could not find change tree for: {sender}')
 
-        op_list = meta.change_tree.get_ops()
-        logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
-        self.backend.cacheman.enqueue_op_list(op_list=op_list)
+        try:
+            op_list = meta.change_tree.get_ops()
+            logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
+            self.backend.cacheman.enqueue_op_list(op_list=op_list)
+        except RuntimeError as err:
+            self.backend.report_error(sender=ID_GLOBAL_CACHE, msg=f'Failed to merge {len(meta.change_tree.get_ops())} operations',
+                                      secondary_msg=f'{repr(err)}')
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str, device_uid: UID):
         # If GDrive cache was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
