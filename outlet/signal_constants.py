@@ -18,7 +18,9 @@ class Signal(IntEnum):
     COMMAND_COMPLETE = 12
     GENERATE_MERGE_TREE_DONE = 13
     GENERATE_MERGE_TREE_FAILED = 14
+
     COMPLETE_MERGE = 15
+    """Request from FE to BE"""
 
     NODE_UPSERTED_IN_CACHE = 16
     """Internal to BE: should only be received by ActiveTreeManager"""

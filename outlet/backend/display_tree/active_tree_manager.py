@@ -163,17 +163,22 @@ class ActiveTreeManager(HasLifecycle):
             op_list = meta.change_tree.get_ops()
             logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
             self.backend.cacheman.enqueue_op_list(op_list=op_list)
-        except RuntimeError as err:
+
+            self._cancel_diff_mode()
+        except Exception as err:
             logger.exception(f'[{sender}] Failed to merge {len(meta.change_tree.get_ops())} operations')
             self.backend.report_error(sender=ID_GLOBAL_CACHE, msg=f'Failed to merge {len(meta.change_tree.get_ops())} operations',
                                       secondary_msg=f'{repr(err)}')
 
     def _on_exit_diff_mode_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.EXIT_DIFF_MODE.name} for tree "{sender}"')
+        self._cancel_diff_mode()
 
+    def _cancel_diff_mode(self):
         left_tree = self.backend.create_existing_display_tree(ID_LEFT_DIFF_TREE, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         right_tree = self.backend.create_existing_display_tree(ID_RIGHT_DIFF_TREE, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
 
+        logger.debug(f'Sending signal: {Signal.DIFF_TREES_CANCELLED.name}')
         dispatcher.send(signal=Signal.DIFF_TREES_CANCELLED, sender=ID_GLOBAL_CACHE, tree_left=left_tree, tree_right=right_tree)
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str, device_uid: UID):
@@ -532,8 +537,8 @@ class ActiveTreeManager(HasLifecycle):
         try:
             logger.debug(f'[{tree_id}] Removing row from expanded_row_set: {row_guid}')
             display_tree_meta.expanded_row_set.remove(row_guid)
-        except KeyError as err:
-            self.backend.report_error(sender=tree_id, msg=f'Failed to remove expanded row {row_guid}', secondary_msg=f'{repr(err)}')
+        except Exception as err:
+            self.backend.report_exception(sender=tree_id, msg=f'Failed to remove expanded row {row_guid}', error=err)
             return
 
         # TODO: use a timer for this. Also write selection to file
@@ -572,8 +577,8 @@ class ActiveTreeManager(HasLifecycle):
                 for guid in selected_rows_unparsed.split(CONFIG_DELIMITER):
                     selected_row_set.add(guid)
             return selected_row_set
-        except RuntimeError:
-            logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
+        except RuntimeError as err:
+            self.backend.report_exception(sender=tree_id, msg=f'Failed to load expanded rows from app_config', error=err)
 
     def _save_expanded_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
         expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in display_tree_meta.expanded_row_set)

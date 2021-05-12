@@ -6,7 +6,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, List, Optional, Tuple
 
 from backend.display_tree.change_tree import ChangeTree
-from constants import TrashStatus, TreeID, TreeType
+from constants import SUPER_DEBUG, TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
@@ -61,6 +61,8 @@ class OneSide:
 
         op: UserOp = UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
                             src_node=src_sn.node, dst_node=dst_node)
+        if SUPER_DEBUG:
+            logger.debug(f'[{self.change_tree.tree_id}] Created new UserOp(op_uid={op.op_uid} op_type={op.op_type})')
 
         self.change_tree.add_node(target_sn, op)
 
@@ -125,7 +127,7 @@ class OneSide:
         # ANCESTORS:
         self._add_needed_ancestors(dst_sn)
 
-        logger.debug(f'Migrated single node (UID={dst_node.uid} path="{dst_path}")')
+        logger.debug(f'[{self.change_tree.tree_id}] Migrated single node (UID={dst_node.uid} path="{dst_path}")')
         return dst_sn
 
     @staticmethod

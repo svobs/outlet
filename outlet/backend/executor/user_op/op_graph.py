@@ -91,8 +91,8 @@ class OpGraph(HasLifecycle):
         for op in op_batch:
             # Changes MUST be sorted in ascending time of creation!
             if op.op_uid < last_op_uid:
-                op_batch_str = '\n'.join(f'{op_batch}')
-                logger.error(f'OpBatch:\n {op_batch_str}')
+                op_batch_str = '\n\t'.join([f'{x.op_uid}={repr(x)}' for x in op_batch])
+                logger.error(f'OpBatch:\n\t {op_batch_str}')
                 raise RuntimeError(f'Batch items are not in order! ({op.op_uid} < {last_op_uid})')
             last_op_uid = op.op_uid
 

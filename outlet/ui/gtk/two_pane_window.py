@@ -123,7 +123,6 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=Signal.DIFF_TREES_DONE, receiver=self._after_diff_done)
         dispatcher.connect(signal=Signal.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
         dispatcher.connect(signal=Signal.DIFF_TREES_CANCELLED, receiver=self._on_diff_exited)
-        dispatcher.connect(signal=Signal.COMPLETE_MERGE, receiver=self._on_diff_cancelled)
         dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_DONE, receiver=self._after_merge_tree_generated)
         dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_FAILED, receiver=self._after_gen_merge_tree_failed)
 
