@@ -422,15 +422,15 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return DragDrop_Response()
 
     def generate_merge_tree(self, request: GenerateMergeTree_Request, context):
-        selected_changes_left = []
+        selected_change_list_left = []
         for guid in request.change_list_left:
-            selected_changes_left.append(guid)
+            selected_change_list_left.append(guid)
 
-        selected_changes_right = []
+        selected_change_list_right = []
         for guid in request.change_list_right:
-            selected_changes_right.append(guid)
+            selected_change_list_right.append(guid)
 
-        self.backend.generate_merge_tree(request.tree_id_left, request.tree_id_right, selected_changes_left, selected_changes_right)
+        self.backend.generate_merge_tree(request.tree_id_left, request.tree_id_right, selected_change_list_left, selected_change_list_right)
         return Empty()
 
     def start_diff_trees(self, request: StartDiffTrees_Request, context):

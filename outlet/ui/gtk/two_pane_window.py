@@ -4,6 +4,7 @@ from typing import List
 import gi
 from pydispatch import dispatcher
 
+from model.node_identifier import GUID
 from signal_constants import ID_LEFT_TREE, ID_MAIN_WINDOW, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, DEFAULT_MAIN_WIN_HEIGHT, DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_X, DEFAULT_MAIN_WIN_Y, H_PAD, IconId, \
     TreeDisplayMode, WIN_SIZE_STORE_DELAY_MS
@@ -263,13 +264,13 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         """
         logger.debug('Merge btn clicked')
 
-        selected_changes_left: List[SPIDNodePair] = self.tree_con_left.generate_checked_row_list()
-        selected_changes_right: List[SPIDNodePair] = self.tree_con_right.generate_checked_row_list()
+        selected_change_list_left: List[GUID] = self.tree_con_left.generate_checked_row_list()
+        selected_change_list_right: List[GUID] = self.tree_con_right.generate_checked_row_list()
 
         GlobalActions.disable_ui(sender=self.win_id)
 
         self.backend.generate_merge_tree(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id,
-                                         selected_changes_left=selected_changes_left, selected_changes_right=selected_changes_right)
+                                         selected_change_list_left=selected_change_list_left, selected_change_list_right=selected_change_list_right)
 
     # SIGNAL LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

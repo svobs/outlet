@@ -159,7 +159,7 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def generate_merge_tree(self, tree_id_left: TreeID, tree_id_right: TreeID,
-                            selected_changes_left: List[GUID], selected_changes_right: List[GUID]):
+                            selected_change_list_left: List[GUID], selected_change_list_right: List[GUID]):
         pass
 
     @abstractmethod

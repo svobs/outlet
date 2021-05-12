@@ -333,7 +333,7 @@ class BackendGRPCClient(OutletBackend):
 
         self.grpc_stub.drop_dragged_nodes(request)
 
-    def start_diff_trees(self, tree_id_left: str, tree_id_right: str) -> DiffResultTreeIds:
+    def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
         request = StartDiffTrees_Request()
         request.tree_id_left = tree_id_left
         request.tree_id_right = tree_id_right
@@ -341,15 +341,16 @@ class BackendGRPCClient(OutletBackend):
 
         return DiffResultTreeIds(response.tree_id_left, response.tree_id_right)
 
-    def generate_merge_tree(self, tree_id_left: str, tree_id_right: str, selected_changes_left: List[GUID], selected_changes_right: List[GUID]):
+    def generate_merge_tree(self, tree_id_left: TreeID, tree_id_right: TreeID,
+                            selected_change_list_left: List[GUID],selected_change_list_right: List[GUID]):
         request = GenerateMergeTree_Request()
         request.tree_id_left = tree_id_left
         request.tree_id_right = tree_id_right
 
-        for guid in selected_changes_left:
+        for guid in selected_change_list_left:
             request.change_list_left.append(guid)
 
-        for guid in selected_changes_right:
+        for guid in selected_change_list_right:
             request.change_list_right.append(guid)
 
         self.grpc_stub.generate_merge_tree(request)

@@ -132,12 +132,13 @@ class BackendIntegrated(OutletBackend):
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)
 
-    def start_diff_trees(self, tree_id_left: str, tree_id_right: str) -> DiffResultTreeIds:
+    def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
         return self.executor.start_tree_diff(tree_id_left, tree_id_right)
 
-    def generate_merge_tree(self, tree_id_left: str, tree_id_right: str, selected_changes_left: List[GUID], selected_changes_right: List[GUID]):
+    def generate_merge_tree(self, tree_id_left: TreeID, tree_id_right: TreeID,
+                            selected_change_list_left: List[GUID], selected_change_list_right: List[GUID]):
         task = TreeDiffMergeTask(self)
-        task.generate_merge_tree(ID_CENTRAL_EXEC, tree_id_left, tree_id_right, selected_changes_left, selected_changes_right)
+        task.generate_merge_tree(ID_CENTRAL_EXEC, tree_id_left, tree_id_right, selected_change_list_left, selected_change_list_right)
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         self.cacheman.enqueue_refresh_subtree_task(node_identifier, tree_id)

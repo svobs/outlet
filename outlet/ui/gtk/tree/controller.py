@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 from constants import SUPER_DEBUG
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import GUID, SinglePathNodeIdentifier
 from ui.gtk.dialog.base_dialog import BaseDialog
 from signal_constants import Signal
 from ui.gtk.tree import tree_factory_templates
@@ -158,26 +158,17 @@ class TreePanelController(HasLifecycle):
 
         GLib.idle_add(_reload)
 
-    def generate_checked_row_list(self) -> List[SPIDNodePair]:
+    def generate_checked_row_list(self) -> List[GUID]:
         timer = Stopwatch()
         checked_sn_list: List[SPIDNodePair] = self.display_mutator.generate_checked_row_list()
+        checked_guid_list: List[GUID] = [sn.spid.guid for sn in checked_sn_list]
         if SUPER_DEBUG:
-            more = ': ' + ', '.join([str(sn.node.uid) for sn in checked_sn_list])
+            more = ': ' + ', '.join(checked_guid_list)
         else:
             more = ''
         logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_sn_list)} checked items{more}')
 
-        checked_rows_dedecorated: List[SPIDNodePair] = []
-
-        for sn in checked_sn_list:
-            checked_rows_dedecorated.append(self._from_change_node_pair(sn))
-        return checked_rows_dedecorated
-
-    @staticmethod
-    def _from_change_node_pair(sn: SPIDNodePair) -> SPIDNodePair:
-        # Replaces the "ChangeTreeSPID" component of the SPIDNodePair with a standard SPID
-        return SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.node_identifier, sn.spid.path_uid,
-                                                                          sn.spid.get_single_path()), sn.node)
+        return checked_guid_list
 
     @property
     def backend(self):
