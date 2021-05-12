@@ -82,6 +82,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, receiver=self._on_gdrive_download_done)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_trees_done)
+        self.connect_dispatch_listener(signal=Signal.DIFF_TREES_CANCELLED, receiver=self._on_diff_trees_cancelled)
         self.connect_dispatch_listener(signal=Signal.GENERATE_MERGE_TREE_DONE, receiver=self._on_generate_merge_tree_done)
 
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
@@ -345,6 +346,15 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._converter.display_tree_ui_state_to_grpc(tree_right.state, signal.dual_display_tree.right_tree)
 
         logger.debug(f'Relaying signal across gRPC: "{Signal.DIFF_TREES_DONE.name}", sender={sender}, tree_left={tree_left}, tree_right={tree_right}')
+        self._send_grpc_signal_to_all_clients(signal)
+
+    def _on_diff_trees_cancelled(self, sender: str, tree_left: DisplayTree, tree_right: DisplayTree):
+        signal = SignalMsg(sig_int=Signal.DIFF_TREES_CANCELLED, sender=sender)
+        self._converter.display_tree_ui_state_to_grpc(tree_left.state, signal.dual_display_tree.left_tree)
+        self._converter.display_tree_ui_state_to_grpc(tree_right.state, signal.dual_display_tree.right_tree)
+
+        logger.debug(f'Relaying signal across gRPC: "{Signal.DIFF_TREES_CANCELLED.name}", sender={sender}, '
+                     f'tree_left={tree_left}, tree_right={tree_right}')
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_generate_merge_tree_done(self, sender: str, tree: DisplayTree):

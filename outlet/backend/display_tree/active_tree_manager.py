@@ -265,8 +265,8 @@ class ActiveTreeManager(HasLifecycle):
         """
         sender_tree_id = request.tree_id
         spid = request.spid
-        logger.debug(f'[{sender_tree_id}] Got request to load display tree (user_path="{request.user_path}", spid={spid}, '
-                     f'device_uid={request.device_uid}, is_startup={request.is_startup}, tree_display_mode={request.tree_display_mode}')
+        logger.debug(f'[{sender_tree_id}] Got request to load display tree (user_path={request.user_path}, spid={spid}, '
+                     f'device_uid={request.device_uid}, is_startup={request.is_startup}, tree_display_mode={request.tree_display_mode})')
 
         root_path_persister = None
 
