@@ -71,7 +71,6 @@ class SimpleUidGenerator(UidGenerator):
     def next_uid(self) -> UID:
         with self._lock:
             uid = UID(self._set(self._value + 1))
-            logger.warning(f'SimpleUidGenerator: next_uid: {uid}')
             return uid
 
     def ensure_next_uid_greater_than(self, uid: int):

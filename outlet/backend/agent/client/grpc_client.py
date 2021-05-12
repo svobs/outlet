@@ -341,19 +341,16 @@ class BackendGRPCClient(OutletBackend):
 
         return DiffResultTreeIds(response.tree_id_left, response.tree_id_right)
 
-    def generate_merge_tree(self, tree_id_left: str, tree_id_right: str,
-                            selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
+    def generate_merge_tree(self, tree_id_left: str, tree_id_right: str, selected_changes_left: List[GUID], selected_changes_right: List[GUID]):
         request = GenerateMergeTree_Request()
         request.tree_id_left = tree_id_left
         request.tree_id_right = tree_id_right
 
-        for src_sn in selected_changes_left:
-            grpc_sn = request.change_list_left.add()
-            self._converter.sn_to_grpc(src_sn, grpc_sn)
+        for guid in selected_changes_left:
+            request.change_list_left.append(guid)
 
-        for src_sn in selected_changes_right:
-            grpc_sn = request.change_list_right.add()
-            self._converter.sn_to_grpc(src_sn, grpc_sn)
+        for guid in selected_changes_right:
+            request.change_list_right.append(guid)
 
         self.grpc_stub.generate_merge_tree(request)
 

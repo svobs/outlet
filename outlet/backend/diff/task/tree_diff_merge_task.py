@@ -5,12 +5,12 @@ from pydispatch import dispatcher
 
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
-from constants import NULL_UID, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeType
+from constants import SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import RootTypeNode
 from model.node.node import SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from signal_constants import ID_MERGE_TREE, Signal
 from util.stopwatch_sec import Stopwatch
@@ -27,12 +27,23 @@ class TreeDiffMergeTask:
     The resulting tree will have a tree_id of ID_MERGE_TREE
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+    def __init__(self, backend):
+        self.backend = backend
 
     @staticmethod
-    def generate_merge_tree(backend, sender,
-                            tree_id_left: str, tree_id_right: str,
-                            selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
-        if len(selected_changes_left) == 0 and len(selected_changes_right) == 0:
+    def _add_node_and_op(src_tree: ChangeTree, guid, merged_tree):
+        op = src_tree.get_op_for_guid(guid)
+        if op:
+            sn = src_tree.get_sn_for(guid)
+            merged_tree.add_node(sn, op)
+        else:
+            logger.error(f'merge_change_trees(): Skipping left-side node because no associated UserOp found: {guid}')
+
+    def generate_merge_tree(self, sender,
+                            tree_id_left: TreeID, tree_id_right: TreeID,
+                            selected_guid_list_left: List[GUID], selected_guid_list_right: List[GUID]):
+
+        if len(selected_guid_list_left) == 0 and len(selected_guid_list_right) == 0:
             # TODO: make info msg instead
             GlobalActions.display_error_in_ui(sender, 'You must select change(s) first.')
             dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_FAILED, sender=sender)
@@ -41,24 +52,23 @@ class TreeDiffMergeTask:
         sw = Stopwatch()
 
         try:
-            meta_left: ActiveDisplayTreeMeta = backend.cacheman.get_active_display_tree_meta(tree_id_left)
+            meta_left: ActiveDisplayTreeMeta = self.backend.cacheman.get_active_display_tree_meta(tree_id_left)
             if not meta_left:
                 raise RuntimeError(f'Could not generate merge tree: could not find record of tree: {tree_id_left}')
             if not meta_left.change_tree:
                 raise RuntimeError(f'Could not generate merge tree: no ChangeTree in record: {tree_id_left}')
 
-            meta_right: ActiveDisplayTreeMeta = backend.cacheman.get_active_display_tree_meta(tree_id_right)
+            meta_right: ActiveDisplayTreeMeta = self.backend.cacheman.get_active_display_tree_meta(tree_id_right)
             if not meta_right:
                 raise RuntimeError(f'Could not generate merge tree: could not find record of tree: {tree_id_right}')
             if not meta_right.change_tree:
                 raise RuntimeError(f'Could not generate merge tree: no ChangeTree in record: {tree_id_right}')
 
-            merged_changes_tree = TreeDiffMergeTask.merge_change_trees(backend,
-                                                                       meta_left.change_tree, selected_changes_left,
-                                                                       meta_right.change_tree, selected_changes_right)
+            merged_changes_tree = self.merge_change_trees(meta_left.change_tree, selected_guid_list_left,
+                                                          meta_right.change_tree, selected_guid_list_right)
 
             # FIXME: need to clean up this mechanism: src_tree_id makes no sense
-            backend.cacheman.register_change_tree(merged_changes_tree, src_tree_id=None)
+            self.backend.cacheman.register_change_tree(merged_changes_tree, src_tree_id=None)
 
             dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_DONE, sender=sender, tree=merged_changes_tree)
             logger.debug(f'{sw} Finished generating merge tree')
@@ -67,31 +77,22 @@ class TreeDiffMergeTask:
             dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_FAILED, sender=sender)
             GlobalActions.display_error_in_ui(sender, 'Failed to generate merge preview due to unexpected error', repr(err))
 
-    @staticmethod
-    def merge_change_trees(backend,
-                           tree_left: ChangeTree, left_selected_changes: List[SPIDNodePair],
-                           tree_right: ChangeTree, right_selected_changes: List[SPIDNodePair]) -> ChangeTree:
+    def merge_change_trees(self,
+                           tree_left: ChangeTree, selected_guid_list_left: List[GUID],
+                           tree_right: ChangeTree, selected_guid_list_right: List[GUID]) -> ChangeTree:
 
         super_root_spid: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_spid(tree_type=TreeType.MIXED,
                                                                                                  device_uid=SUPER_ROOT_DEVICE_UID)
         super_root_sn = SPIDNodePair(super_root_spid, RootTypeNode(super_root_spid))
         state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn,
                                                        tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
-        merged_tree = ChangeTree(backend=backend, state=state, show_whole_forest=True)
+        merged_tree = ChangeTree(backend=self.backend, state=state, show_whole_forest=True)
 
-        for sn in left_selected_changes:
-            op = tree_left.get_op_for_node(sn.node)
-            if op:
-                merged_tree.add_node(sn, op)
-            else:
-                logger.debug(f'merge_change_trees(): Skipping left-side node because it is not associated with an UserOp: {sn.node}')
+        for guid in selected_guid_list_left:
+            self._add_node_and_op(tree_left, guid, merged_tree)
 
-        for sn in right_selected_changes:
-            op = tree_right.get_op_for_node(sn.node)
-            if op:
-                merged_tree.add_node(sn, op)
-            else:
-                logger.debug(f'merge_change_trees(): Skipping right-side node because it is not associated with an UserOp: {sn.node}')
+        for guid in selected_guid_list_right:
+            self._add_node_and_op(tree_right, guid, merged_tree)
 
         # TODO: check for conflicts
 

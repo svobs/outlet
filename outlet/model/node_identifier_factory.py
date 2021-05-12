@@ -58,6 +58,7 @@ class NodeIdentifierFactory:
         Obvioiusly GUIDs are ineffcient to use, but in practice the BE will only use them to record user selection & expanded nodes.
         (GUIDs are also used by the Mac frontend)
         """
+        # FIXME: this doesn't work for ChangeTreeSPID
         uid_list = guid.split(':')
         if len(uid_list) < 2:
             raise RuntimeError(f'Invalid GUID: "{guid}"')

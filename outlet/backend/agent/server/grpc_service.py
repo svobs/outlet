@@ -423,12 +423,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def generate_merge_tree(self, request: GenerateMergeTree_Request, context):
         selected_changes_left = []
-        for src_sn in request.change_list_left:
-            selected_changes_left.append(self._converter.sn_from_grpc(src_sn))
+        for guid in request.change_list_left:
+            selected_changes_left.append(guid)
 
         selected_changes_right = []
-        for src_sn in request.change_list_right:
-            selected_changes_right.append(self._converter.sn_from_grpc(src_sn))
+        for guid in request.change_list_right:
+            selected_changes_right.append(guid)
 
         self.backend.generate_merge_tree(request.tree_id_left, request.tree_id_right, selected_changes_left, selected_changes_right)
         return Empty()

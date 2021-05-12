@@ -134,8 +134,8 @@ message ToggleUiEnablement {
 message GenerateMergeTree_Request {
 	string tree_id_left = 1;
 	string tree_id_right = 2;
-	repeated SPIDNodePair change_list_left = 3;
-	repeated SPIDNodePair change_list_right = 4;
+	repeated string change_list_left = 3;
+	repeated string change_list_right = 4;
 }
 
 message DragDrop_Request {

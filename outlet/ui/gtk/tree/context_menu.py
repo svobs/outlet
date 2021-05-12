@@ -8,7 +8,6 @@ from pydispatch import dispatcher
 from constants import DATE_REGEX, GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeType
 from model.node.container_node import CategoryNode
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp
 from signal_constants import Signal
 

@@ -41,7 +41,7 @@ class ChangeTree(DisplayTree):
 
         self.show_whole_forest: bool = show_whole_forest
 
-        self._op_dict: Dict[UID, UserOp] = {}
+        self._op_dict: Dict[GUID, UserOp] = {}
         """Lookup for target node UID -> UserOp. The target node will be the dst node if the UserOp has one; otherwise
         it will be the source node."""
         self._op_list: List[UserOp] = []
@@ -60,6 +60,9 @@ class ChangeTree(DisplayTree):
     def _extract_identifier_func(sn: SPIDNodePair) -> GUID:
         # assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
         return sn.spid.guid
+
+    def get_sn_for(self, guid: GUID) -> SPIDNodePair:
+        return self._category_tree.get_node_for_identifier(guid)
 
     def get_root_node(self) -> SPIDNodePair:
         return self._category_tree.get_root_node()
@@ -93,19 +96,25 @@ class ChangeTree(DisplayTree):
     def get_ops(self) -> List[UserOp]:
         return self._op_list
 
-    def get_op_for_node(self, node: Node) -> Optional[UserOp]:
-        return self._op_dict.get(node.uid, None)
+    def get_op_for_guid(self, guid: GUID) -> Optional[UserOp]:
+        return self._op_dict.get(guid, None)
 
-    def _append_op(self, op: UserOp):
-        logger.debug(f'[{self.tree_id}] Appending op: {op}')
-        if op.dst_node:
-            if self._op_dict.get(op.dst_node.uid, None):
-                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self._op_dict.get(op.dst_node.uid)}')
-            self._op_dict[op.dst_node.uid] = op
+    def _append_op(self, sn: SPIDNodePair, op: UserOp):
+        guid = sn.spid.guid
+        logger.debug(f'[{self.tree_id}] Appending op: {op} for GUID {guid}')
+
+        # Validation:
+        if op.dst_node and sn.node.node_identifier == op.dst_node.node_identifier:
+            pass
         else:
-            if self._op_dict.get(op.src_node.uid, None):
-                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self._op_dict.get(op.src_node.uid)}')
-            self._op_dict[op.src_node.uid] = op
+            assert sn.node.node_identifier == op.src_node.node_identifier, \
+                f'Src node ({op.src_node.node_identifier}) does not match SN node ({sn.node.node_identifier})'
+
+        if self._op_dict.get(guid, None):
+            raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self._op_dict.get(guid)}')
+
+        # Insertion:
+        self._op_dict[guid] = op
         self._op_list.append(op)
 
     def _get_or_create_pre_ancestors(self, sn: SPIDNodePair) -> SPIDNodePair:
@@ -207,7 +216,7 @@ class ChangeTree(DisplayTree):
             # For display purposes, group "mkdir" with "copy":
             sn.spid.op_type = UserOpType.CP
 
-        self._append_op(op)
+        self._append_op(sn, op)
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
         parent_sn: SPIDNodePair = self._category_tree.get_node_for_identifier(identifier=sn.spid.guid)
