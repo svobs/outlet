@@ -8,7 +8,7 @@ from backend.display_tree.change_tree import ChangeTree
 from constants import SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTreeUiState
-from model.node.container_node import RootTypeNode
+from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -32,12 +32,15 @@ class TreeDiffMergeTask:
 
     @staticmethod
     def _add_node_and_op(src_tree: ChangeTree, guid, merged_tree):
+        sn = src_tree.get_sn_for(guid)
         op = src_tree.get_op_for_guid(guid)
         if op:
-            sn = src_tree.get_sn_for(guid)
             merged_tree.add_node(sn, op)
         else:
-            logger.error(f'merge_change_trees(): Skipping left-side node because no associated UserOp found: {guid}')
+            if sn and (isinstance(sn.spid.node, CategoryNode)  or isinstance(sn.spid.node, RootTypeNode)):
+                logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
+            else:
+                logger.error(f'merge_change_trees(): Skipping node because no associated UserOp found: {guid}')
 
     def generate_merge_tree(self, sender,
                             tree_id_left: TreeID, tree_id_right: TreeID,
