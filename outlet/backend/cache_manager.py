@@ -538,6 +538,7 @@ class CacheManager(HasLifecycle):
 
         if load_request.send_signals:
             # This will be carried across gRPC if needed
+            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_STARTED})')
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         subtree_root_sn: Optional[SPIDNodePair] = None
@@ -585,6 +586,7 @@ class CacheManager(HasLifecycle):
 
         if load_request.send_signals:
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
+            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_DONE})')
             dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:

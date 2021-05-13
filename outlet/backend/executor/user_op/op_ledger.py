@@ -272,6 +272,11 @@ class OpLedger(HasLifecycle):
         # Simplify and remove redundancies in op_list
         reduced_batch: Iterable[UserOp] = self._reduce_ops(batch_op_list)
 
+        def get_op_uid(_op):
+            return _op.op_uid
+
+        reduced_batch = sorted(reduced_batch, key=get_op_uid)
+
         self._append_batch(batch_uid, reduced_batch, save_to_disk=True)
 
     def _append_batch(self, batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):

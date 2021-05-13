@@ -114,7 +114,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         """Convenience method to create a simple gRPC SignalMsg and then enqueue it to be sent to all connected clients"""
         assert sender, f'Sender is required for signal {signal.name}'
         if SUPER_DEBUG:
-            logger.debug(f'Forwarding signal to gRPC clients: {signal} sender={sender}')
+            logger.debug(f'Forwarding signal to gRPC clients: {signal.name} sender={sender}')
 
         self._send_grpc_signal_to_all_clients(SignalMsg(sig_int=signal, sender=sender))
 

@@ -227,26 +227,6 @@ class ActiveTreeManager(HasLifecycle):
         # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
         return DisplayTree(self.backend, change_display_tree.state)
 
-    def get_active_display_tree_meta(self, tree_id: TreeID) -> ActiveDisplayTreeMeta:
-        return self._display_tree_dict.get(tree_id, None)
-
-    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
-        meta = self.get_active_display_tree_meta(tree_id)
-        if not meta:
-            logger.error(f'get_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
-            return None
-        return meta.filter_state.filter
-
-    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
-        meta = self.get_active_display_tree_meta(tree_id)
-        if not meta:
-            raise RuntimeError(f'update_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
-
-        # replace FilterState for the given tree
-        meta.filter_state = FilterState(filter_criteria, meta.root_sn)
-        # write to disk
-        meta.filter_state.write_to_config(self.backend, tree_id)
-
     # TODO: make this wayyyy less complicated by just making each tree_id represent a set of persisted configs. Minimize DisplayTreeRequest
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
         """
@@ -275,7 +255,6 @@ class ActiveTreeManager(HasLifecycle):
         # Build RootPathMeta object from params. If neither SPID nor user_path supplied, read from config
         if request.user_path:
             root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(request.user_path, request.device_uid)
-            spid = root_path_meta.root_spid
         elif spid:
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
             # params -> root_path_meta
@@ -285,19 +264,16 @@ class ActiveTreeManager(HasLifecycle):
             # root_path_meta -> params
             root_path_persister = RootPathConfigPersister(backend=self.backend, tree_id=sender_tree_id)
             root_path_meta = root_path_persister.read_from_config()
-            spid = root_path_meta.root_spid
-            if not spid:
-                raise RuntimeError(f"Unable to read valid root from config for: '{sender_tree_id}'")
         elif display_tree_meta:
             root_path_meta = RootPathMeta(display_tree_meta.root_sn.spid, display_tree_meta.root_exists, display_tree_meta.offending_path)
-            spid = root_path_meta.root_spid
         else:
             raise RuntimeError(f'Invalid args supplied to get_display_tree_ui_state()! (tree_id={sender_tree_id})')
 
-        if not (request.is_startup or (request.device_uid and request.user_path) or spid):
-            raise RuntimeError(f'Invalid DisplayTree request for tree_id={request.tree_id}: is_startup={request.is_startup}'
-                               f' device_uid={request.device_uid}, user_path="{request.user_path}", spid={spid}'
-                               f' (tree_display_mode={request.tree_display_mode})')
+        logger.debug(f'[{sender_tree_id}] Got {root_path_meta}')
+
+        spid = root_path_meta.root_spid
+        if not spid:
+            raise RuntimeError(f"Root identifier is not valid for: '{sender_tree_id}'")
 
         response_tree_id = sender_tree_id
         if display_tree_meta:
@@ -314,7 +290,7 @@ class ActiveTreeManager(HasLifecycle):
                         logger.debug(f'Discarded meta for tree: {sender_tree_id}')
                 else:
                     # ChangeDisplayTrees are already loaded, and live capture should not apply
-                    logger.warning(f'request_display_tree(): this is a CategoryDisplayTree. Did you mean to call this method?')
+                    logger.warning(f'request_display_tree(): this is a ChangeDisplayTrees. Did you mean to call this method?')
                     return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
 
             elif display_tree_meta.root_sn.spid == root_path_meta.root_spid:
@@ -359,9 +335,9 @@ class ActiveTreeManager(HasLifecycle):
         if display_tree_meta:
             # reuse and update existing
             display_tree_meta.state = state
+            display_tree_meta.filter_state.update_root_sn(display_tree_meta.state.root_sn)
             assert display_tree_meta.state.tree_id == response_tree_id, f'TreeID "{response_tree_id}" != {display_tree_meta.state.tree_id}'
 
-            display_tree_meta.filter_state.update_root_sn(display_tree_meta.state.root_sn)
         else:
             logger.debug(f'[{sender_tree_id}] Reading FilterCriteria from app_config')
             filter_state = FilterState.from_config(self.backend, sender_tree_id, root_sn)
@@ -464,6 +440,26 @@ class ActiveTreeManager(HasLifecycle):
 
         logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
         return root_path_meta
+
+    def get_active_display_tree_meta(self, tree_id: TreeID) -> ActiveDisplayTreeMeta:
+        return self._display_tree_dict.get(tree_id, None)
+
+    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
+        meta = self.get_active_display_tree_meta(tree_id)
+        if not meta:
+            logger.error(f'get_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
+            return None
+        return meta.filter_state.filter
+
+    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
+        meta = self.get_active_display_tree_meta(tree_id)
+        if not meta:
+            raise RuntimeError(f'update_filter_criteria(): no ActiveDisplayTree found for tree_id "{tree_id}"')
+
+        # replace FilterState for the given tree
+        meta.filter_state = FilterState(filter_criteria, meta.root_sn)
+        # write to disk
+        meta.filter_state.write_to_config(self.backend, tree_id)
 
     # Expanded & selected row state tracking
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

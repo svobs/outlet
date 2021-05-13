@@ -32,6 +32,9 @@ class TreeDiffTask:
             assert meta_left and meta_right, f'Missing tree meta! Left={meta_left}, Right={meta_right}'
             left_root_sn: SPIDNodePair = meta_left.root_sn
             right_root_sn: SPIDNodePair = meta_right.root_sn
+
+            logger.debug(f'Source tree {tree_id_left} has root: {left_root_sn}')
+            logger.debug(f'Source tree {tree_id_right} has root: {right_root_sn}')
             if left_root_sn.spid.tree_type == TreeType.LOCAL_DISK and not TreeDiffTask._tree_exists_on_disk(left_root_sn.spid):
                 logger.info(f'Skipping diff because the left path does not exist: "{left_root_sn.spid.get_single_path()}"')
                 dispatcher.send(signal=Signal.DIFF_TREES_FAILED, sender=sender)

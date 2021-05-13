@@ -1,7 +1,11 @@
+import logging
 import os
 import sys
 
 from app_config import AppConfig
+from constants import SUPER_DEBUG
+
+logger = logging.getLogger(__name__)
 
 
 def do_main_boilerplate(executing_script_path: str = None) -> AppConfig:
@@ -14,6 +18,9 @@ def do_main_boilerplate(executing_script_path: str = None) -> AppConfig:
 
     if sys.version_info[0] < 3:
         raise Exception("Python 3 or a more recent version is required.")
+
+    if SUPER_DEBUG:
+        logger.info('SUPER_DEBUG is enabled')
 
     if len(sys.argv) >= 2:
         app_config = AppConfig(config_file_path=sys.argv[1], executing_script_name=executing_script_name)
