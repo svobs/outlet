@@ -3,14 +3,13 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import ROOT_PATH, ROOT_PATH_UID, SUPER_DEBUG
+from constants import SUPER_DEBUG
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
-from model.node.node import SPIDNodePair, Node, SPIDNodePair
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
-from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 

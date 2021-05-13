@@ -345,62 +345,53 @@ class DisplayMutator(HasLifecycle):
 
     def generate_checked_row_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the nodes of the items which are currently checked by the user
-        (including collapsed rows). This will be a subset of the DisplayTree which was used to
-        populate this tree. Includes file nodes only, with the exception of MKDIR nodes.
+        (including any rows which may not be visible in the UI due to being collapsed). This will be a subset of the ChangeDisplayTree currently
+        being displayed. Includes file nodes only, with the exception of MKDIR nodes.
 
-        This method assumes that we are a ChangeTree and thus returns instances of SPIDNodePair. However, it groups nodes by node UID.
-        If some of these nodes correspond to multiple SPIDNodePairs, then the resulting list may be larger than the number of visible checked items,
-        but it should correct from a SPIDNodePair perspective.
+        This method assumes that we are a ChangeTree and thus returns instances of GUID. We don't try to do any fancy logic to filter out
+        CategoryNodes, existing directories, or other non-change nodes; we'll let the backend handle that. We simply return each of the GUIDs which
+        have check boxes in the GUI (1-to-1 in count)
 
         Algorithm:
             Iterate over display nodes. Start with top-level nodes.
-          - Add each checked row to DFS queue (whitelist). It and all of its descendants will be added
-          - Ignore each unchecked row
-          - Each inconsistent row needs to be drilled down into.
+          - If row is checked, add it to checked_queue.
+            Each node added to checked_queue will be added to the returned list along with all its descendants.
+          - If row is unchecked, ignore it.
+          - If row is inconsistent, add it to mixed_queue. Each of its descendants will be examined and have these rules applied recursively.
         """
         checked_row_list: List[SPIDNodePair] = []
 
-        whitelist: Deque[SPIDNodePair] = collections.deque()
-        secondary_screening: Deque[SPIDNodePair] = collections.deque()
+        checked_queue: Deque[SPIDNodePair] = collections.deque()
+        mixed_queue: Deque[SPIDNodePair] = collections.deque()
 
         with self._lock:
-            assert self.con.treeview_meta.has_checkboxes
+            assert self.con.treeview_meta.has_checkboxes, f'Tree does not have checkboxes. Is this a ChangeTree? {self.con.get_tree()}'
 
-            # We will iterate through the master cache, which is necessary since we may have implicitly checked nodes which are not visible in the UI.
-            top_level_sn_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_list_for_root()
-            for top_level_sn in top_level_sn_list:
-                if top_level_sn.spid.guid in self.con.display_store.checked_guid_set:
-                    whitelist.append(top_level_sn)
-                elif top_level_sn.spid.guid in self.con.display_store.inconsistent_guid_set:
-                    secondary_screening.append(top_level_sn)
+            mixed_queue.append(self.con.get_tree().get_root_sn())
 
-            while len(secondary_screening) > 0:
-                inconsistent_dir_sn: SPIDNodePair = secondary_screening.popleft()
+            while len(mixed_queue) > 0:
+                inconsistent_dir_sn: SPIDNodePair = mixed_queue.popleft()
                 # only dir nodes can be inconsistent
                 assert inconsistent_dir_sn.node.is_dir(), f'Expected a dir-type node: {inconsistent_dir_sn}'
 
-                if not (inconsistent_dir_sn.node.is_display_only() or inconsistent_dir_sn.node.is_live()):
-                    # Even an inconsistent MKDIR node must be included as a checked item:
-                    checked_row_list.append(inconsistent_dir_sn)
-
+                # We will iterate through the master cache, which is necessary since we may have implicitly checked nodes which are not in UI.
                 # Check each child of an inconsistent dir for checked or inconsistent status.
                 for child_sn in self.con.get_tree().get_child_list_for_spid(inconsistent_dir_sn.spid):
                     if child_sn.spid.guid in self.con.display_store.checked_guid_set:
-                        whitelist.append(child_sn)
+                        checked_queue.append(child_sn)
                     elif child_sn.spid.guid in self.con.display_store.inconsistent_guid_set:
-                        secondary_screening.append(child_sn)
+                        mixed_queue.append(child_sn)
 
             # Whitelist contains nothing but trees full of checked items
-            while len(whitelist) > 0:
-                chosen_sn: SPIDNodePair = whitelist.popleft()
-                # all files and all non-existent dirs must be added
-                if not (chosen_sn.node.is_display_only() or chosen_sn.node.is_live()):
-                    checked_row_list.append(chosen_sn)
+            while len(checked_queue) > 0:
+                chosen_sn: SPIDNodePair = checked_queue.popleft()
+                # Add all checked stuff:
+                checked_row_list.append(chosen_sn)
 
-                # Drill down into all descendants of nodes in the whitelist.
+                # Drill down and add all descendants of nodes in the checked_queue:
                 if chosen_sn.node.is_dir:
                     for child_sn in self.con.get_tree().get_child_list_for_spid(chosen_sn.spid):
-                        whitelist.append(child_sn)
+                        checked_queue.append(child_sn)
 
             return checked_row_list
 
