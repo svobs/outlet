@@ -60,10 +60,6 @@ class ContainerNode(Node):
     def is_dir(cls):
         return True
 
-    @classmethod
-    def is_display_only(cls):
-        return True
-
     def is_parent_of(self, potential_child_node: Node) -> bool:
         raise InvalidOperationError('is_parent_of')
 
@@ -125,6 +121,10 @@ class CategoryNode(ContainerNode):
         # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)
         return IconId.ICON_GENERIC_DIR
 
+    @classmethod
+    def is_display_only(cls):
+        return True
+
 
 class RootTypeNode(ContainerNode):
     """
@@ -159,3 +159,7 @@ class RootTypeNode(ContainerNode):
         elif self.node_identifier.tree_type == TreeType.GDRIVE:
             return IconId.ICON_GDRIVE
         return IconId.ICON_GENERIC_DIR
+
+    @classmethod
+    def is_display_only(cls):
+        return True

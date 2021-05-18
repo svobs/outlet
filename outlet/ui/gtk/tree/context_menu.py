@@ -132,7 +132,7 @@ class TreeContextMenu:
                 menu.append(item)
 
         # MenuItem: 'Delete tree'
-        if node.is_live() and node.is_dir() and type(node) != CategoryNode:
+        if node.is_live() and node.is_dir() and not node.is_display_only()
             label = f'Delete Tree "{node.name}"'
             if is_gdrive:
                 label += ' from Google Drive'
