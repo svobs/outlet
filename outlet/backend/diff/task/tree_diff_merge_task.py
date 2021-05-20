@@ -32,7 +32,7 @@ class TreeDiffMergeTask:
 
     @staticmethod
     def _add_node_and_op(src_tree: ChangeTree, guid, merged_tree):
-        sn = src_tree.get_sn_for(guid)
+        sn = src_tree.get_sn_for_guid(guid)
         op = src_tree.get_op_for_guid(guid)
         if op:
             merged_tree.add_node(sn, op)

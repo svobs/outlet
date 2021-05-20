@@ -207,7 +207,16 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
         # Factory for proper get_label() function
         if show_identifier:
             def get_label(node):
-                return f'{self.extract_node_func(node).get_tag()}  [{self.extract_id(node)}]'
+                try:
+                    the_node = self.extract_node_func(node)
+                    tag = the_node.get_tag()
+                except Exception:
+                    logger.exception(f'Failed to get tag for {node}')
+                    tag = '[ERROR]'
+
+                the_id = self.extract_id(node)
+
+                return f'{tag}  [{the_id}]'
         else:
             def get_label(node):
                 return self.extract_node_func(node).get_tag()

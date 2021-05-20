@@ -53,6 +53,7 @@ class ChangeTree(DisplayTree):
 
     @staticmethod
     def _extract_node_func(sn: SPIDNodePair) -> Node:
+        assert sn.node, f'SPIDNodePair is missing node: {sn}'
         return sn.node
 
     @staticmethod
@@ -60,7 +61,7 @@ class ChangeTree(DisplayTree):
         # assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
         return sn.spid.guid
 
-    def get_sn_for(self, guid: GUID) -> SPIDNodePair:
+    def get_sn_for_guid(self, guid: GUID) -> SPIDNodePair:
         return self._category_tree.get_node_for_identifier(guid)
 
     def get_root_node(self) -> SPIDNodePair:

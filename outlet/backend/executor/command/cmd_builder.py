@@ -1,7 +1,7 @@
 import logging
 from typing import Callable, Dict
 
-from backend.executor.command.cmd_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
+from backend.executor.command.cmd_impl import CopyFileGDriveCommand, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveNodeCommand, DeleteLocalFileCommand, \
     DownloadFromGDriveCommand, \
     MoveFileGDriveCommand, \
@@ -69,6 +69,8 @@ def _populate_build_dict():
         LO: lambda uid, change: CreatLocalDirCommand(op=change, uid=uid)
     }, UserOpType.CP: {
         LO_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=False),
+
+        # GD_GD: lambda uid, change: CopyFileGDriveCommand(uid, change),  # TODO
 
         LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=False),
 

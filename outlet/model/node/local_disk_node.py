@@ -1,6 +1,5 @@
 import logging
 import pathlib
-import re
 from abc import ABC
 from typing import Optional, Tuple
 
@@ -69,8 +68,8 @@ class LocalDirNode(LocalNode):
         self.dir_stats = other_node.dir_stats
 
     def is_parent_of(self, potential_child_node: Node):
-        if potential_child_node.tree_type == TreeType.LOCAL_DISK:
-            rel_path = re.sub(self.get_single_path(), '', potential_child_node.get_single_path(), count=1)
+        if potential_child_node.device_uid == self.device_uid:
+            rel_path = potential_child_node.get_single_path().replace(self.get_single_path(), '')
             if len(rel_path) > 0 and rel_path.startswith('/'):
                 rel_path = rel_path[1:]
             return rel_path == potential_child_node.name

@@ -166,7 +166,7 @@ class GDriveFolder(GDriveNode):
                self.drive_id, self._is_shared, self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
-        if potential_child_node.tree_type == TreeType.GDRIVE:
+        if potential_child_node.device_uid == self.device_uid:
             assert isinstance(potential_child_node, GDriveNode)
             return self.uid in potential_child_node.get_parent_uids()
         return False

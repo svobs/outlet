@@ -1068,7 +1068,7 @@ class CacheManager(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
-        logger.info(f'Got drop of {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}":{dst_guid} is_into={is_into}')
+        logger.info(f'Got drop of {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}" dst_guid={dst_guid} is_into={is_into}')
 
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
         dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
@@ -1089,7 +1089,7 @@ class CacheManager(HasLifecycle):
 
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
-        elif dst_tree_id == src_tree_id and self._is_dropping_on_itself(dst_sn, src_sn_list, dst_tree_id):
+        elif self._is_dropping_on_self(src_sn_list, dst_sn, dst_tree_id):
             logger.debug(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{dst_tree_id}] Dropping into dest: {dst_sn.spid}')
@@ -1102,12 +1102,26 @@ class CacheManager(HasLifecycle):
             op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
             self.enqueue_op_list(op_list)
 
-    @staticmethod
-    def _is_dropping_on_itself(dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair], dst_tree_id: TreeID):
-        for sn in sn_list:
-            logger.debug(f'[{dst_tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{sn.node}"')
-            if dst_sn.node.is_parent_of(sn.node):
+    def _is_dropping_on_self(self, src_sn_list: List[SPIDNodePair], dst_sn: SPIDNodePair, dst_tree_id: TreeID):
+        dst_ancestor_list = self.get_ancestor_list_for_spid(dst_sn.spid)
+
+        for src_sn in src_sn_list:
+            logger.debug(f'[{dst_tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{src_sn.node}"')
+
+            # Same node onto itself?
+            if dst_sn.node.node_identifier == src_sn.node.node_identifier:
                 return True
+
+            # Dropping into its parent (essentially a no-op)
+            if dst_sn.node.is_parent_of(src_sn.node):
+                return True
+
+            # Dropping an ancestor onto its descendant:
+            for dst_ancestor in dst_ancestor_list:
+                if src_sn.node.node_identifier == dst_ancestor.node.node_identifier:
+                    logger.debug(f'[{dst_tree_id}] Source node ({src_sn.spid}) is ancestor of dest ({dst_sn.spid}): no bueno')
+                    return True
+
         return False
 
     def get_sn_for_guid(self, guid: GUID, tree_id: Optional[TreeID] = None) -> Optional[SPIDNodePair]:
@@ -1129,7 +1143,7 @@ class CacheManager(HasLifecycle):
 
         if tree_meta.change_tree:
             for guid in guid_list:
-                sn = tree_meta.change_tree.get_sn_for(guid)
+                sn = tree_meta.change_tree.get_sn_for_guid(guid)
                 if sn:
                     sn_list.append(sn)
                 else:

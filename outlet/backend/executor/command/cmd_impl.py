@@ -375,6 +375,34 @@ class MoveFileGDriveCommand(TwoNodeCommand):
                                    f'(goog_id={self.op.src_node.goog_id})')
 
 
+class CopyFileGDriveCommand(TwoNodeCommand):
+    """
+    Copy GDrive -> GDrive
+    """
+
+    def __init__(self, uid: UID, op: UserOp):
+        super().__init__(uid, op)
+        assert op.op_type == UserOpType.CP
+
+    def get_total_work(self) -> int:
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+
+    def needs_gdrive(self):
+        return True
+
+    def execute(self, cxt: CommandContext):
+        assert isinstance(self.op.dst_node, GDriveFile), f'For {self.op.dst_node}'
+        assert isinstance(self.op.src_node, GDriveFile), f'For {self.op.src_node}'
+        # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
+        src_parent_goog_id: str = cxt.cacheman.get_goog_id_for_parent(self.op.src_node)
+        dst_parent_goog_id: str = cxt.cacheman.get_goog_id_for_parent(self.op.dst_node)
+        src_goog_id = self.op.src_node.goog_id
+        assert not self.op.dst_node.goog_id
+        dst_name = self.op.dst_node.name
+
+        raise NotImplementedError('TODO: not implemented yet!')
+
+
 class DeleteGDriveNodeCommand(DeleteNodeCommand):
     """
     Delete GDrive

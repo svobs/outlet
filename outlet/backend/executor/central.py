@@ -89,13 +89,20 @@ class CentralExecutor(HasLifecycle):
             # Should be ok to do simple infinite loop, because get_next_command() will block until work is available.
             # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations
 
-            logger.debug(f'{self._op_execution_thread.name}: Getting next command...')
-            command = self.backend.cacheman.get_next_command()
-            if not command:
-                logger.debug(f'{self._op_execution_thread.name}: Got None for next command. Shutting down')
-                self.shutdown()
-                return
+            command = None
+            try:
+                logger.debug(f'{self._op_execution_thread.name}: Getting next command...')
+                command = self.backend.cacheman.get_next_command()  # Blocks until received
+                if not command:
+                    logger.debug(f'{self._op_execution_thread.name}: Got None for next command. Shutting down')
+                    self.shutdown()
+                    return
+            except RuntimeError as e:
+                logger.exception(f'BAD: caught exception in {self._op_execution_thread.name}: halting execution')
+                self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error executing command', secondary_msg=f'{e}')
+                self._pause_op_execution(sender=ID_CENTRAL_EXEC)
 
+            # best place to pause is here, after we got unblocked from command (remember: waiting for a command is also blocking behavior)
             while not self.enable_op_execution:
                 logger.debug(f'{self._op_execution_thread.name}: paused; sleeping until notified')
                 with self._cv_can_execute:
@@ -104,8 +111,9 @@ class CentralExecutor(HasLifecycle):
                 if self._shutdown_requested:
                     return
 
-            logger.debug(f'{self._op_execution_thread.name}: Got a command to execute: {command.__class__.__name__}')
-            self.submit_async_task(self._command_executor.execute_command, command, None, True)
+            if command:
+                logger.debug(f'{self._op_execution_thread.name}: Got a command to execute: {command.__class__.__name__}')
+                self.submit_async_task(self._command_executor.execute_command, command, None, True)
 
     def _start_op_execution(self, sender):
         logger.debug(f'Received signal "{Signal.RESUME_OP_EXECUTION.name}" from {sender}')
