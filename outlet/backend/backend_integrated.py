@@ -129,8 +129,8 @@ class BackendIntegrated(OutletBackend):
     def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self.cacheman.get_rows_of_interest(tree_id)
 
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
-        self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
+        self.cacheman.drop_dragged_nodes(src_tree_id, src_guid_list, is_into, dst_tree_id, dst_guid)
 
     def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
         return self.executor.start_tree_diff(tree_id_left, tree_id_right)

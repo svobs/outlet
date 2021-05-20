@@ -796,6 +796,10 @@ class CacheManager(HasLifecycle):
     def get_uid_for_change_tree_node(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
         return self._change_tree_uid_mapper.get_uid_for(device_uid, single_path, op)
 
+    def get_path_for_uid(self, uid: UID) -> str:
+        # Throws exception if no path found
+        return self._uid_path_mapper.get_path_for_uid(uid)
+
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         assert full_path and isinstance(full_path, str)
@@ -1063,30 +1067,35 @@ class CacheManager(HasLifecycle):
     # Drag & drop
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
-        logger.info(f'Got drop of {len(src_sn_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}" is_into={is_into}')
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
+        logger.info(f'Got drop of {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}":{dst_guid} is_into={is_into}')
+
+        src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
+        dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
+        if not src_tree:
+            logger.error(f'Aborting drop: could not find src tree: "{src_tree_id}"')
+            return
+        if not dst_tree:
+            logger.error(f'Aborting drop: could not find dst tree: "{dst_tree_id}"')
+            return
+
+        src_sn_list = self.get_sn_list_for_guid_list(src_guid_list, src_tree_id)
+
+        dst_sn: SPIDNodePair = self.get_sn_for_guid(dst_guid, dst_tree_id)
 
         if not is_into or (dst_sn and not dst_sn.node.is_dir()):
             # cannot drop into a file; just use parent in this case
             dst_sn = self.get_parent_sn_for_sn(dst_sn)
 
-        if not dst_sn:
-            logger.error(f'[{dst_tree_id}] Cancelling drop: no parent node for dropped location!')
+        if not dst_guid:
+            logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
         elif dst_tree_id == src_tree_id and self._is_dropping_on_itself(dst_sn, src_sn_list, dst_tree_id):
             logger.debug(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{dst_tree_id}] Dropping into dest: {dst_sn.spid}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
-            dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
-            if not src_tree:
-                logger.error(f'Aborting drop: could not find src tree: "{src_tree_id}"')
-                return
-            if not dst_tree:
-                logger.error(f'Aborting drop: could not find dst tree: "{dst_tree_id}"')
-                return
-
-            change_maker = ChangeMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn)
+            change_maker = ChangeMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
+                                       tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
             # So far we only support COPY.
             change_maker.copy_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.CP)
             # This should fire listeners which ultimately populate the tree:
@@ -1100,6 +1109,41 @@ class CacheManager(HasLifecycle):
             if dst_sn.node.is_parent_of(sn.node):
                 return True
         return False
+
+    def get_sn_for_guid(self, guid: GUID, tree_id: Optional[TreeID] = None) -> Optional[SPIDNodePair]:
+        if tree_id:
+            sn_list = self.get_sn_list_for_guid_list(guid_list=[guid], tree_id=tree_id)
+            if sn_list:
+                return sn_list[0]
+            return None
+
+        spid = self.backend.node_identifier_factory.from_guid(guid)
+        return self.get_sn_for(node_uid=spid.node_uid, device_uid=spid.device_uid, full_path=spid.get_single_path())
+
+    def get_sn_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID) -> List[SPIDNodePair]:
+        sn_list = []
+        tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+        if not tree_meta:
+            logger.error(f'Could not find tree: "{tree_id}"')
+            return sn_list
+
+        if tree_meta.change_tree:
+            for guid in guid_list:
+                sn = tree_meta.change_tree.get_sn_for(guid)
+                if sn:
+                    sn_list.append(sn)
+                else:
+                    logger.error(f'[{tree_id}] Could not find node for GUID (skipping): "{guid}"')
+        else:
+            for guid in guid_list:
+                spid = self.backend.node_identifier_factory.from_guid(guid)
+                sn = self.get_sn_for(node_uid=spid.node_uid, device_uid=spid.device_uid, full_path=spid.get_single_path())
+                if sn:
+                    sn_list.append(sn)
+                else:
+                    logger.error(f'[{tree_id}] Could not build SN for GUID (skipping): "{guid}"')
+
+        return sn_list
 
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

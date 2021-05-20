@@ -192,8 +192,9 @@ class TreeUiListeners(HasLifecycle):
             is_into = True
             sn_dst = SPIDNodePair(self.con.get_tree().root_identifier, self.con.get_tree().get_root_node())
 
-        self.con.app.backend.drop_dragged_nodes(src_tree_id=drag_data.src_treecon.tree_id, src_sn_list=drag_data.sn_list, is_into=is_into,
-                                                dst_tree_id=self.con.tree_id, dst_sn=sn_dst)
+        src_guid_list = [sn.spid.guid for sn in drag_data.sn_list]
+        self.con.app.backend.drop_dragged_nodes(src_tree_id=drag_data.src_treecon.tree_id, src_guid_list=src_guid_list, is_into=is_into,
+                                                dst_tree_id=self.con.tree_id, dst_guid=sn_dst.spid.guid)
 
     def _check_drop(self):
         """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.
@@ -455,4 +456,3 @@ def _do_default_action_for_node(node: Node, tree_id: TreeID):
     elif node.tree_type == TreeType.GDRIVE:
         dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
         return True
-

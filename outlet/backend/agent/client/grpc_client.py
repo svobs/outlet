@@ -319,17 +319,15 @@ class BackendGRPCClient(OutletBackend):
         response = self.grpc_stub.get_ancestor_list_for_spid(request)
         return self._converter.sn_list_from_grpc(response.ancestor_list)
 
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: TreeID, dst_sn: SPIDNodePair):
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
         request = DragDrop_Request()
         request.src_tree_id = src_tree_id
         request.dst_tree_id = dst_tree_id
         request.is_into = is_into
+        request.dst_guid = dst_guid
 
-        for src_sn in src_sn_list:
-            grpc_sn = request.src_sn_list.add()
-            self._converter.sn_to_grpc(src_sn, grpc_sn)
-
-        self._converter.sn_to_grpc(dst_sn, request.dst_sn)
+        for src_guid in src_guid_list:
+            request.src_guid_list.append(src_guid)
 
         self.grpc_stub.drop_dragged_nodes(request)
 

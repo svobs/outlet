@@ -412,13 +412,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def drop_dragged_nodes(self, request: DragDrop_Request, context):
-        src_sn_list = []
-        for src_sn in request.src_sn_list:
-            src_sn_list.append(self._converter.sn_from_grpc(src_sn))
-        dst_sn = self._converter.sn_from_grpc(request.dst_sn)
-
-        self.cacheman.drop_dragged_nodes(request.src_tree_id, src_sn_list, request.is_into, request.dst_tree_id, dst_sn)
-
+        self.cacheman.drop_dragged_nodes(request.src_tree_id, request.src_guid_list, request.is_into, request.dst_tree_id, request.dst_guid)
         return DragDrop_Response()
 
     def generate_merge_tree(self, request: GenerateMergeTree_Request, context):

@@ -212,8 +212,8 @@ class ChangeMaker:
     """
 
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
-                 tree_id_left: Optional[TreeID] = None, tree_id_right: Optional[TreeID] = None,
-                 tree_id_left_src: Optional[TreeID] = None, tree_id_right_src: Optional[TreeID] = None):
+                 tree_id_left_src: TreeID, tree_id_right_src: TreeID,
+                 tree_id_left: TreeID = 'ChangeTreeLeft', tree_id_right: TreeID = 'ChangeTreeRight'):
         self.backend = backend
         batch_uid: UID = self.backend.uid_generator.next_uid()
 

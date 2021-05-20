@@ -35,7 +35,7 @@ class ContentFirstDiffer(ChangeMaker):
     """
     def __init__(self, backend, left_tree_sn: SPIDNodePair, right_tree_sn: SPIDNodePair, tree_id_left: str, tree_id_right: str,
                  tree_id_left_src: str, tree_id_right_src: str):
-        super().__init__(backend, left_tree_sn, right_tree_sn, tree_id_left, tree_id_right, tree_id_left_src, tree_id_right_src)
+        super().__init__(backend, left_tree_sn, right_tree_sn, tree_id_left_src, tree_id_right_src, tree_id_left, tree_id_right)
 
     def generate_one_side_diff_meta(self, side: OneSide) -> OneSideDiffMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate

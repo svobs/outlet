@@ -17,7 +17,7 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, extract_identifier_func: Callable[[NodeT], IdentifierT] = None, extract_node_func: Callable = None):
-        super().__init__(extract_identifier_func, extract_node_func)
+        BaseTree.__init__(self, extract_identifier_func, extract_node_func)
         self._node_dict: Dict[IdentifierT, NodeT] = {}
         self._parent_child_list_dict: Dict[IdentifierT, List[NodeT]] = {}
         self._child_parent_dict: Dict[IdentifierT, NodeT] = {}

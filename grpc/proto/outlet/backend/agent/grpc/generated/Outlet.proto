@@ -141,8 +141,8 @@ message GenerateMergeTree_Request {
 message DragDrop_Request {
 	string src_tree_id = 1;
 	string dst_tree_id = 2;
-	repeated SPIDNodePair src_sn_list = 3;
-	SPIDNodePair dst_sn = 4;
+	repeated string src_guid_list = 3;
+	string dst_guid = 4;
 	bool is_into = 5;
 }
 
