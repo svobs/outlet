@@ -62,12 +62,12 @@ class OpGraph(HasLifecycle):
     def _print_node_queue_dict(self):
         logger.debug(f'CURRENT STATE: NodeQueueDict has: {len(self._node_q_dict)} queues:')
         for node_uid, deque in self._node_q_dict.items():
-            node_list: List[str] = []
+            node_repr_list: List[str] = []
             for node in deque:
-                node_list.append(node.op.tag)
+                node_repr_list.append(node.op.get_tag())
             logger.debug(f'NodeUID {node_uid}:')
-            for i, node in enumerate(node_list):
-                logger.debug(f'  {i}. {node}')
+            for i, node_repr in enumerate(node_repr_list):
+                logger.debug(f'  {i}. {node_repr}')
 
     def _get_lowest_priority_op_node(self, uid: UID):
         node_list = self._node_q_dict.get(uid, None)
@@ -379,7 +379,7 @@ class OpGraph(HasLifecycle):
         # Always add to node_queue_dict:
         pending_op_queue = self._node_q_dict.get(target_uid, None)
         if not pending_op_queue:
-            pending_ops = collections.deque()
+            pending_op_queue = collections.deque()
             self._node_q_dict[target_uid] = pending_op_queue
         pending_op_queue.append(node_to_insert)
 

@@ -91,7 +91,8 @@ class UserOp(BaseNode):
 
         self.result: Optional[UserOpResult] = None
 
-        self.tag = repr(self)
+    def get_tag(self) -> str:
+        return repr(self)
 
     @property
     def identifier(self):
