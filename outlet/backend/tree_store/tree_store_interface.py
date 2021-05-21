@@ -21,12 +21,19 @@ class TreeStore(HasLifecycle, ABC):
         HasLifecycle.__init__(self)
         self.device: Device = device
 
-    # Getters / Loaders
+    # Store meta
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @property
     def device_uid(self) -> UID:
         return self.device.uid
+
+    @abstractmethod
+    def is_gdrive(self) -> bool:
+        pass
+
+    # Getters / Loaders
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
     def load_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
@@ -49,7 +56,12 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def refresh_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
+        pass
+
+    @abstractmethod
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
+        """Returns a tuple of [Files, Dirs]"""
         pass
 
     # Mutators
@@ -75,6 +87,10 @@ class TreeStore(HasLifecycle, ABC):
     def generate_dir_stats(self, subtree_root_node: Node, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         pass
 
+    @abstractmethod
+    def refresh_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
+        pass
+
     # UID <-> DomainID mapping
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -86,16 +102,9 @@ class TreeStore(HasLifecycle, ABC):
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         pass
 
-    @abstractmethod
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
-        pass
-
-    @abstractmethod
-    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
-        """Returns a tuple of [Files, Dirs]"""
-        pass
+    # Etc
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
     def show_tree(self, subtree_root: NodeIdentifier) -> str:
         pass
-

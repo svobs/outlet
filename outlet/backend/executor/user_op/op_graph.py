@@ -65,7 +65,7 @@ class OpGraph(HasLifecycle):
             node_list: List[str] = []
             for node in deque:
                 node_list.append(node.op.tag)
-            logger.debug(f'{node_uid}:')
+            logger.debug(f'NodeUID {node_uid}:')
             for i, node in enumerate(node_list):
                 logger.debug(f'  {i}. {node}')
 
@@ -377,11 +377,11 @@ class OpGraph(HasLifecycle):
             return False
 
         # Always add to node_queue_dict:
-        pending_ops = self._node_q_dict.get(target_uid, None)
-        if not pending_ops:
+        pending_op_queue = self._node_q_dict.get(target_uid, None)
+        if not pending_op_queue:
             pending_ops = collections.deque()
-            self._node_q_dict[target_uid] = pending_ops
-        pending_ops.append(node_to_insert)
+            self._node_q_dict[target_uid] = pending_op_queue
+        pending_op_queue.append(node_to_insert)
 
         return True
 
@@ -419,20 +419,20 @@ class OpGraph(HasLifecycle):
         return list(discarded_op_dict.values())
 
     def _is_node_ready(self, op: UserOp, node_uid: UID, node_type_str: str) -> bool:
-        pending_ops: Deque[OpGraphNode] = self._node_q_dict.get(node_uid, None)
-        if not pending_ops:
+        pending_op_queue: Deque[OpGraphNode] = self._node_q_dict.get(node_uid, None)
+        if not pending_op_queue:
             logger.error(f'Could not find entry for op {node_type_str} (op={op}); raising error')
             raise RuntimeError(f'Serious error: master dict has no entries for op {node_type_str} ({node_uid})!')
 
-        op_node = pending_ops[0]
-        if op.op_uid != op_node.op.op_uid:
+        op_graph_node = pending_op_queue[0]
+        if op.op_uid != op_graph_node.op.op_uid:
             if SUPER_DEBUG:
-                logger.debug(f'Skipping UserOp (UID {op_node.op.op_uid}): it is not next in {node_type_str} node queue')
+                logger.debug(f'Skipping UserOp (UID {op_graph_node.op.op_uid}): it is not next in {node_type_str} node queue')
             return False
 
-        if not op_node.is_child_of_root():
+        if not op_graph_node.is_child_of_root():
             if SUPER_DEBUG:
-                logger.debug(f'Skipping UserOp (UID {op_node.op.op_uid}): {node_type_str} node is not child of root')
+                logger.debug(f'Skipping UserOp (UID {op_graph_node.op.op_uid}): {node_type_str} node is not child of root')
             return False
 
         return True

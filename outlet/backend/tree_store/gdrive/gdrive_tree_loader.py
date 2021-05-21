@@ -8,7 +8,8 @@ from pydispatch import dispatcher
 from backend.tree_store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG, TreeID
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG, \
+    TRACELOG_ENABLED, TreeID
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -239,7 +240,8 @@ class GDriveTreeLoader:
                         new_child_path = os.path.join(parent_path, child.name)
                         # if len(new_child_path) > 1000:
                         #     logger.warning(f'Very long path found (possible cycle?): {new_child_path}')
-                        # logger.info(f'[{path_count}] ({child.uid}) Adding path "{new_child_path}" to  paths ({child_path_list})')
+                        if TRACELOG_ENABLED:
+                            logger.debug(f'[{path_count}] ({child.uid}) Adding path "{new_child_path}" to  paths ({child_path_list})')
                         if new_child_path not in child_path_list:
                             child_path_list.append(new_child_path)
                             path_count += 1
@@ -273,4 +275,3 @@ class GDriveTreeLoader:
             logger.error(f'Found {error_count} broken nodes in tree!')
         else:
             logger.debug('No broken nodes detected in tree')
-

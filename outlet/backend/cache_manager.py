@@ -676,7 +676,8 @@ class CacheManager(HasLifecycle):
     def ensure_loaded(self, node_list: List[Node]):
         """Ensures that all the necessary caches are loaded for all of the given nodes"""
 
-        needed_localdisk_cache_dict: Dict[str, PersistedCacheInfo] = {}
+        # use dict and set here to root out duplicate caches:
+        needed_localdisk_cache_dict: Dict[str, PersistedCacheInfo] = {}  # cache location -> PersistedCacheInfo
         needed_gdrive_device_uid_set: Set[UID] = set()
 
         for node in node_list:
@@ -686,19 +687,22 @@ class CacheManager(HasLifecycle):
                 assert node.tree_type == TreeType.LOCAL_DISK, f'Not a LocalDisk node: {node}'
                 cache: Optional[PersistedCacheInfo] = self.find_existing_cache_info_for_local_subtree(node.device_uid, node.get_single_path())
                 if cache:
-                    needed_localdisk_cache_dict[cache.subtree_root.get_single_path()] = cache
+                    needed_localdisk_cache_dict[cache.cache_location] = cache
                 else:
                     raise RuntimeError(f'Could not find a cache file for planning node: {node}')
 
+        # GDrive
         for gdrive_device_uid in needed_gdrive_device_uid_set:
             store = self._get_store_for_device_uid(gdrive_device_uid)
             assert isinstance(store, GDriveMasterStore)
             store.load_and_sync_master_tree()
 
+        # LocalDisk:
         for cache in needed_localdisk_cache_dict.values():
+            # load each cache one by one
             if not cache.is_loaded:
                 if not os.path.exists(cache.subtree_root.get_single_path()):
-                    raise RuntimeError(f'Could not load planning node(s): dir does not exist: {cache.subtree_root.get_single_path()}')
+                    raise RuntimeError(f'Could not load cache: dir does not exist: {cache.subtree_root.get_single_path()}')
                 else:
                     assert isinstance(cache.subtree_root, LocalNodeIdentifier)
                     store = self._get_store_for_device_uid(cache.subtree_root.device_uid)

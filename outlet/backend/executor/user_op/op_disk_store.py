@@ -45,9 +45,10 @@ class OpDiskStore(HasLifecycle):
         else:
             logger.debug(f'Found no pending ops to cancel')
 
-    def get_pending_ops_from_disk(self) -> List[UserOp]:
+    def load_pending_ops_from_disk(self) -> List[UserOp]:
+        """ Gets all pending ops, filling int their src and dst nodes as well """
         if SUPER_DEBUG:
-            logger.debug('Entered get_pending_ops_from_disk()')
+            logger.debug('Entered load_pending_ops_from_disk()')
 
         return self._db.get_all_pending_ops()
 

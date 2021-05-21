@@ -1,16 +1,12 @@
-from typing import Dict, List, Optional, Tuple
 import logging
+from typing import Dict, List, Optional, Tuple
 
-from pydispatch import dispatcher
-
+from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.uid.uid_mapper import UidGoogIdMapper
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, SUPER_DEBUG
 from model.gdrive_meta import GDriveUser, MimeType
-from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.uid import UID
-from backend.uid.uid_mapper import UidGoogIdMapper
-from signal_constants import Signal
-from signal_constants import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 

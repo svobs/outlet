@@ -216,7 +216,7 @@ class OpLedger(HasLifecycle):
         """Call this at startup, to RESUME pending ops which have not yet been applied."""
 
         # Load from disk
-        op_list: List[UserOp] = self._disk_store.get_pending_ops_from_disk()
+        op_list: List[UserOp] = self._disk_store.load_pending_ops_from_disk()
         if not op_list:
             logger.debug(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
             return
@@ -236,19 +236,22 @@ class OpLedger(HasLifecycle):
         for batch_uid in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
             batch_op_list: List[UserOp] = batch_dict[batch_uid]
-            self._ensure_batch_nodes_loaded(batch_op_list)
+
+            big_node_list: List[Node] = self._get_all_nodes(batch_op_list)
+
+            # Make sure all relevant caches are loaded:
+            self.backend.cacheman.ensure_loaded(big_node_list)
 
             self._append_batch(batch_uid, batch_op_list, save_to_disk=False)
 
-    def _ensure_batch_nodes_loaded(self, batch_op_list: List[UserOp]):
+    @staticmethod
+    def _get_all_nodes(batch_op_list: List[UserOp]) -> List[Node]:
         big_node_list: List[Node] = []
         for user_op in batch_op_list:
             big_node_list.append(user_op.src_node)
             if user_op.has_dst():
                 big_node_list.append(user_op.dst_node)
-
-        # Make sure all relevant caches are loaded:
-        self.backend.cacheman.ensure_loaded(big_node_list)
+        return big_node_list
 
     def append_new_pending_op_batch(self, batch_op_list: Iterable[UserOp]):
         """

@@ -3,7 +3,7 @@ import os
 from collections import Counter, defaultdict, deque
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
-from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TrashStatus, \
+from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, \
     TreeType
 from error import GDriveItemNotFoundError
 from model.gdrive_meta import GDriveUser
@@ -519,16 +519,20 @@ class GDriveWholeTree(BaseTree):
 
         path_list: List[str] = []
         # Iterate backwards (the given ID is the last segment in the path
-        current_nodes: List[Tuple[GDriveNode, str]] = [(current_node, '')]
+        current_segment_nodes: List[Tuple[GDriveNode, str]] = [(current_node, '')]
         next_segment_nodes: List[Tuple[GDriveNode, str]] = []
-        while current_nodes:
-            for node, path_so_far in current_nodes:
+        while current_segment_nodes:
+            for node, path_so_far in current_segment_nodes:
                 if path_so_far == '':
                     # first node (leaf)
                     path_so_far = node.name
                 else:
-                    # Pre-pend parent name:
-                    path_so_far = node.name + '/' + path_so_far
+                    if node.name == ROOT_PATH:
+                        # special case for root path: don't add an extra slash
+                        path_so_far = '/' + path_so_far
+                    else:
+                        # Pre-pend parent name:
+                        path_so_far = node.name + '/' + path_so_far
 
                 parent_uids: List[UID] = node.get_parent_uids()
                 if parent_uids:
@@ -556,11 +560,22 @@ class GDriveWholeTree(BaseTree):
 
                 else:
                     # No parent refs. Root of Google Drive
-                    path_list.append('/' + path_so_far)
-            current_nodes = next_segment_nodes
+                    path_list.append(path_so_far)
+            current_segment_nodes = next_segment_nodes
             next_segment_nodes = []
 
+        if TRACELOG_ENABLED:
+            logger.debug(f'Computed path list "{path_list}" for node_identifier: {current_node.node_identifier}')
+        elif SUPER_DEBUG:
+            if path_list != current_node.node_identifier.get_path_list():
+                logger.debug(f'Updating path_list for node_identifier ({current_node.node_identifier}) -> {path_list}')
+
         current_node.node_identifier.set_path_list(path_list)
+
+        for path in path_list:
+            if path.startswith('//'):
+                logger.error(f'Generated invalid path ({path}) for node: {current_node}')
+
         return path_list
 
     # TODO: make use of this

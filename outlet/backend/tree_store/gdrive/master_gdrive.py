@@ -7,7 +7,7 @@ from typing import Deque, Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG, TreeID
+from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG, TRACELOG_ENABLED, TreeID
 from error import CacheNotLoadedError
 from global_actions import GlobalActions
 from model.device import Device
@@ -97,6 +97,9 @@ class GDriveMasterStore(TreeStore):
             self.backend = None
         except (AttributeError, NameError):
             pass
+
+    def is_gdrive(self) -> bool:
+        return True
 
     def get_gdrive_client(self) -> GDriveClient:
         return self.gdrive_client
@@ -450,8 +453,8 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:
-        # if SUPER_DEBUG:
-        #     logger.debug(f'Entered get_gdrive_user_for_permission_id()')
+        if TRACELOG_ENABLED:
+            logger.debug(f'Entered get_gdrive_user_for_permission_id()')
         return self._memstore.get_gdrive_user_for_permission_id(permission_id)
 
     def get_gdrive_user_for_user_uid(self, uid: UID) -> GDriveUser:

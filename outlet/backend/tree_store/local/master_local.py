@@ -78,6 +78,9 @@ class LocalDiskMasterStore(TreeStore):
         except (AttributeError, NameError):
             pass
 
+    def is_gdrive(self) -> bool:
+        return False
+
     def _execute_write_op(self, operation: LocalWriteThroughOp):
         if SUPER_DEBUG:
             logger.debug(f'Executing operation: {operation}')
@@ -604,7 +607,7 @@ class LocalDiskMasterStore(TreeStore):
                 target = pathlib.Path(os.readlink(pointer)).resolve()
                 logger.debug(f'Resolved link (iteration {count_attempt}): "{pointer}" -> "{target}"')
                 if not os.path.exists(target):
-                    logger.error(f'Broken link, skipping: "{pointer}" -> "{target}"')
+                    logger.warning(f'Broken link, skipping: "{pointer}" -> "{target}"')
                     if pointer != full_path:
                         logger.error(f'(original link: "{full_path}")')
                     return None

@@ -263,8 +263,8 @@ class ChangeMaker:
                                                                tree_type=child_node.tree_type,
                                                                path_list=os.path.join(parent_path, child_node.name), must_be_single_path=True)
 
-    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id: Optional[TreeID]):
-        """Note: here, param "tree_id" indicates which tree_id from which to request nodes from CacheManager (or None to indicate master cache)"""
+    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id_src: Optional[TreeID]):
+        """Note: here, param "tree_id_src" indicates which tree_id from which to request nodes from CacheManager (or None to indicate master cache)"""
         assert isinstance(subtree_root, Tuple), \
             f'Expected NamedTuple with SinglePathNodeIdentifier but got {type(subtree_root)}: {subtree_root}'
         queue: Deque[SPIDNodePair] = collections.deque()
@@ -277,11 +277,12 @@ class ChangeMaker:
 
             if sn.node.is_live():  # avoid pending op nodes
                 if sn.node.is_dir():
-                    child_sn_list = self.backend.cacheman.get_child_list(sn.spid, tree_id=tree_id)
+                    child_sn_list = self.backend.cacheman.get_child_list(sn.spid, tree_id=tree_id_src)
                     if child_sn_list:
                         for child_sn in child_sn_list:
-                            assert child_sn.spid.get_single_path() in child_sn.node.get_path_list(), \
-                                f'Child path "{child_sn.spid.get_single_path()}" does not correspond to actual node: {child_sn.node}'
+                            if child_sn.spid.get_single_path() not in child_sn.node.get_path_list():
+                                logger.error(f'[{tree_id_src}] Bad SPIDNodePair found in children of {sn}, see following error')
+                                raise RuntimeError(f'Invalid SPIDNodePair! Path from SPID ({child_sn.spid}) not found in node: {child_sn.node}')
                             queue.append(child_sn)
                 else:
                     on_file_found(sn)
