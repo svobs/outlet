@@ -70,8 +70,9 @@ class ChangeTree(DisplayTree):
     def get_child_list_for_root(self) -> Iterable[SPIDNodePair]:
         return self.get_child_list_for_spid(self.get_root_node().spid)
 
-    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, is_expanding_parent: bool = False) -> Iterable[SPIDNodePair]:
         try:
+            # note: don't need to use is_expanding_parent (this is not a FE tree!)
             return self._category_tree.get_child_list_for_identifier(parent_spid.guid)
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):

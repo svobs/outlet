@@ -122,13 +122,13 @@ class DisplayMutator(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}". Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
             dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 
-    def _populate_recursively(self, parent_iter, sn: SPIDNodePair, node_count: int = 0) -> int:
+    def _populate_and_expand_recursively(self, parent_iter, sn: SPIDNodePair, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
         if sn.node.is_dir():
             parent_iter = self._append_dir_node(parent_iter, sn)
 
-            for child in self.con.get_tree().get_child_list_for_spid(sn.spid):
-                node_count = self._populate_recursively(parent_iter, child, node_count)
+            for child in self.con.get_tree().get_child_list_for_spid(sn.spid, is_expanding_parent=True):
+                node_count = self._populate_and_expand_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, sn)
 
@@ -238,18 +238,19 @@ class DisplayMutator(HasLifecycle):
             return
 
         if self.con.tree_view.row_expanded(tree_path):
+            # already expanded
             return
 
         sn: SPIDNodePair = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        child_sn_list: List[SPIDNodePair] = self.con.get_tree().get_child_list_for_spid(sn.spid)
+        child_sn_list: List[SPIDNodePair] = self.con.get_tree().get_child_list_for_spid(sn.spid, is_expanding_parent=True)
 
         if expand_all:
             # populate all descendants
             node_count = 0
             for child_sn in child_sn_list:
-                node_count = self._populate_recursively(parent_iter, child_sn, node_count)
+                node_count = self._populate_and_expand_recursively(parent_iter, child_sn, node_count)
             logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
         else:
             # populate only children
@@ -320,7 +321,7 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Populating recursively')
                     # NOT lazy: load all at once, expand all
                     for sn in top_level_sn_list:
-                        node_count = self._populate_recursively(None, sn, node_count)
+                        node_count = self._populate_and_expand_recursively(None, sn, node_count)
 
                     logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 

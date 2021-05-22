@@ -266,7 +266,8 @@ class BackendGRPCClient(OutletBackend):
             self._cached_device_list = device_list
         return self._cached_device_list
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[SPIDNodePair]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) -> \
+            Iterable[SPIDNodePair]:
         if SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Entered get_child_list(): parent_spid={parent_spid}')
         assert tree_id, f'GRPCClient.get_child_list(): No tree_id provided!'
@@ -275,6 +276,7 @@ class BackendGRPCClient(OutletBackend):
         request = GetChildList_Request()
         self._converter.node_identifier_to_grpc(parent_spid, request.parent_spid)
         request.tree_id = tree_id
+        request.is_expanding_parent = is_expanding_parent
         request.max_results = max_results
 
         response = self.grpc_stub.get_child_list_for_spid(request)

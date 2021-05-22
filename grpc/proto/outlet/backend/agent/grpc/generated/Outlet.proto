@@ -240,7 +240,8 @@ message SendSignalResponse {
 message GetChildList_Request {
 	NodeIdentifier parent_spid = 1;
 	string tree_id = 2;
-	uint32 max_results = 3; // 0=unlimited
+	bool is_expanding_parent = 3;
+	uint32 max_results = 4; // 0=unlimited
 }
 
 message GetChildList_Response {

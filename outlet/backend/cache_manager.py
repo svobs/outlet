@@ -828,7 +828,8 @@ class CacheManager(HasLifecycle):
         path_list = ensure_list(path_list)
         return self._get_store_for_device_uid(device_uid).get_node_list_for_path_list(path_list)
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> List[SPIDNodePair]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) \
+            -> List[SPIDNodePair]:
         if SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Entered get_child_list() for parent_spid={parent_spid}')
         if not parent_spid:
@@ -840,8 +841,8 @@ class CacheManager(HasLifecycle):
         if not tree_meta:
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
 
-        # We assume that whenever get_child_list() is called, this represents a row expansion
-        self._active_tree_manager.add_expanded_row(parent_spid.guid, tree_id)
+        if is_expanding_parent:
+            self._active_tree_manager.add_expanded_row(parent_spid.guid, tree_id)
 
         if tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Change trees have their own storage of nodes (not in master caches)

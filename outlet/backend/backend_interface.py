@@ -92,7 +92,8 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, max_results: int = 0) -> Iterable[SPIDNodePair]:
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) -> \
+            Iterable[SPIDNodePair]:
         """If max_results is 0, unlimited nodes are returned. If nonzero and actual node count exceeds this, ResultsExceededError is raised"""
         pass
 
