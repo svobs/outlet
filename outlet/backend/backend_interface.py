@@ -41,7 +41,7 @@ class OutletBackend(HasLifecycle, ABC):
     def report_exception(sender: str, msg: str, error: Exception):
         """Convenience method for notifying the user about errors"""
         logger.exception(f'[{sender}] {msg}')
-        dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=sender, msg=msg, secondary_msg={error})
+        dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=sender, msg=msg, secondary_msg=f'{error}')
 
     @abstractmethod
     def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = True) -> Optional[str]:

@@ -831,7 +831,7 @@ class CacheManager(HasLifecycle):
     def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) \
             -> List[SPIDNodePair]:
         if SUPER_DEBUG:
-            logger.debug(f'[{tree_id}] Entered get_child_list() for parent_spid={parent_spid}')
+            logger.debug(f'[{tree_id}] Entered get_child_list() for parent_spid={parent_spid} (is_expanding_parent={is_expanding_parent})')
         if not parent_spid:
             raise RuntimeError('get_child_list(): parent_spid not provided!')
         if not isinstance(parent_spid, SinglePathNodeIdentifier):
