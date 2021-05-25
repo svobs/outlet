@@ -97,6 +97,9 @@ class Signal(IntEnum):
     # --- Status bar ---
     SET_STATUS = 105
 
+    # gRPC, sent from server to client
+    WELCOME = 200
+
 
 # --- Sender identifiers ---
 ID_MAIN_WINDOW = 'main_win'

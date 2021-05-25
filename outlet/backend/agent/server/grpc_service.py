@@ -39,7 +39,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
 from backend.uid.uid_generator import UidGenerator
-from signal_constants import Signal
+from signal_constants import ID_GLOBAL_CACHE, Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -150,11 +150,15 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             context.add_callback(on_rpc_done)
             thread_id: int = threading.get_ident()
             logger.info(f'Adding a signal subscriber with ThreadID {thread_id}')
+
             with self._queue_lock:
                 signal_queue = self._thread_signal_queues.get(thread_id, None)
                 if signal_queue:
                     logger.warning(f'Found an existing gRPC signal queue for ThreadID: {thread_id} Will overwrite')
-                self._thread_signal_queues[thread_id] = deque()
+                signal_queue = deque()
+                # Send welcome msg to new client (no gift basket, however)
+                signal_queue.append(SignalMsg(sig_int=Signal.WELCOME, sender=ID_GLOBAL_CACHE))
+                self._thread_signal_queues[thread_id] = signal_queue
 
             while not self._shutdown:
 

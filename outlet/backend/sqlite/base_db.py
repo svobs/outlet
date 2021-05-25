@@ -19,8 +19,6 @@ class Table:
 
     # Factory methods:
 
-    # FIXME! Need to convert ALL OF THESE to SQL parameters!
-
     def build_insert(self):
         return 'INSERT INTO ' + self.name + '(' + ','.join(col_name for col_name in self.cols.keys()) + \
                ') VALUES (' + ','.join('?' for i in range(len(self.cols))) + ')'
