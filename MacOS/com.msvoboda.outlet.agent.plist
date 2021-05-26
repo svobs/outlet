@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Run this with `launchctl load {this.plist}`; kill with `launchctl unload {this.plist}` -->
+<!DOCTYPE plist PUBLIC -//Apple Computer//DTD PLIST 1.0//EN http://www.apple.com/DTDs/PropertyList-1.0.dtd >
+<plist version="1.0">
+  <dict>
+
+    <key>Label</key>
+    <string>com.msvoboda.outlet.agent</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>python3</string>
+      <string>/Users/msvoboda/LocalDevel/outlet/outlet/main/grpc_server_agent.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/msvoboda/LocalDevel/outlet/outlet/main</string>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/msvoboda/LocalDevel/outlet/log/outlet_console.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/msvoboda/LocalDevel/outlet/log/outlet_console.log</string>
+
+  </dict>
+</plist>
