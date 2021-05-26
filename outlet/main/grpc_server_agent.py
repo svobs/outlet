@@ -1,6 +1,5 @@
 #!/usr/local/bin/python3
 import logging
-import os
 import sys
 import util.main_util
 from backend.agent.server.backend_grpc_server import OutletAgent
