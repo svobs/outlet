@@ -30,7 +30,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
     SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
-    StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response, UserOp
+    StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -39,6 +39,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
 from backend.uid.uid_generator import UidGenerator
+from model.user_op import UserOp
 from signal_constants import ID_GLOBAL_CACHE, Signal
 from util.has_lifecycle import HasLifecycle
 

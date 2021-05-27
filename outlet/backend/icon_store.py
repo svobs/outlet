@@ -132,15 +132,17 @@ class IconStore(ABC):
 
         badge_meta_dict = {
             IconId.BADGE_RM: SimpleIcon(name=f'RM', path=f'{badge_dir_path}/RM-{badge_size}.png'),
-            IconId.BADGE_MY_SRC: SimpleIcon(name=f'MV-src', path=f'{badge_dir_path}/MV-src-{badge_size}.png'),
+            IconId.BADGE_MV_SRC: SimpleIcon(name=f'MV-src', path=f'{badge_dir_path}/MV-src-{badge_size}.png'),
             IconId.BADGE_MV_DST: SimpleIcon(name=f'MV-dst', path=f'{badge_dir_path}/MV-dst-{badge_size}.png'),
             IconId.BADGE_CP_SRC: SimpleIcon(name=f'CP-src', path=f'{badge_dir_path}/CP-src-{badge_size}.png'),
             IconId.BADGE_CP_DST: SimpleIcon(name=f'CP-dst', path=f'{badge_dir_path}/CP-dst-{badge_size}.png'),
             IconId.BADGE_UP_SRC: SimpleIcon(name=f'UP-src', path=f'{badge_dir_path}/UP-src-{badge_size}.png'),
             IconId.BADGE_UP_DST: SimpleIcon(name=f'UP-dst', path=f'{badge_dir_path}/UP-dst-{badge_size}.png'),
             IconId.BADGE_MKDIR: SimpleIcon(name=f'MKDIR', path=f'{badge_dir_path}/MKDIR-{badge_size}.png'),
+            IconId.BADGE_TRASHED: SimpleIcon(name=f'Trashed', path=f'{badge_dir_path}/Trashed-{badge_size}.png'),
 
             IconId.BADGE_CANCEL: SimpleIcon(name=f'Cancel', path=f'{badge_dir_path}/Cancel-{badge_size}.png'),
+            IconId.BADGE_REFRESH: SimpleIcon(name=f'Refreshing', path=f'{badge_dir_path}/Refresh-{badge_size}.png'),
             IconId.BADGE_LINUX: SimpleIcon(name=f'Linux', path=f'{badge_dir_path}/linux-{badge_size}.png'),
             IconId.BADGE_MACOS: SimpleIcon(name=f'MacOS', path=f'{badge_dir_path}/macos-{badge_size}.png'),
             IconId.BADGE_WINDOWS: SimpleIcon(name=f'Windows', path=f'{badge_dir_path}/win-{badge_size}.png'),
@@ -151,7 +153,7 @@ class IconStore(ABC):
             # File
             IconId.ICON_GENERIC_FILE: SimpleIcon(name=ICON_GENERIC_FILE, path=file_base),
             IconId.ICON_FILE_RM: CompositeIcon(name=ICON_FILE_RM, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_RM]]),
-            IconId.ICON_FILE_MV_SRC: CompositeIcon(name=ICON_FILE_MV_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_MY_SRC]]),
+            IconId.ICON_FILE_MV_SRC: CompositeIcon(name=ICON_FILE_MV_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_MV_SRC]]),
             IconId.ICON_FILE_UP_SRC: CompositeIcon(name=ICON_FILE_UP_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_UP_SRC]]),
             IconId.ICON_FILE_CP_SRC: CompositeIcon(name=ICON_FILE_CP_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_CP_SRC]]),
             IconId.ICON_FILE_MV_DST: CompositeIcon(name=ICON_FILE_MV_DST, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_MV_DST]]),
@@ -163,7 +165,7 @@ class IconStore(ABC):
             IconId.ICON_GENERIC_DIR: SimpleIcon(name=ICON_GENERIC_DIR, path=dir_base),
             IconId.ICON_DIR_MK: CompositeIcon(name=ICON_DIR_MK, base_path=dir_base, badges=[badge_meta_dict[IconId.BADGE_MKDIR]]),
             IconId.ICON_DIR_RM: CompositeIcon(name=ICON_DIR_RM, base_path=dir_base, badges=[badge_meta_dict[IconId.BADGE_RM]]),
-            IconId.ICON_DIR_MV_SRC: CompositeIcon(name=ICON_DIR_MV_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_MY_SRC]]),
+            IconId.ICON_DIR_MV_SRC: CompositeIcon(name=ICON_DIR_MV_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_MV_SRC]]),
             IconId.ICON_DIR_UP_SRC: CompositeIcon(name=ICON_DIR_UP_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_UP_SRC]]),
             IconId.ICON_DIR_CP_SRC: CompositeIcon(name=ICON_DIR_CP_SRC, base_path=file_base, badges=[badge_meta_dict[IconId.BADGE_CP_SRC]]),
             IconId.ICON_DIR_MV_DST: CompositeIcon(name=ICON_DIR_MV_DST, base_path=dir_base, badges=[badge_meta_dict[IconId.BADGE_MV_DST]]),
@@ -174,7 +176,7 @@ class IconStore(ABC):
             # Misc UI
             IconId.ICON_ALERT: SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
             IconId.ICON_WINDOW: SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
-            IconId.ICON_REFRESH: SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),
+            IconId.ICON_REFRESH: SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-48.png'),
             IconId.ICON_PLAY: SimpleIcon(name=ICON_PLAY, path=f'resources/play-button-white-32px.png'),
             IconId.ICON_PAUSE: SimpleIcon(name=ICON_PAUSE, path=f'resources/pause-button-white-32px.png'),
             IconId.ICON_FOLDER_TREE: SimpleIcon(name=ICON_FOLDER_TREE, path=f'resources/Toolbar/FolderTree-{toolbar_icon_size}px.png'),
@@ -206,7 +208,7 @@ class IconStore(ABC):
         }
 
         # Add badges to icon set
-        icon_meta_dict.update(badge_meta_dict)
+        icon_meta_dict |= badge_meta_dict
 
         return icon_meta_dict
 

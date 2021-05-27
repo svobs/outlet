@@ -16,7 +16,7 @@ message UserOp {
   uint32 op_type = 3;
   Node src_node = 4;
   Node dst_node = 5;
-  uint64 sync_ts = 6;
+  uint64 create_ts = 6;
   // no support for result yet
 }
 
