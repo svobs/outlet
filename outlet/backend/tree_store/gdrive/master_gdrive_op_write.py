@@ -56,7 +56,9 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             raise RuntimeError(f'Unrecognized node type: {node}')
 
     def update_memstore(self, memstore: GDriveMemoryStore):
-        self.node, self.was_updated = memstore.upsert_single_node(self.node)
+        node, self.was_updated = memstore.upsert_single_node(self.node)
+        assert node, f'What happened? {self.node}'
+        self.node = node
 
         parent_uids = self.node.get_parent_uids()
         if parent_uids:
@@ -390,4 +392,3 @@ class DeleteAllDataOp(GDriveWriteThroughOp):
 
     def send_signals(self):
         pass
-

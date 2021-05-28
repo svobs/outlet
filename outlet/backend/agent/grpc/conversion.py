@@ -232,7 +232,7 @@ class GRPCConverter:
 
         path_list = node_identifier.get_path_list()
         if not path_list:
-            logger.error(f'Path list is empty for {node_identifier}')  # TODO
+            logger.info(f'Path list is empty for {node_identifier}')  # TODO
 
         for full_path in path_list:
             grpc_node_identifier.path_list.append(full_path)

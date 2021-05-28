@@ -81,9 +81,13 @@ class OpLedger(HasLifecycle):
         actually changed (i.e., only their statuses have changed).
 
         Note: we update our input nodes with the returned values, as GDrive node paths in particular may be filled in"""
-        op.src_node = self.backend.cacheman.upsert_single_node(op.src_node)
+        src_node = self.backend.cacheman.upsert_single_node(op.src_node)
+        assert src_node, f'What happened?! {op}'
+        op.src_node = src_node
         if op.has_dst():
-            op.dst_node = self.backend.cacheman.upsert_single_node(op.dst_node)
+            dst_node = self.backend.cacheman.upsert_single_node(op.dst_node)
+            assert dst_node, f'What happened?! {op}'
+            op.dst_node = dst_node
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -316,6 +320,9 @@ class OpLedger(HasLifecycle):
         op: Optional[UserOp] = self.get_last_pending_op_for_node(node_uid)
         if not op or not op.is_completed():
             return None
+
+        if node_uid == 13262705:
+            logger.debug('TODO')  # TODO
 
         if SUPER_DEBUG:
             logger.debug(f'Node {node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')

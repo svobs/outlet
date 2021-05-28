@@ -740,12 +740,12 @@ class CacheManager(HasLifecycle):
     # Main cache CRUD
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def upsert_single_node(self, node: Node):
-        self._get_store_for_device_uid(node.device_uid).upsert_single_node(node)
+    def upsert_single_node(self, node: Node) -> Node:
+        return self._get_store_for_device_uid(node.device_uid).upsert_single_node(node)
 
-    def update_single_node(self, node: Node):
+    def update_single_node(self, node: Node) -> Node:
         """Simliar to upsert, but fails silently if node does not already exist in caches. Useful for things such as asynch MD5 filling"""
-        self._get_store_for_device_uid(node.device_uid).update_single_node(node)
+        return self._get_store_for_device_uid(node.device_uid).update_single_node(node)
 
     def delete_subtree(self, node_uid_list: List[UID]):
         logger.debug(f'Setting up recursive delete operations for {len(node_uid_list)} nodes')
