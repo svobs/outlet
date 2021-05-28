@@ -456,7 +456,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             response.user_op.create_ts = user_op.create_ts
 
             self._converter.node_to_grpc(user_op.src_node, response.user_op.src_node)
-            self._converter.node_to_grpc(user_op.dst_node, response.user_op.dst_node)
+            if user_op.dst_node:
+                self._converter.node_to_grpc(user_op.dst_node, response.user_op.dst_node)
 
         return response
 

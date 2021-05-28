@@ -316,17 +316,7 @@ class OpLedger(HasLifecycle):
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(node_uid)
 
-    def get_icon_for_node(self, node_uid: UID) -> Optional[IconId]:
-        op: Optional[UserOp] = self.get_last_pending_op_for_node(node_uid)
-        if not op or not op.is_completed():
-            return None
-
-        if node_uid == 13262705:
-            logger.debug('TODO')  # TODO
-
-        if SUPER_DEBUG:
-            logger.debug(f'Node {node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
-
+    def _get_icon_for_node(self, node_uid: UID, op: UserOp) -> IconId:
         if op.has_dst() and op.dst_node.uid == node_uid:
             op_type = op.op_type
             if op_type == UserOpType.MV and not op.dst_node.is_live():
@@ -343,6 +333,16 @@ class OpLedger(HasLifecycle):
             return self.icon_src_dir_dict[op.op_type]
         else:
             return self.icon_src_file_dict[op.op_type]
+
+    def get_icon_for_node(self, node_uid: UID) -> Optional[IconId]:
+        op: Optional[UserOp] = self.get_last_pending_op_for_node(node_uid)
+        if not op or op.is_completed():
+            return None
+
+        icon = self._get_icon_for_node(node_uid, op)
+        if SUPER_DEBUG:
+            logger.debug(f'Node {node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
+        return icon
 
     def get_next_command(self) -> Optional[Command]:
         # Call this from Executor. Only returns None if shutting down

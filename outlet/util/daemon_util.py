@@ -12,7 +12,7 @@ import psutil
 logger = logging.getLogger(__name__)
 
 PYTHON_EXE = sys.executable
-DAEMON_SCRIPT_PATH = file_util.get_resource_path('outlet/main/grpc_server_daemon.py')
+AGENT_SCRIPT_PATH = file_util.get_resource_path('outlet/main/grpc_server_agent.py')
 
 
 def launch_daemon_if_needed(kill_existing=False):
@@ -27,7 +27,7 @@ def launch_daemon_if_needed(kill_existing=False):
     proc_found = _do_for_running_process(on_found_func)
 
     if not proc_found:
-        logger.info(f'Process not found; launching: "{PYTHON_EXE} {DAEMON_SCRIPT_PATH}"')
+        logger.info(f'Process not found; launching: "{PYTHON_EXE} {AGENT_SCRIPT_PATH}"')
         launch_daemon()
 
 
@@ -42,7 +42,7 @@ def terminate_daemon_if_found():
 
 
 def _do_for_running_process(on_found_func: Callable) -> bool:
-    cmdline = [PYTHON_EXE, DAEMON_SCRIPT_PATH]
+    cmdline = [PYTHON_EXE, AGENT_SCRIPT_PATH]
     logger.debug(f'Checking to see if agent is running: checking cmdline for: {cmdline}')
     proc_found: bool = False
 
@@ -55,7 +55,7 @@ def _do_for_running_process(on_found_func: Callable) -> bool:
 
 
 def launch_daemon():
-    args = [PYTHON_EXE, DAEMON_SCRIPT_PATH]
+    args = [PYTHON_EXE, AGENT_SCRIPT_PATH]
     if platform.system() == 'Windows':
         logger.debug('OS is Windows!')
         creationflags = subprocess.DETACHED_PROCESS
@@ -69,4 +69,3 @@ def launch_daemon():
             # signal handler SIG_IGN.
             signal.signal(signal.SIGINT, signal.SIG_IGN)
         subprocess.Popen(args, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, close_fds=True, preexec_fn=preexec)
-
