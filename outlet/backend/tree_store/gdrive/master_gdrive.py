@@ -291,22 +291,27 @@ class GDriveMasterStore(TreeStore):
     # Individual node cache updates
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def upsert_single_node(self, node: GDriveNode):
+    def upsert_single_node(self, node: GDriveNode) -> GDriveNode:
         if SUPER_DEBUG:
             logger.debug(f'Entered upsert_single_node(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
-            self._upsert_single_node_nolock(node)
+            return self._upsert_single_node_nolock(node)
 
-    def _upsert_single_node_nolock(self, node: GDriveNode):
+    def _upsert_single_node_nolock(self, node: GDriveNode) -> GDriveNode:
         logger.debug(f'Upserting GDrive node to caches: {node}')
-        self._execute_write_op(UpsertSingleNodeOp(node))
+        write_op = UpsertSingleNodeOp(node)
+        self._execute_write_op(write_op)
+        return write_op.node
 
-    def update_single_node(self, node: GDriveNode):
+    def update_single_node(self, node: GDriveNode) -> GDriveNode:
         if SUPER_DEBUG:
             logger.debug(f'Entered update_single_node(): locked={self._struct_lock.locked()}')
+        write_op = UpsertSingleNodeOp(node, update_only=True)
         with self._struct_lock:
             logger.debug(f'Updating GDrive node in caches: {node}')
-            self._execute_write_op(UpsertSingleNodeOp(node, update_only=True))
+            self._execute_write_op(write_op)
+
+        return write_op.node
 
     def remove_subtree(self, subtree_root: GDriveNode, to_trash):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'
@@ -322,22 +327,23 @@ class GDriveMasterStore(TreeStore):
             logger.debug(f'Requested subtree is not a folder; calling remove_single_node()')
             self.remove_single_node(subtree_root, to_trash=to_trash)
 
-    def remove_single_node(self, node: GDriveNode, to_trash):
+    def remove_single_node(self, node: GDriveNode, to_trash) -> Optional[GDriveNode]:
         if SUPER_DEBUG:
             logger.debug(f'Entered remove_single_node(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
-            self._remove_single_node_nolock(node, to_trash)
+            return self._remove_single_node_nolock(node, to_trash)
 
-    def _remove_single_node_nolock(self, node: GDriveNode, to_trash):
+    def _remove_single_node_nolock(self, node: GDriveNode, to_trash) -> Optional[GDriveNode]:
         logger.debug(f'Removing node from caches: {node}')
 
         if to_trash:
             if node.get_trashed_status().not_trashed():
                 raise RuntimeError(f'Trying to trash Google node which is not marked as trashed: {node}')
             # this is actually an update
-            self._upsert_single_node_nolock(node)
+            return self._upsert_single_node_nolock(node)
         else:
             self._execute_write_op(DeleteSingleNodeOp(node, to_trash))
+            return None
 
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

@@ -40,7 +40,7 @@ class LocalNode(Node, ABC):
     def derive_parent_path(self) -> str:
         return str(pathlib.Path(self.get_single_path()).parent)
 
-    def get_single_parent(self) -> UID:
+    def get_single_parent_uid(self) -> UID:
         if isinstance(self._parent_uids, list):
             if len(self._parent_uids) != 1:
                 raise RuntimeError(f'Missing parent: {self}')

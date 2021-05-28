@@ -68,15 +68,20 @@ class TreeStore(HasLifecycle, ABC):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def upsert_single_node(self, node: Node):
+    def upsert_single_node(self, node: Node) -> Node:
+        """Note: node returned will be the same node as from the cache, which may not match the input node
+         but should be considered to be more up-to-date. The caller should update its data with this node."""
         pass
 
     @abstractmethod
-    def update_single_node(self, node: Node):
+    def update_single_node(self, node: Node) -> Node:
+        """Note: node returned will be the same node as from the cache, which may not match the input node
+         but should be considered to be more up-to-date. The caller should update its data with this node."""
         pass
 
     @abstractmethod
-    def remove_single_node(self, node: Node, to_trash: bool):
+    def remove_single_node(self, node: Node, to_trash: bool) -> Optional[Node]:
+        """If to_trash==true, this may actually be an update, in which case the updated node is returned."""
         pass
 
     @abstractmethod

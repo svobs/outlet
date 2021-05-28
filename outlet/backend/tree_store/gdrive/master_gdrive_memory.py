@@ -61,8 +61,9 @@ class GDriveMemoryStore:
 
             if existing_node == node:
                 logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                node = existing_node
-                return node, False
+                if SUPER_DEBUG:
+                    logger.debug(f'Existing node: {existing_node}')
+                return existing_node, False
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
         elif update_only:
             logger.debug(f'Skipping update for node because it is not in the memory cache: {node}')

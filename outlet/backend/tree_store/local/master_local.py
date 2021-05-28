@@ -348,7 +348,7 @@ class LocalDiskMasterStore(TreeStore):
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
-    def upsert_single_node(self, node: LocalNode):
+    def upsert_single_node(self, node: LocalNode) -> LocalNode:
         if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
             raise RuntimeError(f'Cannot upsert node: invalid node provided: {node}')
 
@@ -356,21 +356,28 @@ class LocalDiskMasterStore(TreeStore):
             f'Internal error while trying to upsert node to cache: UID did not match expected ' \
             f'({self.uid_path_mapper.get_uid_for_path(node.get_single_path(), node.uid)}); node={node}'
 
+        write_op = UpsertSingleNodeOp(node)
+
         # logger.warning('LOCK ON!')
         with self._struct_lock:
-            self._execute_write_op(UpsertSingleNodeOp(node))
-
+            self._execute_write_op(write_op)
         # logger.warning('LOCK off')
 
-    def update_single_node(self, node: LocalNode):
+        return write_op.node
+
+    def update_single_node(self, node: LocalNode) -> LocalNode:
         if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
             raise RuntimeError(f'Cannot update node: invalid node provided: {node}')
 
+        write_op = UpsertSingleNodeOp(node, update_only=True)
+
         # logger.warning('LOCK ON!')
         with self._struct_lock:
-            self._execute_write_op(UpsertSingleNodeOp(node, update_only=True))
+            self._execute_write_op(write_op)
 
         # logger.warning('LOCK off')
+
+        return write_op.node
 
     def remove_single_node(self, node: LocalNode, to_trash=False):
         if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:

@@ -90,14 +90,14 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
             # if SUPER_DEBUG:
             #     logger.debug(f'Tree contents (after adding subtree root): \n{self.show(show_identifier=True)}')
 
-        assert sub_tree_root_node.get_single_parent(), f'Node is missing parent: {sub_tree_root_node}'
-        if sub_tree_root_node.get_single_parent() != self.get_parent(sub_tree_root_node.uid).uid:
+        assert sub_tree_root_node.get_single_parent_uid(), f'Node is missing parent: {sub_tree_root_node}'
+        if sub_tree_root_node.get_single_parent_uid() != self.get_parent(sub_tree_root_node.uid).uid:
             # TODO: submit to adjudicator (eventually)
-            logger.warning(f'Parent referenced by node "{sub_tree_root_node.uid}" ({sub_tree_root_node.get_single_parent()}) '
+            logger.warning(f'Parent referenced by node "{sub_tree_root_node.uid}" ({sub_tree_root_node.get_single_parent_uid()}) '
                            f'does not match actual parent ({self.get_parent(sub_tree_root_node.uid).uid})!')
         sub_tree_root_node_identifier = self.extract_id(sub_tree_root_node)
         parent_of_subtree: LocalNode = self.get_parent(sub_tree_root_node_identifier)
-        # assert parent_of_subtree, f'Could not find node in tree with parent: {sub_tree_root_node.get_single_parent()}'
+        # assert parent_of_subtree, f'Could not find node in tree with parent: {sub_tree_root_node.get_single_parent_uid()}'
         count_removed = self.remove_node(sub_tree_root_node_identifier)
         logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
         self.paste(parent_uid=parent_of_subtree.uid, new_tree=sub_tree)

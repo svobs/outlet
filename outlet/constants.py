@@ -1,7 +1,7 @@
 from enum import IntEnum
 from model.uid import UID
 
-SUPER_DEBUG = False
+SUPER_DEBUG = True
 TRACELOG_ENABLED = False
 
 FIND_DUPLICATE_GDRIVE_NODE_NAMES = False

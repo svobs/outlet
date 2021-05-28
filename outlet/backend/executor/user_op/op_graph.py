@@ -83,12 +83,13 @@ class OpGraph(HasLifecycle):
             return op_node.op
         return None
 
-    def make_graph_from_batch(self, op_batch: Iterable[UserOp]) -> RootNode:
-        logger.debug(f'Constructing OpNode tree for UserOp batch...')
+    def make_graph_from_batch(self, batch_uid: UID, op_batch: Iterable[UserOp]) -> RootNode:
+        logger.debug(f'Constructing OpGraphNode tree for UserOp batch...')
 
         # Verify batch sort:
         last_op_uid = 0
         for op in op_batch:
+            assert op.batch_uid == batch_uid, f'Op is not a part of batch {batch_uid}: {op}'
             # Changes MUST be sorted in ascending time of creation!
             if op.op_uid < last_op_uid:
                 op_batch_str = '\n\t'.join([f'{x.op_uid}={repr(x)}' for x in op_batch])
@@ -172,9 +173,10 @@ class OpGraph(HasLifecycle):
                 root_node.link_child(rm_node)
 
         lines = root_node.print_recursively()
-        logger.debug(f'MakeTreeToInsert: constructed tree with {len(lines)} items:')
+        # note: GDrive paths may not be present at this point; this is ok.
+        logger.debug(f'[Batch-{batch_uid}] MakeTreeToInsert: constructed tree with {len(lines)} items:')
         for line in lines:
-            logger.debug(line)
+            logger.debug(f'[Batch-{batch_uid}] {line}')
         return root_node
 
     def can_enqueue_batch(self, op_root: RootNode) -> bool:

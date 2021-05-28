@@ -217,8 +217,8 @@ class DecoNode(Node):
     def derive_parent_path(self) -> str:
         return self.delegate.derive_parent_path()
 
-    def get_single_parent(self) -> UID:
-        return self.delegate.get_single_parent()
+    def get_single_parent_uid(self) -> UID:
+        return self.delegate.get_single_parent_uid()
 
 
 def decorate_node(uid: UID, parent_uid: UID, delegate_node: Node):

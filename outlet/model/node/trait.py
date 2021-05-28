@@ -92,3 +92,10 @@ class HasParentList(ABC):
     def has_no_parents(self):
         return not self._parent_uids
 
+    def get_single_parent_uid(self) -> UID:
+        parent_uid_list = self.get_parent_uids()
+        if not parent_uid_list:
+            raise RuntimeError(f'get_single_parent_uid(): no parents found for {self}')
+        if len(parent_uid_list) > 1:
+            raise RuntimeError(f'get_single_parent_uid(): expected exactly 1 parent but found {len(parent_uid_list)} for {self}')
+        return parent_uid_list[0]

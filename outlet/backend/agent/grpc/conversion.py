@@ -61,7 +61,7 @@ class GRPCConverter:
                 assert isinstance(node, LocalDirNode)
                 self.dir_stats_to_grpc(node.dir_stats, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
-                grpc_node.local_dir_meta.parent_uid = node.get_single_parent()
+                grpc_node.local_dir_meta.parent_uid = node.get_single_parent_uid()
             else:
                 if node.get_size_bytes():
                     grpc_node.local_file_meta.size_bytes = node.get_size_bytes()
@@ -76,7 +76,7 @@ class GRPCConverter:
                     grpc_node.local_file_meta.md5 = node.md5
                 if node.sha256:
                     grpc_node.local_file_meta.sha256 = node.sha256
-                grpc_node.local_file_meta.parent_uid = node.get_single_parent()
+                grpc_node.local_file_meta.parent_uid = node.get_single_parent_uid()
         elif node.tree_type == TreeType.GDRIVE:
             # GDriveNode
             if node.is_dir():
@@ -230,8 +230,13 @@ class GRPCConverter:
         else:
             grpc_node_identifier.uid = node_identifier.node_uid
 
-        for full_path in node_identifier.get_path_list():
+        path_list = node_identifier.get_path_list()
+        if not path_list:
+            logger.error(f'Path list is empty for {node_identifier}')  # TODO
+
+        for full_path in path_list:
             grpc_node_identifier.path_list.append(full_path)
+
         if node_identifier.is_spid():
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             grpc_node_identifier.path_uid = node_identifier.path_uid

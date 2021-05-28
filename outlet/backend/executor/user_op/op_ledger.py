@@ -78,10 +78,12 @@ class OpLedger(HasLifecycle):
 
     def _update_nodes_in_memstore(self, op: UserOp):
         """Looks at the given UserOp and notifies cacheman so that it can send out update notifications. The nodes involved may not have
-        actually changed (i.e., only their statuses have changed)"""
-        self.backend.cacheman.upsert_single_node(op.src_node)
+        actually changed (i.e., only their statuses have changed).
+
+        Note: we update our input nodes with the returned values, as GDrive node paths in particular may be filled in"""
+        op.src_node = self.backend.cacheman.upsert_single_node(op.src_node)
         if op.has_dst():
-            self.backend.cacheman.upsert_single_node(op.dst_node)
+            op.dst_node = self.backend.cacheman.upsert_single_node(op.dst_node)
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -284,7 +286,7 @@ class OpLedger(HasLifecycle):
 
     def _append_batch(self, batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):
 
-        batch_root: RootNode = self._op_graph.make_graph_from_batch(batch_op_list)
+        batch_root: RootNode = self._op_graph.make_graph_from_batch(batch_uid, batch_op_list)
 
         # Reconcile ops against master op tree before adding nodes
         if not self._op_graph.can_enqueue_batch(batch_root):
@@ -294,7 +296,7 @@ class OpLedger(HasLifecycle):
             # Save ops and their planning nodes to disk
             self._disk_store.save_pending_ops_to_disk(batch_op_list)
 
-        # Upsert src & dst nodes (redraws icons if present; adds missing nodes)
+        # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths)
         for op in batch_op_list:
             self._update_nodes_in_memstore(op)
 
