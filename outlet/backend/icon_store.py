@@ -208,7 +208,7 @@ class IconStore(ABC):
         }
 
         # Add badges to icon set
-        icon_meta_dict |= badge_meta_dict
+        icon_meta_dict.update(badge_meta_dict)
 
         return icon_meta_dict
 
