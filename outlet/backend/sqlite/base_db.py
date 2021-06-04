@@ -79,8 +79,8 @@ class LiveTable(Table):
             self.create_table(commit)
 
     def is_table(self):
-        query = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + self.name + "';"
-        cursor = self.conn.execute(query)
+        query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?;"
+        cursor = self.conn.execute(query, (self.name))
         result = cursor.fetchone()
         return result is not None
 
