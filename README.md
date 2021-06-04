@@ -37,6 +37,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* [3] Extend config file to support windows on different servers
 * [5] Mode Toolbar with Cut, Copy modes; Merge Toolbar with Add Missing, Overwrite Existing, Delete Extraneous toggles
 * [3] Disable UI elements for trees until cache loaded
 * [3] Device selection for root path
