@@ -55,6 +55,7 @@ class TreePanelController(HasLifecycle):
 
         self.tree_ui_listeners = TreeUiListeners(controller=self)
         self.tree_actions = TreeActions(controller=self)
+        self._was_shutdown = False
 
     def start(self):
         HasLifecycle.start(self)
@@ -74,6 +75,10 @@ class TreePanelController(HasLifecycle):
         logger.info(f'[{self.tree_id}] Controller init done')
 
     def shutdown(self):
+        # Note: since __del__() can call here, we may have multiple calls to this method
+        if self._was_shutdown:
+            return
+
         HasLifecycle.shutdown(self)
         logger.debug(f'[{self.tree_id}] Shutting down controller')
 
@@ -94,6 +99,8 @@ class TreePanelController(HasLifecycle):
         if self.treeview_meta:
             self.treeview_meta.shutdown()
         self.tree_view = None
+
+        self._was_shutdown = True
 
     @property
     def tree_id(self) -> str:

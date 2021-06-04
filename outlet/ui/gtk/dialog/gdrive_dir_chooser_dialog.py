@@ -72,6 +72,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self._initial_selection_spid: Optional[SinglePathNodeIdentifier] = current_selection
 
     def shutdown(self):
+        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Shutting down dialog')
         if self.con:
             self.con.shutdown()
             self.con = None

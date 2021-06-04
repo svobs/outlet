@@ -9,6 +9,7 @@ from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_bool
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,7 @@ class FilterState:
         self.rebuild_cache(parent_tree)
 
     def rebuild_cache(self, parent_tree):
+        stopwatch = Stopwatch()
         logger.debug(f'Rebuilding cache for root: {self.root_sn.spid}')
         self.cached_node_dict.clear()
         self.cached_dir_stats.clear()
@@ -183,6 +185,8 @@ class FilterState:
             self._build_cache_with_ancestors(parent_tree)
         else:
             self._build_cache_for_flat_list(parent_tree)
+
+        logger.debug(f'{stopwatch} Finished rebuilding cache')
 
     def _hash_current_filter(self) -> str:
         return f'{int(self.filter.show_ancestors_of_matches)}:{int(self.filter.ignore_case)}:{int(self.filter.is_trashed)}:' \

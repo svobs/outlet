@@ -1,8 +1,9 @@
 import logging
 import os
-from typing import Optional
+from typing import List, Optional
 
-from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeDisplayMode, TreeType
+from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeType
+from model.device import Device
 from model.display_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
@@ -280,13 +281,11 @@ class RootPathPanel(HasLifecycle):
         self.label.show()
         self.label_event_box.show()
 
-    def _open_localdisk_root_chooser_dialog(self, menu_item):
+    def _open_localdisk_root_chooser_dialog(self, menu_item, device_uid: UID):
         """Creates and displays a LocalRootDirChooserDialog.
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
-
-        device_uid = self.get_default_local_device_uid()
 
         open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.con.tree_id,
                                                 current_dir=self.con.get_tree().get_root_spid().get_single_path(), device_uid=device_uid)
@@ -294,13 +293,11 @@ class RootPathPanel(HasLifecycle):
         # show the dialog
         open_dialog.show()
 
-    def _open_gdrive_root_chooser_dialog(self, menu_item):
+    def _open_gdrive_root_chooser_dialog(self, menu_item, device_uid: UID):
         spid = self.con.get_tree().get_root_spid()
         if spid.tree_type != TreeType.GDRIVE:
             spid = None
         logger.debug(f'[{self.con.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
-
-        device_uid = self.get_default_gdrive_device_uid()
 
         def open_dialog():
             try:
@@ -314,13 +311,29 @@ class RootPathPanel(HasLifecycle):
         GLib.idle_add(open_dialog)
 
     def _build_source_menu(self):
+        device_list: List[Device] = self.con.backend.get_device_list()
+
         source_menu = Gtk.Menu()
-        item_select_local = Gtk.MenuItem(label="Local filesystem subtree...")
-        item_select_local.connect('activate', self._open_localdisk_root_chooser_dialog)
-        source_menu.append(item_select_local)
-        item_gdrive = Gtk.MenuItem(label="Google Drive subtree...")
-        source_menu.append(item_gdrive)
-        item_gdrive.connect('activate', self._open_gdrive_root_chooser_dialog)
+
+        for device in device_list:
+            if device.tree_type == TreeType.LOCAL_DISK:
+                label = f'Local disk: {device.friendly_name}'
+                item_select_local = Gtk.ImageMenuItem(label=label)
+                image = Gtk.Image()
+                # TODO: these are too large
+                image.set_from_file(self.parent_win.app.assets.get_path(IconId.BTN_LOCAL_DISK_LINUX))
+                item_select_local.set_image(image)
+                item_select_local.connect('activate', self._open_localdisk_root_chooser_dialog, device.uid)
+                source_menu.append(item_select_local)
+
+            elif device.tree_type == TreeType.GDRIVE:
+                label = f'Google Drive: {device.friendly_name}'
+                item_gdrive = Gtk.ImageMenuItem(label=label)
+                image = Gtk.Image()
+                image.set_from_file(self.parent_win.app.assets.get_path(IconId.BTN_GDRIVE))
+                item_gdrive.set_image(image)
+                source_menu.append(item_gdrive)
+                item_gdrive.connect('activate', self._open_gdrive_root_chooser_dialog, device.uid)
         source_menu.show_all()
         return source_menu
 
