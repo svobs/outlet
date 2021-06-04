@@ -1,5 +1,4 @@
 import logging
-from app_config import AppConfig
 
 import gi
 gi.require_version("Gtk", "3.0")

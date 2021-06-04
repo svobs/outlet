@@ -31,8 +31,12 @@ class HasLifecycle(ABC):
     """
     def __init__(self):
         self._connected_listeners: List[ListenerInfo] = []
+        self.was_shutdown = False
 
     def __del__(self):
+        if self.was_shutdown:
+            return
+
         self.shutdown()
 
     def connect_dispatch_listener(self, signal: Signal, receiver: Callable, sender: Optional[str] = None, weak=True):
@@ -74,3 +78,4 @@ class HasLifecycle(ABC):
 
     def shutdown(self):
         self.disconnect_all_listeners()
+        self.was_shutdown = True
