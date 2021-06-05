@@ -462,7 +462,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def download_file_from_gdrive(self, request, context):
-        self.cacheman.download_file_from_gdrive(request.node_uid, request.requestor_id)
+        self.cacheman.download_file_from_gdrive(request.device_uid, request.node_uid, request.requestor_id)
         return Empty()
 
     def delete_subtree(self, request: DeleteSubtree_Request, context):

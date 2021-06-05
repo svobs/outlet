@@ -94,9 +94,6 @@ class CacheManager(HasLifecycle):
         self._this_disk_local_store: Optional[LocalDiskMasterStore] = None
         """Convenience pointer, for the disk on which the backend is running. Many operations (such as monitoring) can only be done for this store"""
 
-        # TODO: phase this out
-        self._master_gdrive: Optional[GDriveMasterStore] = None
-
         self._cache_info_dict: CacheInfoByDeviceUid = CacheInfoByDeviceUid()
 
         self._change_tree_uid_mapper = UidChangeTreeMapper(self.backend)
@@ -139,7 +136,6 @@ class CacheManager(HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
-        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._download_all_gdrive_meta)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -279,6 +275,8 @@ class CacheManager(HasLifecycle):
     def _init_store_dict(self):
         logger.debug('Init store dict')
         has_super_root = False
+        # TODO: add true support for multiple GDrives
+        master_gdrive = None
         for device in self._read_device_list():
             if device.tree_type == TreeType.MIXED:
                 if device.uid != SUPER_ROOT_DEVICE_UID:
@@ -293,8 +291,7 @@ class CacheManager(HasLifecycle):
                 self._store_dict[device.uid] = store
             elif device.tree_type == TreeType.GDRIVE:
                 store = GDriveMasterStore(self.backend, device)
-                # TODO: add true support for multiple GDrives
-                self._master_gdrive = store
+                master_gdrive = store
 
                 self._store_dict[device.uid] = store
             else:
@@ -319,14 +316,14 @@ class CacheManager(HasLifecycle):
             self._this_disk_local_store = store
 
         # TODO: add true support for multiple GDrives
-        if self._master_gdrive:
+        if master_gdrive:
             logger.debug(f'Found master_gdrive in registry')
         else:
             device = Device(NULL_UID, 'GDriveTODO', TreeType.GDRIVE, "GDrive!")
             self._write_new_device(device)
             store = GDriveMasterStore(self.backend, device)
             self._store_dict[device.uid] = store
-            self._master_gdrive = store
+            master_gdrive = store
 
     def _load_registry(self):
         stopwatch = Stopwatch()
@@ -508,9 +505,10 @@ class CacheManager(HasLifecycle):
             for deleted_node in result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
 
-    # FIXME
-    def _download_all_gdrive_meta(self, sender):
-        self._master_gdrive.download_all_gdrive_data(sender)
+    # Not currently used
+    def _download_all_gdrive_meta(self, sender, device_uid: UID):
+        store = self._get_gdrive_store_for_device_uid(device_uid)
+        store.download_all_gdrive_data(sender)
 
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -790,13 +788,6 @@ class CacheManager(HasLifecycle):
     # Getters: Nodes and node identifiers
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_device_uid_for_this_local_disk(self) -> UID:
-        return self._this_disk_local_store.device.uid
-
-    # TODO: try to remove this
-    def get_device_uid_for_default_gdrive(self) -> UID:
-        return self._master_gdrive.device.uid
-
     def get_uid_for_change_tree_node(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
         return self._change_tree_uid_mapper.get_uid_for(device_uid, single_path, op)
 
@@ -1031,19 +1022,16 @@ class CacheManager(HasLifecycle):
     def get_uid_list_for_goog_id_list(self, device_uid: UID, goog_id_list: List[str]) -> List[UID]:
         return self._get_gdrive_store_for_device_uid(device_uid).get_uid_list_for_goog_id_list(goog_id_list)
 
-    # FIXME
-    def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
+    def get_uid_for_goog_id(self, device_uid: UID, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given goog_id"""
         if not goog_id:
             raise RuntimeError('get_uid_for_goog_id(): no goog_id specified!')
-        return self._master_gdrive.get_uid_for_goog_id(goog_id, uid_suggestion)
+        return self._get_gdrive_store_for_device_uid(device_uid).get_uid_for_goog_id(goog_id, uid_suggestion)
 
-    # FIXME
     def get_gdrive_identifier_list_for_full_path_list(self, device_uid: UID, path_list: List[str], error_if_not_found: bool = False) \
             -> List[NodeIdentifier]:
-        # store = self._get_store_for_device_uid(device_uid)
-        # assert isinstance(store, GDriveMasterStore), f'Expected GDrive store for device_uid {device_uid} but got: {type(store)}'
-        return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
+        store = self._get_gdrive_store_for_device_uid(device_uid)
+        return store.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
     def delete_all_gdrive_data(self, device_uid: UID):
         self._get_gdrive_store_for_device_uid(device_uid).delete_all_gdrive_data()
@@ -1051,14 +1039,8 @@ class CacheManager(HasLifecycle):
     def execute_gdrive_load_op(self, device_uid: UID, op: GDriveDiskLoadOp):
         self._get_gdrive_store_for_device_uid(device_uid).execute_load_op(op)
 
-    # FIXME
-    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
-        self._master_gdrive.download_file_from_gdrive(node_uid, requestor_id)
-
-    # FIXME
-    def sync_and_get_gdrive_master_tree(self, tree_id: TreeID):
-        """Will load from disk and sync latest changes from GDrive server before returning."""
-        self._master_gdrive.load_and_sync_master_tree()
+    def download_file_from_gdrive(self, device_uid: UID, node_uid: UID, requestor_id: str):
+        self._get_gdrive_store_for_device_uid(device_uid).download_file_from_gdrive(node_uid, requestor_id)
 
     # This local disk-specific
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

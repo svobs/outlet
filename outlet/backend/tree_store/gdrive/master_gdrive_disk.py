@@ -69,7 +69,7 @@ class GDriveDiskStore(HasLifecycle):
         count_folders_loaded = 0
         for folder in folder_list:
             if folder.goog_id:
-                uid = self.backend.cacheman.get_uid_for_goog_id(folder.goog_id, folder.uid)
+                uid = self.backend.cacheman.get_uid_for_goog_id(folder.device_uid, folder.goog_id, folder.uid)
                 if folder.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
@@ -98,7 +98,7 @@ class GDriveDiskStore(HasLifecycle):
         count_files_loaded = 0
         for file in file_list:
             if file.goog_id:
-                uid = self.backend.cacheman.get_uid_for_goog_id(file.goog_id, file.uid)
+                uid = self.backend.cacheman.get_uid_for_goog_id(file.device_uid, file.goog_id, file.uid)
                 if file.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"

@@ -402,8 +402,7 @@ class ActiveTreeManager(HasLifecycle):
                 if not os.path.exists(single_path):
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), single_path)
                 uid = self.backend.cacheman.get_uid_for_local_path(single_path)
-                identifier_list = [LocalNodeIdentifier(uid=uid, device_uid=self.backend.cacheman.get_device_uid_for_this_local_disk(),
-                                                       full_path=single_path)]
+                identifier_list = [LocalNodeIdentifier(uid=uid, device_uid=device_uid, full_path=single_path)]
 
             assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {single_path}'
             logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')

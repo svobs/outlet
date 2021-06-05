@@ -141,7 +141,7 @@ class GDriveMasterStore(TreeStore):
 
     def _download_all_gdrive_meta(self, tree_id):
         """See above. Executed by Task Runner. NOT UI thread"""
-        logger.debug(f'Downloading all GDrive meta')
+        logger.debug(f'Downloading all GDrive meta (device_uid={self.device_uid})')
         try:
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
             self.load_and_sync_master_tree(invalidate_cache=True)

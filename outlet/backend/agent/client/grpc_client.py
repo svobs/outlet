@@ -80,7 +80,6 @@ class BackendGRPCClient(OutletBackend):
         self.forward_signal_to_server(signal=Signal.PAUSE_OP_EXECUTION)
         self.forward_signal_to_server(signal=Signal.RESUME_OP_EXECUTION)
         self.forward_signal_to_server(signal=Signal.COMPLETE_MERGE)
-        self.forward_signal_to_server(signal=Signal.DOWNLOAD_ALL_GDRIVE_META)
         self.forward_signal_to_server(signal=Signal.DEREGISTER_DISPLAY_TREE)
         self.forward_signal_to_server(signal=Signal.EXIT_DIFF_MODE)
 
@@ -379,8 +378,8 @@ class BackendGRPCClient(OutletBackend):
         op_type = UserOpType(response.user_op.op_type)
         return UserOp(response.user_op.op_uid, response.user_op.batch_uid, op_type, src_node, dst_node, response.user_op.create_ts)
 
-    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
-        request = DownloadFromGDrive_Request(node_uid=node_uid, requestor_id=requestor_id)
+    def download_file_from_gdrive(self, device_uid: UID, node_uid: UID, requestor_id: str):
+        request = DownloadFromGDrive_Request(device_uid=device_uid, node_uid=node_uid, requestor_id=requestor_id)
         self.grpc_stub.download_file_from_gdrive(request)
 
     def delete_subtree(self, node_uid_list: List[UID]):

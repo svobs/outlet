@@ -198,7 +198,7 @@ class GDriveTreeLoader:
                 parent_goog_id: str = mapping[2]
 
                 # Add parent UID to tuple for later DB update:
-                parent_uid = self.backend.cacheman.get_uid_for_goog_id(parent_goog_id)
+                parent_uid = self.backend.cacheman.get_uid_for_goog_id(tree.device_uid, parent_goog_id)
                 mapping = mapping[0], parent_uid, mapping[2], mapping[3]
             tree.add_parent_mapping(mapping[0], parent_uid)
             new_mappings.append(mapping)

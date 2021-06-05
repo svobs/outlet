@@ -176,7 +176,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
+    def download_file_from_gdrive(self, device_uid: UID, node_uid: UID, requestor_id: str):
         pass
 
     @abstractmethod

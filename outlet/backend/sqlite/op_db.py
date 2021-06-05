@@ -271,17 +271,17 @@ class OpDatabase(MetaDatabase):
         parent_path = str(pathlib.Path(full_path).parent)
         return self.cacheman.get_uid_for_local_path(parent_path)
 
-    def _verify_goog_id_consistency(self, goog_id: str, obj_uid: UID):
+    def _verify_goog_id_consistency(self, goog_id: str, device_uid: UID, node_uid: UID):
         if goog_id:
             # Sanity check: make sure pending change cache matches GDrive cache
-            uid_from_cacheman = self.cacheman.get_uid_for_goog_id(goog_id, obj_uid)
-            if uid_from_cacheman != obj_uid:
-                raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({obj_uid}) '
+            uid_from_cacheman = self.cacheman.get_uid_for_goog_id(device_uid, goog_id, node_uid)
+            if uid_from_cacheman != node_uid:
+                raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({node_uid}) '
                                    f'for goog_id "{goog_id}"')
 
     def _collect_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, action_uid_int: int,
                                nodes_by_action_uid: Dict[UID, Node]):
-        self._verify_goog_id_consistency(goog_id, obj.uid)
+        self._verify_goog_id_consistency(goog_id, obj.device_uid, obj.uid)
 
         if not parent_uid_int:
             raise RuntimeError(f'Invalid GDrive object in op database: it has no parent! Object: {obj}')
@@ -578,4 +578,3 @@ class OpDatabase(MetaDatabase):
     def archive_failed_ops(self, entries: Iterable[UserOp], error_msg: str):
         self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_failed_ops(entries, error_msg)
-

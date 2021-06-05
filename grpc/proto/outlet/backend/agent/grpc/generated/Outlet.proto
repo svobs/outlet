@@ -111,8 +111,9 @@ message GetLastPendingOp_Request {
 }
 
 message DownloadFromGDrive_Request {
-	uint32 node_uid = 1;
-	string requestor_id = 2;
+	uint32 device_uid = 1;
+	uint32 node_uid = 2;
+	string requestor_id = 3;
 }
 
 message GetLastPendingOp_Response {

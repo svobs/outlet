@@ -186,13 +186,7 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", _on_diff_btn_clicked)
 
-        def on_goog_btn_clicked(widget):
-            logger.debug(f'DownloadGDrive btn clicked! Sending signal: "{Signal.DOWNLOAD_ALL_GDRIVE_META.name}"')
-            dispatcher.send(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, sender=self.win_id)
-        gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
-        gdrive_btn.connect("clicked", on_goog_btn_clicked)
-
-        self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
+        self.replace_bottom_button_panel(diff_action_btn, )
 
     # GTK LISTENERS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
