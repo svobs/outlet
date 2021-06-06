@@ -172,7 +172,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
+    def get_last_pending_op(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         pass
 
     @abstractmethod
@@ -180,7 +180,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def delete_subtree(self, node_uid_list: List[UID]):
+    def delete_subtree(self, device_uid: UID, node_uid_list: List[UID]):
         pass
 
     @abstractmethod

@@ -745,14 +745,14 @@ class CacheManager(HasLifecycle):
         """Simliar to upsert, but fails silently if node does not already exist in caches. Useful for things such as asynch MD5 filling"""
         return self._get_store_for_device_uid(node.device_uid).update_single_node(node)
 
-    def delete_subtree(self, node_uid_list: List[UID]):
+    def delete_subtree(self, device_uid: UID, node_uid_list: List[UID]):
         logger.debug(f'Setting up recursive delete operations for {len(node_uid_list)} nodes')
 
         # don't worry about overlapping trees; the cacheman will sort everything out
         batch_uid = self.backend.uid_generator.next_uid()
         op_list = []
         for uid_to_delete in node_uid_list:
-            node_to_delete = self.get_node_for_uid(uid_to_delete)
+            node_to_delete = self.get_node_for_uid(uid_to_delete, device_uid)
             if not node_to_delete:
                 logger.error(f'delete_subtree(): could not find node with UID {uid_to_delete}; skipping')
                 continue
@@ -891,7 +891,7 @@ class CacheManager(HasLifecycle):
         return self._active_tree_manager.get_rows_of_interest(tree_id)
 
     def _update_node_icon(self, node: Node):
-        icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.uid)
+        icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.device_uid, node.uid)
         node.set_icon(icon)
 
     @staticmethod
@@ -1182,8 +1182,8 @@ class CacheManager(HasLifecycle):
         dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id, status_msg=tree_meta.summary_msg, dir_stats_dict=dir_stats,
                         key_is_uid=key_is_uid)
 
-    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
-        return self._op_ledger.get_last_pending_op_for_node(node_uid)
+    def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
+        return self._op_ledger.get_last_pending_op_for_node(device_uid, node_uid)
 
     def enqueue_op_list(self, op_list: Iterable[UserOp]):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;

@@ -446,7 +446,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return Empty()
 
     def get_last_pending_op_for_node(self, request: GetLastPendingOp_Request, context):
-        user_op: Optional[UserOp] = self.backend.cacheman.get_last_pending_op_for_node(UID(request.node_uid))
+        user_op: Optional[UserOp] = self.backend.cacheman.get_last_pending_op_for_node(UID(request.device_uid), UID(request.node_uid))
 
         response = GetLastPendingOp_Response()
         if user_op:
@@ -466,7 +466,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return Empty()
 
     def delete_subtree(self, request: DeleteSubtree_Request, context):
-        self.cacheman.delete_subtree(request.node_uid_list)
+        self.cacheman.delete_subtree(request.device_uid, request.node_uid_list)
         return Empty()
 
     def get_filter(self, request, context):

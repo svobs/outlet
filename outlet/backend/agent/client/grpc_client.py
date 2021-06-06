@@ -366,8 +366,9 @@ class BackendGRPCClient(OutletBackend):
         request.tree_id = tree_id
         self.grpc_stub.refresh_subtree_stats(request)
 
-    def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
+    def get_last_pending_op(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         request = GetLastPendingOp_Request()
+        request.device_uid = device_uid
         request.node_uid = node_uid
         response: GetLastPendingOp_Response = self.grpc_stub.get_last_pending_op_for_node(request)
         if not response.HasField('user_op'):
@@ -382,8 +383,9 @@ class BackendGRPCClient(OutletBackend):
         request = DownloadFromGDrive_Request(device_uid=device_uid, node_uid=node_uid, requestor_id=requestor_id)
         self.grpc_stub.download_file_from_gdrive(request)
 
-    def delete_subtree(self, node_uid_list: List[UID]):
+    def delete_subtree(self, device_uid: UID, node_uid_list: List[UID]):
         request = DeleteSubtree_Request()
+        request.device_uid = device_uid
         for node_uid in node_uid_list:
             request.node_uid_list.append(node_uid)
         self.grpc_stub.delete_subtree(request)

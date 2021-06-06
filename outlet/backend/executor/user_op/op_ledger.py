@@ -313,11 +313,11 @@ class OpLedger(HasLifecycle):
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
             self._disk_store.remove_pending_ops(discarded_op_list)
 
-    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
-        return self._op_graph.get_last_pending_op_for_node(node_uid)
+    def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
+        return self._op_graph.get_last_pending_op_for_node(device_uid, node_uid)
 
-    def _get_icon_for_node(self, node_uid: UID, op: UserOp) -> IconId:
-        if op.has_dst() and op.dst_node.uid == node_uid:
+    def _get_icon_for_node(self, device_uid: UID, node_uid: UID, op: UserOp) -> IconId:
+        if op.has_dst() and op.dst_node.device_uid == device_uid and op.dst_node.uid == node_uid:
             op_type = op.op_type
             if op_type == UserOpType.MV and not op.dst_node.is_live():
                 # Use an add-like icon if nothing there right now:
@@ -334,14 +334,14 @@ class OpLedger(HasLifecycle):
         else:
             return self.icon_src_file_dict[op.op_type]
 
-    def get_icon_for_node(self, node_uid: UID) -> Optional[IconId]:
-        op: Optional[UserOp] = self.get_last_pending_op_for_node(node_uid)
+    def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
+        op: Optional[UserOp] = self.get_last_pending_op_for_node(device_uid, node_uid)
         if not op or op.is_completed():
             return None
 
-        icon = self._get_icon_for_node(node_uid, op)
+        icon = self._get_icon_for_node(device_uid, node_uid, op)
         if SUPER_DEBUG:
-            logger.debug(f'Node {node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
+            logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
         return icon
 
     def get_next_command(self) -> Optional[Command]:

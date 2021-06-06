@@ -76,8 +76,9 @@ class OpGraph(HasLifecycle):
             return node_list[-1]
         return None
 
-    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
+    def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         """This is a public method."""
+        # FIXME: integrate device_uid
         op_node: OpGraphNode = self._get_lowest_priority_op_node(node_uid)
         if op_node:
             return op_node.op
@@ -205,15 +206,15 @@ class OpGraph(HasLifecycle):
 
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
-                parent_uid_list: List[UID] = tgt_node.get_parent_uids()
+                tgt_parent_uid_list: List[UID] = tgt_node.get_parent_uids()
                 parent_found: bool = False
-                for parent_uid in parent_uid_list:
-                    if self.backend.cacheman.get_node_for_uid(parent_uid, tgt_node.device_uid) or mkdir_node_dict.get(parent_uid, None):
+                for tgt_parent_uid in tgt_parent_uid_list:
+                    if self.backend.cacheman.get_node_for_uid(tgt_parent_uid, tgt_node.device_uid) or mkdir_node_dict.get(tgt_parent_uid, None):
                         parent_found = True
 
                 if not parent_found:
-                    logger.error(f'Could not find parent(s) in cache with UID(s) {parent_uid_list} for "{op_type}" operation node: {tgt_node}')
-                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find any parents in cache with UIDs {parent_uid_list} '
+                    logger.error(f'Could not find parent(s) in cache with UID(s) {tgt_parent_uid_list} for "{op_type}" operation node: {tgt_node}')
+                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find any parents in cache with UIDs {tgt_parent_uid_list} '
                                        f'for "{op_type}"')
 
                 if op_node.op.op_type == UserOpType.MKDIR:
@@ -228,7 +229,7 @@ class OpGraph(HasLifecycle):
 
             with self._struct_lock:
                 # More of Rule 2: ensure target node is not scheduled for deletion:
-                most_recent_op = self.get_last_pending_op_for_node(tgt_node.uid)
+                most_recent_op = self.get_last_pending_op_for_node(tgt_node.device_uid, tgt_node.uid)
                 if most_recent_op and most_recent_op.op_type == UserOpType.RM and op_node.is_src() and op_node.op.has_dst():
                     # CP, MV, and UP ops cannot logically have a src node which is not present:
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP from a node (UID={tgt_node.uid}) '

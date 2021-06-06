@@ -147,14 +147,14 @@ class BackendIntegrated(OutletBackend):
     def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: TreeID):
         self.cacheman.enqueue_refresh_subtree_stats_task(root_uid, tree_id)
 
-    def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
-        return self.cacheman.get_last_pending_op_for_node(node_uid)
+    def get_last_pending_op(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
+        return self.cacheman.get_last_pending_op_for_node(device_uid, node_uid)
 
     def download_file_from_gdrive(self, device_uid: UID, node_uid: UID, requestor_id: str):
         self.cacheman.download_file_from_gdrive(device_uid, node_uid, requestor_id)
 
-    def delete_subtree(self, node_uid_list: List[UID]):
-        self.cacheman.delete_subtree(node_uid_list)
+    def delete_subtree(self, device_uid: UID, node_uid_list: List[UID]):
+        self.cacheman.delete_subtree(device_uid, node_uid_list)
 
     def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
         return self.cacheman.get_filter_criteria(tree_id)

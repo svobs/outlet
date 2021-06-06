@@ -126,8 +126,11 @@ class TreeActions(HasLifecycle):
         self._delete_subtree(sender, [node])
 
     def _delete_subtree(self, sender, node_list: List[Node]):
+        if not node_list:
+            return
+        device_uid = node_list[0].device_uid
         node_uid_list = [n.uid for n in node_list]
-        self.con.app.backend.delete_subtree(node_uid_list)
+        self.con.app.backend.delete_subtree(device_uid, node_uid_list)
 
     def _check_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:
