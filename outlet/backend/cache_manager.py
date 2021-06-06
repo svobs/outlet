@@ -259,7 +259,9 @@ class CacheManager(HasLifecycle):
         # Cache this for better performance.
         # TODO: Need to update the cached list on change
         if not self._cached_device_list:
-            self._cached_device_list = self._read_device_list()
+            device_list = list(filter(lambda x: x.uid != SUPER_ROOT_DEVICE_UID, self._read_device_list()))
+            logger.debug(f'Device list: {device_list}')
+            self._cached_device_list = device_list
 
         return self._cached_device_list
 

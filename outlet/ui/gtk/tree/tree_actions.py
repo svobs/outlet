@@ -98,7 +98,7 @@ class TreeActions(HasLifecycle):
             os.remove(file)
 
     def _download_file_from_gdrive(self, sender, node: GDriveFile):
-        self.con.app.backend.download_file_from_gdrive(node.uid, sender)
+        self.con.app.backend.download_file_from_gdrive(node.device_uid, node.uid, sender)
 
     def _on_gdrive_download_done(self, sender, filename: str):
         if sender == self.con.tree_id:
