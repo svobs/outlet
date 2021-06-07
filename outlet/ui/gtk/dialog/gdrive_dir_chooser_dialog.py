@@ -102,7 +102,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             return
 
         if self._initial_selection_spid:
-            logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Populate complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
+            logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Populate complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE.name}')
             dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, spid=self._initial_selection_spid)
 
     def on_ok_clicked(self, spid: SinglePathNodeIdentifier):

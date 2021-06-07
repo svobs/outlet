@@ -1,3 +1,4 @@
+
 # Setup
 
 ## Mac
@@ -38,9 +39,8 @@ Create a virtual environment within this directory (`{project_name}`)  following
 
 ### Future Major Features (TODO)
 * [3] Extend config file to support windows on different servers
-* [5] Mode Toolbar with Cut, Copy modes; Merge Toolbar with Add Missing, Overwrite Existing, Delete Extraneous toggles
+* [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
 * [3] Disable UI elements for trees until cache loaded
-* [3] Device selection for root path
 * [5] BFS loading of tree, instead of all-at-once
 * [1] Put GDrive files in trash
 * [3] Put local files in trash

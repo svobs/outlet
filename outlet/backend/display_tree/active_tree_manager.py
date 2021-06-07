@@ -12,7 +12,7 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import CONFIG_DELIMITER, NULL_UID, SUPER_DEBUG, TreeDisplayMode, TreeID, TreeType
+from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TreeDisplayMode, TreeID, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
@@ -319,7 +319,7 @@ class ActiveTreeManager(HasLifecycle):
 
             root_path_meta.root_exists = os.path.exists(spid.get_single_path())
         elif spid.tree_type == TreeType.GDRIVE:
-            root_path_meta.root_exists = node is not None
+            root_path_meta.root_exists = spid.node_uid == GDRIVE_ROOT_UID or node is not None
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
@@ -387,30 +387,30 @@ class ActiveTreeManager(HasLifecycle):
         if not device_uid:
             raise RuntimeError('No device_uid provided!')
 
+        tree_type = self.backend.cacheman.get_tree_type_for_device_uid(device_uid)
+
         try:
             # Assume the user means the local disk (for now). In the future, maybe we can add support for some kind of server name syntax
             full_path = file_util.normalize_path(full_path)
-            # FIXME: did I really write this code? Looks like "node_identifier" is only being used as a storage for paths & tree_type. Clean up!
-            tree_type, single_path = self.backend.node_identifier_factory.parse_path(full_path=full_path)
             if tree_type == TreeType.GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.backend.cacheman.wait_for_startup_done()
                 # this will load the GDrive master tree if needed:
-                identifier_list = self.backend.cacheman.get_gdrive_identifier_list_for_full_path_list(device_uid, [single_path],
+                identifier_list = self.backend.cacheman.get_gdrive_identifier_list_for_full_path_list(device_uid, [full_path],
                                                                                                       error_if_not_found=True)
             else:  # LocalNode
-                if not os.path.exists(single_path):
-                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), single_path)
-                uid = self.backend.cacheman.get_uid_for_local_path(single_path)
-                identifier_list = [LocalNodeIdentifier(uid=uid, device_uid=device_uid, full_path=single_path)]
+                if not os.path.exists(full_path):
+                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
+                uid = self.backend.cacheman.get_uid_for_local_path(full_path)
+                identifier_list = [LocalNodeIdentifier(uid=uid, device_uid=device_uid, full_path=full_path)]
 
-            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {single_path}'
+            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
             logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
             if len(identifier_list) > 1:
                 # Create the appropriate
                 candidate_list = []
                 for identifier in identifier_list:
-                    if single_path in identifier.get_path_list():
+                    if full_path in identifier.get_path_list():
                         candidate_list.append(identifier)
                 if len(candidate_list) != 1:
                     raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
@@ -421,8 +421,6 @@ class ActiveTreeManager(HasLifecycle):
             # TODO: this is really ugly code, hastily written, hastily maintained. Clean up!
             if len(new_root_spid.get_path_list()) > 0:
                 # must have single path
-                if new_root_spid.tree_type == TreeType.GDRIVE:
-                    full_path = NodeIdentifierFactory.strip_gdrive(full_path)
                 tree_type = new_root_spid.tree_type
                 new_root_spid = self.backend.node_identifier_factory.for_values(uid=new_root_spid.node_uid, device_uid=new_root_spid.device_uid,
                                                                                 tree_type=tree_type, path_list=full_path, must_be_single_path=True)

@@ -98,7 +98,6 @@ CONFIG_DELIMITER = ','
 # --- FE + BE SHARED ---
 
 ROOT_PATH = '/'
-GDRIVE_PATH_PREFIX = 'gdrive:/'
 
 LOOPBACK_ADDRESS = '127.0.0.1'
 

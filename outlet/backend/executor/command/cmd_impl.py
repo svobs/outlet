@@ -377,7 +377,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
 
 class CopyFileGDriveCommand(TwoNodeCommand):
     """
-    Copy GDrive -> GDrive
+    Copy GDrive -> GDrive, same account
     """
 
     def __init__(self, uid: UID, op: UserOp):

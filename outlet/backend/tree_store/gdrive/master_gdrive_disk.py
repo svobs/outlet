@@ -48,7 +48,7 @@ class GDriveDiskStore(HasLifecycle):
         master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
         cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root)
         if not cache_info:
-            raise RuntimeError(f'Failed to find CacheInfo for device_uid: {self.device_uid}')
+            raise RuntimeError(f'Failed to find CacheInfo for GDrive device_uid: {self.device_uid}')
         return cache_info.cache_location
 
     def load_tree_from_cache(self, is_complete: bool, tree_id: TreeID) -> GDriveWholeTree:

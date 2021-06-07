@@ -118,6 +118,8 @@ class CacheManager(HasLifecycle):
 
         uid_path_cache_path = os.path.join(self.cache_dir_path, UID_PATH_FILE_NAME)
         self._uid_path_mapper = UidPathMapper(backend, uid_path_cache_path)
+        """Officially, we allow for different devices to have different UIDs for a given path. But in practice, given a single agent, 
+        all devices under its ownership will share the same UID-Path mapper, which means that the will all map the same UIDs to the same paths."""
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
         self._op_ledger: OpLedger = OpLedger(self.backend, op_db_path)
@@ -273,6 +275,17 @@ class CacheManager(HasLifecycle):
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
             db.insert_device(device)
             logger.debug(f'Wrote new device to DB: {device}')
+
+    # TODO: add this to backend API
+    def get_tree_type_for_device_uid(self, device_uid: UID) -> TreeType:
+        if device_uid == SUPER_ROOT_DEVICE_UID:
+            return TreeType.MIXED
+
+        for device in self.get_device_list():
+            if device.uid == device_uid:
+                return device.tree_type
+
+        raise RuntimeError(f'Could not find device with UID: {device_uid}')
 
     def _init_store_dict(self):
         logger.debug('Init store dict')
@@ -538,7 +551,7 @@ class CacheManager(HasLifecycle):
 
         if load_request.send_signals:
             # This will be carried across gRPC if needed
-            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_STARTED})')
+            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_STARTED.name})')
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         subtree_root_sn: Optional[SPIDNodePair] = None
@@ -586,7 +599,7 @@ class CacheManager(HasLifecycle):
 
         if load_request.send_signals:
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_DONE})')
+            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_DONE.name})')
             dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:

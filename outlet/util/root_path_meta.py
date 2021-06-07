@@ -21,11 +21,10 @@ class RootPathMeta:
         """Only present in some cases where root not found"""
 
     def __repr__(self):
-        return f'RootPathMeta(new_root={self.root_spid}, root_exists={self.root_exists}, offending_path={self.offending_path})'
+        return f'RootPathMeta(root_spid={self.root_spid}, root_exists={self.root_exists}, offending_path={self.offending_path})'
 
     def __eq__(self, other):
         return self.root_spid == other.root_spid and self.root_exists == other.root_exists and self.offending_path == other.offending_path
 
     def __ne__(self, other):
         return not self.__eq__(other)
-

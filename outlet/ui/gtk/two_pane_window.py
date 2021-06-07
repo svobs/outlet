@@ -193,10 +193,10 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _on_play_pause_btn_clicked(self, widget):
         if self._is_playing:
-            logger.debug(f'Play/Pause btn clicked! Sending signal "{Signal.PAUSE_OP_EXECUTION}"')
+            logger.debug(f'Play/Pause btn clicked! Sending signal "{Signal.PAUSE_OP_EXECUTION.name}"')
             dispatcher.send(signal=Signal.PAUSE_OP_EXECUTION, sender=self.win_id)
         else:
-            logger.debug(f'Play/Pause btn clicked! Sending signal "{Signal.RESUME_OP_EXECUTION}"')
+            logger.debug(f'Play/Pause btn clicked! Sending signal "{Signal.RESUME_OP_EXECUTION.name}"')
             dispatcher.send(signal=Signal.RESUME_OP_EXECUTION, sender=self.win_id)
 
     def _on_size_allocated(self, widget, alloc):

@@ -20,6 +20,7 @@ def _make_key(tree_type_src, tree_type_dst=None):
     return f'{tree_type_src}'
 
 
+# FIXME: distinguish between same device and different devices. For now, we will assume these are all same-device
 LO = _make_key(TreeType.LOCAL_DISK)
 GD = _make_key(TreeType.GDRIVE)
 LO_LO = _make_key(TreeType.LOCAL_DISK, TreeType.LOCAL_DISK)
@@ -70,7 +71,7 @@ def _populate_build_dict():
     }, UserOpType.CP: {
         LO_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=False),
 
-        # GD_GD: lambda uid, change: CopyFileGDriveCommand(uid, change),  # TODO
+        GD_GD: lambda uid, change: CopyFileGDriveCommand(uid, change),
 
         LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=False),
 
