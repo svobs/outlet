@@ -400,9 +400,12 @@ class GDriveClient(HasLifecycle):
 
     def get_single_node_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
             -> Optional[GDriveNode]:
-        src_parent_goog_id: str = self.gdrive_store.get_goog_id_for_parent(node)
-        result: SimpleNodeCollector = self.get_existing_node_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
-        logger.debug(f'Found {len(result.nodes)} matching GDrive nodes with parent={src_parent_goog_id} and name={node.name}')
+        src_parent_goog_id_list: List[str] = self.gdrive_store.get_parent_goog_id_list(node)
+        if not src_parent_goog_id_list:
+            raise RuntimeError(f'Node has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
+
+        result: SimpleNodeCollector = self.get_existing_nodes_with_parent_and_name(parent_goog_id=src_parent_goog_id_list[0], name=node.name)
+        logger.debug(f'Found {len(result.nodes)} matching GDrive nodes with parent={src_parent_goog_id_list[0]} and name={node.name}')
 
         if len(result.nodes) > 0:
             for found_node, found_raw in zip(result.nodes, result.raw_items):
@@ -414,7 +417,7 @@ class GDriveClient(HasLifecycle):
 
         return None
 
-    def get_existing_node_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
+    def get_existing_nodes_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = f"name='{name}' AND '{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'
 
@@ -460,9 +463,12 @@ class GDriveClient(HasLifecycle):
         return goog_node
 
     def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) -> Tuple:
-        src_parent_goog_id: str = self.gdrive_store.get_goog_id_for_parent(node)
-        result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
-        logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id} and name={node.name}')
+        """Important note: if the given node has several parents, the first one found in the cache will be used in the query"""
+        src_parent_goog_id_list: List[str] = self.gdrive_store.get_parent_goog_id_list(node)
+        if not src_parent_goog_id_list:
+            raise RuntimeError(f'Node has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
+        result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id_list[0], name=node.name)
+        logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id_list[0]} and name={node.name}')
 
         if len(result.nodes) > 0:
             for found_node, found_raw in zip(result.nodes, result.raw_items):

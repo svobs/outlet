@@ -334,7 +334,7 @@ class CacheManager(HasLifecycle):
         if master_gdrive:
             logger.debug(f'Found master_gdrive in registry')
         else:
-            device = Device(NULL_UID, 'GDriveTODO', TreeType.GDRIVE, "GDrive!")
+            device = Device(NULL_UID, 'GDriveTODO', TreeType.GDRIVE, "My Google Drive")
             self._write_new_device(device)
             store = GDriveMasterStore(self.backend, device)
             self._store_dict[device.uid] = store
@@ -1011,17 +1011,11 @@ class CacheManager(HasLifecycle):
     # GDrive-specific
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_goog_id_for_parent(self, node: GDriveNode) -> str:
-        """Fails if there is not exactly 1 parent"""
-        parent_uids: List[UID] = node.get_parent_uids()
-        if len(parent_uids) != 1:
-            raise RuntimeError(f'Only one parent is allowed but node has {len(parent_uids)} parents: {node}')
+    def get_parent_goog_id_list(self, node: GDriveNode) -> List[str]:
+        parent_uid_list: List[UID] = node.get_parent_uids()
 
         # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.get_goog_id_list_for_uid_list(node.device_uid, parent_uids)
-
-        parent_goog_id: str = parent_goog_ids[0]
-        return parent_goog_id
+        return self.get_goog_id_list_for_uid_list(node.device_uid, parent_uid_list)
 
     def _get_gdrive_store_for_device_uid(self, device_uid: UID) -> GDriveMasterStore:
         store = self._get_store_for_device_uid(device_uid)

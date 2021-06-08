@@ -355,10 +355,15 @@ class OpDatabase(MetaDatabase):
             parent_goog_id: Optional[str] = None
             if node.get_parent_uids():
                 parent_uid = node.get_parent_uids()[0]
-                try:
-                    parent_goog_id = self.cacheman.get_goog_id_for_parent(node)
-                except RuntimeError:
-                    logger.debug(f'Could not resolve goog_id for UID {parent_uid}; assuming parent is not yet created')
+                parent_goog_id_list = self.cacheman.get_parent_goog_id_list(node)
+                if len(parent_goog_id_list) < 1:
+                    logger.debug(f'Could not resolve goog_id for {node.device_uid}:{parent_uid}; assuming parent is not yet created')
+                else:
+                    parent_goog_id = parent_goog_id_list[0]
+                    if len(parent_goog_id_list) > 1:
+                        # FIXME: need to add support for storing multiple parents!
+                        # (however in theory this shouldn't result in a bug, because the load process should favor the correct copy from main cache)
+                        logger.error(f'Node {node.device_uid}:{node.uid} has more than one parent: only first one will be stored!')
             return op_uid, node.device_uid, *node.to_tuple(), parent_uid, parent_goog_id
 
         assert node.tree_type == TreeType.LOCAL_DISK

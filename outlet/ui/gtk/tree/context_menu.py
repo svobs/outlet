@@ -5,8 +5,7 @@ from typing import List, Optional
 import gi
 from pydispatch import dispatcher
 
-from constants import DATE_REGEX, GDRIVE_PATH_PREFIX, SUPER_DEBUG, TreeType
-from model.node.container_node import CategoryNode
+from constants import DATE_REGEX, SUPER_DEBUG, TreeType
 from model.node.node import Node, SPIDNodePair
 from model.user_op import UserOp
 from signal_constants import Signal
@@ -234,13 +233,9 @@ class TreeContextMenu:
 
     @staticmethod
     def build_full_path_display_item(preamble: str, node: Node, single_path: str) -> Gtk.MenuItem:
-        path_display = single_path
-        if node.tree_type == TreeType.GDRIVE:
-            path_display = GDRIVE_PATH_PREFIX + path_display
-
         item = Gtk.MenuItem(label='')
         label = item.get_child()
-        full_path_display = GLib.markup_escape_text(path_display)
+        full_path_display = GLib.markup_escape_text(single_path)
         label.set_markup(f'<i>{preamble}{full_path_display}</i>')
         return item
 
