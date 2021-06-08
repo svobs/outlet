@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # LOCAL COMMANDS begin
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+# TODO: what if staging dir is not on same file system?
 
 class CopyFileLocallyCommand(CopyNodeCommand):
     """Local-to-local add or update"""
@@ -41,7 +42,6 @@ class CopyFileLocallyCommand(CopyNodeCommand):
             if not content_hasher.try_calculating_signatures(self.op.src_node):
                 return self.set_error_result(f'Failed to calculate signature for src node: {self.op.src_node.node_identifier}')
         md5 = self.op.src_node.md5
-        # TODO: what if staging dir is not on same file system?
         staging_path = os.path.join(cxt.staging_dir, md5)
         logger.debug(f'CP: src={src_path}')
         logger.debug(f'    stg={staging_path}')
@@ -66,13 +66,13 @@ class CopyFileLocallyCommand(CopyNodeCommand):
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, dst_node])
 
 
-class DeleteLocalFileCommand(DeleteNodeCommand):
+class DeleteLocalNodeCommand(DeleteNodeCommand):
     """
     Delete Local. This supports deleting either a single file or an empty dir.
     """
 
-    def __init__(self, uid: UID, op: UserOp, to_trash=True, delete_empty_parent=False):
-        super().__init__(uid, op, to_trash, delete_empty_parent)
+    def __init__(self, uid: UID, op: UserOp, to_trash=True):
+        super().__init__(uid, op, to_trash)
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -89,24 +89,6 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
         else:
             raise RuntimeError(f'Not a file or dir: {self.op.src_node}')
         deleted_nodes_list.append(self.op.src_node)
-
-        # TODO: reconsider deleting empty ancestors...
-        if self.delete_empty_parent:
-            parent_dir_path: str = self.op.src_node.derive_parent_path()
-            # keep going up the dir tree, deleting empty parents
-            while os.path.isdir(parent_dir_path) and len(os.listdir(parent_dir_path)) == 0:
-                if self.to_trash:
-                    logger.warning(f'MoveEmptyDirToTrash not implemented!')
-                else:
-                    dir_node = cxt.cacheman.get_node_for_local_path(parent_dir_path)
-                    if dir_node:
-                        deleted_nodes_list.append(dir_node)
-                        os.rmdir(parent_dir_path)
-                        logger.info(f'Removed empty dir: "{parent_dir_path}"')
-                    else:
-                        logger.error(f'Cannot remove directory because it could not be found in cache: {parent_dir_path}')
-                        break
-                parent_dir_path = str(pathlib.Path(parent_dir_path).parent)
 
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_delete=deleted_nodes_list)
 
@@ -200,7 +182,12 @@ class UploadToGDriveCommand(CopyNodeCommand):
 
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.dst_node.device_uid)
 
-        existing, existing_raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
+        if self.op.dst_node.goog_id:
+            # look up by goog_id
+            existing = gdrive_client.get_existing_file(self.op.dst_node)
+        else:
+            # FIXME: if overwrite=true and multiple matches are found, we will overwrite the first match we find. Need to find a cleaner behavior
+            existing, existing_raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
         if existing and existing.md5 == md5 and existing.get_size_bytes() == size_bytes:
             logger.info(f'Identical node already exists in Google Drive: (md5={md5}, size={size_bytes})')
             # Target node will contain invalid UID anyway because it has no goog_id. Just remove it
@@ -353,9 +340,14 @@ class MoveFileGDriveCommand(TwoNodeCommand):
         assert self.op.src_node.device_uid == self.op.dst_node.device_uid, \
             f'Not the same device_uid: {self.op.src_node.node_identifier}, {self.op.dst_node.node_identifier}'
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
-        existing_src, raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.src_node,
-                                                                                            lambda x: x.goog_id == src_goog_id)
+        existing_src = gdrive_client.get_existing_node_by_id(self.op.src_node.goog_id)
         if existing_src:
+            existing_parent_goog_id_list = cxt.cacheman.get_goog_id_list_for_uid_list(existing_src.get_parent_uids())
+            if existing_src.name == dst_name and sorted(existing_parent_goog_id_list) == sorted(dst_parent_goog_id_list):
+                # Update cache manager as it's likely out of date:
+                logger.info(f'Identical already exists in Google Drive; will update cache only (goog_id={existing_src.goog_id})')
+                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_src], to_delete=[self.op.dst_node])
+
             goog_node = gdrive_client.modify_meta(goog_id=src_goog_id, remove_parents=[src_parent_goog_id_list], add_parents=[dst_parent_goog_id_list],
                                                   name=dst_name)
 
@@ -364,27 +356,17 @@ class MoveFileGDriveCommand(TwoNodeCommand):
             # Update master cache. The tgt_node must be removed (it has a different UID). The src_node will be updated.
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node], to_delete=[self.op.dst_node])
         else:
-            # did not find the src file; see if our operation was already completed
-            existing_dst, raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node,
-                                                                                                lambda x: x.goog_id == src_goog_id)
-            if existing_dst:
-                # Update cache manager as it's likely out of date:
-                assert existing_dst.uid == self.op.src_node.uid and existing_dst.goog_id == self.op.src_node.goog_id, \
-                    f'For {existing_dst} and {self.op.src_node}'
-                logger.info(f'Identical already exists in Google Drive; will update cache only (goog_id={existing_dst.goog_id})')
-                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_dst], to_delete=[self.op.dst_node])
-            else:
-                raise RuntimeError(f'Could not find expected node in source or dest locations. Looks like the model is out of date '
-                                   f'(goog_id={self.op.src_node.goog_id})')
+            raise RuntimeError(f'Could not find expected source node in Google Drive. Looks like the cache is out of date '
+                               f'(goog_id={self.op.src_node.goog_id})')
 
 
-class CopyFileGDriveCommand(TwoNodeCommand):
+class CopyFileGDriveCommand(CopyNodeCommand):
     """
     Copy GDrive -> GDrive, same account
     """
 
-    def __init__(self, uid: UID, op: UserOp):
-        super().__init__(uid, op)
+    def __init__(self, uid: UID, op: UserOp, overwrite: bool = False):
+        super().__init__(uid, op, overwrite)
         assert op.op_type == UserOpType.CP
 
     def get_total_work(self) -> int:
@@ -408,11 +390,11 @@ class CopyFileGDriveCommand(TwoNodeCommand):
 
 class DeleteGDriveNodeCommand(DeleteNodeCommand):
     """
-    Delete GDrive
+    Delete GDrive Node. This supports either deleting a file or an empty folder.
     """
 
-    def __init__(self, uid: UID, op: UserOp, to_trash=True, delete_empty_parent=False):
-        super().__init__(uid, op, to_trash, delete_empty_parent)
+    def __init__(self, uid: UID, op: UserOp, to_trash=True):
+        super().__init__(uid, op, to_trash)
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -430,18 +412,23 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
         if not existing:
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[self.op.src_node])
 
-        if self.delete_empty_parent:
-            # TODO
-            logger.error('delete_empty_parent is not implemented!')
-
         if self.to_trash and existing.get_trashed_status() != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[existing])
 
+        existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
+
         if self.to_trash:
+            for child in existing_child_list:
+                if child.get_trashed_status() == TrashStatus.NOT_TRASHED:
+                    raise RuntimeError(f'Found a child ("{child.name}", id={child.goog_id}) which was not already trashed')
+
             gdrive_client.trash(self.op.src_node.goog_id)
             self.op.src_node.set_trashed_status(TrashStatus.EXPLICITLY_TRASHED)
         else:
+            if len(existing_child_list) > 0:
+                raise RuntimeError(f'Folder has {len(existing_child_list)} children; will not delete non-empty folder')
+
             gdrive_client.hard_delete(self.op.src_node.goog_id)
 
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_delete=[self.op.src_node])

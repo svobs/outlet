@@ -462,6 +462,10 @@ class GDriveClient(HasLifecycle):
 
         return goog_node
 
+    def get_existing_file(self, node: GDriveNode) -> Optional[GDriveNode]:
+        found_node, found_raw = self.get_single_node_with_parent_and_name_and_criteria(node, lambda x: x.goog_id == node.goog_id)
+        return found_node
+
     def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) -> Tuple:
         """Important note: if the given node has several parents, the first one found in the cache will be used in the query"""
         src_parent_goog_id_list: List[str] = self.gdrive_store.get_parent_goog_id_list(node)

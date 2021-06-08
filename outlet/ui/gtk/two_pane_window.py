@@ -1,21 +1,20 @@
 import logging
 from typing import List
 
-import gi
 from pydispatch import dispatcher
 
-from model.node_identifier import GUID
-from signal_constants import ID_LEFT_TREE, ID_MAIN_WINDOW, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, DEFAULT_MAIN_WIN_HEIGHT, DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_X, DEFAULT_MAIN_WIN_Y, H_PAD, IconId, \
-    TreeDisplayMode, WIN_SIZE_STORE_DELAY_MS
+    WIN_SIZE_STORE_DELAY_MS
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
-from model.node.node import SPIDNodePair
+from model.node_identifier import GUID
+from signal_constants import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from ui.gtk.dialog.base_dialog import BaseDialog
 from ui.gtk.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.gtk.tree import tree_factory
 from util.ensure import ensure_int
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
 

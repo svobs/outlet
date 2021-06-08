@@ -2,7 +2,7 @@ import logging
 from typing import Callable, Dict
 
 from backend.executor.command.cmd_impl import CopyFileGDriveCommand, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
-    CreatLocalDirCommand, DeleteGDriveNodeCommand, DeleteLocalFileCommand, \
+    CreatLocalDirCommand, DeleteGDriveNodeCommand, DeleteLocalNodeCommand, \
     DownloadFromGDriveCommand, \
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
@@ -86,11 +86,13 @@ def _populate_build_dict():
         GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=False)
     }, UserOpType.RM: {
         # TODO: add support for trash
-        LO: lambda uid, change: DeleteLocalFileCommand(uid, change, to_trash=False, delete_empty_parent=False),
+        LO: lambda uid, change: DeleteLocalNodeCommand(uid, change, to_trash=False),
 
-        GD: lambda uid, change: DeleteGDriveNodeCommand(uid, change, to_trash=False, delete_empty_parent=False)
+        GD: lambda uid, change: DeleteGDriveNodeCommand(uid, change, to_trash=False)
     }, UserOpType.UP: {
         LO_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=True),
+
+        GD_GD: lambda uid, change: CopyFileGDriveCommand(uid, change, overwrite=True),
 
         LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=True),
 

@@ -100,17 +100,15 @@ class DeleteNodeCommand(Command, ABC):
     A Command which deletes the target node. If to_trash is true, it's more of a move/update.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp, to_trash: bool, delete_empty_parent: bool):
+    def __init__(self, uid: UID, op: UserOp, to_trash: bool):
         Command.__init__(self, uid, op)
         assert op.op_type == UserOpType.RM
         self.to_trash = to_trash
-        self.delete_empty_parent = delete_empty_parent
-        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} tgt={self.op.src_node.uid} ' \
-                   f'to_trash={self.to_trash} delete_empty_parent={self.delete_empty_parent})'
+        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} tgt={self.op.src_node.uid} to_trash={self.to_trash})'
 
     def __repr__(self):
         return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.status()} total_work={self.get_total_work()} ' \
-               f'to_trash={self.to_trash} delete_empty_parent={self.delete_empty_parent} tgt={self.op.src_node.node_identifier}'
+               f'to_trash={self.to_trash} tgt={self.op.src_node.node_identifier}'
 
 
 class TwoNodeCommand(Command, ABC):
