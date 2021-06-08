@@ -21,7 +21,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from signal_constants import ID_GLOBAL_CACHE, ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE, Signal
+from signal_constants import ID_GLOBAL_CACHE, ID_LEFT_DIFF_TREE, ID_LEFT_TREE, ID_RIGHT_DIFF_TREE, ID_RIGHT_TREE, Signal
 from util import file_util
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
@@ -174,9 +174,18 @@ class ActiveTreeManager(HasLifecycle):
         logger.info(f'Received signal: {Signal.EXIT_DIFF_MODE.name} for tree "{sender}"')
         self._cancel_diff_mode()
 
-    def _cancel_diff_mode(self):
-        left_tree = self.backend.create_existing_display_tree(ID_LEFT_DIFF_TREE, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
-        right_tree = self.backend.create_existing_display_tree(ID_RIGHT_DIFF_TREE, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+    def _cancel_diff_mode(self, tree_already_cancelled: Optional[DisplayTree] = None):
+        if tree_already_cancelled and tree_already_cancelled.tree_id == ID_LEFT_TREE:
+            left_tree = tree_already_cancelled
+        else:
+            request = DisplayTreeRequest(tree_id=ID_LEFT_DIFF_TREE, return_async=False, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+            left_tree = self.request_display_tree(request, propogate_diff_tree_cancellation=False)
+
+        if tree_already_cancelled and tree_already_cancelled.tree_id == ID_RIGHT_TREE:
+            right_tree = tree_already_cancelled
+        else:
+            request = DisplayTreeRequest(tree_id=ID_RIGHT_DIFF_TREE, return_async=False, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+            right_tree = self.request_display_tree(request, propogate_diff_tree_cancellation=False)
 
         logger.debug(f'Sending signal: {Signal.DIFF_TREES_CANCELLED.name}')
         dispatcher.send(signal=Signal.DIFF_TREES_CANCELLED, sender=ID_GLOBAL_CACHE, tree_left=left_tree, tree_right=right_tree)
@@ -228,7 +237,7 @@ class ActiveTreeManager(HasLifecycle):
         return DisplayTree(self.backend, change_display_tree.state)
 
     # TODO: make this wayyyy less complicated by just making each tree_id represent a set of persisted configs. Minimize DisplayTreeRequest
-    def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
+    def request_display_tree(self, request: DisplayTreeRequest, propogate_diff_tree_cancellation: bool = True) -> Optional[DisplayTreeUiState]:
         """
         Gets the following into memory (if not already):
         1. Root SPID
@@ -242,6 +251,8 @@ class ActiveTreeManager(HasLifecycle):
            b. Else return the tree directly.
 
         Note: this does not actually load the tree's nodes beyond the root. To do that, the FE must call backend.start_subtree_load().
+
+        See _cancel_diff_mode() for why propogate_diff_tree_cancellation is used
         """
         sender_tree_id = request.tree_id
         spid = request.spid
@@ -275,6 +286,8 @@ class ActiveTreeManager(HasLifecycle):
         if not spid:
             raise RuntimeError(f"Root identifier is not valid for: '{sender_tree_id}'")
 
+        is_cancelling_diff = False
+
         response_tree_id = sender_tree_id
         if display_tree_meta:
             if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
@@ -288,6 +301,7 @@ class ActiveTreeManager(HasLifecycle):
 
                     if self._display_tree_dict.pop(sender_tree_id):
                         logger.debug(f'Discarded meta for tree: {sender_tree_id}')
+
                 else:
                     # ChangeDisplayTrees are already loaded, and live capture should not apply
                     logger.warning(f'request_display_tree(): this is a ChangeDisplayTrees. Did you mean to call this method?')
@@ -363,6 +377,9 @@ class ActiveTreeManager(HasLifecycle):
                 self._live_monitor.stop_capture(response_tree_id)
         else:
             logger.debug(f'[{sender_tree_id}] Live monitoring is disabled: will not capture')
+
+        if is_cancelling_diff and propogate_diff_tree_cancellation:
+            self._cancel_diff_mode(display_tree_meta.state.to_display_tree(self.backend))
 
         return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
 

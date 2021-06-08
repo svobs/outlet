@@ -129,10 +129,6 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
 
         dispatcher.connect(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
 
-        # Need to add an extra listener to each tree, to reload when the other one's root changes
-        # if displaying the results of a diff
-        dispatcher.connect(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._after_display_tree_changed_twopane)
-
         # Connect "resize" event. Lots of excess logic to determine approximately when the
         # window *stops* being resized, so we can persist the value semi-efficiently
         self._connect_resize_event()
@@ -286,34 +282,6 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
             self.play_pause_btn.set_icon_widget(self.play_icon)
             self.play_pause_btn.set_tooltip_text('Resume change operations')
         self.toolbar.show_all()
-
-    def _after_display_tree_changed_twopane(self, sender, tree: DisplayTree):
-        # FIXME: put all this logic in the BE
-        logger.debug(f'Received signal: "{Signal.DISPLAY_TREE_CHANGED.name}"')
-        if tree.state.tree_display_mode != TreeDisplayMode.ONE_TREE_ALL_ITEMS:
-            return
-
-        if sender == self.tree_con_left.tree_id and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            # If displaying a diff and right root changed, reload left display
-            # (note: right will update its own display)
-            logger.debug(f'Detected that {self.tree_con_right.tree_id} changed root. Reloading {self.tree_con_left.tree_id}')
-            self._reload_tree(self.tree_con_left)
-
-        elif sender == self.tree_con_right.tree_id and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            # Mirror of above:
-            logger.debug(f'Detected that {self.tree_con_left.tree_id} changed root. Reloading {self.tree_con_right.tree_id}')
-            self._reload_tree(self.tree_con_right)
-        else:
-            # doesn't apply to us
-            return
-
-        GLib.idle_add(self._set_default_button_bar)
-
-    def _reload_tree(self, tree_con):
-        """Reload the given tree in regular mode. This will tell the backend to discard the diff information, and in turn the
-        backend will provide us with our old tree_id"""
-        new_tree = self.backend.create_existing_display_tree(tree_con.tree_id, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
-        tree_con.reload(new_tree)
 
     def _after_diff_failed(self, sender):
         logger.debug(f'Received signal: "{Signal.DIFF_TREES_FAILED.name}"')
