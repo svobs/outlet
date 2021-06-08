@@ -400,7 +400,7 @@ class GDriveClient(HasLifecycle):
 
     def get_single_node_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
             -> Optional[GDriveNode]:
-        src_parent_goog_id_list: List[str] = self.gdrive_store.get_parent_goog_id_list(node)
+        src_parent_goog_id_list: List[str] = self.backend.cacheman.get_parent_goog_id_list(node)
         if not src_parent_goog_id_list:
             raise RuntimeError(f'Node has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
 
@@ -428,9 +428,6 @@ class GDriveClient(HasLifecycle):
         self._execute_query(query, fields, None, sync_ts, observer)
 
         return observer
-
-    # FILES
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_existing_node_by_id(self, goog_id: str) -> Optional[GDriveNode]:
         if not goog_id:
@@ -462,17 +459,25 @@ class GDriveClient(HasLifecycle):
 
         return goog_node
 
+    # FILES
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     def get_existing_file(self, node: GDriveNode) -> Optional[GDriveNode]:
+        if not node.goog_id:
+            raise RuntimeError(f'Cannot get existing file: node is missing goog_id: {node}')
+
         found_node, found_raw = self.get_single_node_with_parent_and_name_and_criteria(node, lambda x: x.goog_id == node.goog_id)
         return found_node
 
-    def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) -> Tuple:
+    def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
+            -> Tuple[Optional[GDriveNode], Optional[Dict]]:
         """Important note: if the given node has several parents, the first one found in the cache will be used in the query"""
-        src_parent_goog_id_list: List[str] = self.gdrive_store.get_parent_goog_id_list(node)
+        src_parent_goog_id_list: List[str] = self.backend.cacheman.get_parent_goog_id_list(node)
         if not src_parent_goog_id_list:
             raise RuntimeError(f'Node has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
+
         result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id_list[0], name=node.name)
-        logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id_list[0]} and name={node.name}')
+        logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id_list[0]} and name="{node.name}"')
 
         if len(result.nodes) > 0:
             for found_node, found_raw in zip(result.nodes, result.raw_items):
@@ -504,6 +509,34 @@ class GDriveClient(HasLifecycle):
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
 
         return self._execute_query(query, fields, initial_page_token, sync_ts, observer)
+
+    def copy_existing_file(self, src_goog_id: str, new_name: str, new_parent_goog_ids: List[str]) -> Optional[GDriveNode]:
+        if not src_goog_id:
+            raise RuntimeError('GDriveClient.copy_existing_file(): no goog_id specified!')
+        fields = f'{GDRIVE_FILE_FIELDS}, parents'
+
+        file_metadata = {'name': new_name, 'parents': new_parent_goog_ids}
+
+        sync_ts = time_util.now_sec()
+
+        def request():
+            logger.debug(f'Copying node with goog_id "{src_goog_id}" to new node with name="{new_name}" and parents={new_parent_goog_ids}')
+
+            # Call the Drive v3 API
+            return self.service.files().copy(body=file_metadata, fileId=src_goog_id, fields=fields, supportsAllDrives=True).execute()
+
+        item: dict = GDriveClient._try_repeatedly(request)
+
+        if not item:
+            logger.error(f'Copy request returned no files! For copied goog_id: {src_goog_id}')
+            return None
+
+        goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
+
+        if SUPER_DEBUG:
+            logger.debug(f'Request returned {goog_node}')
+
+        return goog_node
 
     # FOLDERS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

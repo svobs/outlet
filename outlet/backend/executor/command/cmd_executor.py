@@ -44,7 +44,7 @@ class CommandExecutor:
                 command.op.result = command.execute(context)
                 logger.debug(f'{command.get_description()} completed with status: {command.status().name}')
         except Exception as err:
-            description = f'While executing {command.get_description()}'
+            description = f'Error executing {command.get_description()}'
             logger.exception(description)
             # Save the error inside the command:
             command.set_error_result(err)

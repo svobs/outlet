@@ -28,7 +28,6 @@ class OpGraph(HasLifecycle):
 
         self._struct_lock = threading.Lock()
 
-        self._shutdown: bool = False
         self._cv_can_get = threading.Condition()
         """Used to help consumers block"""
 
@@ -43,11 +42,10 @@ class OpGraph(HasLifecycle):
 
     def shutdown(self):
         """Need to call this for try_get() to return"""
-        if self._shutdown:
+        if self.was_shutdown:
             return
 
         HasLifecycle.shutdown(self)
-        self._shutdown = True
         with self._cv_can_get:
             # unblock any get() task which is waiting
             self._cv_can_get.notifyAll()
@@ -484,7 +482,8 @@ class OpGraph(HasLifecycle):
 
         # Block until we have an op
         while True:
-            if self._shutdown:
+            if self.was_shutdown:
+                logger.debug(f'get_next_op(): Discovered shutdown flag was set. Returning None')
                 return None
 
             with self._struct_lock:
