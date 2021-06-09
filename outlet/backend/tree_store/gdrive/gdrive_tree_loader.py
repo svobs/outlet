@@ -170,15 +170,16 @@ class GDriveTreeLoader:
         if SUPER_DEBUG:
             logger.debug(f'Determining roots for {len(tree.uid_dict)} GDrive nodes')
         max_uid = GDRIVE_ROOT_UID + 1
-        for item in tree.uid_dict.values():
-            if item.uid == GDRIVE_ROOT_UID:
+        for node in tree.uid_dict.values():
+            if node.uid == GDRIVE_ROOT_UID:
                 continue
 
-            if not item.get_parent_uids():
-                tree.get_child_list_for_root().append(item)
+            if not node.get_parent_uids():
+                node.add_parent(GDRIVE_ROOT_UID)
+                tree.get_child_list_for_root().append(node)
 
-            if item.uid >= max_uid:
-                max_uid = item.uid
+            if node.uid >= max_uid:
+                max_uid = node.uid
 
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 

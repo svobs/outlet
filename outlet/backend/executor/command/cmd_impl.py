@@ -1,6 +1,5 @@
 import logging
 import os
-import pathlib
 from typing import List
 
 from util import file_util
@@ -355,8 +354,8 @@ class MoveFileGDriveCommand(TwoNodeCommand):
 
             assert goog_node.name == self.op.dst_node.name and goog_node.uid == self.op.src_node.uid
 
-            # Update master cache. The tgt_node must be removed (it has a different UID). The src_node will be updated.
-            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node], to_delete=[self.op.dst_node])
+            # Update master cache. The tgt_node must be removed (it has a different UID). The src_node will be updated with the returned info
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node], to_delete=[self.op.dst_node])
         else:
             raise RuntimeError(f'Could not find expected source node in Google Drive. Looks like the cache is out of date '
                                f'(goog_id={self.op.src_node.goog_id})')
@@ -409,7 +408,7 @@ class CopyFileGDriveCommand(CopyNodeCommand):
         if not goog_node:
             raise RuntimeError(f'Copy failed to return a new Google Drive node! (src_id={src_goog_id})')
 
-        # Update master cache. The tgt_node must be removed (it has a different UID). The src_node will be updated.
+        # Update master cache. The dst_node must be removed (it has a different UID). The src_node will be updated with new icon
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node], to_delete=[self.op.dst_node])
 
 

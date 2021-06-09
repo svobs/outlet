@@ -35,14 +35,14 @@ class CommandExecutor:
             if not context:
                 context = CommandContext(self.staging_dir, self.backend)
 
-            if command.status() != UserOpStatus.NOT_STARTED:
-                logger.info(f'Skipping command: {command} because it has status {command.status()}')
+            if command.get_status() != UserOpStatus.NOT_STARTED:
+                logger.info(f'Skipping command: {command} because it has status {command.get_status()}')
             else:
                 status_str: str = f'Executing command: {repr(command)}'
                 dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=ID_COMMAND_EXECUTOR, msg=status_str)
                 logger.info(status_str)
                 command.op.result = command.execute(context)
-                logger.debug(f'{command.get_description()} completed with status: {command.status().name}')
+                logger.debug(f'{command.get_description()} completed with status: {command.get_status().name}')
         except Exception as err:
             description = f'Error executing {command.get_description()}'
             logger.exception(description)

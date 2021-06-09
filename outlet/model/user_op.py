@@ -46,9 +46,9 @@ DISPLAYED_USER_OP_TYPES: Dict[UserOpType, str] = {
 class UserOpStatus(IntEnum):
     NOT_STARTED = 1
     EXECUTING = 2
-    STOPPED_ON_ERROR = 8
-    COMPLETED_NO_OP = 9
     COMPLETED_OK = 10
+    COMPLETED_NO_OP = 11
+    STOPPED_ON_ERROR = 12
 
 
 class UserOpResult:
@@ -101,7 +101,7 @@ class UserOp(BaseNode):
     def is_completed(self) -> bool:
         return self.result and self.result.is_completed()
 
-    def status(self) -> UserOpStatus:
+    def get_status(self) -> UserOpStatus:
         if self.result:
             return self.result.status
         return UserOpStatus.NOT_STARTED
@@ -114,5 +114,5 @@ class UserOp(BaseNode):
             dst = self.dst_node.node_identifier
         else:
             dst = 'None'
-        return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} src={self.src_node.node_identifier} ' \
+        return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} status={self.get_status()} src={self.src_node.node_identifier} ' \
                f'dst={dst}'

@@ -91,6 +91,8 @@ class ActiveTreeManager(HasLifecycle):
         if not filter_state.has_criteria() or filter_state.matches(sn):
             parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
             if parent_sn:
+                # Make sure to update the node icon before sending!
+                self.backend.cacheman.update_node_icon(sn.node)
                 return SPIDNodePairWithParent(sn, parent_sn.spid.guid)
             else:
                 logger.warning(f'No parent found for: {sn.spid}. Will discard notification!')
@@ -140,13 +142,21 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            for snp in self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state):
+            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
+            if SUPER_DEBUG:
+                logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
+
+            for snp in subtree_sn_list:
                 logger.debug(f'[{tree_id}] Notifying tree of upserted node: {snp.sn.spid}, parent_guid={snp.parent_guid}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            for snp in self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state):
+            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
+            if SUPER_DEBUG:
+                logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
+
+            for snp in subtree_sn_list:
                 logger.debug(f'[{tree_id}] Notifying tree of removed node: {snp.sn.spid}')
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 

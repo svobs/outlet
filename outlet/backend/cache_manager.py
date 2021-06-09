@@ -869,7 +869,7 @@ class CacheManager(HasLifecycle):
 
         # The node icon is also a global change:
         for child_sn in child_list:
-            self._update_node_icon(child_sn.node)
+            self.update_node_icon(child_sn.node)
 
         if SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {parent_spid}')
@@ -905,7 +905,7 @@ class CacheManager(HasLifecycle):
     def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self._active_tree_manager.get_rows_of_interest(tree_id)
 
-    def _update_node_icon(self, node: Node):
+    def update_node_icon(self, node: Node):
         icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.device_uid, node.uid)
         node.set_icon(icon)
 

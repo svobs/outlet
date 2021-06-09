@@ -67,11 +67,11 @@ class Command(BaseNode, ABC):
     def needs_gdrive(self):
         return False
 
-    def completed_without_error(self):
-        status = self.status()
+    def completed_without_error(self) -> bool:
+        status = self.get_status()
         return status == UserOpStatus.COMPLETED_OK or status == UserOpStatus.COMPLETED_NO_OP
 
-    def status(self) -> UserOpStatus:
+    def get_status(self) -> UserOpStatus:
         if self.op.result:
             return self.op.result.status
         return UserOpStatus.NOT_STARTED
@@ -88,7 +88,7 @@ class Command(BaseNode, ABC):
 
     def __repr__(self):
         # default
-        return f'{self.__class__.__name__}(uid={self.identifier} status={self.status()} total_work={self.get_total_work()} ' \
+        return f'{self.__class__.__name__}(uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()} ' \
                f'user_op={self.op})'
 
 
@@ -107,7 +107,7 @@ class DeleteNodeCommand(Command, ABC):
         self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} tgt={self.op.src_node.uid} to_trash={self.to_trash})'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.status()} total_work={self.get_total_work()} ' \
+        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()} ' \
                f'to_trash={self.to_trash} tgt={self.op.src_node.node_identifier}'
 
 
@@ -125,7 +125,7 @@ class TwoNodeCommand(Command, ABC):
                    f'dst={self.op.src_node.uid}'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.status()} total_work={self.get_total_work()}' \
+        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()}' \
                f' src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'
 
 
@@ -144,5 +144,5 @@ class CopyNodeCommand(TwoNodeCommand, ABC):
                    f'src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.status()} total_work={self.get_total_work()}' \
+        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()}' \
                f' overwrite={self.overwrite} src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'
