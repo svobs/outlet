@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Set, Union
+from typing import Dict, Optional, Set
 
 from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState

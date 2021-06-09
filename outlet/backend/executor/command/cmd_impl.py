@@ -89,7 +89,7 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
             raise RuntimeError(f'Not a file or dir: {self.op.src_node}')
         deleted_nodes_list.append(self.op.src_node)
 
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_delete=deleted_nodes_list)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=deleted_nodes_list)
 
 
 class MoveFileLocallyCommand(TwoNodeCommand):
@@ -117,7 +117,7 @@ class MoveFileLocallyCommand(TwoNodeCommand):
             cxt.cacheman.remove_node(local_node)
         else:
             logger.warning(f'Src node still exists after move: {self.op.src_node.get_single_path()}')
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_delete=to_delete)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_remove=to_delete)
 
 
 class CreatLocalDirCommand(Command):
@@ -191,7 +191,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
         if existing and existing.md5 == md5 and existing.get_size_bytes() == size_bytes:
             logger.info(f'Identical node already exists in Google Drive: (md5={md5}, size={size_bytes})')
             # Target node will contain invalid UID anyway because it has no goog_id. Just remove it
-            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing], to_delete=[self.op.dst_node])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing], to_remove=[self.op.dst_node])
 
         if self.overwrite:
             if existing:
@@ -347,7 +347,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
                     and existing_src.md5 == self.op.src_node.md5:
                 # Update cache manager as it's likely out of date:
                 logger.info(f'Identical already exists in Google Drive; will update cache only (goog_id={existing_src.goog_id})')
-                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_src], to_delete=[self.op.dst_node])
+                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_src], to_remove=[self.op.dst_node])
 
             goog_node = gdrive_client.modify_meta(goog_id=src_goog_id, remove_parents=[src_parent_goog_id_list], add_parents=[dst_parent_goog_id_list],
                                                   name=dst_name)
@@ -355,7 +355,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
             assert goog_node.name == self.op.dst_node.name and goog_node.uid == self.op.src_node.uid
 
             # Update master cache. The tgt_node must be removed (it has a different UID). The src_node will be updated with the returned info
-            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node], to_delete=[self.op.dst_node])
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node], to_remove=[self.op.dst_node])
         else:
             raise RuntimeError(f'Could not find expected source node in Google Drive. Looks like the cache is out of date '
                                f'(goog_id={self.op.src_node.goog_id})')
@@ -393,7 +393,7 @@ class CopyFileGDriveCommand(CopyNodeCommand):
         existing_dst, raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node, lambda x: x.md5 == self.op.dst_node.md5)
         if existing_dst:
             logger.info(f'Identical already exists in Google Drive; will update cache only (goog_id={existing_dst.goog_id})')
-            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_dst], to_delete=[self.op.dst_node])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_dst], to_remove=[self.op.dst_node])
 
         if self.overwrite:
             if not self.op.dst_node.goog_id:
@@ -409,7 +409,7 @@ class CopyFileGDriveCommand(CopyNodeCommand):
             raise RuntimeError(f'Copy failed to return a new Google Drive node! (src_id={src_goog_id})')
 
         # Update master cache. The dst_node must be removed (it has a different UID). The src_node will be updated with new icon
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node], to_delete=[self.op.dst_node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node], to_remove=[self.op.dst_node])
 
 
 class DeleteGDriveNodeCommand(DeleteNodeCommand):
@@ -434,11 +434,11 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
         existing = gdrive_client.get_single_node_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
         if not existing:
-            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[self.op.src_node])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_remove=[self.op.src_node])
 
         if self.to_trash and existing.get_trashed_status() != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')
-            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[existing])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_remove=[existing])
 
         existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
 
@@ -455,7 +455,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
             gdrive_client.hard_delete(self.op.src_node.goog_id)
 
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_delete=[self.op.src_node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # GOOGLE DRIVE COMMANDS end

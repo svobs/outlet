@@ -57,11 +57,11 @@ class UserOpResult:
     CLASS UserOpResult
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, status: UserOpStatus, error=None, to_upsert=None, to_delete=None):
+    def __init__(self, status: UserOpStatus, error=None, to_upsert: Optional[List[Node]] = None, to_remove: Optional[List[Node]] = None):
         self.status = status
         self.error = error
-        self.nodes_to_upsert: List[Node] = to_upsert
-        self.nodes_to_delete: List[Node] = to_delete
+        self.nodes_to_upsert: Optional[List[Node]] = to_upsert
+        self.nodes_to_remove: Optional[List[Node]] = to_remove
 
     def is_completed(self) -> bool:
         return self.status >= UserOpStatus.STOPPED_ON_ERROR
@@ -74,15 +74,14 @@ class UserOp(BaseNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node,
-                 dst_node: Node = None, create_ts: int = None):
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node, dst_node: Optional[Node] = None, create_ts: int = None):
         assert src_node, 'No src node!'
         BaseNode.__init__(self)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: UserOpType = op_type
         self.src_node: Node = src_node
-        self.dst_node: Node = dst_node
+        self.dst_node: Optional[Node] = dst_node
         """If it exists, this is the target. Otherwise the target is the src node"""
 
         self.create_ts = create_ts
@@ -114,5 +113,5 @@ class UserOp(BaseNode):
             dst = self.dst_node.node_identifier
         else:
             dst = 'None'
-        return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} status={self.get_status()} src={self.src_node.node_identifier} ' \
-               f'dst={dst}'
+        return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} status={self.get_status()} ' \
+               f'src={self.src_node.node_identifier} dst={dst}'

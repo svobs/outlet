@@ -513,12 +513,10 @@ class CacheManager(HasLifecycle):
             for node_to_upsert in result.nodes_to_upsert:
                 self.upsert_single_node(node_to_upsert)
 
-        if result.nodes_to_delete:
-            # TODO: to_trash?
-
-            logger.debug(f'Cmd resulted in {len(result.nodes_to_delete)} nodes to delete')
-            for deleted_node in result.nodes_to_delete:
-                self.remove_node(deleted_node, to_trash=False)
+        if result.nodes_to_remove:
+            logger.debug(f'Cmd resulted in {len(result.nodes_to_remove)} nodes to delete')
+            for removed_node in result.nodes_to_remove:
+                self.remove_node(removed_node, to_trash=False)
 
     # Not currently used
     def _download_all_gdrive_meta(self, sender, device_uid: UID):
