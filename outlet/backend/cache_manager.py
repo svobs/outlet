@@ -906,8 +906,10 @@ class CacheManager(HasLifecycle):
         return self._active_tree_manager.get_rows_of_interest(tree_id)
 
     def update_node_icon(self, node: Node):
-        icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.device_uid, node.uid)
-        node.set_icon(icon)
+        icon_id: Optional[IconId] = self._op_ledger.get_icon_for_node(node.device_uid, node.uid)
+        if SUPER_DEBUG:
+            logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
+        node.set_icon(icon_id)
 
     @staticmethod
     def derive_parent_path(child_path) -> Optional[str]:

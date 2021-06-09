@@ -1,7 +1,7 @@
 import collections
 import logging
 import threading
-from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
+from typing import DefaultDict, Deque, Dict, Iterable, List, Optional, Tuple
 
 from constants import SUPER_DEBUG, SUPER_ROOT_UID
 from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
@@ -386,28 +386,35 @@ class OpGraph(HasLifecycle):
 
         return True
 
-    def enqueue_batch(self, op_root: RootNode) -> List[UserOp]:
-        # 1. Discard root
-        # 2. Examine each child of root. Each shall be treated as its own subtree.
-        # 3. For each subtree, look up all its nodes in the master dict. Level...?
+    def enqueue_batch(self, op_root: RootNode) -> Tuple[List[UserOp], List[UserOp]]:
+        """Returns a tuple of [inserted user ops, discarded user ops]
+        Algo:
+        1. Discard root
+        2. Examine each child of root. Each shall be treated as its own subtree.
+        3. For each subtree, look up all its nodes in the master dict. Level...?
 
-        # Disregard the kind of op when building the tree; they are all equal for now (except for RM; see below):
-        # Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
+        Disregard the kind of op when building the tree; they are all equal for now (except for RM; see below):
+        Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
 
-        # Note: it is assumed that the given batch has already been reduced, and stored in the pending ops tree.
-        # Every op node in the supplied graph must be accounted for.
-
+        Note: it is assumed that the given batch has already been reduced, and stored in the pending ops tree.
+        Every op node in the supplied graph must be accounted for.
+        """
         if not op_root.get_child_list():
             raise RuntimeError(f'Batch has no nodes!')
 
         batch_uid: UID = op_root.get_first_child().op.batch_uid
 
+        logger.info(f'Adding batch {batch_uid} to OpGraph')
+
         breadth_first_list: List[OpGraphNode] = op_root.get_all_nodes_in_subtree()
+        inserted_op_dict: Dict[UID, UserOp] = {}
         discarded_op_dict: Dict[UID, UserOp] = {}
         for node_to_nq in _skip_root(breadth_first_list):
             with self._struct_lock:
                 succeeded = self._enqueue_single_node(node_to_nq)
-                if not succeeded:
+                if succeeded:
+                    inserted_op_dict[node_to_nq.op.op_uid] = node_to_nq.op
+                else:
                     discarded_op_dict[node_to_nq.op.op_uid] = node_to_nq.op
 
         logger.debug(f'Done adding batch {batch_uid}')
@@ -417,7 +424,7 @@ class OpGraph(HasLifecycle):
         with self._cv_can_get:
             self._cv_can_get.notifyAll()
 
-        return list(discarded_op_dict.values())
+        return list(inserted_op_dict.values()), list(discarded_op_dict.values())
 
     def _is_node_ready(self, op: UserOp, node_uid: UID, node_type_str: str) -> bool:
         pending_op_queue: Deque[OpGraphNode] = self._node_q_dict.get(node_uid, None)

@@ -300,18 +300,16 @@ class OpLedger(HasLifecycle):
             # Save ops and their planning nodes to disk
             self._disk_store.save_pending_ops_to_disk(batch_op_list)
 
-        # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths)
-        for op in batch_op_list:
-            self._update_nodes_in_memstore(op)
+        inserted_op_list, discarded_op_list = self._op_graph.enqueue_batch(batch_root)
 
-        self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
-
-    def _add_batch_to_op_graph_and_remove_discarded(self, batch_root, batch_uid):
-        logger.info(f'Adding batch {batch_uid} to OpTree')
-        discarded_op_list: List[UserOp] = self._op_graph.enqueue_batch(batch_root)
         if discarded_op_list:
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
             self._disk_store.remove_pending_ops(discarded_op_list)
+
+        # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).
+        # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
+        for op in inserted_op_list:
+            self._update_nodes_in_memstore(op)
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(device_uid, node_uid)
@@ -337,6 +335,8 @@ class OpLedger(HasLifecycle):
     def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
         op: Optional[UserOp] = self.get_last_pending_op_for_node(device_uid, node_uid)
         if not op or op.is_completed():
+            if SUPER_DEBUG:
+                logger.debug(f'Node {device_uid}:{node_uid}: no custom icon (op={op})')
             return None
 
         icon = self._get_icon_for_node(device_uid, node_uid, op)
