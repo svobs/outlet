@@ -384,6 +384,8 @@ class OpGraph(HasLifecycle):
             self._node_q_dict[target_uid] = pending_op_queue
         pending_op_queue.append(node_to_insert)
 
+        logger.info(f'Enqueued single op node: {node_to_insert}')
+
         return True
 
     def enqueue_batch(self, op_root: RootNode) -> Tuple[List[UserOp], List[UserOp]]:

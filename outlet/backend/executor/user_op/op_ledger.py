@@ -13,7 +13,6 @@ from backend.executor.user_op.op_graph_node import RootNode
 from model.node.node import Node
 from model.user_op import UserOp, UserOpType
 from model.uid import UID
-from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -65,7 +64,6 @@ class OpLedger(HasLifecycle):
         logger.debug(f'Starting OpLedger')
         HasLifecycle.start(self)
         self._disk_store.start()
-        self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
         self._op_graph.start()
 
@@ -356,9 +354,7 @@ class OpLedger(HasLifecycle):
 
         return self._cmd_builder.build_command(op)
 
-    def _on_command_completed(self, sender, command: Command):
-        logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE.name}"')
-
+    def finish_command(self, command: Command):
         logger.debug(f'Archiving op: {command.op}')
         self._disk_store.archive_pending_ops_to_disk([command.op])
 

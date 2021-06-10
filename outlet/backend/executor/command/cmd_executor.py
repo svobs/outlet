@@ -42,7 +42,7 @@ class CommandExecutor:
                 dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=ID_COMMAND_EXECUTOR, msg=status_str)
                 logger.info(status_str)
                 command.op.result = command.execute(context)
-                logger.debug(f'{command.get_description()} completed with status: {command.get_status().name}')
+                logger.info(f'Command completed with status {command.get_status().name}: {command.get_description()}')
         except Exception as err:
             description = f'Error executing {command.get_description()}'
             logger.exception(description)

@@ -76,7 +76,7 @@ class Command(BaseNode, ABC):
             return self.op.result.status
         return UserOpStatus.NOT_STARTED
 
-    def set_error_result(self, err) -> UserOpResult:
+    def set_error_result(self, err: Exception) -> UserOpResult:
         result = UserOpResult(UserOpStatus.STOPPED_ON_ERROR, error=err)
         self.op.result = result
         return result

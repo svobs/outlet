@@ -67,13 +67,13 @@ class TreeDiffMergeTask:
             if not meta_right.change_tree:
                 raise RuntimeError(f'Could not generate merge tree: no ChangeTree in record: {tree_id_right}')
 
-            merged_changes_tree = self.merge_change_trees(meta_left.change_tree, selected_guid_list_left,
-                                                          meta_right.change_tree, selected_guid_list_right)
+            merged_change_tree = self.merge_change_trees(meta_left.change_tree, selected_guid_list_left,
+                                                         meta_right.change_tree, selected_guid_list_right)
 
-            # FIXME: need to clean up this mechanism: src_tree_id makes no sense
-            self.backend.cacheman.register_change_tree(merged_changes_tree, src_tree_id=None)
+            # TODO: surely there is a cleaner solution than src_tree_id
+            self.backend.cacheman.register_change_tree(merged_change_tree, src_tree_id=None)
 
-            dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_DONE, sender=sender, tree=merged_changes_tree)
+            dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_DONE, sender=sender, tree=merged_change_tree)
             logger.debug(f'{sw} Finished generating merge tree')
         except Exception as err:
             logger.exception(err)

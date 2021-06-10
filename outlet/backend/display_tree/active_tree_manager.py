@@ -230,21 +230,23 @@ class ActiveTreeManager(HasLifecycle):
     # Public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID) -> DisplayTree:
-        logger.info(f'Registering ChangeTree: {change_display_tree.tree_id} (src_tree_id: {src_tree_id})')
+    def register_change_tree(self, change_tree: ChangeTree, src_tree_id: TreeID) -> DisplayTree:
+        """Stores the given ChangeTree in the in-memory dict, and returns a DisplayTree which can be sent to clients.
+        src_tree_id is a reference to the DisplayTree on which the ChangeTree was based"""
+        logger.info(f'Registering ChangeTree: {change_tree.tree_id} (src_tree_id: {src_tree_id})')
         if SUPER_DEBUG:
-            change_display_tree.print_tree_contents_debug()
-            change_display_tree.print_op_structs_debug()
+            change_tree.print_tree_contents_debug()
+            change_tree.print_op_structs_debug()
 
-        filter_state = FilterState.from_config(self.backend, change_display_tree.tree_id, change_display_tree.get_root_sn())
+        filter_state = FilterState.from_config(self.backend, change_tree.tree_id, change_tree.get_root_sn())
 
-        meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state, filter_state)
-        meta.change_tree = change_display_tree
+        meta = ActiveDisplayTreeMeta(self.backend, change_tree.state, filter_state)
+        meta.change_tree = change_tree
         meta.src_tree_id = src_tree_id
-        self._display_tree_dict[change_display_tree.tree_id] = meta
+        self._display_tree_dict[change_tree.tree_id] = meta
 
         # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
-        return DisplayTree(self.backend, change_display_tree.state)
+        return change_tree.state.to_display_tree(self.backend)
 
     # TODO: make this wayyyy less complicated by just making each tree_id represent a set of persisted configs. Minimize DisplayTreeRequest
     def request_display_tree(self, request: DisplayTreeRequest, propogate_diff_tree_cancellation: bool = True) -> Optional[DisplayTreeUiState]:

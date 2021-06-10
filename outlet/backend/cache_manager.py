@@ -21,7 +21,7 @@ from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from backend.tree_store.local.master_local import LocalDiskMasterStore
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidChangeTreeMapper, UidPathMapper
-from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, IconId, INDEX_FILE_SUFFIX, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType, UID_PATH_FILE_NAME
 from error import CacheNotLoadedError, ResultsExceededError
@@ -514,9 +514,11 @@ class CacheManager(HasLifecycle):
                 self.upsert_single_node(node_to_upsert)
 
         if result.nodes_to_remove:
-            logger.debug(f'Cmd resulted in {len(result.nodes_to_remove)} nodes to delete')
+            logger.debug(f'Cmd resulted in {len(result.nodes_to_remove)} nodes to remove')
             for removed_node in result.nodes_to_remove:
                 self.remove_node(removed_node, to_trash=False)
+
+        self._op_ledger.finish_command(command)
 
     # Not currently used
     def _download_all_gdrive_meta(self, sender, device_uid: UID):
@@ -1013,6 +1015,10 @@ class CacheManager(HasLifecycle):
 
     def get_parent_goog_id_list(self, node: GDriveNode) -> List[str]:
         parent_uid_list: List[UID] = node.get_parent_uids()
+
+        # special case for GDrive super-root: no goog_id
+        if len(parent_uid_list) == 1 and parent_uid_list[0] == GDRIVE_ROOT_UID:
+            return []
 
         # This will raise an exception if it cannot resolve:
         return self.get_goog_id_list_for_uid_list(node.device_uid, parent_uid_list)

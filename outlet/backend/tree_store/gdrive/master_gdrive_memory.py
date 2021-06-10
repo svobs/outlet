@@ -60,7 +60,7 @@ class GDriveMemoryStore:
                 raise RuntimeError(f'Invalid request: cannot replace a GDrive folder with a file: "{node.get_path_list()}"')
 
             if existing_node == node:
-                logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
                 if SUPER_DEBUG:
                     logger.debug(f'Existing node: {existing_node}')
                 return existing_node, False

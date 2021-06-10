@@ -357,7 +357,8 @@ class OpDatabase(MetaDatabase):
                 parent_uid = node.get_parent_uids()[0]
                 parent_goog_id_list = self.cacheman.get_parent_goog_id_list(node)
                 if len(parent_goog_id_list) < 1:
-                    logger.debug(f'Could not resolve goog_id for {node.device_uid}:{parent_uid}; assuming parent is not yet created')
+                    # this is currently the only way the previous method will return empty list without failing
+                    logger.debug(f'Could not resolve goog_id for {node.device_uid}:{parent_uid}; assuming parent is GDrive root')
                 else:
                     parent_goog_id = parent_goog_id_list[0]
                     if len(parent_goog_id_list) > 1:
@@ -549,9 +550,9 @@ class OpDatabase(MetaDatabase):
         # Upsert Ops
         current_time = time_util.now_sec()
         change_tuple_list = []
-        for e in entries:
-            assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
-            change_tuple_list.append(_completed_op_to_tuple(e, current_time))
+        for user_op in entries:
+            assert isinstance(user_op, UserOp), f'Expected UserOp; got instead: {user_op}'
+            change_tuple_list.append(_completed_op_to_tuple(user_op, current_time))
         self.table_completed_op.upsert_many(change_tuple_list, commit)
 
     # FAILED_CHANGE operations

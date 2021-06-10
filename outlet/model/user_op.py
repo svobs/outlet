@@ -50,6 +50,10 @@ class UserOpStatus(IntEnum):
     COMPLETED_NO_OP = 11
     STOPPED_ON_ERROR = 12
 
+    def is_completed(self) -> bool:
+        """Note: "completed" set includes possible errors"""
+        return self.value >= UserOpStatus.COMPLETED_OK
+
 
 class UserOpResult:
     """
@@ -58,13 +62,13 @@ class UserOpResult:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, status: UserOpStatus, error=None, to_upsert: Optional[List[Node]] = None, to_remove: Optional[List[Node]] = None):
-        self.status = status
-        self.error = error
+        self.status: UserOpStatus = status
+        self.error: Optional[Exception] = error
         self.nodes_to_upsert: Optional[List[Node]] = to_upsert
         self.nodes_to_remove: Optional[List[Node]] = to_remove
 
     def is_completed(self) -> bool:
-        return self.status >= UserOpStatus.STOPPED_ON_ERROR
+        return self.status.is_completed()
 
 
 class UserOp(BaseNode):
