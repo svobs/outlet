@@ -7,7 +7,7 @@ from typing import Deque, Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG, TRACELOG_ENABLED, TreeID
+from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID
 from error import CacheNotLoadedError
 from global_actions import GlobalActions
 from model.device import Device
@@ -429,6 +429,11 @@ class GDriveMasterStore(TreeStore):
     def read_single_node_from_disk_for_uid(self, uid: UID) -> Optional[Node]:
         logger.debug(f'Loading single node for uid: {uid}')
         return self._diskstore.get_single_node_with_uid(uid)
+
+    def build_gdrive_root_node(self) -> GDriveFolder:
+        # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
+        node_identifier = self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)
+        return GDriveFolder(node_identifier, None, '/', TrashStatus.NOT_TRASHED, None, None, None, None, False, None, None, False)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
         node = self.get_node_for_uid(uid)

@@ -3,6 +3,7 @@ from typing import List
 from pydispatch import dispatcher
 import logging
 
+from constants import SUPER_DEBUG
 from util import file_util
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal
@@ -39,8 +40,9 @@ class CommandExecutor:
                 logger.info(f'Skipping command: {command} because it has status {command.get_status()}')
             else:
                 status_str: str = f'Executing command: {repr(command)}'
-                dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=ID_COMMAND_EXECUTOR, msg=status_str)
                 logger.info(status_str)
+                if SUPER_DEBUG:
+                    logger.debug(f'Command(uid={command.uid}): src={command.op.src_node}) dst={command.op.dst_node}')
                 command.op.result = command.execute(context)
                 logger.info(f'Command completed with status {command.get_status().name}: {command.get_description()}')
         except Exception as err:

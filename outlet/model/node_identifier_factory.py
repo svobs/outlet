@@ -23,7 +23,8 @@ class NodeIdentifierFactory:
         self.backend = backend
 
     def get_root_constant_gdrive_identifier(self, device_uid: UID) -> GDriveIdentifier:
-        assert self._get_tree_type_for_device_uid(device_uid) == TreeType.GDRIVE, f'Device UID {device_uid} is not GDrive!'
+        if self._get_tree_type_for_device_uid(device_uid) != TreeType.GDRIVE:
+            raise RuntimeError(f'Cannot get GDrive root: device UID {device_uid} is not GDrive!')
         return GDriveIdentifier(uid=GDRIVE_ROOT_UID, device_uid=device_uid, path_list=ROOT_PATH)
 
     def get_device_root_spid(self, device_uid: UID) -> SinglePathNodeIdentifier:

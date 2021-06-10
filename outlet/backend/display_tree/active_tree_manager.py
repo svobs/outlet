@@ -12,7 +12,7 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TreeDisplayMode, TreeID, TreeType
+from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TRACELOG_ENABLED, TreeDisplayMode, TreeID, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
@@ -143,7 +143,7 @@ class ActiveTreeManager(HasLifecycle):
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
             subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
-            if SUPER_DEBUG:
+            if TRACELOG_ENABLED:
                 logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for snp in subtree_sn_list:
@@ -153,7 +153,7 @@ class ActiveTreeManager(HasLifecycle):
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
             subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
-            if SUPER_DEBUG:
+            if TRACELOG_ENABLED:
                 logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for snp in subtree_sn_list:
@@ -331,9 +331,9 @@ class ActiveTreeManager(HasLifecycle):
         # Try to retrieve the root node from the cache:
         try:
             node: Optional[Node] = self.backend.cacheman.read_single_node(spid)
-            logger.debug(f'[{sender_tree_id}] Read display tree root node: {node}')
+            logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
         except RuntimeError:
-            logger.error(f'Could not retrieve root node while loading tree (will try to recover): {spid}')
+            logger.error(f'[{sender_tree_id}] Could not retrieve DisplayTree root node (will try to recover): {spid}')
             node = None
 
         if spid.tree_type == TreeType.LOCAL_DISK:
@@ -352,6 +352,7 @@ class ActiveTreeManager(HasLifecycle):
         root_path_meta.offending_path = None
         
         if not node:
+            logger.debug(f'[{sender_tree_id}] Creating NonexistentDirNode because node was null')
             node = NonexistentDirNode(node_identifier=spid, name=os.path.basename(spid.get_single_path()))
 
         # Now that we have the root, we have all the info needed to assemble the ActiveDisplayTreeMeta from the RootPathMeta.

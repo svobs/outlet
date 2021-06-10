@@ -1218,6 +1218,10 @@ class CacheManager(HasLifecycle):
     def build_local_dir_node(self, full_path: str, is_live: bool = True) -> LocalDirNode:
         return self._this_disk_local_store.build_local_dir_node(full_path, is_live)
 
+    def build_gdrive_root_node(self, device_uid: UID) -> GDriveNode:
+        store = self._get_gdrive_store_for_device_uid(device_uid)
+        return store.build_gdrive_root_node()
+
     def read_single_node(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
         store = self._get_store_for_device_uid(spid.device_uid)
 
@@ -1241,6 +1245,11 @@ class CacheManager(HasLifecycle):
 
         elif spid.tree_type == TreeType.GDRIVE:
             assert isinstance(store, GDriveMasterStore)
+
+            if spid.node_uid == GDRIVE_ROOT_UID:
+                # special case for faux-node '/' since it won't be stored in disk
+                return store.build_gdrive_root_node()
+
             return store.read_single_node_from_disk_for_uid(spid.node_uid)
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
