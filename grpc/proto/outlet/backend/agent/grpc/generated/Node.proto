@@ -52,6 +52,7 @@ message Node {
     LocalFileMeta local_file_meta = 21;
     GDriveFileMeta gdrive_file_meta = 22;
     GDriveFolderMeta gdrive_folder_meta = 23;
+    NonexistentDirMeta nonexistent_dir_meta = 24;
   }
 }
 
@@ -139,4 +140,8 @@ message GDriveFolderMeta {
 
   DirMeta dir_meta = 10;
   bool all_children_fetched = 11;
+}
+
+message NonexistentDirMeta {
+  string name = 1;
 }

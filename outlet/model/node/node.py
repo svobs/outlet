@@ -4,7 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
-from constants import IconId, TrashStatus, TreeType
+from constants import IconId, OBJ_TYPE_DIR, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.trait import HasParentList
 from model.node_identifier import NodeIdentifier
@@ -82,6 +82,7 @@ class Node(BaseNode, HasParentList, ABC):
     def get_obj_type(cls):
         return None
 
+    # TODO: get rid of this
     @classmethod
     def is_decorator(cls):
         return False
@@ -95,6 +96,7 @@ class Node(BaseNode, HasParentList, ABC):
     def is_dir(cls):
         return False
 
+    # TODO: get rid of this
     @classmethod
     def is_display_only(cls):
         return False
@@ -204,3 +206,43 @@ class Node(BaseNode, HasParentList, ABC):
         HasParentList.update_from(self, other_node)
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
+
+
+class NonexistentDirNode(Node):
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS NonexistentDirNode
+
+    Represents a directory which does not exist. Use this in SPIDNodePair objects when the SPID points to something which doesn't exist.
+    It's much safer to use this class rather than remembering to deal with null/nil/None.
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+
+    def __init__(self, node_identifier: NodeIdentifier, name: str):
+        super().__init__(node_identifier)
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    @classmethod
+    def is_dir(cls):
+        return True
+
+    @classmethod
+    def get_obj_type(cls):
+        return OBJ_TYPE_DIR
+
+    @property
+    def sync_ts(self):
+        return None
+
+    def update_from(self, other_node):
+        assert isinstance(other_node, NonexistentDirNode), f'Invalid type: {type(other_node)}'
+        Node.update_from(self, other_node)
+        self._name = other_node.name
+
+    def is_parent_of(self, potential_child_node) -> bool:
+        # never a parent of anything. still waiting for that adoption paperwork
+        return False

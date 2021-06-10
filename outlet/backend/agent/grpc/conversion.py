@@ -10,7 +10,7 @@ from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import Node, NonexistentDirNode, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from outlet.backend.agent.grpc.generated import Outlet_pb2
@@ -46,7 +46,9 @@ class GRPCConverter:
         if icon:
             grpc_node.icon_id = icon.value
 
-        if isinstance(node, ContainerNode):
+        if isinstance(node, NonexistentDirNode):
+            grpc_node.nonexistent_dir_meta.name = node.name
+        elif isinstance(node, ContainerNode):
             # ContainerNode or subclass
             if isinstance(node, CategoryNode):
                 self.dir_stats_to_grpc(node.dir_stats, grpc_node.category_meta)
@@ -163,6 +165,9 @@ class GRPCConverter:
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = RootTypeNode(node_identifier)
             node.dir_stats = self.dir_stats_from_grpc(grpc_node.root_type_meta.dir_meta)
+        elif grpc_node.HasField("nonexistent_dir_meta"):
+            assert isinstance(node_identifier, SinglePathNodeIdentifier)
+            node = NonexistentDirNode(node_identifier=node_identifier, name=grpc_node.nonexistent_dir_meta.name)
         else:
             raise RuntimeError('Could not parse GRPC node!')
 

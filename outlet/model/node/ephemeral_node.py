@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from constants import IconId
 from error import InvalidOperationError
 from model.node.node import Node
-from model.node_identifier import EphemeralNodeIdentifier
+from model.node_identifier import EphemeralNodeIdentifier, NodeIdentifier
 
 
 class EphemeralNode(Node, ABC):
@@ -12,8 +13,10 @@ class EphemeralNode(Node, ABC):
     CLASS EphemeralNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self):
-        super().__init__(EphemeralNodeIdentifier())
+    def __init__(self, node_identifier: Optional[NodeIdentifier] = None):
+        if node_identifier == None:
+            node_identifier = EphemeralNodeIdentifier()
+        super().__init__(node_identifier)
 
     def __repr__(self):
         return self.name

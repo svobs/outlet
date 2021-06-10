@@ -17,7 +17,7 @@ from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
-from model.node.node import Node, SPIDNodePair
+from model.node.node import Node, NonexistentDirNode, SPIDNodePair
 from model.node_identifier import GUID, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -345,11 +345,14 @@ class ActiveTreeManager(HasLifecycle):
 
             root_path_meta.root_exists = os.path.exists(spid.get_single_path())
         elif spid.tree_type == TreeType.GDRIVE:
-            root_path_meta.root_exists = spid.node_uid == GDRIVE_ROOT_UID or node is not None
+            root_path_meta.root_exists = node is not None
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
         root_path_meta.offending_path = None
+        
+        if not node:
+            node = NonexistentDirNode(node_identifier=spid, name=os.path.basename(spid.get_single_path()))
 
         # Now that we have the root, we have all the info needed to assemble the ActiveDisplayTreeMeta from the RootPathMeta.
         root_sn = SPIDNodePair(spid, node)
