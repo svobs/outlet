@@ -51,21 +51,26 @@ class OpGraph(HasLifecycle):
             self._cv_can_get.notifyAll()
 
     def _print_current_state(self):
-        lines = self._graph_root.print_recursively()
-        logger.debug(f'CURRENT STATE: OpGraph contains {len(lines)} items:')
-        for line in lines:
-            logger.debug(line)
-        self._print_node_queue_dict()
+        graph_line_list = self._graph_root.print_recursively()
 
-    def _print_node_queue_dict(self):
-        logger.debug(f'CURRENT STATE: NodeQueueDict has: {len(self._node_q_dict)} queues:')
+        op_set = set()
+        line_list = []
         for node_uid, deque in self._node_q_dict.items():
             node_repr_list: List[str] = []
             for node in deque:
+                op_set.add(node.op.op_uid)
                 node_repr_list.append(node.op.get_tag())
-            logger.debug(f'NodeUID {node_uid}:')
+            line_list.append(f'NodeUID {node_uid}:')
             for i, node_repr in enumerate(node_repr_list):
-                logger.debug(f'  {i}. {node_repr}')
+                line_list.append(f'  {i}. {node_repr}')
+
+        logger.debug(f'CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
+        for line in graph_line_list:
+            logger.debug(line)
+
+        logger.debug(f'CURRENT EXECUTION STATE: NodeQueueDict has {len(self._node_q_dict)} queues ({len(op_set)} total ops):')
+        for line in line_list:
+            logger.debug(line)
 
     def _get_lowest_priority_op_node(self, uid: UID):
         node_list = self._node_q_dict.get(uid, None)
