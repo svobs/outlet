@@ -147,7 +147,8 @@ class ActiveTreeManager(HasLifecycle):
                 logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for snp in subtree_sn_list:
-                logger.debug(f'[{tree_id}] Notifying tree of upserted node: {snp.sn.spid}, parent_guid={snp.parent_guid}')
+                if SUPER_DEBUG:
+                    logger.debug(f'[{tree_id}] Notifying tree of upserted node: {snp.sn.spid}, parent_guid={snp.parent_guid}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 
     def _on_node_removed(self, sender: str, node: Node):
@@ -157,7 +158,8 @@ class ActiveTreeManager(HasLifecycle):
                 logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for snp in subtree_sn_list:
-                logger.debug(f'[{tree_id}] Notifying tree of removed node: {snp.sn.spid}')
+                if SUPER_DEBUG:
+                    logger.debug(f'[{tree_id}] Notifying tree of removed node: {snp.sn.spid}')
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 
     def _on_merge_requested(self, sender: str):
@@ -331,7 +333,10 @@ class ActiveTreeManager(HasLifecycle):
         # Try to retrieve the root node from the cache:
         try:
             node: Optional[Node] = self.backend.cacheman.read_single_node(spid)
-            logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
+            if node:
+                logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
+            else:
+                logger.debug(f'[{sender_tree_id}] DisplayTree root node not found in cache')
         except RuntimeError:
             logger.error(f'[{sender_tree_id}] Could not retrieve DisplayTree root node (will try to recover): {spid}')
             node = None

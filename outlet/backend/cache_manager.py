@@ -625,11 +625,11 @@ class CacheManager(HasLifecycle):
         self._active_tree_manager.update_filter_criteria(tree_id, filter_criteria)
 
     def is_manual_load_required(self, spid: SinglePathNodeIdentifier, is_startup: bool) -> bool:
-        cache_info = self.get_cache_info_for_subtree(spid)
-        if cache_info:
-            if cache_info.is_loaded:
-                # Already loaded!
-                return False
+        # make sure to create it if not found:
+        cache_info = self.get_cache_info_for_subtree(spid, create_if_not_found=True)
+        if cache_info.is_loaded:
+            # Already loaded!
+            return False
 
         if is_startup and self.load_all_caches_on_startup or self.load_caches_for_displayed_trees_at_startup:
             # We are still starting up but will auto-load this tree soon:
@@ -671,7 +671,7 @@ class CacheManager(HasLifecycle):
             if create_if_not_found:
                 cache_info = self._create_new_cache_info(subtree_root)
             else:
-                logger.error(f'Could not find cache_info in memory for: {subtree_root} (and create_if_not_found=false)')
+                raise RuntimeError(f'Could not find cache_info in memory for: {subtree_root} (and create_if_not_found=false)')
 
         return cache_info
 
