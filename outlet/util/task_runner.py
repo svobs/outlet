@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 import logging
 from typing import Callable
 
@@ -44,10 +44,10 @@ class TaskRunner(HasLifecycle):
         HasLifecycle.__init__(self)
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
-    def enqueue(self, task_func, *args):
+    def enqueue(self, task_func, *args) -> Future:
         logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')
         task = Task(task_func, *args)
-        future = self._executor.submit(task.run)
+        future: Future = self._executor.submit(task.run)
         return future
 
     def shutdown(self):

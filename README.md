@@ -41,7 +41,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [3] Extend config file to support windows on different servers
 * [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
 * [3] Disable UI elements for trees until cache loaded
-* [5] BFS loading of tree, instead of all-at-once
+* [5] BFS loading of tree, instead of all-at-once. Calc MD5s only after tree loaded
 * [1] Put GDrive files in trash
 * [3] Put local files in trash
 * [3] Tombstone trash support
