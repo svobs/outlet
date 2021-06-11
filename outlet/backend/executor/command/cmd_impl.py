@@ -240,8 +240,9 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
                 logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
                 return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, node])
             elif not self.overwrite:
-                logger.error(f'MD5 of item to download: {self.op.src_node.md5}; MD5 of item found at {dst_path}: {node.md5}')
-                raise RuntimeError(f'A different node already exists at the destination path: {dst_path}')
+                raise RuntimeError(f'A different node already exists at the destination path: {dst_path} '
+                                   f'(found size={node.get_size_bytes()}, MD5={node.md5}, '
+                                   f'expected size={self.op.src_node.get_size_bytes()}, MD5={self.op.src_node.md5})')
         elif self.overwrite:
             logger.warning(f'Doing an "update" for a local file which does not exist: {dst_path}')
 

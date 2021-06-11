@@ -671,7 +671,7 @@ class CacheManager(HasLifecycle):
             if create_if_not_found:
                 cache_info = self._create_new_cache_info(subtree_root)
             else:
-                logger.warning(f'Could not find cache_info in memory for: {subtree_root}')
+                logger.error(f'Could not find cache_info in memory for: {subtree_root} (and create_if_not_found=false)')
 
         return cache_info
 

@@ -1,3 +1,4 @@
+import faulthandler
 import logging
 import os
 import sys
@@ -9,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 def do_main_boilerplate(executing_script_path: str = None) -> AppConfig:
+    # Dump thread states to console if we get a segfault:
+    faulthandler.enable()
+
     if executing_script_path:
         executing_script_name = os.path.basename(executing_script_path)
         if executing_script_name.endswith('.py'):
