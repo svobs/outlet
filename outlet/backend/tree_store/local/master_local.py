@@ -655,8 +655,9 @@ class LocalDiskMasterStore(TreeStore):
             # See https://macperformanceguide.com/blog/2019/20190903_1600-macOS-truncates-file-dates.html
             modify_ts_mac = math.trunc(modify_ts / 1000) * 1000
             change_ts_mac = math.trunc(change_ts / 1000) * 1000
-            logger.debug(f'MACOS: tweaked modify_ts ({modify_ts}->{modify_ts_mac}) & change_ts ({change_ts}->{change_ts_mac}) for '
-                         f'{self.device.uid}:{uid}, "{full_path}"')
+            if SUPER_DEBUG:
+                logger.debug(f'MACOS: tweaked modify_ts ({modify_ts}->{modify_ts_mac}) & change_ts ({change_ts}->{change_ts_mac}) for '
+                             f'{self.device.uid}:{uid}, "{full_path}"')
             modify_ts = modify_ts_mac
             change_ts = change_ts_mac
 
@@ -666,7 +667,7 @@ class LocalDiskMasterStore(TreeStore):
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
         new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
 
-        if SUPER_DEBUG:
+        if TRACELOG_ENABLED:
             logger.debug(f'Built new node: {new_node} with sync_ts: {sync_ts}')
 
         assert new_node.modify_ts == modify_ts
