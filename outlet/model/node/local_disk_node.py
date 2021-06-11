@@ -248,4 +248,5 @@ class LocalFileNode(LocalNode):
 
     def __repr__(self):
         return f'LocalFileNode({self.node_identifier} parent_uid={self._parent_uids} md5={self._md5} sha256={self.sha256} ' \
-               f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts})'
+               f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts} ' \
+               f'change_ts={self._change_ts})'

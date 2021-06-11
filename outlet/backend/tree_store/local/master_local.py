@@ -1,5 +1,6 @@
 import copy
 import logging
+import math
 import os
 import pathlib
 import threading
@@ -16,13 +17,13 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import MAX_FS_LINK_DEPTH, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID, TreeType
+from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE
@@ -213,7 +214,7 @@ class LocalDiskMasterStore(TreeStore):
             if self.backend.cacheman.enable_load_from_disk:
                 tree = self._diskstore.load_subtree(cache_info, tree_id)
                 if tree:
-                    if SUPER_DEBUG:
+                    if TRACELOG_ENABLED:
                         logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
                     # logger.warning('LOCK ON!')
                     with self._struct_lock:
@@ -645,10 +646,29 @@ class LocalDiskMasterStore(TreeStore):
 
         stat = os.stat(path)
         size_bytes = int(stat.st_size)
+
         modify_ts = int(stat.st_mtime * 1000)
-        assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} for path: {path}'
         change_ts = int(stat.st_ctime * 1000)
+
+        if IS_MACOS and staging_path:
+            # MacOS has a bug where moving/copying a file will truncate its timestamps. We'll try to match its behavior.
+            # See https://macperformanceguide.com/blog/2019/20190903_1600-macOS-truncates-file-dates.html
+            modify_ts_mac = math.trunc(modify_ts / 1000) * 1000
+            change_ts_mac = math.trunc(change_ts / 1000) * 1000
+            logger.debug(f'MACOS: tweaked modify_ts ({modify_ts}->{modify_ts_mac}) & change_ts ({change_ts}->{change_ts_mac}) for '
+                         f'{self.device.uid}:{uid}, "{full_path}"')
+            modify_ts = modify_ts_mac
+            change_ts = change_ts_mac
+
+        assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} for path: {path}'
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
-        return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
+        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
+
+        if SUPER_DEBUG:
+            logger.debug(f'Built new node: {new_node} with sync_ts: {sync_ts}')
+
+        assert new_node.modify_ts == modify_ts
+
+        return new_node

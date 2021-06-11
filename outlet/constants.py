@@ -1,8 +1,15 @@
 from enum import IntEnum
 from model.uid import UID
+import platform
 
 SUPER_DEBUG = True
 TRACELOG_ENABLED = False
+
+
+_system = platform.system().lower()
+IS_WINDOWS = _system == 'windows'
+IS_LINUX = _system == 'linux'
+IS_MACOS = _system == 'darwin'
 
 FIND_DUPLICATE_GDRIVE_NODE_NAMES = False
 COUNT_MULTIPLE_GDRIVE_PARENTS = False

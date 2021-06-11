@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Optional, Tuple
 
-from constants import LOCAL_ROOT_UID, ROOT_PATH, SUPER_DEBUG
+from constants import IS_MACOS, LOCAL_ROOT_UID, ROOT_PATH, SUPER_DEBUG
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
 from model.node.container_node import RootTypeNode
 from model.node.node import Node
@@ -179,8 +179,13 @@ def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
         elif not new_node.modify_ts:
             raise RuntimeError(f'new_node is missing modify_ts!')
         elif new_node.modify_ts < old_node.modify_ts:
-            logger.warning(
-                f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
+            if IS_MACOS and new_node.modify_ts == old_node.modify_ts - 1:
+                # Known bug in MacOS
+                logger.debug(
+                    f'File {new_node.node_identifier}: looks like MacOS bug: timestamp of file was off by exactly 1 second (ignoring)')
+            else:
+                logger.warning(
+                    f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
 
         if not old_node.change_ts:
             logger.info(f'old_node has no change_ts. Skipping change_ts comparison (Old={old_node} New={new_node}')
@@ -196,4 +201,3 @@ def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
     except Exception as e:
         logger.error(f'Error checking update sanity! Old={old_node} New={new_node}: {repr(e)}')
         raise
-

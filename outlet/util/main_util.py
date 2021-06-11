@@ -4,7 +4,7 @@ import os
 import sys
 
 from app_config import AppConfig
-from constants import SUPER_DEBUG
+from constants import IS_LINUX, IS_MACOS, IS_WINDOWS, SUPER_DEBUG
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,8 @@ def do_main_boilerplate(executing_script_path: str = None) -> AppConfig:
 
     if SUPER_DEBUG:
         logger.info('SUPER_DEBUG is enabled')
+
+    logger.debug(f'IS_LINUX={IS_LINUX} IS_MACOS={IS_MACOS} IS_WINDOWS={IS_WINDOWS}')
 
     logger.debug(f'Working dir is: {os.getcwd()}')
     python_path = os.environ.get('PYTHONPATH', None)
