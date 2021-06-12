@@ -5,7 +5,7 @@ from typing import List, Optional
 import gi
 from pydispatch import dispatcher
 
-from constants import DATE_REGEX, SUPER_DEBUG, TreeType
+from constants import DATE_REGEX, SUPER_DEBUG_ENABLED, TreeType
 from model.node.node import Node, SPIDNodePair
 from model.user_op import UserOp
 from signal_constants import Signal
@@ -161,7 +161,7 @@ class TreeContextMenu:
 
         op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(sn.node.uid)
         if op and op.has_dst():
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Building context menu for op: {op}')
             logger.warning('TODO: test this!')  # FIXME: test and then remove this msg
             # Split into separate entries for src and dst.

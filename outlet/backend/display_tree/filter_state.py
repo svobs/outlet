@@ -2,7 +2,7 @@ import logging
 from collections import deque
 from typing import Deque, Dict, List, Union
 
-from constants import SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID, TreeType
+from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
@@ -54,17 +54,17 @@ class FilterState:
 
     def matches(self, sn) -> bool:
         if not self._matches_search_query(sn):
-            if TRACELOG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'Search query "{self.filter.search_query}" not found in "{sn.node.name}" (ignore_case={self.filter.ignore_case})')
             return False
 
         if not self._matches_trashed(sn):
-            if TRACELOG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'Node with TrashStatus={sn.node.get_trashed_status()} does not match trashed={self.filter.is_trashed}')
             return False
 
         if not self._matches_is_shared(sn):
-            if TRACELOG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'Node with IsShared={sn.node.is_shared()} does not match shared={self.filter.is_shared}')
             return False
 
@@ -194,7 +194,7 @@ class FilterState:
 
     def get_filtered_child_list(self, parent_spid: SinglePathNodeIdentifier, parent_tree) -> List[SPIDNodePair]:
         assert parent_tree, 'parent_tree cannot be None!'
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'get_filtered_child_list(spid={parent_spid})')
         if not self.filter.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')

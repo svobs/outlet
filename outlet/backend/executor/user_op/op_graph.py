@@ -3,7 +3,7 @@ import logging
 import threading
 from typing import DefaultDict, Deque, Dict, Iterable, List, Optional, Tuple
 
-from constants import SUPER_DEBUG, SUPER_ROOT_UID
+from constants import SUPER_DEBUG_ENABLED, SUPER_ROOT_UID
 from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from model.uid import UID
 from model.node.node import Node
@@ -35,7 +35,7 @@ class OpGraph(HasLifecycle):
         """Contains entries for all nodes have pending ops. Each entry has a queue of pending ops for that target node"""
 
         self._graph_root: OpGraphNode = RootNode()
-        """Root of tree. Has no useful internal data; we value it for its children"""
+        """Root of graph. Has no useful internal data; we value it for its children"""
 
         self._outstanding_actions: Dict[UID, UserOp] = {}
         """Contains entries for all Ops which have running operations. Keyed by action UID"""
@@ -146,7 +146,7 @@ class OpGraph(HasLifecycle):
         # non-reentrant nodes cannot execute concurrently and must have dependencies on each other:
         for potential_child_op in non_reentrant_tgt_node_dict.values():
             parent_uid_list: List[UID] = potential_child_op.get_tgt_node().get_parent_uids()
-            if SUPER_DEBUG and len(parent_uid_list) > 1:
+            if SUPER_DEBUG_ENABLED and len(parent_uid_list) > 1:
                 logger.debug(f'Target node of op has multiple parents: {potential_child_op}')
             for parent_uid in parent_uid_list:
                 op_for_parent_node: OpGraphNode = non_reentrant_tgt_node_dict.get(parent_uid, None)
@@ -441,12 +441,12 @@ class OpGraph(HasLifecycle):
 
         op_graph_node = pending_op_queue[0]
         if op.op_uid != op_graph_node.op.op_uid:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Skipping UserOp (UID {op_graph_node.op.op_uid}): it is not next in {node_type_str} node queue')
             return False
 
         if not op_graph_node.is_child_of_root():
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Skipping UserOp (UID {op_graph_node.op.op_uid}): {node_type_str} node is not child of root')
             return False
 
@@ -456,7 +456,7 @@ class OpGraph(HasLifecycle):
         # We can optimize this later
 
         for op_node in self._graph_root.get_child_list():
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'TryGet(): Examining {op_node}')
 
             if op_node.op.has_dst():
@@ -469,21 +469,21 @@ class OpGraph(HasLifecycle):
                     is_other_node_ready = self._is_node_ready(op_node.op, op_node.op.dst_node.uid, 'dst')
 
                 if not is_other_node_ready:
-                    if SUPER_DEBUG:
+                    if SUPER_DEBUG_ENABLED:
                         logger.debug(f'TryGet(): Skipping node because other op graph node (is_dst={op_node.is_dst()}) is not ready')
                     continue
 
             # Make sure the node has not already been checked out:
             if not self._outstanding_actions.get(op_node.op.op_uid, None):
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'TryGet(): inserting node into OutstandingActionsDict: {op_node}')
                 self._outstanding_actions[op_node.op.op_uid] = op_node.op
                 return op_node.op
             else:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'TryGet(): Skipping node because it is already outstanding')
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'TryGet(): Returning None')
         return None
 

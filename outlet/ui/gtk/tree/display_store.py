@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-from constants import SUPER_DEBUG, TreeID
+from constants import SUPER_DEBUG_ENABLED, TreeID
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
@@ -339,7 +339,7 @@ class DisplayStore:
             return False
 
         child_sn = self.get_node_data(first_child_iter)
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.tree_id}] Removing child: {child_sn.spid}')
 
         if not child_sn.node.is_ephemereal():
@@ -356,7 +356,7 @@ class DisplayStore:
             return False
 
         child_sn = self.get_node_data(first_child_iter)
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.tree_id}] Removing 1st child: {child_sn.spid}')
 
         if not child_sn.node.is_ephemereal():

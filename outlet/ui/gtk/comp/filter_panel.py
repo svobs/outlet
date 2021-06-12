@@ -4,7 +4,7 @@ import gi
 from gi.overrides import GLib
 from pydispatch import dispatcher
 
-from constants import FILTER_APPLY_DELAY_MS, IconId, SUPER_DEBUG
+from constants import FILTER_APPLY_DELAY_MS, IconId, SUPER_DEBUG_ENABLED
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from signal_constants import Signal
 from ui.gtk.dialog.base_dialog import BaseDialog
@@ -158,7 +158,7 @@ class TreeFilterPanel(HasLifecycle):
         return btn
 
     def _set_icon(self, btn, icon_id: IconId):
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.con.tree_id}] Setting icon to "{icon_id.name}"')
         icon = Gtk.Image()
         icon.set_from_file(self.parent_win.app.assets.get_path(icon_id))

@@ -87,7 +87,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                          f'(root: {sub_tree_root_node.node_identifier}): it and its ancestors will be added')
             assert isinstance(sub_tree_root_node, LocalNode)
             self.add_to_tree(sub_tree_root_node)
-            # if SUPER_DEBUG:
+            # if SUPER_DEBUG_ENABLED:
             #     logger.debug(f'Tree contents (after adding subtree root): \n{self.show(show_identifier=True)}')
 
         assert sub_tree_root_node.get_single_parent_uid(), f'Node is missing parent: {sub_tree_root_node}'

@@ -18,7 +18,7 @@ from pydispatch import dispatcher
 from backend.tree_store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
-    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG, TrashStatus, TreeID
+    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TrashStatus, TreeID
 from backend.tree_store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
@@ -454,7 +454,7 @@ class GDriveClient(HasLifecycle):
         else:
             goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Request returned {goog_node}')
 
         return goog_node
@@ -533,7 +533,7 @@ class GDriveClient(HasLifecycle):
 
         goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Request returned {goog_node}')
 
         return goog_node
@@ -775,7 +775,7 @@ class GDriveClient(HasLifecycle):
                 dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'CHANGE: {item}')
 
                 goog_id = item['fileId']

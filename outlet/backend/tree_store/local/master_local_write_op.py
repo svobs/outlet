@@ -4,7 +4,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import SUPER_DEBUG
+from constants import SUPER_DEBUG_ENABLED
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from backend.tree_store.local.master_local_memory import LocalDiskMemoryStore
@@ -100,15 +100,15 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         node, self.was_updated = memstore.upsert_single_node(self.node, self.update_only)
         if node:
             self.node = node
-        elif SUPER_DEBUG:
+        elif SUPER_DEBUG_ENABLED:
             logger.debug(f'upsert_single_node() returned None for input node: {self.node}')
 
     def update_diskstore(self, cache: LocalDiskDatabase):
         if not self.node.is_live():
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Skipping disk save because node does not exist: {self.node}')
         elif self.was_updated:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Upserting LocalNode to disk cache: {self.node}')
             cache.upsert_single_node(self.node, commit=False)
 
@@ -187,7 +187,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
                         if master_node:
                             node = master_node
                         new_upsert_list.append(node)
-                    elif SUPER_DEBUG:
+                    elif SUPER_DEBUG_ENABLED:
                         logger.debug(f'Node was not updated in memcache and will be omitted from disk save: {node}')
 
                 subtree.upsert_node_list = new_upsert_list
@@ -222,4 +222,3 @@ class DeleteSubtreeOp(BatchChangesOp):
     """
     def __init__(self, subtree_root: LocalNodeIdentifier, node_list: List[LocalNode]):
         super().__init__(subtree_root=subtree_root, upsert_node_list=[], remove_node_list=node_list)
-

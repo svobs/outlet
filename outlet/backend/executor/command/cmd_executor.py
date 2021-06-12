@@ -3,7 +3,7 @@ from typing import List
 from pydispatch import dispatcher
 import logging
 
-from constants import SUPER_DEBUG
+from constants import SUPER_DEBUG_ENABLED
 from util import file_util
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal
@@ -41,7 +41,7 @@ class CommandExecutor:
             else:
                 status_str: str = f'Executing command: {repr(command)}'
                 logger.info(status_str)
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Command(uid={command.uid}): src={command.op.src_node}) dst={command.op.dst_node}')
                 command.op.result = command.execute(context)
                 logger.info(f'Command completed with status {command.get_status().name}: {command.get_description()}')

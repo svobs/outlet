@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 from backend.sqlite.gdrive_db import GDriveDatabase
 from backend.tree_store.gdrive.change_observer import GDriveChange, GDriveNodeChange
 from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from constants import SUPER_DEBUG, TreeType
+from constants import SUPER_DEBUG_ENABLED, TreeType
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
@@ -70,7 +70,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             logger.debug(f'Node has no parents; assuming it is a root node: {self.node}')
 
     def update_diskstore(self, cache: GDriveDatabase):
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting GDriveNode to disk cache: {self.node}')
 
         if not self.was_updated:
@@ -105,7 +105,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
 
     def send_signals(self):
         # Always update:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Sending signal {Signal.NODE_UPSERTED_IN_CACHE.name} with node: {self.node}')
         dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
@@ -125,7 +125,7 @@ class DeleteSingleNodeOp(GDriveWriteThroughOp):
         memstore.remove_single_node(self.node, self.to_trash)
 
     def update_diskstore(self, cache: GDriveDatabase):
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Removing GDriveNode from disk cache: {self.node}')
 
         cache.delete_single_node(self.node, commit=False)

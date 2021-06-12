@@ -2,7 +2,7 @@ from typing import Iterable, List, Optional
 import logging
 
 from backend.sqlite.op_db import OpDatabase
-from constants import SUPER_DEBUG
+from constants import SUPER_DEBUG_ENABLED
 from model.user_op import UserOp
 from util.has_lifecycle import HasLifecycle
 
@@ -35,7 +35,7 @@ class OpDiskStore(HasLifecycle):
             self._db = None
 
     def cancel_pending_ops_from_disk(self):
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug('Entered cancel_pending_ops_from_disk()')
 
         op_list: List[UserOp] = self._db.get_all_pending_ops()
@@ -47,7 +47,7 @@ class OpDiskStore(HasLifecycle):
 
     def load_pending_ops_from_disk(self) -> List[UserOp]:
         """ Gets all pending ops, filling int their src and dst nodes as well """
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug('Entered load_pending_ops_from_disk()')
 
         return self._db.get_all_pending_ops()

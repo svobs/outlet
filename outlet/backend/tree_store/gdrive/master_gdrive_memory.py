@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from backend.uid.uid_mapper import UidGoogIdMapper
-from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, SUPER_DEBUG
+from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, SUPER_DEBUG_ENABLED
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveNode
 from model.uid import UID
@@ -32,7 +32,7 @@ class GDriveMemoryStore:
         self._user_uid_nextval: int = GDRIVE_ME_USER_UID + 1
 
     def upsert_single_node(self, node: GDriveNode, update_only: bool = False) -> Tuple[GDriveNode, bool]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting GDriveNode to memory cache: {node}')
 
         # Detect whether it's already in the cache
@@ -61,7 +61,7 @@ class GDriveMemoryStore:
 
             if existing_node == node:
                 logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Existing node: {existing_node}')
                 return existing_node, False
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
@@ -76,7 +76,7 @@ class GDriveMemoryStore:
 
     def remove_single_node(self, node: GDriveNode, to_trash: bool = False):
         """Note: this is not allowed for non-empty directories. TODO: should it be?"""
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Removing GDriveNode from memory cache: {node}')
 
         if to_trash:

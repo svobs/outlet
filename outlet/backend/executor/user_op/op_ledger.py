@@ -5,7 +5,7 @@ from enum import IntEnum
 from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from backend.executor.user_op.op_graph import OpGraph
-from constants import IconId, SUPER_DEBUG
+from constants import IconId, SUPER_DEBUG_ENABLED
 from backend.executor.command.cmd_builder import CommandBuilder
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_disk_store import OpDiskStore
@@ -163,7 +163,7 @@ class OpLedger(HasLifecycle):
                 raise RuntimeError(f'Batch op conflict: trying to remove a node and create its descendant at the same time!')
 
         def eval_cp_src_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Evaluating src ancestor (op={op_arg.op_uid}): {ancestor}')
             if ancestor.uid in mkdir_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
@@ -173,7 +173,7 @@ class OpLedger(HasLifecycle):
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
 
         def eval_cp_dst_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Evaluating dst ancestor (op={op.op_uid}): {ancestor}')
             if ancestor.uid in rm_dict:
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
@@ -205,7 +205,7 @@ class OpLedger(HasLifecycle):
             node: Node = queue.popleft()
             for ancestor in self.backend.cacheman.get_parent_list_for_node(node):
                 queue.append(ancestor)
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'(UserOp={op.op_uid}): evaluating ancestor: {ancestor}')
                 eval_func(op, ancestor)
 
@@ -333,12 +333,12 @@ class OpLedger(HasLifecycle):
     def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
         op: Optional[UserOp] = self.get_last_pending_op_for_node(device_uid, node_uid)
         if not op or op.is_completed():
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Node {device_uid}:{node_uid}: no custom icon (op={op})')
             return None
 
         icon = self._get_icon_for_node(device_uid, node_uid, op)
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
         return icon
 

@@ -17,7 +17,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID, TreeType
+from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
@@ -83,7 +83,7 @@ class LocalDiskMasterStore(TreeStore):
         return False
 
     def _execute_write_op(self, operation: LocalWriteThroughOp):
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Executing operation: {operation}')
         assert self._struct_lock.locked()
 
@@ -93,7 +93,7 @@ class LocalDiskMasterStore(TreeStore):
         # 2. Update disk
         cacheman = self.backend.cacheman
         if cacheman.enable_save_to_disk:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Updating diskstore for operation {operation}')
             self._diskstore.execute_op(operation)
 
@@ -101,7 +101,7 @@ class LocalDiskMasterStore(TreeStore):
             logger.debug(f'Save to disk is disabled: skipping save to disk for operation')
 
         # 3. Send signals
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Sending signals for operation {operation}')
         operation.send_signals()
 
@@ -125,7 +125,7 @@ class LocalDiskMasterStore(TreeStore):
         """Scan directory tree and update master tree where needed."""
         fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] Scanned fresh tree: \n{fresh_tree.show()}')
 
         # logger.warning('LOCK ON!')
@@ -148,7 +148,7 @@ class LocalDiskMasterStore(TreeStore):
                 if pending_op_nodes:
                     logger.debug(f'Attempting to transfer {len(pending_op_nodes)} pending op src/dst nodes to the newly synced tree')
                     for pending_op_node in pending_op_nodes:
-                        if SUPER_DEBUG:
+                        if SUPER_DEBUG_ENABLED:
                             logger.debug(f'Inserting pending op node: {pending_op_node}')
                         assert not pending_op_node.is_live()
                         if fresh_tree.can_add_without_mkdir(pending_op_node):
@@ -214,7 +214,7 @@ class LocalDiskMasterStore(TreeStore):
             if self.backend.cacheman.enable_load_from_disk:
                 tree = self._diskstore.load_subtree(cache_info, tree_id)
                 if tree:
-                    if TRACELOG_ENABLED:
+                    if TRACE_ENABLED:
                         logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
                     # logger.warning('LOCK ON!')
                     with self._struct_lock:
@@ -232,7 +232,7 @@ class LocalDiskMasterStore(TreeStore):
                          f'is_live_refresh={is_live_refresh})')
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(requested_subtree_root, tree_id)
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{tree_id}] File system sync complete')
             # We can only mark this as 'done' (False) if the entire cache contents has been refreshed:
             if requested_subtree_root.node_uid == cache_info.subtree_root.node_uid:
@@ -251,7 +251,7 @@ class LocalDiskMasterStore(TreeStore):
                 self._save_subtree_to_disk(cache_info, tree_id)
             else:
                 logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
-        elif SUPER_DEBUG:
+        elif SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] Skipping cache save: not needed')
 
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete for {requested_subtree_root}')
@@ -496,7 +496,7 @@ class LocalDiskMasterStore(TreeStore):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_all_files_and_dirs_for_subtree(): locked={self._struct_lock.locked()}')
         # logger.warning('LOCK ON!')
         with self._struct_lock:
@@ -530,7 +530,7 @@ class LocalDiskMasterStore(TreeStore):
         return self.get_node_for_uid(uid)
 
     def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
         if filter_state and filter_state.has_criteria():
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
@@ -553,7 +553,7 @@ class LocalDiskMasterStore(TreeStore):
         return None
 
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
-        if TRACELOG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
         return self._memstore.master_tree.get_node_for_uid(uid)
 
@@ -565,7 +565,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None) -> Optional[LocalNode]:
         """LocalNodes are guaranteed to have at most 1 parent."""
-        if TRACELOG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered get_single_parent_for_node({node.node_identifier}): locked={self._struct_lock.locked()}')
         try:
             # logger.warning('LOCK ON!')
@@ -655,7 +655,7 @@ class LocalDiskMasterStore(TreeStore):
             # See https://macperformanceguide.com/blog/2019/20190903_1600-macOS-truncates-file-dates.html
             modify_ts_mac = math.trunc(modify_ts / 1000) * 1000
             change_ts_mac = math.trunc(change_ts / 1000) * 1000
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'MACOS: tweaked modify_ts ({modify_ts}->{modify_ts_mac}) & change_ts ({change_ts}->{change_ts_mac}) for '
                              f'{self.device.uid}:{uid}, "{full_path}"')
             modify_ts = modify_ts_mac
@@ -667,7 +667,7 @@ class LocalDiskMasterStore(TreeStore):
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
         new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
 
-        if TRACELOG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Built new node: {new_node} with sync_ts: {sync_ts}')
 
         assert new_node.modify_ts == modify_ts

@@ -12,7 +12,7 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TRACELOG_ENABLED, TreeDisplayMode, TreeID, TreeType
+from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
@@ -143,22 +143,22 @@ class ActiveTreeManager(HasLifecycle):
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
             subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
-            if TRACELOG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for snp in subtree_sn_list:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{tree_id}] Notifying tree of upserted node: {snp.sn.spid}, parent_guid={snp.parent_guid}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
             subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
-            if TRACELOG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for snp in subtree_sn_list:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{tree_id}] Notifying tree of removed node: {snp.sn.spid}')
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
 
@@ -236,7 +236,7 @@ class ActiveTreeManager(HasLifecycle):
         """Stores the given ChangeTree in the in-memory dict, and returns a DisplayTree which can be sent to clients.
         src_tree_id is a reference to the DisplayTree on which the ChangeTree was based"""
         logger.info(f'Registering ChangeTree: {change_tree.tree_id} (src_tree_id: {src_tree_id})')
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             change_tree.print_tree_contents_debug()
             change_tree.print_op_structs_debug()
 
@@ -511,7 +511,7 @@ class ActiveTreeManager(HasLifecycle):
         rows_of_interest.expanded = meta.expanded_row_set
         rows_of_interest.selected = meta.selected_row_set
         logger.debug(f'[{tree_id}] get_rows_of_interest(): returning {len(meta.expanded_row_set)} expanded & {len(meta.selected_row_set)} selected')
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] get_rows_of_interest(): Returning: expanded={meta.expanded_row_set}, selected={meta.selected_row_set}')
 
         return rows_of_interest

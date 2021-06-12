@@ -8,7 +8,7 @@ from typing import Deque, Dict, Iterable, List, Set, Union
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG, TreeDisplayMode
+from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG_ENABLED, TreeDisplayMode
 from error import ResultsExceededError
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest
@@ -136,7 +136,7 @@ class DisplayMutator(HasLifecycle):
         return node_count
 
     def _populate_and_restore_expanded_state(self, parent_iter, sn: SPIDNodePair, node_count: int, expanded_row_guid_set: Set[GUID]) -> int:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.con.tree_id}] Populating node {sn.spid}')
 
         node = sn.node
@@ -151,7 +151,7 @@ class DisplayMutator(HasLifecycle):
                 logger.debug(f'[{self.con.tree_id}] Category node {sn.node.name} ({cat_guid}) is expanded')
                 is_expand = True
             elif guid in expanded_row_guid_set:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{self.con.tree_id}] Found GUID "{guid}" in expanded_row_set"')
                 is_expand = True
 
@@ -159,7 +159,7 @@ class DisplayMutator(HasLifecycle):
                 # Append all child nodes and recurse to possibly expand more:
                 parent_iter = self._append_dir_node(parent_iter=parent_iter, sn=sn)
 
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{self.con.tree_id}] Row will be expanded: {guid} ("{node.name}")')
 
                 child_list = self.con.get_tree().get_child_list_for_spid(sn.spid)
@@ -167,7 +167,7 @@ class DisplayMutator(HasLifecycle):
                     node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, expanded_row_guid_set)
 
             else:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{self.con.tree_id}] Node is not expanded: {sn.spid}')
                 self._append_dir_node_and_loading_child(parent_iter, sn)
         else:
@@ -408,7 +408,7 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {sn.spid}"')
 
         if not self._enable_expand_state_listeners or not self._enable_node_signals:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_EXPANSION_TOGGLED.name}": listeners disabled')
             return
 
@@ -461,7 +461,7 @@ class DisplayMutator(HasLifecycle):
             return
 
         if not self._enable_node_signals:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_UPSERTED.name}": node listeners disabled')
             return
 
@@ -472,7 +472,7 @@ class DisplayMutator(HasLifecycle):
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for {sn.spid}, parent={parent_guid}')
 
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{self.con.tree_id}] Examining parent {parent_guid} for displayed node {sn.node.node_identifier}')
 
                 if self.con.get_tree().get_root_spid().guid == parent_guid:
@@ -520,7 +520,7 @@ class DisplayMutator(HasLifecycle):
             return
 
         if not self._enable_node_signals:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_REMOVED.name}": node listeners disabled')
             return
 
@@ -592,7 +592,7 @@ class DisplayMutator(HasLifecycle):
                 key = sn.spid.guid
             dir_stats_for_node = dir_stats_dict.get(key, None)
             if dir_stats_for_node:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {sn.spid}; tree_path="{ds.model.get_path(tree_iter)}"; '
                                  f'size={dir_stats_for_node.get_size_bytes()} etc={dir_stats_for_node.get_etc()}')
                 ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(dir_stats_for_node)

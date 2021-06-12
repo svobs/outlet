@@ -2,7 +2,7 @@ import logging
 
 import gi
 
-from constants import SUPER_DEBUG, TreeDisplayMode
+from constants import SUPER_DEBUG_ENABLED, TreeDisplayMode
 from ui.gtk.comp.filter_panel import TreeFilterPanel
 from ui.gtk.comp.root_path_panel import RootPathPanel
 from ui.gtk.dialog.base_dialog import BaseDialog
@@ -109,7 +109,7 @@ class TreeFactory:
 
 def build_gdrive_root_chooser(parent_win, tree):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""
-    if SUPER_DEBUG:
+    if SUPER_DEBUG_ENABLED:
         logger.debug(f'[{tree.tree_id}] Entered build_gdrive_root_chooser()')
     factory = TreeFactory(parent_win=parent_win, tree=tree)
     factory.allow_multiple_selection = False
@@ -123,7 +123,7 @@ def build_gdrive_root_chooser(parent_win, tree):
 
 
 def build_editor_tree(parent_win, tree):
-    if SUPER_DEBUG:
+    if SUPER_DEBUG_ENABLED:
         logger.debug(f'[{tree.tree_id}] Entered build_editor_tree()')
     factory = TreeFactory(parent_win=parent_win, tree=tree)
     factory.has_checkboxes = False  # not initially
@@ -137,7 +137,7 @@ def build_editor_tree(parent_win, tree):
 
 
 def build_eager_load_change_tree(parent_win, tree):
-    if SUPER_DEBUG:
+    if SUPER_DEBUG_ENABLED:
         logger.debug(f'[{tree.tree_id}] Entered build_eager_load_change_tree()')
     # Whole tree is provided here. For Merge Preview dialog
     factory = TreeFactory(parent_win=parent_win, tree=tree)

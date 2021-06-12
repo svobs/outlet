@@ -22,7 +22,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
     SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
-from constants import IconId, SUPER_DEBUG, TreeID, ZEROCONF_SERVICE_TYPE
+from constants import IconId, SUPER_DEBUG_ENABLED, TreeID, ZEROCONF_SERVICE_TYPE
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -267,7 +267,7 @@ class BackendGRPCClient(OutletBackend):
 
     def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) -> \
             Iterable[SPIDNodePair]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] Entered get_child_list(): parent_spid={parent_spid}')
         assert tree_id, f'GRPCClient.get_child_list(): No tree_id provided!'
         assert max_results >= 0, f'Bad value for max_results: {max_results}'

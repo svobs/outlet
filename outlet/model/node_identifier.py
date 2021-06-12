@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
-from constants import NULL_UID, SUPER_DEBUG, TREE_TYPE_DISPLAY, TreeType
+from constants import NULL_UID, SUPER_DEBUG_ENABLED, TREE_TYPE_DISPLAY, TreeType
 from error import InvalidOperationError
 from model.uid import UID
 from util import file_util
@@ -82,7 +82,7 @@ class NodeIdentifier(ABC):
         path_list = self.get_path_list()
         if single_path not in path_list:
             path_list.append(single_path)
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Added path: {single_path} to node UID {self.node_uid}')
         self.set_path_list(path_list)
 

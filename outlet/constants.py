@@ -2,8 +2,8 @@ from enum import IntEnum
 from model.uid import UID
 import platform
 
-SUPER_DEBUG = True
-TRACELOG_ENABLED = False
+SUPER_DEBUG_ENABLED = True
+TRACE_ENABLED = False
 
 
 _system = platform.system().lower()

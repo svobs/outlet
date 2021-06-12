@@ -7,7 +7,7 @@ from typing import Deque, Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, TreeID
+from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID
 from error import CacheNotLoadedError
 from global_actions import GlobalActions
 from model.device import Device
@@ -277,7 +277,7 @@ class GDriveMasterStore(TreeStore):
                     folders_to_process.append(child)
             folder.all_children_fetched = True
 
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'refresh_subtree(): locked={self._struct_lock.locked()}')
             with self._struct_lock:
                 self._execute_write_op(RefreshFolderOp(self.backend, parent_node, child_list))
@@ -292,7 +292,7 @@ class GDriveMasterStore(TreeStore):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def upsert_single_node(self, node: GDriveNode) -> GDriveNode:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered upsert_single_node(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             return self._upsert_single_node_nolock(node)
@@ -304,7 +304,7 @@ class GDriveMasterStore(TreeStore):
         return write_op.node
 
     def update_single_node(self, node: GDriveNode) -> GDriveNode:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered update_single_node(): locked={self._struct_lock.locked()}')
         write_op = UpsertSingleNodeOp(node, update_only=True)
         with self._struct_lock:
@@ -317,7 +317,7 @@ class GDriveMasterStore(TreeStore):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'
 
         if subtree_root.is_dir():
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'remove_subtree(): locked={self._struct_lock.locked()}')
             with self._struct_lock:
                 subtree_nodes: List[GDriveNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root.uid)
@@ -328,7 +328,7 @@ class GDriveMasterStore(TreeStore):
             self.remove_single_node(subtree_root, to_trash=to_trash)
 
     def remove_single_node(self, node: GDriveNode, to_trash) -> Optional[GDriveNode]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered remove_single_node(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             return self._remove_single_node_nolock(node, to_trash)
@@ -421,7 +421,7 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_node_for_uid(uid)
 
     def get_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_node_for_name_and_parent_uid(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             return self._memstore.master_tree.get_node_for_name_and_parent_uid(name, parent_uid)
@@ -464,24 +464,24 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:
-        if TRACELOG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered get_gdrive_user_for_permission_id()')
         return self._memstore.get_gdrive_user_for_permission_id(permission_id)
 
     def get_gdrive_user_for_user_uid(self, uid: UID) -> GDriveUser:
-        # if SUPER_DEBUG:
+        # if SUPER_DEBUG_ENABLED:
         #     logger.debug(f'Entered get_gdrive_user_for_user_uid()')
         return self._memstore.get_gdrive_user_for_user_uid(uid)
 
     def create_gdrive_user(self, user: GDriveUser):
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered create_gdrive_user(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             self._execute_write_op(CreateUserOp(user))
 
     def get_or_create_gdrive_mime_type(self, mime_type_string: str) -> MimeType:
         # Note: this operation must be synchronous, so that it can return the MIME type
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_or_create_gdrive_mime_type(): locked={self._struct_lock.locked()}')
         op = UpsertMimeTypeOp(mime_type_string)
         with self._struct_lock:
@@ -489,12 +489,12 @@ class GDriveMasterStore(TreeStore):
         return op.mime_type
 
     def get_mime_type_for_uid(self, uid: UID) -> Optional[MimeType]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_mime_type_for_uid()')
         return self._memstore.get_mime_type_for_uid(uid)
 
     def delete_all_gdrive_data(self):
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered delete_all_gdrive_data(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             self._execute_write_op(DeleteAllDataOp())

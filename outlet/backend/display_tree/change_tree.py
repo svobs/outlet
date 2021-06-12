@@ -3,7 +3,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import SUPER_DEBUG
+from constants import SUPER_DEBUG_ENABLED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -187,7 +187,7 @@ class ChangeTree(DisplayTree):
         # Walk down the ancestor list and create a node for each ancestor dir:
         while len(stack) > 0:
             child_sn = stack.pop()
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.info(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child_sn} under parent: {parent_sn}')
             self._category_tree.add_node(node=child_sn, parent=parent_sn)
             parent_sn = child_sn
@@ -230,7 +230,7 @@ class ChangeTree(DisplayTree):
 
         try:
             # Finally add the node itself.
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.info(f'[{self.tree_id}] Adding change node: {sn.spid} to parent {parent_sn.spid}')
 
             self._category_tree.add_node(node=sn, parent=parent_sn)
@@ -240,16 +240,16 @@ class ChangeTree(DisplayTree):
             conflict_sn: SPIDNodePair = self._category_tree.get_node_for_identifier(sn.spid.guid)
             if conflict_sn.node.md5 == sn.node.md5:
                 self.count_conflict_warnings += 1
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, nodes have same MD5, so we will just ignore the new'
                                    f' node: existing={conflict_sn.node} new={sn.node}')
             else:
                 self.count_conflict_errors += 1
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & different content: existing={conflict_sn.node} new={sn.node}')
                 # raise
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             self.print_tree_contents_debug()
 
     def __repr__(self):

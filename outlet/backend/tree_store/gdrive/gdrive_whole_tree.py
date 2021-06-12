@@ -3,7 +3,7 @@ import os
 from collections import Counter, defaultdict, deque
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
-from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TRACELOG_ENABLED, TrashStatus, \
+from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, \
     TreeType
 from error import GDriveItemNotFoundError
 from model.gdrive_meta import GDriveUser
@@ -189,7 +189,7 @@ class GDriveWholeTree(BaseTree):
 
         removed_node = self.uid_dict.pop(node.uid, None)
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'GDriveNode removed from in-memory tree: {removed_node}')
 
         return removed_node
@@ -293,7 +293,7 @@ class GDriveWholeTree(BaseTree):
         returns them all.
         NOTE: returns FileNotFoundError if not even one ID could be matched
         """
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'GDriveWholeTree.get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
         if full_path == ROOT_PATH:
             return [self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)]
@@ -325,11 +325,11 @@ class GDriveWholeTree(BaseTree):
                 current_id: UID = current.uid
                 children: List[Node] = self.get_child_list_for_node(current)
                 if not children:
-                    if SUPER_DEBUG:
+                    if SUPER_DEBUG_ENABLED:
                         logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
                     break
                 matches: List[Node] = [x for x in children if x.name.lower() == name_seg.lower()]
-                if SUPER_DEBUG and len(matches) > 1:
+                if SUPER_DEBUG_ENABLED and len(matches) > 1:
                     logger.info(f'get_identifier_list_for_single_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
                                 f'{current_id}", path_so_far "{path_so_far}"')
                     for num, match in enumerate(matches):
@@ -337,7 +337,7 @@ class GDriveWholeTree(BaseTree):
                 next_seg_nodes += matches
 
             if len(next_seg_nodes) == 0:
-                if SUPER_DEBUG:
+                if SUPER_DEBUG_ENABLED:
                     logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}" (target_path: "{full_path}"')
                 if error_if_not_found:
                     err_node_identifier = self.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
@@ -352,7 +352,7 @@ class GDriveWholeTree(BaseTree):
         for node_identifier in matching_node_identifiers:
             # Needs to be filled in:
             node_identifier.add_path_if_missing(path_found)
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'get_identifier_list_for_single_path(): Found for path "{path_so_far}": {matching_node_identifiers}')
         if error_if_not_found and not matching_node_identifiers:
             err_node_identifier = self.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
@@ -535,12 +535,12 @@ class GDriveWholeTree(BaseTree):
                         # Make sure they are not dead links:
                         parent_uids: List[UID] = [x for x in parent_uids if self.get_node_for_uid(x)]
                         if len(parent_uids) > 1:
-                            if SUPER_DEBUG:
+                            if SUPER_DEBUG_ENABLED:
                                 logger.debug(f'Multiple parents found for {node.uid} ("{node.name}").')
                                 for parent_index, parent_uid in enumerate(parent_uids):
                                     logger.debug(f'Parent {parent_index}: {parent_uid}')
                             # pass through
-                        elif SUPER_DEBUG:
+                        elif SUPER_DEBUG_ENABLED:
                             logger.warning(f'Found multiple parents for node but only one could be resolved: node={node.uid} ("{node.name}")')
                     for parent_uid in parent_uids:
                         parent_node: GDriveNode = self.get_node_for_uid(parent_uid)
@@ -548,7 +548,7 @@ class GDriveWholeTree(BaseTree):
                             next_segment_nodes.append((parent_node, path_so_far))
                         else:
                             # Parent refs cannot be resolved == root of subtree
-                            if SUPER_DEBUG:
+                            if SUPER_DEBUG_ENABLED:
                                 logger.debug(f'Mapped ID "{uid}" to subtree path "{path_so_far}"')
                             if path_so_far not in path_list:
                                 path_list.append(path_so_far)
@@ -559,9 +559,9 @@ class GDriveWholeTree(BaseTree):
             current_segment_nodes = next_segment_nodes
             next_segment_nodes = []
 
-        if TRACELOG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Computed path list "{path_list}" for node_identifier: {current_node.node_identifier}')
-        elif SUPER_DEBUG:
+        elif SUPER_DEBUG_ENABLED:
             if path_list != current_node.node_identifier.get_path_list():
                 logger.debug(f'Updating path_list for node_identifier ({current_node.node_identifier}) -> {path_list}')
 

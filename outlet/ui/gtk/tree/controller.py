@@ -2,7 +2,7 @@ import logging
 from typing import List
 from pydispatch import dispatcher
 
-from constants import SUPER_DEBUG
+from constants import SUPER_DEBUG_ENABLED
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
@@ -166,7 +166,7 @@ class TreePanelController(HasLifecycle):
         timer = Stopwatch()
         checked_sn_list: List[SPIDNodePair] = self.display_mutator.generate_checked_row_list()
         checked_guid_list: List[GUID] = [sn.spid.guid for sn in checked_sn_list]
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             more = ': ' + ', '.join(checked_guid_list)
         else:
             more = ''

@@ -11,7 +11,7 @@ from backend.backend_integrated import BackendIntegrated
 from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
 from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
-from constants import SUPER_DEBUG
+from constants import SUPER_DEBUG_ENABLED
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DirMetaUpdate, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
@@ -114,7 +114,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def _send_signal_to_all_clients(self, signal: Signal, sender: str):
         """Convenience method to create a simple gRPC SignalMsg and then enqueue it to be sent to all connected clients"""
         assert sender, f'Sender is required for signal {signal.name}'
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Forwarding signal to gRPC clients: {signal.name} sender={sender}')
 
         self._send_grpc_signal_to_all_clients(SignalMsg(sig_int=signal, sender=sender))
@@ -126,7 +126,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             return
 
         with self._queue_lock:
-            if SUPER_DEBUG:
+            if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Queuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
                              f'{signal_grpc.sender}" to {len(self._thread_signal_queues)} connected clients')
             for queue in self._thread_signal_queues.values():
@@ -165,7 +165,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
                 while True:  # empty the queue
                     with self._queue_lock:
-                        if SUPER_DEBUG:
+                        if SUPER_DEBUG_ENABLED:
                             logger.debug(f'Checking signal queue for ThreadID {thread_id}')
                         signal_queue: Optional[Deque] = self._thread_signal_queues.get(thread_id, None)
                         if signal_queue is None:
@@ -177,7 +177,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                             break
 
                     if signal:
-                        if SUPER_DEBUG:
+                        if SUPER_DEBUG_ENABLED:
                             logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
                         yield signal
 
@@ -379,7 +379,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response = PlayState()
         response.is_enabled = self.executor.enable_op_execution
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Relaying op_execution_state.is_enabled = {response.is_enabled}')
         return response
 

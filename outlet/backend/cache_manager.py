@@ -23,7 +23,7 @@ from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidChangeTreeMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
-    SUPER_DEBUG, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType, UID_PATH_FILE_NAME
+    SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType, UID_PATH_FILE_NAME
 from error import CacheNotLoadedError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
@@ -836,7 +836,7 @@ class CacheManager(HasLifecycle):
 
     def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) \
             -> List[SPIDNodePair]:
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] Entered get_child_list() for parent_spid={parent_spid} (is_expanding_parent={is_expanding_parent})')
         if not parent_spid:
             raise RuntimeError('get_child_list(): parent_spid not provided!')
@@ -871,7 +871,7 @@ class CacheManager(HasLifecycle):
         for child_sn in child_list:
             self.update_node_icon(child_sn.node)
 
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {parent_spid}')
         return child_list
 
@@ -907,7 +907,7 @@ class CacheManager(HasLifecycle):
 
     def update_node_icon(self, node: Node):
         icon_id: Optional[IconId] = self._op_ledger.get_icon_for_node(node.device_uid, node.uid)
-        if SUPER_DEBUG:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
         node.set_icon(icon_id)
 
