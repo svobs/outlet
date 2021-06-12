@@ -47,6 +47,9 @@ class SignatureCalcThread(QThread):
         time.sleep(self.initial_sleep_sec)  # in seconds
 
     def process_single_item(self, node: LocalFileNode):
+        # Get up-to-date copy:
+        node = self.backend.cacheman.get_node_for_uid(node.uid, node.device_uid)
+
         if node.md5 or node.sha256:
             # Other threads, e.g., CommandExecutor, can also fill this in asynchronously
             logger.debug(f'Node already has signature; skipping; {node}')

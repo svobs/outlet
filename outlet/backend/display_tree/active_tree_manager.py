@@ -86,29 +86,44 @@ class ActiveTreeManager(HasLifecycle):
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _get_filtered_snp(self, node: Node, full_path: str, filter_state: FilterState) -> Optional[SPIDNodePairWithParent]:
+    def _get_filtered_snp(self, node: Node, full_path: str, tree_meta: ActiveDisplayTreeMeta) -> Optional[SPIDNodePairWithParent]:
+        filter_state: FilterState = tree_meta.filter_state
+
         sn = SPIDNodePair(self.backend.cacheman.make_spid_for(node_uid=node.uid, device_uid=node.device_uid, full_path=full_path), node)
-        if not filter_state.has_criteria() or filter_state.matches(sn):
-            parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
-            if parent_sn:
-                # Make sure to update the node icon before sending!
-                self.backend.cacheman.update_node_icon(sn.node)
-                return SPIDNodePairWithParent(sn, parent_sn.spid.guid)
-            else:
-                logger.warning(f'No parent found for: {sn.spid}. Will discard notification!')
-                return None
-        else:
+
+        if filter_state.has_criteria() and not filter_state.matches(sn):
+            if TRACE_ENABLED:
+                logger.debug(f'[{tree_meta.tree_id}] Node is excluded by user filter criteria; will discard notification for {sn.spid}')
             return None
 
-    def _to_subtree_sn_list(self, node: Node, subtree_root_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePairWithParent]:
+        parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
+        if not parent_sn:
+            # this really shouldn't happen...
+            logger.warning(f'[{tree_meta.tree_id}] No parent found in cacheman for: {sn.spid}. Will discard notification!')
+            return None
+
+        if parent_sn.spid.guid not in tree_meta.expanded_row_set:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{tree_meta.tree_id}] Parent ({parent_sn.spid.guid}) is not expanded in FE; will discard notification for {sn.spid}')
+            return None
+
+        # Make sure to update the node icon before sending!
+        self.backend.cacheman.update_node_icon(sn.node)
+        return SPIDNodePairWithParent(sn, parent_sn.spid.guid)
+
+    def _to_subtree_sn_list(self, node: Node, tree_meta: ActiveDisplayTreeMeta) -> List[SPIDNodePairWithParent]:
         cacheman = self.backend.cacheman
+
+        subtree_root_spid: SinglePathNodeIdentifier = tree_meta.root_sn.spid
 
         if node.device_uid != subtree_root_spid.device_uid:
             return []
 
+        # FIXME: need to update and push out DirStats for all ancestors found!!!
+
         # LocalDisk: easy: check path
         if node.tree_type == TreeType.LOCAL_DISK and node.node_identifier.has_path_in_subtree(subtree_root_spid.get_single_path()):
-            snp = self._get_filtered_snp(node, node.get_single_path(), filter_state)
+            snp = self._get_filtered_snp(node, node.get_single_path(), tree_meta)
             if snp:
                 return [snp]
             else:
@@ -126,7 +141,7 @@ class ActiveTreeManager(HasLifecycle):
                     return_list = []
                     for path in node.get_path_list():
                         if path.startswith(subtree_root_path):
-                            snp = self._get_filtered_snp(node, path, filter_state)
+                            snp = self._get_filtered_snp(node, path, tree_meta)
                             if snp:
                                 return_list.append(snp)
 
@@ -142,7 +157,7 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
+            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
             if TRACE_ENABLED:
                 logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
@@ -153,7 +168,7 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
-            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta.root_sn.spid, tree_meta.filter_state)
+            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
             if TRACE_ENABLED:
                 logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 

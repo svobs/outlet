@@ -668,7 +668,7 @@ class LocalDiskMasterStore(TreeStore):
         new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
 
         if TRACE_ENABLED:
-            logger.debug(f'Built new node: {new_node} with sync_ts: {sync_ts}')
+            logger.debug(f'Built: {new_node} with sync_ts: {sync_ts}')
 
         assert new_node.modify_ts == modify_ts
 

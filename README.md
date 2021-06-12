@@ -38,6 +38,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* [1] Copy metadata when copying files (MAC times)
 * [3] Extend config file to support windows on different servers
 * [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
 * [3] Disable UI elements for trees until cache loaded
