@@ -465,6 +465,7 @@ class OpGDriveTest(OpTestBase):
 
             right_stats_updated = threading.Event()
 
+            # FIXME
             def on_stats_updated(sender):
                 logger.info(f'Got signal: {Signal.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
                 right_stats_updated.set()
@@ -579,4 +580,3 @@ class OpGDriveTest(OpTestBase):
 
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)
-

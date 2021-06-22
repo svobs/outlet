@@ -186,20 +186,23 @@ message DragDrop_Response {
 	// nothing
 }
 
-message DirMetaUpdate {
-	oneof key {
-		string guid = 1;
-		uint32 uid = 2;
-	}
-	DirMeta dir_meta = 3;
+message DirMetaGuidUpdate {
+	string guid = 1;
+	DirMeta dir_meta = 2;
+}
+
+message DirMetaUidUpdate {
+	uint32 uid = 1;
+	DirMeta dir_meta = 2;
 }
 
 // StatsUpdate is sent:
 // 1. Some period of time after node added / modified / removed from tree (not after *every* update)
 // 2. If the FE requests it (DEPRECATED behavior)
 message StatsUpdate {
-	repeated DirMetaUpdate dir_meta_list = 1;
-	string status_msg = 2;
+	repeated DirMetaGuidUpdate dir_meta_by_guid_list = 1;
+	repeated DirMetaUidUpdate dir_meta_by_uid_list = 2;
+	string status_msg = 3;
 }
 
 message SignalMsg {

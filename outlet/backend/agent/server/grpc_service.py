@@ -13,7 +13,7 @@ from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from constants import SUPER_DEBUG_ENABLED
 from backend.agent.grpc.conversion import GRPCConverter
-from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DirMetaUpdate, DragDrop_Request, DragDrop_Response, Empty, \
+from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
     GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
     GetConfig_Request, GetConfig_Response, GetDeviceList_Request, GetDeviceList_Response, GetIcon_Request, GetIcon_Response, \
@@ -90,7 +90,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
 
         self.connect_dispatch_listener(signal=Signal.DEVICE_UPSERTED, receiver=self._on_device_upserted)
-        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
+        self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_stats_updated)
 
         # simple:
         self.forward_signal_to_clients(signal=Signal.LOAD_SUBTREE_STARTED)
@@ -284,17 +284,19 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.backend.start_subtree_load(request.tree_id)
         return StartSubtreeLoad_Response()
 
-    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats_dict: Dict, key_is_uid: bool):
-        signal = SignalMsg(sig_int=Signal.REFRESH_SUBTREE_STATS_DONE, sender=sender)
+    def _on_stats_updated(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict):
+        signal = SignalMsg(sig_int=Signal.STATS_UPDATED, sender=sender)
         signal.stats_update.status_msg = status_msg
 
-        for key, dir_stats in dir_stats_dict.items():
-            dir_meta_grpc: DirMetaUpdate = signal.stats_update.dir_meta_list.add()
-            if key_is_uid:
-                dir_meta_grpc.uid = key
-            else:
-                dir_meta_grpc.guid = key
-            self._converter.dir_stats_to_grpc(dir_stats, dir_meta_grpc)
+        for key, dir_stats in dir_stats_dict_by_guid.items():
+            dir_meta_grpc = signal.stats_update.dir_meta_by_uid_list.add()
+            dir_meta_grpc.guid = key
+            self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
+
+        for key, dir_stats in dir_stats_dict_by_uid.items():
+            dir_meta_grpc = signal.stats_update.dir_meta_by_guid_list.add()
+            dir_meta_grpc.uid = key
+            self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
 
         self._send_grpc_signal_to_all_clients(signal)
 

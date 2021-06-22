@@ -8,7 +8,7 @@ from typing import Deque, Dict, Iterable, List, Set, Union
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG_ENABLED, TreeDisplayMode
+from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, SUPER_DEBUG_ENABLED, TreeDisplayMode
 from error import ResultsExceededError
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest
@@ -21,7 +21,6 @@ from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
-from util.holdoff_timer import HoldOffTimer
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -45,8 +44,6 @@ class DisplayMutator(HasLifecycle):
         self.con = controller
         self.use_empty_nodes = True  # default
         self._lock = threading.Lock()
-        self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=STATS_REFRESH_HOLDOFF_TIME_MS, task_func=self._request_subtree_stats_refresh)
-        """Stats for the entire subtree are all connected to each other, so this is a big task. This timer allows us to throttle its frequency"""
 
         self._enable_expand_state_listeners = True
         """When true, listen and automatically update the display when a node is expanded or contracted.
@@ -70,7 +67,7 @@ class DisplayMutator(HasLifecycle):
         if self.con.treeview_meta.lazy_load:
             self.connect_dispatch_listener(signal=Signal.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
-        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
+        self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_refresh_stats_done)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
@@ -342,8 +339,6 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(_update_ui)
 
-        self._request_subtree_stats_refresh()
-
     def generate_checked_row_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the nodes of the items which are currently checked by the user
         (including any rows which may not be visible in the UI due to being collapsed). This will be a subset of the ChangeDisplayTree currently
@@ -509,9 +504,6 @@ class DisplayMutator(HasLifecycle):
                                            f'but its parent is no longer in the tree; removing node from display store: {guid}')
                             self.con.display_store.remove_node(guid)
 
-                # If we received the update, it is somewhere in our subtree (even if invisible) and thus affects our stats:
-                self._stats_refresh_timer.start_or_delay()
-
         GLib.idle_add(update_ui)
 
     def _on_node_removed(self, sender: str, sn: SPIDNodePair, parent_guid: GUID):
@@ -535,8 +527,6 @@ class DisplayMutator(HasLifecycle):
                         if logger.isEnabledFor(logging.DEBUG):
                             logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for displayed node {sn.spid}')
 
-                        stats_refresh_needed = True
-
                         logger.debug(f'[{self.con.tree_id}] Removing node from display store: {guid}')
                         self.con.display_store.remove_node(guid)
                         logger.debug(f'[{self.con.tree_id}] Node removed: {guid}')
@@ -545,30 +535,23 @@ class DisplayMutator(HasLifecycle):
                         if logger.isEnabledFor(logging.DEBUG):
                             logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for node {sn.spid}')
 
-                        stats_refresh_needed = True
                     else:
                         if logger.isEnabledFor(logging.DEBUG):
                             logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_REMOVED.name} for node {sn.spid}')
-                        stats_refresh_needed = False
 
-                    if stats_refresh_needed:
-                        self._stats_refresh_timer.start_or_delay()
             except RuntimeError:
                 logger.exception(f'While removing node {guid} ("{sn.node.name}") from UI')
 
         GLib.idle_add(update_ui)
 
-    def _request_subtree_stats_refresh(self):
-        # Requests the cacheman to recalculate stats for this subtree. Sends Signal.REFRESH_SUBTREE_STATS_DONE when done
-        logger.debug(f'[{self.con.tree_id}] Requesting subtree stats refresh')
-        self.con.app.backend.enqueue_refresh_subtree_stats_task(root_uid=self.con.get_tree().root_uid, tree_id=self.con.tree_id)
-
-    def _on_refresh_stats_done(self, sender: str, status_msg: str, dir_stats_dict: Dict[Union[UID, GUID], DirectoryStats], key_is_uid: bool):
+    def _on_refresh_stats_done(self, sender: str, status_msg: str,
+                               dir_stats_dict_by_guid: Dict[GUID, DirectoryStats],
+                               dir_stats_dict_by_uid: Dict[UID, DirectoryStats]):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
-        with the current values from the cache."""
+        listed in each dict with the current values from the cache."""
         if sender != self.con.tree_id:
             return
-        logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.REFRESH_SUBTREE_STATS_DONE.name}"')
+        logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.STATS_UPDATED.name}"')
 
         def redraw_displayed_node(tree_iter):
             if self._is_shutdown:
@@ -586,11 +569,13 @@ class DisplayMutator(HasLifecycle):
             if sn.node.is_ephemereal() or not sn.node.is_dir():
                 return
 
-            if key_is_uid:
-                key = sn.node.uid
+            if dir_stats_dict_by_guid:
+                dir_stats_for_node = dir_stats_dict_by_guid.get(sn.spid.guid, None)
+            elif dir_stats_dict_by_uid:
+                dir_stats_for_node = dir_stats_dict_by_uid.get(sn.node.uid, None)
             else:
-                key = sn.spid.guid
-            dir_stats_for_node = dir_stats_dict.get(key, None)
+                dir_stats_for_node = None
+
             if dir_stats_for_node:
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {sn.spid}; tree_path="{ds.model.get_path(tree_iter)}"; '

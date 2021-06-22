@@ -80,8 +80,6 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
             assert self.extract_node_func(node).is_dir()
 
             dir_stats = DirectoryStats()
-            node_identifier = self.extract_id(node)
-            dir_stats_dict[node_identifier] = dir_stats
 
             child_list = self.get_child_list_for_node(node)
             if child_list:
@@ -93,8 +91,12 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
                     else:
                         dir_stats.add_file_node(child_node)
 
-            if TRACE_ENABLED:
-                logger.debug(f'DirNode {node_identifier} has {dir_stats}"')
+            # remember, identifier type is dependent on tree type
+            identifier = self.extract_id(node)
+            dir_stats_dict[identifier] = dir_stats
+
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'DirNode {identifier} has {dir_stats}"')
 
         logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node}")')
         return dir_stats_dict

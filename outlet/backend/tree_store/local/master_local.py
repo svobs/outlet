@@ -323,6 +323,7 @@ class LocalDiskMasterStore(TreeStore):
         self._get_display_tree(node_identifier, tree_id, is_live_refresh=True)
 
     def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
+        """Generate DirStatsDict for the given subtree, with no filter applied"""
         # logger.warning('LOCK ON!')
         with self._struct_lock:
             result = self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)

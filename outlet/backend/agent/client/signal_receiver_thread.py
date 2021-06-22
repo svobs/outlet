@@ -8,6 +8,7 @@ from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
 from model.display_tree.display_tree import DisplayTree
 from model.node.directory_stats import DirectoryStats
+from model.node_identifier import GUID
 from model.uid import UID
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
@@ -112,19 +113,18 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['parent_guid'] = signal_msg.parent_guid
         elif signal == Signal.SET_STATUS:
             kwargs['status_msg'] = signal_msg.status_msg.msg
-        elif signal == Signal.REFRESH_SUBTREE_STATS_DONE:
+        elif signal == Signal.STATS_UPDATED:
             kwargs['status_msg'] = signal_msg.stats_update.status_msg
-            dir_stats_dict: Dict[UID, DirectoryStats] = {}
-            for dir_meta_grpc in signal_msg.stats_update.dir_meta_list:
+            dir_stats_dict_by_guid: Dict[GUID, DirectoryStats] = {}
+            dir_stats_dict_by_uid: Dict[UID, DirectoryStats] = {}
+            for dir_meta_grpc in signal_msg.stats_update.dir_meta_by_guid_list:
                 dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
-                if dir_meta_grpc.HasField('uid'):
-                    key = dir_meta_grpc.uid
-                    kwargs['key_is_uid'] = True
-                else:
-                    key = dir_meta_grpc.guid
-                    kwargs['key_is_uid'] = False
-                dir_stats_dict[key] = dir_stats
-            kwargs['dir_stats_dict'] = dir_stats_dict
+                dir_stats_dict_by_guid[dir_meta_grpc.guid] = dir_stats
+            for dir_meta_grpc in signal_msg.stats_update.dir_meta_by_uid_list:
+                dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
+                dir_stats_dict_by_uid[dir_meta_grpc.uid] = dir_stats
+            kwargs['dir_stats_dict_by_guid'] = dir_stats_dict_by_guid
+            kwargs['dir_stats_dict_by_uid'] = dir_stats_dict_by_uid
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
         elif signal == Signal.DEVICE_UPSERTED:

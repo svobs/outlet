@@ -2,6 +2,7 @@ import collections
 import errno
 import logging
 import os
+import threading
 from collections import deque
 from typing import Deque, Dict, List, Optional, Set
 
@@ -12,7 +13,8 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeType
+from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
+    TreeID, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
@@ -26,6 +28,7 @@ from util import file_util
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
 from util.stopwatch_sec import Stopwatch
+from util.holdoff_timer import HoldOffTimer
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +56,10 @@ class ActiveTreeManager(HasLifecycle):
         """Keeps track of which display trees are currently being used in the UI"""
 
         self._is_live_monitoring_enabled = backend.get_config('cache.monitoring.live_monitoring_enabled')
+
+        self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=STATS_REFRESH_HOLDOFF_TIME_MS, task_func=self._process_queued_stats)
+        self._tree_stats_refresh_queue_dict: Dict[TreeID, Set[GUID]] = {}
+        self._stat_dict_lock = threading.Lock()
 
     def start(self):
         gdrive_live_monitor_enabled = self._is_live_monitoring_enabled and self._live_monitor.enable_gdrive_polling_thread
@@ -91,17 +98,21 @@ class ActiveTreeManager(HasLifecycle):
 
         sn = SPIDNodePair(self.backend.cacheman.make_spid_for(node_uid=node.uid, device_uid=node.device_uid, full_path=full_path), node)
 
-        if filter_state.has_criteria() and not filter_state.matches(sn):
-            if TRACE_ENABLED:
-                logger.debug(f'[{tree_meta.tree_id}] Node is excluded by user filter criteria; will discard notification for {sn.spid}')
-            return None
-
         parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
         if not parent_sn:
             # this really shouldn't happen...
             logger.warning(f'[{tree_meta.tree_id}] No parent found in cacheman for: {sn.spid}. Will discard notification!')
             return None
 
+        # Will need to refresh stats for parent, even if the node is filtered out:
+        self._enqueue_stat_refresh_for_dir(parent_sn.spid.guid, tree_meta.tree_id)
+
+        if filter_state.has_criteria() and not filter_state.matches(sn):
+            if TRACE_ENABLED:
+                logger.debug(f'[{tree_meta.tree_id}] Node is excluded by user filter criteria; will discard notification for {sn.spid}')
+            return None
+
+        # FIXME: almost certainly a race condition here. Low-priority high-effort: user can work around for now
         if parent_sn.spid.guid not in tree_meta.expanded_row_set:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{tree_meta.tree_id}] Parent ({parent_sn.spid.guid}) is not expanded in FE; will discard notification for {sn.spid}')
@@ -109,7 +120,31 @@ class ActiveTreeManager(HasLifecycle):
 
         # Make sure to update the node icon before sending!
         self.backend.cacheman.update_node_icon(sn.node)
+
         return SPIDNodePairWithParent(sn, parent_sn.spid.guid)
+
+    def _enqueue_stat_refresh_for_dir(self, dir_guid: GUID, tree_id: TreeID):
+        with self._stat_dict_lock:
+            guid_set = self._tree_stats_refresh_queue_dict.get(tree_id, None)
+            if not guid_set:
+                guid_set: Set[GUID] = set()
+                self._tree_stats_refresh_queue_dict[tree_id] = guid_set
+            guid_set.add(dir_guid)
+
+        self._stats_refresh_timer.start_or_delay()
+
+    def _process_queued_stats(self):
+        with self._stat_dict_lock:
+            # For each display tree in the dict, need to regenerate stats for the given GUIDs and their descendants AND direct ancestors.
+            # To simplify things and avoid possible errors, let's just regenerate the stats for the entire tree and see how that performs.
+            for tree_id, guid_set in self._tree_stats_refresh_queue_dict.items():
+                meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+                if meta:
+                    self.backend.cacheman.repopulate_dir_stats_for_tree(meta)
+                else:
+                    logger.debug(f'Will skip regeneration of DirStats for tree_id "{tree_id}": tree is no longer registered')
+
+            self._tree_stats_refresh_queue_dict.clear()
 
     def _to_subtree_sn_list(self, node: Node, tree_meta: ActiveDisplayTreeMeta) -> List[SPIDNodePairWithParent]:
         cacheman = self.backend.cacheman
@@ -118,8 +153,6 @@ class ActiveTreeManager(HasLifecycle):
 
         if node.device_uid != subtree_root_spid.device_uid:
             return []
-
-        # FIXME: need to update and push out DirStats for all ancestors found!!!
 
         # LocalDisk: easy: check path
         if node.tree_type == TreeType.LOCAL_DISK and node.node_identifier.has_path_in_subtree(subtree_root_spid.get_single_path()):

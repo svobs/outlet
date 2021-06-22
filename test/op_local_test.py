@@ -334,6 +334,7 @@ class OpLocalTest(OpTestBase):
 
             right_stats_updated = threading.Event()
 
+            # FIXME
             def on_stats_updated(sender):
                 logger.info(f'Got signal: {Signal.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
                 right_stats_updated.set()
@@ -443,6 +444,7 @@ class OpLocalTest(OpTestBase):
 
             right_stats_updated = threading.Event()
 
+            # FIXME
             def on_stats_updated(sender):
                 logger.info(f'Got signal: {Signal.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
                 right_stats_updated.set()

@@ -57,15 +57,17 @@ class Signal(IntEnum):
     DISPLAY_TREE_CHANGED = 44
     GDRIVE_RELOADED = 45
     NODE_UPSERTED = 46
-    """Sent from BE and received by FE"""
+    """Sent from BE and received by FE: a Node was upserted into the DisplayTree"""
     NODE_REMOVED = 47
-    """Sent from BE and received by FE"""
+    """Sent from BE and received by FE: a Node was removed from the DisplayTree"""
+
+    STATS_UPDATED = 48
+    """Sent from BE and received by FE: stats were updated for nodes in the DisplayTree, and also possibly the StatusMsg"""
 
     EXIT_DIFF_MODE = 49
     """Sent from FE and received by BE"""
 
     ERROR_OCCURRED = 50
-    REFRESH_SUBTREE_STATS_DONE = 51
     REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 52
     DOWNLOAD_FROM_GDRIVE_DONE = 53
     """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""

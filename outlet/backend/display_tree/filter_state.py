@@ -7,7 +7,6 @@ from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
-from model.uid import UID
 from util.ensure import ensure_bool
 from util.stopwatch_sec import Stopwatch
 
@@ -28,7 +27,7 @@ class FilterState:
         self.filter: FilterCriteria = filter_criteria
         self.root_sn: SPIDNodePair = root_sn
         self.cached_node_dict: Dict[GUID, List[SPIDNodePair]] = {}
-        self.cached_dir_stats: Dict[Union[UID, GUID], DirectoryStats] = {}
+        self.cached_dir_stats: Dict[GUID, DirectoryStats] = {}
 
     def has_criteria(self) -> bool:
         return self.filter.has_criteria()
@@ -102,7 +101,7 @@ class FilterState:
             child_list = parent_tree.get_child_list_for_spid(parent_sn.spid)
             filtered_child_list = []
 
-            # Calculate stats also. Compare with BaseTree.generate_dir_stats()
+            # Calculate DirStats also. Compare with BaseTree.generate_dir_stats()
             dir_stats = dir_stats_dict.get(parent_guid, None)
             if not dir_stats:
                 dir_stats = DirectoryStats()
