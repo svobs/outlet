@@ -13,6 +13,7 @@ from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.load_request_thread import LoadRequest, LoadRequestThread
+from backend.display_tree.row_state_tracking import RowStateTracking
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_ledger import OpLedger
 from backend.sqlite.cache_registry_db import CacheRegistry
@@ -115,6 +116,7 @@ class CacheManager(HasLifecycle):
         # Instantiate but do not start submodules yet, to avoid entangled dependencies:
 
         self._active_tree_manager = ActiveTreeManager(self.backend)
+        self._row_state_tracking = RowStateTracking(self.backend, self._active_tree_manager)
 
         uid_path_cache_path = os.path.join(self.cache_dir_path, UID_PATH_FILE_NAME)
         self._uid_path_mapper = UidPathMapper(backend, uid_path_cache_path)
@@ -584,7 +586,7 @@ class CacheManager(HasLifecycle):
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
         # Load and bring up-to-date expanded & selected rows:
-        self._active_tree_manager.load_rows_of_interest(tree_id)
+        self._row_state_tracking.load_rows_of_interest(tree_id)
 
         if load_request.send_signals:
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
@@ -856,7 +858,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'get_child_list(): DisplayTree not registered: {tree_id}')
 
         if is_expanding_parent:
-            self._active_tree_manager.add_expanded_row(parent_spid.guid, tree_id)
+            self._row_state_tracking.add_expanded_row(parent_spid.guid, tree_id)
 
         if tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Change trees have their own storage of nodes (not in master caches)
@@ -904,14 +906,14 @@ class CacheManager(HasLifecycle):
 
     def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         """Saves the selected rows from the UI for the given tree"""
-        self._active_tree_manager.set_selected_rows(tree_id, selected)
+        self._row_state_tracking.set_selected_rows(tree_id, selected)
 
     def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
-        self._active_tree_manager.remove_expanded_row(row_guid, tree_id)
+        self._row_state_tracking.remove_expanded_row(row_guid, tree_id)
 
     def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
-        return self._active_tree_manager.get_rows_of_interest(tree_id)
+        return self._row_state_tracking.get_rows_of_interest(tree_id)
 
     def update_node_icon(self, node: Node):
         icon_id: Optional[IconId] = self._op_ledger.get_icon_for_node(node.device_uid, node.uid)
