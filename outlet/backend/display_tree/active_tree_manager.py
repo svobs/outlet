@@ -13,7 +13,8 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
+from constants import CONFIG_DELIMITER, GDRIVE_ROOT_UID, NULL_UID, ROWS_OF_INTEREST_SAVE_HOLDOFF_TIME_MS, STATS_REFRESH_HOLDOFF_TIME_MS, \
+    SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
     TreeID, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
@@ -57,9 +58,15 @@ class ActiveTreeManager(HasLifecycle):
 
         self._is_live_monitoring_enabled = backend.get_config('cache.monitoring.live_monitoring_enabled')
 
+        # FIXME: this is a bad solution. Having a single global timer like this can result in stats never getting refreshed if there is frequent
+        # updates going on anywhere
         self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=STATS_REFRESH_HOLDOFF_TIME_MS, task_func=self._process_queued_stats)
         self._tree_stats_refresh_queue_dict: Dict[TreeID, Set[GUID]] = {}
         self._stat_dict_lock = threading.Lock()
+
+        self._rows_of_interest_save_timer = HoldOffTimer(holdoff_time_ms=ROWS_OF_INTEREST_SAVE_HOLDOFF_TIME_MS, task_func=self._save_rows_of_interest)
+        self._rows_of_interest_to_save_tree_id_set: Set[TreeID] = set()
+        self._tree_id_set_lock = threading.Lock()
 
     def start(self):
         gdrive_live_monitor_enabled = self._is_live_monitoring_enabled and self._live_monitor.enable_gdrive_polling_thread
@@ -272,6 +279,10 @@ class ActiveTreeManager(HasLifecycle):
 
     def _deregister_display_tree(self, sender: str):
         logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
+
+        # make sure any updates are written out first:
+        self._save_rows_of_interest()
+
         display_tree = self._display_tree_dict.pop(sender, None)
         if display_tree:
             logger.debug(f'[{sender}] Display tree deregistered in backend')
@@ -590,8 +601,8 @@ class ActiveTreeManager(HasLifecycle):
 
         logger.debug(f'[{tree_id}] Storing selection: {selected}')
         display_tree_meta.selected_row_set = selected
-        # TODO: use a timer for this
-        self._save_selected_rows_to_config(display_tree_meta)
+
+        self._schedule_rows_of_interest_save(tree_id)
 
     def add_expanded_row(self, guid: GUID, tree_id: TreeID):
         """AKA expanding a row on the frontend"""
@@ -605,12 +616,12 @@ class ActiveTreeManager(HasLifecycle):
 
         logger.debug(f'[{tree_id}] Adding row to expanded_row_set: {guid}')
         display_tree_meta.expanded_row_set.add(guid)
-        # TODO: use a timer for this. Also write selection to file
-        self._save_expanded_rows_to_config(display_tree_meta)
+
+        self._schedule_rows_of_interest_save(tree_id)
 
     def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
-        # TODO: remove descendants
+        # TODO: change FE API to send descendants for removal also
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
@@ -626,26 +637,29 @@ class ActiveTreeManager(HasLifecycle):
             self.backend.report_exception(sender=tree_id, msg=f'Failed to remove expanded row {row_guid}', error=err)
             return
 
-        # TODO: use a timer for this. Also write selection to file
-        self._save_expanded_rows_to_config(display_tree_meta)
+        self._schedule_rows_of_interest_save(tree_id)
 
-    def _load_expanded_rows_from_config(self, tree_id: TreeID) -> Set[str]:
-        """Loads the Set of expanded rows from config file"""
-        logger.debug(f'[{tree_id}] Loading expanded rows from app_config')
-        try:
-            expanded_row_set: Set[str] = set()
-            expanded_rows_str: str = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id), default_val='',
-                                                             required=False)
-            if expanded_rows_str:
-                for guid in expanded_rows_str.split(CONFIG_DELIMITER):
-                    expanded_row_set.add(guid)
-            return expanded_row_set
-        except RuntimeError:
-            logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
+    def _schedule_rows_of_interest_save(self, tree_id: TreeID):
+        with self._tree_id_set_lock:
+            self._rows_of_interest_to_save_tree_id_set.add(tree_id)
 
-    def _save_selected_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
-        selected_rows_str: str = CONFIG_DELIMITER.join(str(guid) for guid in display_tree_meta.selected_row_set)
-        self.backend.put_config(ActiveTreeManager._make_selected_rows_config_key(display_tree_meta.tree_id), selected_rows_str)
+        self._rows_of_interest_save_timer.start_or_delay()
+
+    def _save_rows_of_interest(self):
+        with self._tree_id_set_lock:
+            for tree_id in self._rows_of_interest_to_save_tree_id_set:
+                display_tree_meta = self.get_active_display_tree_meta(tree_id)
+                if tree_id:
+                    self._save_selected_rows_to_config(display_tree_meta)
+                    self._save_expanded_rows_to_config(display_tree_meta)
+                else:
+                    logger.error(f'[{tree_id}] Could not save rows of interest: tree appears to have been deregistered already')
+
+            self._rows_of_interest_to_save_tree_id_set.clear()
+
+    @staticmethod
+    def _make_selected_rows_config_key(tree_id: TreeID) -> str:
+        return f'ui_state.{tree_id}.selected_rows'
 
     @staticmethod
     def _make_expanded_rows_config_key(tree_id: TreeID) -> str:
@@ -665,13 +679,27 @@ class ActiveTreeManager(HasLifecycle):
         except RuntimeError as err:
             self.backend.report_exception(sender=tree_id, msg=f'Failed to load expanded rows from app_config', error=err)
 
+    def _load_expanded_rows_from_config(self, tree_id: TreeID) -> Set[str]:
+        """Loads the Set of expanded rows from config file"""
+        logger.debug(f'[{tree_id}] Loading expanded rows from app_config')
+        try:
+            expanded_row_set: Set[str] = set()
+            expanded_rows_str: str = self.backend.get_config(ActiveTreeManager._make_expanded_rows_config_key(tree_id), default_val='',
+                                                             required=False)
+            if expanded_rows_str:
+                for guid in expanded_rows_str.split(CONFIG_DELIMITER):
+                    expanded_row_set.add(guid)
+            return expanded_row_set
+        except RuntimeError:
+            logger.exception(f'[{tree_id}] Failed to load expanded rows from app_config')
+
+    def _save_selected_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
+        selected_rows_str: str = CONFIG_DELIMITER.join(str(guid) for guid in display_tree_meta.selected_row_set)
+        self.backend.put_config(ActiveTreeManager._make_selected_rows_config_key(display_tree_meta.tree_id), selected_rows_str)
+
     def _save_expanded_rows_to_config(self, display_tree_meta: ActiveDisplayTreeMeta):
         expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in display_tree_meta.expanded_row_set)
         self.backend.put_config(ActiveTreeManager._make_expanded_rows_config_key(display_tree_meta.tree_id), expanded_rows_str)
-
-    @staticmethod
-    def _make_selected_rows_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.selected_rows'
 
     def _purge_dead_rows(self, expanded_cached: Set[GUID], selected_cached: Set[GUID], display_tree_meta: ActiveDisplayTreeMeta) -> RowsOfInterest:
         verified = RowsOfInterest()
