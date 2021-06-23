@@ -23,6 +23,7 @@ from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter
@@ -39,6 +40,7 @@ class DisplayMutator(HasLifecycle):
     TODO: when does the number of display nodes start to slow down? -> add config for live node maximum
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, controller=None):
         HasLifecycle.__init__(self)
         self.con = controller
@@ -67,7 +69,7 @@ class DisplayMutator(HasLifecycle):
         if self.con.treeview_meta.lazy_load:
             self.connect_dispatch_listener(signal=Signal.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
-        self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_refresh_stats_done)
+        self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_stats_updated)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
@@ -113,10 +115,17 @@ class DisplayMutator(HasLifecycle):
             logger.exception(msg)
             GlobalActions.display_error_in_ui(msg, repr(err))
 
-    def _on_load_subtree_done(self, sender):
+    def _on_load_subtree_done(self, sender, status_msg: str):
         """Just populates the tree with nodes. Executed asyncly via Signal.LOAD_SUBTREE_DONE"""
         if sender == self.con.tree_id:
-            logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}". Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
+            logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}" with status="{status_msg}"')
+
+            def do_in_ui():
+                self.con.status_bar.set_label(status_msg)
+
+            GLib.idle_add(do_in_ui)
+
+            logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
             dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 
     def _populate_and_expand_recursively(self, parent_iter, sn: SPIDNodePair, node_count: int = 0) -> int:
@@ -434,6 +443,7 @@ class DisplayMutator(HasLifecycle):
 
                 logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_guid_dict)}')
                 dispatcher.send(signal=Signal.NODE_EXPANSION_DONE, sender=self.con.tree_id)
+
         GLib.idle_add(expand_or_contract)
 
     def _update_or_append(self, sn: SPIDNodePair, parent_iter, child_iter):
@@ -544,9 +554,8 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(update_ui)
 
-    def _on_refresh_stats_done(self, sender: str, status_msg: str,
-                               dir_stats_dict_by_guid: Dict[GUID, DirectoryStats],
-                               dir_stats_dict_by_uid: Dict[UID, DirectoryStats]):
+    def _on_stats_updated(self, sender: str, status_msg: str,
+                          dir_stats_dict_by_guid: Dict[GUID, DirectoryStats], dir_stats_dict_by_uid: Dict[UID, DirectoryStats]):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         listed in each dict with the current values from the cache."""
         if sender != self.con.tree_id:

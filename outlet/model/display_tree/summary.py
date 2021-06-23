@@ -5,11 +5,10 @@ import util.format
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
-from constants import TreeID, TreeType
+from constants import TreeType
 from model.device import Device
 from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
-from model.node.node import SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
 from model.user_op import DISPLAYED_USER_OP_TYPES
@@ -27,7 +26,10 @@ class TreeSummarizer:
         raise RuntimeError(f'Could not find device with UID: {device_uid}')
 
     @staticmethod
-    def build_tree_summary(tree_id: TreeID, root_sn: SPIDNodePair, tree_meta: ActiveDisplayTreeMeta, device_list: List[Device]):
+    def build_tree_summary(tree_meta: ActiveDisplayTreeMeta, device_list: List[Device]):
+        tree_id = tree_meta.tree_id
+        root_sn = tree_meta.root_sn
+
         uses_uid_key = False
         if tree_meta.filter_state.has_criteria():
             is_filtered = True

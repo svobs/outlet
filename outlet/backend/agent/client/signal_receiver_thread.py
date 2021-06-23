@@ -127,6 +127,8 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['dir_stats_dict_by_uid'] = dir_stats_dict_by_uid
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
+        elif signal == Signal.LOAD_SUBTREE_DONE:
+            kwargs['status_msg'] = signal_msg.status_msg.msg
         elif signal == Signal.DEVICE_UPSERTED:
             kwargs['device'] = self._converter.device_from_grpc(signal_msg.device)
         logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')

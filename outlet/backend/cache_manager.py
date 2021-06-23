@@ -553,8 +553,6 @@ class CacheManager(HasLifecycle):
             # This will be carried across gRPC if needed
             logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_STARTED.name})')
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
-
-        subtree_root_sn: Optional[SPIDNodePair] = None
         
         self.repopulate_dir_stats_for_tree(tree_meta)
 
@@ -575,7 +573,6 @@ class CacheManager(HasLifecycle):
                 subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
                 if not subtree_root_node:
                     raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_id})')
-                subtree_root_sn = SPIDNodePair(spid, subtree_root_node)
 
                 store.populate_filter(tree_meta.filter_state)
 
@@ -585,23 +582,18 @@ class CacheManager(HasLifecycle):
             tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
-            subtree_root_sn: SPIDNodePair = tree_meta.change_tree.get_root_sn()
-
-        # Now that we have all the stats, we can calculate the summary:
-        tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_id, subtree_root_sn, tree_meta, self.get_device_list())
-        logger.debug(f'[{tree_id}] Summary msg = "{tree_meta.summary_msg}"')
 
         # Load and bring up-to-date expanded & selected rows:
         self._active_tree_manager.load_rows_of_interest(tree_id)
 
         if load_request.send_signals:
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_DONE.name})')
-            dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
+            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_DONE.name} with status_msg="{tree_meta.summary_msg}"')
+            dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id, status_msg=tree_meta.summary_msg)
 
     def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta):
         """
-        BE-internal. NOT AN API
+        BE-internal. NOT A CLIENT API
         """
         if tree_meta.is_first_order():
             # Load meta for all nodes:
@@ -611,11 +603,17 @@ class CacheManager(HasLifecycle):
             # Calculate stats for all dir nodes:
             logger.debug(f'[{tree_meta.tree_id}] Refreshing stats for subtree: {tree_meta.root_sn.spid}')
             tree_meta.dir_stats_unfiltered_by_uid = store.generate_dir_stats(tree_meta.root_sn.node, tree_meta.tree_id)
+            tree_meta.dir_stats_unfiltered_by_guid = {}  # just to be sure we don't have old data
         else:
             # ChangeTree
             assert not tree_meta.is_first_order()
             logger.debug(f'[{tree_meta.tree_id}] Tree is a ChangeTree; loading its dir stats')
             tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
+            tree_meta.dir_stats_unfiltered_by_uid = {}
+
+        # Now that we have all the stats, we can calculate the summary:
+        tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_meta, self.get_device_list())
+        logger.debug(f'[{tree_meta.tree_id}] New summary: "{tree_meta.summary_msg}"')
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
         """The FE needs to first call this to ensure the given tree_id has a ActiveDisplayTreeMeta loaded into memory.

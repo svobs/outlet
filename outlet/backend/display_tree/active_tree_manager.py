@@ -140,7 +140,12 @@ class ActiveTreeManager(HasLifecycle):
             for tree_id, guid_set in self._tree_stats_refresh_queue_dict.items():
                 meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
                 if meta:
+                    # Regenerate all the stats (+ status msg) and store the updates in the tree_meta:
                     self.backend.cacheman.repopulate_dir_stats_for_tree(meta)
+
+                    # Push out the updates to all of the affected clients:
+                    dispatcher.send(signal=Signal.STATS_UPDATED, sender=tree_id, status_msg=meta.summary_msg,
+                                    dir_stats_dict_by_guid=meta.dir_stats_unfiltered_by_guid, dir_stats_dict_by_uid=meta.dir_stats_unfiltered_by_uid)
                 else:
                     logger.debug(f'Will skip regeneration of DirStats for tree_id "{tree_id}": tree is no longer registered')
 

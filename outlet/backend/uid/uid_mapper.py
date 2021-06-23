@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 from model.user_op import UserOpType
 from backend.sqlite.uid_path_mapper_db import UidPathMapperDb
 from util import file_util
-from constants import CACHE_WRITE_HOLDOFF_TIME_MS, ROOT_PATH, ROOT_PATH_UID
+from constants import CACHE_WRITE_HOLDOFF_TIME_MS, ROOT_PATH, ROOT_PATH_UID, SUPER_DEBUG_ENABLED
 from model.uid import UID
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
@@ -68,7 +68,8 @@ class UidPathMapper(HasLifecycle):
                     uid = uid_suggestion
                 else:
                     uid = self.uid_generator.next_uid()
-                logger.info(f'New UID {uid} = "{path}"')
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'New UID generated: {uid} = "{path}"')
                 self._add(path, uid)
                 needs_write = True
             elif uid_suggestion and uid_suggestion != uid:

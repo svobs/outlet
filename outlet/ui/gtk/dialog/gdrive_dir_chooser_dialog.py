@@ -85,7 +85,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         Gtk.Dialog.destroy(self)
         self.close()
 
-    def _on_backend_ready(self, sender):
+    def _on_backend_ready(self, sender, status_msg: str):
         if sender != self.tree_id:
             return
         logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Backend load complete! Showing dialog')
