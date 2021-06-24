@@ -555,8 +555,6 @@ class CacheManager(HasLifecycle):
             # This will be carried across gRPC if needed
             logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_STARTED.name})')
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
-        
-        self.repopulate_dir_stats_for_tree(tree_meta)
 
         if tree_meta.is_first_order():
             # Load meta for all nodes:
@@ -568,6 +566,7 @@ class CacheManager(HasLifecycle):
                 assert isinstance(store, GDriveMasterStore)
                 store.load_and_sync_master_tree()
             else:
+                # make sure cache is loaded for relevant subtree:
                 store.load_subtree(spid, tree_id)
 
             if tree_meta.state.root_exists:
@@ -581,9 +580,10 @@ class CacheManager(HasLifecycle):
         else:
             # ChangeTree
             assert not tree_meta.is_first_order()
-            tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
+
+        self.repopulate_dir_stats_for_tree(tree_meta)
 
         # Load and bring up-to-date expanded & selected rows:
         self._row_state_tracking.load_rows_of_interest(tree_id)
