@@ -222,7 +222,8 @@ class GDriveMasterStore(TreeStore):
         self._load_master_cache(sync_latest_changes=True, invalidate_cache=invalidate_cache)
 
     def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
-        logger.debug(f'refresh_subtree_stats(): locked={self._struct_lock.locked()}')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'generate_dir_stats(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             return self._memstore.master_tree.generate_dir_stats(tree_id=tree_id, subtree_root_node=subtree_root_node)
 

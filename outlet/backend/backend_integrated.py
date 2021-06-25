@@ -144,9 +144,6 @@ class BackendIntegrated(OutletBackend):
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         self.cacheman.enqueue_refresh_subtree_task(node_identifier, tree_id)
 
-    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: TreeID):
-        self.cacheman.enqueue_refresh_subtree_stats_task(root_uid, tree_id)
-
     def get_last_pending_op(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self.cacheman.get_last_pending_op_for_node(device_uid, node_uid)
 

@@ -168,10 +168,6 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: TreeID):
-        pass
-
-    @abstractmethod
     def get_last_pending_op(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         pass
 

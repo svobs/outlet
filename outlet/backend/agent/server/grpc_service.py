@@ -63,8 +63,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.cacheman: CacheManager = backend.cacheman
         self.executor: CentralExecutor = backend.executor
 
-        self._cv_has_signal = threading.Condition()
         self._queue_lock = threading.Lock()
+        self._cv_has_signal = threading.Condition(self._queue_lock)
         self._thread_signal_queues: Dict[int, Deque] = {}
         self._shutdown: bool = False
 
@@ -125,14 +125,13 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         if self._shutdown and signal_grpc != Signal.SHUTDOWN_APP:
             return
 
-        with self._queue_lock:
+        with self._cv_has_signal:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Queuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
                              f'{signal_grpc.sender}" to {len(self._thread_signal_queues)} connected clients')
             for queue in self._thread_signal_queues.values():
                 queue.append(signal_grpc)
 
-        with self._cv_has_signal:
             self._cv_has_signal.notifyAll()
 
     def subscribe_to_signals(self, request: Subscribe_Request, context):
@@ -142,10 +141,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             def on_rpc_done():
                 logger.info(f'Client cancelled signal subscription (ThreadID {thread_id})')
                 # remove data structs for client:
-                with self._queue_lock:
-                    del self._thread_signal_queues[thread_id]
-                # notify the thread so it will stop waiting
                 with self._cv_has_signal:
+                    del self._thread_signal_queues[thread_id]
+
+                    # notify the thread so it will stop waiting
                     self._cv_has_signal.notifyAll()
 
             context.add_callback(on_rpc_done)
@@ -164,7 +163,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             while not self._shutdown:
 
                 while True:  # empty the queue
-                    with self._queue_lock:
+                    with self._cv_has_signal:
                         if SUPER_DEBUG_ENABLED:
                             logger.debug(f'Checking signal queue for ThreadID {thread_id}')
                         signal_queue: Optional[Deque] = self._thread_signal_queues.get(thread_id, None)
@@ -174,16 +173,13 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                         if len(signal_queue) > 0:
                             signal: Optional[SignalMsg] = signal_queue.popleft()
                         else:
-                            break
+                            logger.debug(f'Signal queue for ThreadID {thread_id} emptied. Will wait for more signals')
+                            self._cv_has_signal.wait()
 
                     if signal:
                         if SUPER_DEBUG_ENABLED:
                             logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
                         yield signal
-
-                logger.debug(f'Signal queue for ThreadID {thread_id} emptied. Will wait for more signals')
-                with self._cv_has_signal:
-                    self._cv_has_signal.wait()
 
             with self._queue_lock:
                 del self._thread_signal_queues[thread_id]
@@ -449,10 +445,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def start_diff_trees(self, request: StartDiffTrees_Request, context):
         tree_id_struct: DiffResultTreeIds = self.backend.start_diff_trees(request.tree_id_left, request.tree_id_right)
         return StartDiffTrees_Response(tree_id_left=tree_id_struct.tree_id_left, tree_id_right=tree_id_struct.tree_id_right)
-
-    def refresh_subtree_stats(self, request, context):
-        self.backend.cacheman.enqueue_refresh_subtree_stats_task(request.root_uid, request.tree_id)
-        return Empty()
 
     def refresh_subtree(self, request, context):
         node_identifier = self._converter.node_identifier_from_grpc(request.node_identifier)

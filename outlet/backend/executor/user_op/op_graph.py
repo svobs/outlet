@@ -28,7 +28,7 @@ class OpGraph(HasLifecycle):
 
         self._struct_lock = threading.Lock()
 
-        self._cv_can_get = threading.Condition()
+        self._cv_can_get = threading.Condition(self._struct_lock)
         """Used to help consumers block"""
 
         self._node_q_dict: Dict[UID, Deque[OpGraphNode]] = {}
@@ -417,19 +417,18 @@ class OpGraph(HasLifecycle):
         inserted_op_dict: Dict[UID, UserOp] = {}
         discarded_op_dict: Dict[UID, UserOp] = {}
         for node_to_nq in _skip_root(breadth_first_list):
-            with self._struct_lock:
+            with self._cv_can_get:
                 succeeded = self._enqueue_single_node(node_to_nq)
                 if succeeded:
                     inserted_op_dict[node_to_nq.op.op_uid] = node_to_nq.op
                 else:
                     discarded_op_dict[node_to_nq.op.op_uid] = node_to_nq.op
 
+                # notify consumers there is something to get:
+                self._cv_can_get.notifyAll()
+
         logger.debug(f'Done adding batch {batch_uid}')
         self._print_current_state()
-
-        # notify consumers there is something to get:
-        with self._cv_can_get:
-            self._cv_can_get.notifyAll()
 
         return list(inserted_op_dict.values()), list(discarded_op_dict.values())
 
@@ -500,14 +499,13 @@ class OpGraph(HasLifecycle):
                 logger.debug(f'get_next_op(): Discovered shutdown flag was set. Returning None')
                 return None
 
-            with self._struct_lock:
+            with self._cv_can_get:
                 op = self._try_get()
-            if op:
-                logger.info(f'Got next pending op: {op}')
-                return op
-            else:
-                logger.debug(f'No pending ops; sleeping until notified')
-                with self._cv_can_get:
+                if op:
+                    logger.info(f'Got next pending op: {op}')
+                    return op
+                else:
+                    logger.debug(f'No pending ops; sleeping until notified')
                     self._cv_can_get.wait()
 
     def _is_child_of_root(self, node: OpGraphNode) -> bool:
@@ -518,7 +516,7 @@ class OpGraph(HasLifecycle):
         """Ensure that we were expecting this op to be copmleted, and remove it from the tree."""
         logger.debug(f'Entered pop_op() for op {op}')
 
-        with self._struct_lock:
+        with self._cv_can_get:
             if self._outstanding_actions.get(op.op_uid, None):
                 self._outstanding_actions.pop(op.op_uid)
             else:
@@ -612,7 +610,6 @@ class OpGraph(HasLifecycle):
             logger.debug(f'Done with pop_op() for op: {op}')
             self._print_current_state()
 
-        with self._cv_can_get:
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
 

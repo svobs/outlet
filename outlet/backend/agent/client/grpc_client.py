@@ -360,12 +360,6 @@ class BackendGRPCClient(OutletBackend):
         request.tree_id = tree_id
         self.grpc_stub.refresh_subtree(request)
 
-    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: TreeID):
-        request = RefreshSubtreeStats_Request()
-        request.root_uid = root_uid
-        request.tree_id = tree_id
-        self.grpc_stub.refresh_subtree_stats(request)
-
     def get_last_pending_op(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         request = GetLastPendingOp_Request()
         request.device_uid = device_uid

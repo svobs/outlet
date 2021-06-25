@@ -94,11 +94,6 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
                 )
-        self.refresh_subtree_stats = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/refresh_subtree_stats',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtreeStats_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
-                )
         self.get_next_uid = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/get_next_uid',
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
@@ -258,12 +253,6 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def refresh_subtree_stats(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def get_next_uid(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -411,11 +400,6 @@ def add_OutletServicer_to_server(servicer, server):
             'refresh_subtree': grpc.unary_unary_rpc_method_handler(
                     servicer.refresh_subtree,
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
-            ),
-            'refresh_subtree_stats': grpc.unary_unary_rpc_method_handler(
-                    servicer.refresh_subtree_stats,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtreeStats_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
             ),
             'get_next_uid': grpc.unary_unary_rpc_method_handler(
@@ -751,23 +735,6 @@ class Outlet(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/refresh_subtree',
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def refresh_subtree_stats(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/refresh_subtree_stats',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtreeStats_Request.SerializeToString,
             outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

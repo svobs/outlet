@@ -153,11 +153,6 @@ message RefreshSubtree_Request {
 	string tree_id = 2;
 }
 
-message RefreshSubtreeStats_Request {
-	uint32 root_uid = 1;
-	string tree_id = 2;
-}
-
 message DeleteSubtree_Request {
 	uint32 device_uid = 1;
 	repeated uint32 node_uid_list = 2;
@@ -361,7 +356,6 @@ service Outlet {
 	rpc request_display_tree(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
 	rpc refresh_subtree(RefreshSubtree_Request) returns (Empty);
-	rpc refresh_subtree_stats(RefreshSubtreeStats_Request) returns (Empty);
 
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
