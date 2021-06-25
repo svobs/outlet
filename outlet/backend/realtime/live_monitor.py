@@ -9,7 +9,7 @@ from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
 from backend.realtime.local_event_handler import LocalChangeEventHandler
-from constants import TreeID, TreeType
+from constants import SUPER_DEBUG_ENABLED, TreeID, TreeType
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import NodeIdentifier
 from signal_constants import ID_GDRIVE_POLLING_THREAD, Signal
@@ -56,18 +56,27 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalFileChangeBatchingThread
+
+    Local file update notifications tend to be messy, and often we get lots of duplicate notifictations, even during a short period.
+    This thread collects all the updated file paths in a Set, then processes the whole set after a fixed period.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         threading.Thread.__init__(self, target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
-        self._shutdown: bool = False
         self.backend = backend
+        self._cv_can_get = threading.Condition()
         self.local_change_batch_interval_ms: int = ensure_int(self.backend.get_config('cache.monitoring.local_change_batch_interval_ms'))
-        self.change_set: Set = set()
+        self.change_set: Set[str] = set()
 
     def enqueue(self, file_path: str):
-        self.change_set.add(file_path)
+        with self._cv_can_get:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{self.name}] Enqueuing path: "{file_path}"')
+
+            self.change_set.add(file_path)
+
+            self._cv_can_get.notifyAll()
 
     def start(self):
         HasLifecycle.start(self)
@@ -76,15 +85,19 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
     def shutdown(self):
         logger.debug(f'Shutting down {self.name}')
         HasLifecycle.shutdown(self)
-        self._shutdown = True
+
+        with self._cv_can_get:
+            # unblock thread:
+            self._cv_can_get.notifyAll()
 
     def _run(self):
         logger.info(f'Starting {self.name}...')
 
-        while not self._shutdown:
-            # hot swap change set:
-            change_set = self.change_set
-            self.change_set = set()
+        while not self.was_shutdown:
+
+            with self._cv_can_get:
+                change_set = self.change_set
+                self.change_set = set()
 
             count = len(change_set)
             if count > 0:
@@ -97,9 +110,12 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
                     except FileNotFoundError as err:
                         logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
 
-                # TODO: maybe combine with condition variable so we aren't excessively waking
-                logger.debug(f'{self.name}: sleeping for {self.local_change_batch_interval_ms} ms')
+            logger.debug(f'{self.name}: sleeping for {self.local_change_batch_interval_ms} ms')
             time.sleep(self.local_change_batch_interval_ms / 1000.0)
+
+            with self._cv_can_get:
+                if not self.change_set:
+                    self._cv_can_get.wait()
 
 
 class LiveMonitor(HasLifecycle):
@@ -269,4 +285,3 @@ class LiveMonitor(HasLifecycle):
                 logger.debug(f'[{tree_id}] Trying to remove capture which was not found')
                 assert tree_id not in self._active_gdrive_tree_set, \
                     f'Expected not to find "{self._active_gdrive_tree_set}" in active GDrive tree set!'
-

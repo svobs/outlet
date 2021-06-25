@@ -614,7 +614,7 @@ class LocalDiskMasterStore(TreeStore):
             count_attempt = 0
             while os.path.islink(pointer):
                 target = pathlib.Path(os.readlink(pointer)).resolve()
-                logger.debug(f'Resolved link (iteration {count_attempt}): "{pointer}" -> "{target}"')
+                logger.debug(f'Resolved link (depth {count_attempt}): "{pointer}" -> "{target}"')
                 if not os.path.exists(target):
                     logger.warning(f'Broken link, skipping: "{pointer}" -> "{target}"')
                     if pointer != full_path:

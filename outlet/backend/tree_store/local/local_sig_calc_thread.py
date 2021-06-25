@@ -2,6 +2,7 @@ import copy
 import logging
 import time
 
+from constants import SUPER_DEBUG_ENABLED
 from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
 from model.uid import UID
@@ -30,7 +31,8 @@ class SignatureCalcThread(QThread):
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted_in_cache)
 
     def enqueue(self, node: LocalFileNode):
-        logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
         assert not node.md5 and not node.sha256
         super().enqueue(node)
 

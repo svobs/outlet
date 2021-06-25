@@ -2,7 +2,7 @@ import logging
 import os
 from typing import List, Optional, Tuple
 
-from constants import TrashStatus
+from constants import SUPER_DEBUG_ENABLED, TrashStatus
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
@@ -54,7 +54,8 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                 uid = self.backend.cacheman.get_uid_for_local_path(path_so_far)
                 child: LocalNode = self.get_node_for_uid(uid)
                 if not child:
-                    logger.debug(f'Creating dir node: uid={uid} full_path={path_so_far}')
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'Creating dir node: uid={uid} full_path={path_so_far}')
                     node_identifier = LocalNodeIdentifier(full_path=path_so_far, uid=uid, device_uid=root_node_identifier.device_uid)
                     child = LocalDirNode(node_identifier=node_identifier,
                                          parent_uid=parent.uid, trashed=TrashStatus.NOT_TRASHED, is_live=True)

@@ -69,7 +69,7 @@ def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opti
                 if not target:
                     logger.warning(f'Broken link, skipping: "{full_path}" -> "{target}"')
                     return None, None
-                logger.debug(f'Resolved link (iteration {count_attempt}): "{full_path}" -> "{target}"')
+                logger.debug(f'Resolved link (depth {count_attempt}): "{full_path}" -> "{target}"')
                 full_path = target
                 try:
                     md5: Optional[str] = compute_md5(full_path)

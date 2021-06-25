@@ -24,8 +24,8 @@ class QThread(HasLifecycle, threading.Thread, ABC):
         self.initial_sleep_sec: float = initial_sleep_sec
         self._shutdown: bool = False
         self._queue: Deque = deque()
-        self._cv_can_get = threading.Condition()
         self._struct_lock = threading.Lock()
+        self._cv_can_get = threading.Condition(self._struct_lock)
 
     def start(self):
         HasLifecycle.start(self)
@@ -45,10 +45,8 @@ class QThread(HasLifecycle, threading.Thread, ABC):
             self._cv_can_get.notifyAll()
 
     def enqueue(self, item):
-        with self._struct_lock:
-            self._queue.append(item)
-
         with self._cv_can_get:
+            self._queue.append(item)
             self._cv_can_get.notifyAll()
 
     @abstractmethod
@@ -81,4 +79,5 @@ class QThread(HasLifecycle, threading.Thread, ABC):
                 time.sleep(self.initial_sleep_sec)  # in seconds
 
                 with self._cv_can_get:
-                    self._cv_can_get.wait()
+                    if len(self._queue) == 0:  # make extra sure
+                        self._cv_can_get.wait()
