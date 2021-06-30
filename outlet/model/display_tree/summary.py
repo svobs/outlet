@@ -47,7 +47,7 @@ class TreeSummarizer:
             logger.debug(f'[{tree_id}] This is a ChangeTree: it will provide the summary')
             return TreeSummarizer._build_change_tree_summary(tree_meta.change_tree, tree_meta.filter_state, dir_stats_dict, device_list)
 
-        if not root_sn or not root_sn.node:
+        if not tree_meta.root_exists or not root_sn or not root_sn.node:
             logger.debug(f'[{tree_id}] No summary (tree does not exist)')
             return 'Tree does not exist'
 

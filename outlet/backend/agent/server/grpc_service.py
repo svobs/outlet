@@ -466,6 +466,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def get_filter(self, request, context):
         filter_criteria = self.cacheman.get_filter_criteria(request.tree_id)
+        if not filter_criteria:
+            raise RuntimeError(f'get_filter(): no filter found for DisplayTree "{request.tree_id}"')
 
         response = GetFilter_Response()
         self._converter.filter_criteria_to_grpc(filter_criteria, response.filter_criteria)

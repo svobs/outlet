@@ -597,21 +597,24 @@ class CacheManager(HasLifecycle):
         """
         BE-internal. NOT A CLIENT API
         """
-        if tree_meta.is_first_order():
-            # Load meta for all nodes:
-            spid = tree_meta.root_sn.spid
-            store = self._get_store_for_device_uid(spid.device_uid)
+        if tree_meta.root_exists:
+            if tree_meta.is_first_order():
+                # Load meta for all nodes:
+                spid = tree_meta.root_sn.spid
+                store = self._get_store_for_device_uid(spid.device_uid)
 
-            # Calculate stats for all dir nodes:
-            logger.debug(f'[{tree_meta.tree_id}] Refreshing stats for subtree: {tree_meta.root_sn.spid}')
-            tree_meta.dir_stats_unfiltered_by_uid = store.generate_dir_stats(tree_meta.root_sn.node, tree_meta.tree_id)
-            tree_meta.dir_stats_unfiltered_by_guid = {}  # just to be sure we don't have old data
+                # Calculate stats for all dir nodes:
+                logger.debug(f'[{tree_meta.tree_id}] Refreshing stats for subtree: {tree_meta.root_sn.spid}')
+                tree_meta.dir_stats_unfiltered_by_uid = store.generate_dir_stats(tree_meta.root_sn.node, tree_meta.tree_id)
+                tree_meta.dir_stats_unfiltered_by_guid = {}  # just to be sure we don't have old data
+            else:
+                # ChangeTree
+                assert not tree_meta.is_first_order()
+                logger.debug(f'[{tree_meta.tree_id}] Tree is a ChangeTree; loading its dir stats')
+                tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
+                tree_meta.dir_stats_unfiltered_by_uid = {}
         else:
-            # ChangeTree
-            assert not tree_meta.is_first_order()
-            logger.debug(f'[{tree_meta.tree_id}] Tree is a ChangeTree; loading its dir stats')
-            tree_meta.dir_stats_unfiltered_by_guid = tree_meta.change_tree.generate_dir_stats()
-            tree_meta.dir_stats_unfiltered_by_uid = {}
+            logger.debug(f'[{tree_meta.tree_id}] No DirStats generated: tree does not exist')
 
         # Now that we have all the stats, we can calculate the summary:
         tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_meta, self.get_device_list())
