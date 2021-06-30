@@ -19,7 +19,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetSnFor_Request, GetUidForLocalPath_Request, \
-    PutConfig_Request, RefreshSubtree_Request, RefreshSubtreeStats_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
+    PutConfig_Request, RefreshSubtree_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
     SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
 from constants import IconId, SUPER_DEBUG_ENABLED, TreeID, ZEROCONF_SERVICE_TYPE
@@ -83,23 +83,19 @@ class BackendGRPCClient(OutletBackend):
         self.forward_signal_to_server(signal=Signal.DEREGISTER_DISPLAY_TREE)
         self.forward_signal_to_server(signal=Signal.EXIT_DIFF_MODE)
 
-        # TODO: hmm...looks like a chicken & egg problem here. Ideally we should get the config from the server
+        # TODO: make these into cmd line args
         use_fixed_address = ensure_bool(self._app_config.get('agent.grpc.use_fixed_address'))
         if use_fixed_address:
             address = self._app_config.get('agent.grpc.fixed_address')
             port = ensure_int(self._app_config.get('agent.grpc.fixed_port'))
-            logger.debug(f'Config specifies fixed server address = {address}:{port}')
+            logger.info(f'Config specifies fixed server address = {address}:{port}')
             self.connect(address, port)
         else:
             zeroconf_timeout_sec = int(self._app_config.get('thin_client.zeroconf_discovery_timeout_sec'))
-            zeroconf = Zeroconf()
-            try:
-                listener = OutletZeroconfListener(zeroconf, self)
-                ServiceBrowser(zeroconf, ZEROCONF_SERVICE_TYPE, listener)
+
+            with OutletZeroconfListener(self) as listener:
                 if not listener.wait_for_successful_connect(zeroconf_timeout_sec):
                     raise RuntimeError(f'Timed out looking for server (timeout={zeroconf_timeout_sec}s)!')
-            finally:
-                zeroconf.close()
 
     def connect(self, address, port):
         grpc_server_address = f'{address}:{port}'

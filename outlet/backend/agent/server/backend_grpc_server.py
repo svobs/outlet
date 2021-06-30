@@ -124,6 +124,6 @@ class OutletAgent(BackendIntegrated):
                 for j in iface:
                     if j['addr'] != LOOPBACK_ADDRESS:
                         address_list.append(j['addr'])
-                        print(f'Found local address: {j["addr"]}')
+                        logger.info(f'Found local address: {j["addr"]}')
 
         return address_list

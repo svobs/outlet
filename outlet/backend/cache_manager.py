@@ -248,7 +248,7 @@ class CacheManager(HasLifecycle):
                 reader.write(device_uuid)
                 reader.write('\n')
                 reader.flush()
-        logger.info(f'Device UUID is: {device_uuid}')
+        logger.debug(f'LocalDisk device UUID is: {device_uuid}')
         return device_uuid
 
     # TODO: when do we create a new device?
@@ -323,7 +323,7 @@ class CacheManager(HasLifecycle):
             self._write_new_device(device)
 
         if self._this_disk_local_store:
-            logger.debug(f'Found this_local_disk in registry')
+            logger.info(f'Found this_local_disk in registry with UID {self._this_disk_local_store.device_uid}')
         else:
             # Need to create new device for this disk (first run)
             device = Device(NULL_UID, self._device_uuid, TreeType.LOCAL_DISK, "My Local Disk")
@@ -334,7 +334,7 @@ class CacheManager(HasLifecycle):
 
         # TODO: add true support for multiple GDrives
         if master_gdrive:
-            logger.debug(f'Found master_gdrive in registry')
+            logger.info(f'Found master_gdrive in registry with device UID {master_gdrive.device_uid}')
         else:
             device = Device(NULL_UID, 'GDriveTODO', TreeType.GDRIVE, "My Google Drive")
             self._write_new_device(device)

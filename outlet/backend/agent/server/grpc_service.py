@@ -1,44 +1,33 @@
 import io
 import logging
 import threading
-
-from pydispatch import dispatcher
-
 from collections import deque
 from typing import Deque, Dict, Optional, Set
 
-from backend.backend_integrated import BackendIntegrated
-from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
-from backend.executor.central import CentralExecutor
-from backend.cache_manager import CacheManager
-from constants import SUPER_DEBUG_ENABLED
+from pydispatch import dispatcher
+
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
-    GenerateMergeTree_Request, \
-    GetAncestorList_Response, GetChildList_Response, \
-    GetConfig_Request, GetConfig_Response, GetDeviceList_Request, GetDeviceList_Response, GetIcon_Request, GetIcon_Response, \
-    GetRowsOfInterest_Request, \
-    GetRowsOfInterest_Response, \
-    GetFilter_Response, \
-    GetLastPendingOp_Request, \
-    GetLastPendingOp_Response, \
-    GetNextUid_Response, \
-    GetNodeForUid_Request, \
-    GetSnFor_Request, GetSnFor_Response, GetUidForLocalPath_Request, \
-    GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, RemoveExpandedRow_Response, \
-    RequestDisplayTree_Response, \
-    SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
-    SingleNode_Response, \
-    StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
-    StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response
+    GenerateMergeTree_Request, GetAncestorList_Response, GetChildList_Response, GetConfig_Request, GetConfig_Response, GetDeviceList_Request, \
+    GetDeviceList_Response, GetFilter_Response, GetIcon_Request, GetIcon_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, \
+    GetNextUid_Response, GetNodeForUid_Request, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetSnFor_Request, GetSnFor_Response, \
+    GetUidForLocalPath_Request, GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, \
+    RemoveExpandedRow_Response, RequestDisplayTree_Response, SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
+    SingleNode_Response, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, StartSubtreeLoad_Response, Subscribe_Request, \
+    UpdateFilter_Request, UpdateFilter_Response
+from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
+from backend.backend_integrated import BackendIntegrated
+from backend.cache_manager import CacheManager
+from backend.executor.central import CentralExecutor
+from backend.uid.uid_generator import UidGenerator
+from constants import SUPER_DEBUG_ENABLED
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
-from model.node.node import Node, SPIDNodePair
+from model.node.node import SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
-from backend.uid.uid_generator import UidGenerator
 from model.user_op import UserOp
 from signal_constants import ID_GLOBAL_CACHE, Signal
 from util.has_lifecycle import HasLifecycle
@@ -300,7 +289,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         else:
             dir_stats_dict_by_uid = {}  # for safety, in case it's None
 
-        logger.info(f'[{sender}] Pushing DirStats update across gRPC with {len(dir_stats_dict_by_guid)} GUID & {len(dir_stats_dict_by_uid)} UID stats')
+        logger.info(f'[{sender}] Pushing DirStats update across gRPC with {len(dir_stats_dict_by_guid)} GUID, {len(dir_stats_dict_by_uid)} UID stats')
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_load_subtree_done(self, sender: str, status_msg: str):
