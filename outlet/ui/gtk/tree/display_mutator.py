@@ -8,7 +8,7 @@ from typing import Deque, Dict, Iterable, List, Set, Union
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, SUPER_DEBUG_ENABLED, TreeDisplayMode
+from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, SUPER_DEBUG_ENABLED, TreeDisplayMode, TreeLoadState
 from error import ResultsExceededError
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest
@@ -80,7 +80,7 @@ class DisplayMutator(HasLifecycle):
             self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
 
         # TODO: The 'sender' arg fails when relayed from gRPC! Dump PyDispatcher and replace with homegrown code
-        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_load_subtree_done)
+        self.connect_dispatch_listener(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
         self.connect_dispatch_listener(signal=Signal.FILTER_UI_TREE, receiver=self._on_filter_ui_tree_requested)
         self.connect_dispatch_listener(signal=Signal.EXPAND_ALL, receiver=self._on_expand_all_requested)
         self.connect_dispatch_listener(signal=Signal.EXPAND_AND_SELECT_NODE, receiver=self._expand_and_select_node)
@@ -115,16 +115,14 @@ class DisplayMutator(HasLifecycle):
             logger.exception(msg)
             GlobalActions.display_error_in_ui(msg, repr(err))
 
-    def _on_load_subtree_done(self, sender, status_msg: str):
-        """Just populates the tree with nodes. Executed asyncly via Signal.LOAD_SUBTREE_DONE"""
-        if sender == self.con.tree_id:
-            logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}" with status="{status_msg}"')
+    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str):
+        if sender != self.con.tree_id:
+            return
+        logger.debug(f'[{self.con.tree_id}] Got signal "{Signal.TREE_LOAD_STATE_UPDATED.name}" '
+                     f'with tree_load_state="{tree_load_state.name}" status_msg="{status_msg}"')
+        GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
-            def do_in_ui():
-                self.con.status_bar.set_label(status_msg)
-
-            GLib.idle_add(do_in_ui)
-
+        if tree_load_state == TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED or tree_load_state == TreeLoadState.VISIBLE_FILTERED_NODES_LOADED:
             logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
             dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 

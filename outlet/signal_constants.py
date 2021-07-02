@@ -47,11 +47,8 @@ class Signal(IntEnum):
     SHUTDOWN_APP = 34
     DEREGISTER_DISPLAY_TREE = 35
 
-    # --- Tree actions: notifications ---
-    LOAD_SUBTREE_STARTED = 40
-    """Fired by the backend when it has begun to load a subtree from cache"""
-    LOAD_SUBTREE_DONE = 41
-    """Fired by the backend when it has finsished loading a subtree from cache"""
+    TREE_LOAD_STATE_UPDATED = 40
+    """Fired by the backend each time the TreeLoadState changes for a given tree"""
     NODE_EXPANSION_TOGGLED = 42
     NODE_EXPANSION_DONE = 43
     DISPLAY_TREE_CHANGED = 44
@@ -95,9 +92,6 @@ class Signal(IntEnum):
     SET_PROGRESS_TEXT = 102
     PROGRESS_MADE = 103
     STOP_PROGRESS = 104
-
-    # --- Status bar ---
-    SET_STATUS = 105
 
     # gRPC, sent from server to client
     WELCOME = 200

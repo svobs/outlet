@@ -24,7 +24,7 @@ from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidChangeTreeMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
-    SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType, UID_PATH_FILE_NAME
+    SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeLoadState, TreeType, UID_PATH_FILE_NAME
 from error import CacheNotLoadedError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
@@ -537,6 +537,7 @@ class CacheManager(HasLifecycle):
 
     def load_data_for_display_tree(self, load_request: LoadRequest):
         """
+        TODO: update these docs
         Executed asyncly via the LoadRequestThread.
             1. We send LOAD_SUBTREE_STARTED first
             2. Ensure the primary meta is loaded from disk for all nodes in the subtree
@@ -553,8 +554,8 @@ class CacheManager(HasLifecycle):
 
         if load_request.send_signals:
             # This will be carried across gRPC if needed
-            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_STARTED.name})')
-            dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
+            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.LOAD_STARTED, status_msg='Loading...')
 
         if tree_meta.is_first_order():
             # Load meta for all nodes:
@@ -589,9 +590,17 @@ class CacheManager(HasLifecycle):
         self._row_state_tracking.load_rows_of_interest(tree_id)
 
         if load_request.send_signals:
+            # FIXME: this is just a hack for now
+            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
+                         f' tree_load_state={TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED.name} status_msg="{tree_meta.summary_msg}"')
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED,
+                            status_msg=tree_meta.summary_msg)
+
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-            logger.debug(f'[{tree_id}] Sending signal {Signal.LOAD_SUBTREE_DONE.name} with status_msg="{tree_meta.summary_msg}"')
-            dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id, status_msg=tree_meta.summary_msg)
+            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
+                         f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
+                            status_msg=tree_meta.summary_msg)
 
     def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta):
         """

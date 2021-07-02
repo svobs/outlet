@@ -6,6 +6,7 @@ from pydispatch import dispatcher
 
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
+from constants import TreeLoadState
 from model.display_tree.display_tree import DisplayTree
 from model.node.directory_stats import DirectoryStats
 from model.node_identifier import GUID
@@ -111,8 +112,6 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         elif signal == Signal.NODE_UPSERTED or signal == Signal.NODE_REMOVED:
             kwargs['sn'] = self._converter.sn_from_grpc(signal_msg.sn)
             kwargs['parent_guid'] = signal_msg.parent_guid
-        elif signal == Signal.SET_STATUS:
-            kwargs['status_msg'] = signal_msg.status_msg.msg
         elif signal == Signal.STATS_UPDATED:
             kwargs['status_msg'] = signal_msg.stats_update.status_msg
             dir_stats_dict_by_guid: Dict[GUID, DirectoryStats] = {}
@@ -127,8 +126,9 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['dir_stats_dict_by_uid'] = dir_stats_dict_by_uid
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
-        elif signal == Signal.LOAD_SUBTREE_DONE:
-            kwargs['status_msg'] = signal_msg.status_msg.msg
+        elif signal == Signal.TREE_LOAD_STATE_UPDATED:
+            kwargs['tree_load_state'] = TreeLoadState(signal_msg.tree_load_update.load_state_int)
+            kwargs['status_msg'] = signal_msg.tree_load_update.status_msg
         elif signal == Signal.DEVICE_UPSERTED:
             kwargs['device'] = self._converter.device_from_grpc(signal_msg.device)
         logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')

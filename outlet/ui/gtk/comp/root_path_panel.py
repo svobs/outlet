@@ -2,7 +2,7 @@ import logging
 import os
 from typing import List, Optional
 
-from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeType
+from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeLoadState, TreeType
 from model.device import Device
 from model.display_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
@@ -91,7 +91,7 @@ class RootPathPanel(HasLifecycle):
     def start(self):
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
-        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_load_started)
+        self.connect_dispatch_listener(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_rootpanel)
         logger.debug(f'[{self.con.tree_id}] RootPathPanel listeners connected')
 
@@ -361,12 +361,12 @@ class RootPathPanel(HasLifecycle):
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
-    def _on_load_started(self, sender):
+    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str):
         if sender != self.con.tree_id:
             return
 
-        logger.debug(f'[{self.con.tree_id}] Got signal "{Signal.LOAD_SUBTREE_STARTED.name}"')
-        if self.con.get_tree().is_needs_manual_load():
+        logger.debug(f'[{self.con.tree_id}] Got signal "{Signal.TREE_LOAD_STATE_UPDATED.name} with state={tree_load_state.name}"')
+        if tree_load_state == TreeLoadState.LOAD_STARTED and self.con.get_tree().is_needs_manual_load():
             self.con.get_tree().set_needs_manual_load(False)
             # Hide Refresh button
             GLib.idle_add(self._redraw_root_display)

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
-from constants import TreeID
+from constants import TreeID, TreeLoadState
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
@@ -56,10 +56,10 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
         # Start listening BEFORE calling backend to do the load
         dispatcher.connect(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_selection_changed)
-        dispatcher.connect(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_backend_ready)
+        dispatcher.connect(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
         dispatcher.connect(signal=Signal.POPULATE_UI_TREE_DONE, receiver=self._on_populate_complete)
 
-        # This will start the load process and send us a Signal.LOAD_SUBTREE_DONE when done:
+        # This will start the load process and send us a Signal.TREE_LOAD_STATE_UPDATED with TreeLoadState.COMPLETELY_DONE when done:
         tree: DisplayTree = parent_win.app.backend.create_display_tree_for_gdrive_select(device_uid)
         assert tree, 'create_display_tree_for_gdrive_select() returned None for tree!'
         # Prevent dialog from stepping on existing trees by giving it its own ID:
@@ -78,18 +78,19 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             self.con = None
 
         dispatcher.disconnect(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_selection_changed)
-        dispatcher.disconnect(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_backend_ready)
+        dispatcher.disconnect(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
         dispatcher.disconnect(signal=Signal.POPULATE_UI_TREE_DONE, receiver=self._on_populate_complete)
 
         # call super method to destroy dialog
         Gtk.Dialog.destroy(self)
         self.close()
 
-    def _on_backend_ready(self, sender, status_msg: str):
+    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str):
         if sender != self.tree_id:
             return
-        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Backend load complete! Showing dialog')
-        GLib.idle_add(self.show_all)
+        if tree_load_state == TreeLoadState.COMPLETELY_LOADED:
+            logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Backend load complete! Showing dialog')
+            GLib.idle_add(self.show_all)
 
     def _on_selection_changed(self, sender, sn_list: List[SPIDNodePair]):
         if sender != self.tree_id:

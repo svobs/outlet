@@ -200,6 +200,11 @@ message StatsUpdate {
 	string status_msg = 3;
 }
 
+message TreeLoadUpdate {
+	uint32 load_state_int = 1;
+	string status_msg = 2;
+}
+
 message SignalMsg {
 	uint32 sig_int = 1;
 	string sender = 2;
@@ -213,7 +218,7 @@ message SignalMsg {
 		PlayState play_state = 13;
 		ToggleUiEnablement ui_enablement = 14;
 		SPIDNodePair sn = 15;  // for NODE_UPSERTED, NODE_REMOVED
-		StatusMsg status_msg = 17;  // for SET_STATUS, LOAD_SUBTREE_DONE
+		TreeLoadUpdate tree_load_update = 17;  // for TREE_LOAD_STATE_UPDATED
 		DownloadMsg download_msg = 18;
 		StatsUpdate stats_update = 19;
 		Device device = 20;
@@ -228,10 +233,6 @@ message DualDisplayTree {
 
 message DownloadMsg {
 	string filename = 1;
-}
-
-message StatusMsg {
-	string msg = 1;
 }
 
 message SendSignalResponse {

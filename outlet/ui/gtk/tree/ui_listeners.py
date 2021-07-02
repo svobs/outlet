@@ -5,7 +5,7 @@ import gi
 from pydispatch import dispatcher
 
 from backend.diff.change_maker import SPIDNodePair
-from constants import TreeID, TreeType
+from constants import TreeID, TreeLoadState, TreeType
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import GUID
@@ -55,9 +55,6 @@ class TreeUiListeners(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
 
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_checkroot)
-
-        # Status bar
-        self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
 
         if self.con.treeview_meta.can_modify_tree:
             self.connect_dispatch_listener(signal=Signal.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
@@ -224,13 +221,6 @@ class TreeUiListeners(HasLifecycle):
         else:
             # Just wipe out the old root and clear the tree
             self.con.set_tree(tree)
-
-    # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
-    def _on_set_status(self, sender, status_msg):
-        if sender != self.con.tree_id:
-            return
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.SET_STATUS.name}" with msg: {status_msg}')
-        GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
     def _on_enable_ui_toggled(self, sender, enable):
         # Enable/disable listeners:

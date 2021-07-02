@@ -20,7 +20,7 @@ from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
 from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
-from constants import SUPER_DEBUG_ENABLED
+from constants import SUPER_DEBUG_ENABLED, TreeLoadState
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -69,7 +69,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_ui_enablement_toggled)
         self.connect_dispatch_listener(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
-        self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, receiver=self._on_gdrive_download_done)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_trees_done)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_CANCELLED, receiver=self._on_diff_trees_cancelled)
@@ -80,10 +79,9 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.DEVICE_UPSERTED, receiver=self._on_device_upserted)
         self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_stats_updated)
-        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_load_subtree_done)
+        self.connect_dispatch_listener(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
 
         # simple:
-        self.forward_signal_to_clients(signal=Signal.LOAD_SUBTREE_STARTED)
         self.forward_signal_to_clients(signal=Signal.DIFF_TREES_FAILED)
         self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
         self.forward_signal_to_clients(signal=Signal.SHUTDOWN_APP)
@@ -292,14 +290,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         logger.info(f'[{sender}] Pushing DirStats update across gRPC with {len(dir_stats_dict_by_guid)} GUID, {len(dir_stats_dict_by_uid)} UID stats')
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_load_subtree_done(self, sender: str, status_msg: str):
-        signal = SignalMsg(sig_int=Signal.LOAD_SUBTREE_DONE, sender=sender)
-        signal.status_msg.msg = status_msg
-        self._send_grpc_signal_to_all_clients(signal)
-
-    def _on_set_status(self, sender: str, status_msg: str):
-        signal = SignalMsg(sig_int=Signal.SET_STATUS, sender=sender)
-        signal.status_msg.msg = status_msg
+    def _on_load_state_updated(self, sender: str, tree_load_state: TreeLoadState, status_msg: str):
+        signal = SignalMsg(sig_int=Signal.TREE_LOAD_STATE_UPDATED, sender=sender)
+        signal.tree_load_update.load_state_int = tree_load_state.value
+        signal.tree_load_update.status_msg = status_msg
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_gdrive_download_done(self, sender, filename: str):
