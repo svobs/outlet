@@ -1,13 +1,14 @@
 import threading
 import logging
+from collections import deque
 from concurrent.futures import Future
-from typing import Optional
+from typing import Deque, Optional
 
 from pydispatch import dispatcher
 
 from backend.diff.task.tree_diff_task import TreeDiffTask
 from backend.executor.command.cmd_executor import CommandExecutor
-from constants import COMMAND_EXECUTION_TIMEOUT_SEC
+from constants import COMMAND_EXECUTION_TIMEOUT_SEC, EngineSummaryState
 from util.task_runner import TaskRunner
 from global_actions import GlobalActions
 from model.display_tree.build_struct import DiffResultTreeIds
@@ -27,6 +28,7 @@ class CentralExecutor(HasLifecycle):
     Half-baked proto-module which will at least let me see all execution in one place
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         self.backend = backend
@@ -36,8 +38,35 @@ class CentralExecutor(HasLifecycle):
         self.enable_op_execution = backend.get_config('executor.enable_op_execution')
         self._lock = threading.Lock()
 
+        # -- QUEUES --
+
+        self._load_request_priority0_queue: Deque = deque()
+        """Highest priority load requests: immediately visible nodes in UI tree.
+         For user-initated refresh requests, this queue will be used if the nodes are already visible."""
+
+        self._load_request_priority1_queue: Deque = deque()
+        """Second highest priority load requests: visible if filter toggled"""
+
+        self._load_request_priority2_queue: Deque = deque()
+        """Third highest priority load requests: dir in UI tree but not yet visible, and not yet in cache.
+        For user-initated refresh requests, this queue will be used if the nodes are not already visible."""
+
+        self._cache_load_request_queue: Deque = deque()
+        """Fourth highest priority load requests: cache loads from disk into memory (such as during startup)"""
+
+        self._gdrive_download_whole_tree_queue: Deque = deque()
+        """Fifth highest priority load requests: donwloading the whole GDrive tree in chunks of nodes."""
+        # TODO: maybe combine this with _cache_load_request_queue
+
+        self._signature_calc_queue: Deque = deque()
+        """Signature calculations"""
+
+        # Not shown: Op Execution (popped from OpGraph via OpExecutionThread, which blocks until it gets a command)
+
+        # -- End QUEUES --
+
         self._op_execution_thread: Optional[threading.Thread] = None
-        """Executes changes as needed in its own thread, which blocks until a change is available."""
+        """Executes UserOps as needed in its own thread, which blocks until a UserOp is available."""
 
     def start(self):
         logger.debug('Central Executor starting')
@@ -52,6 +81,26 @@ class CentralExecutor(HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._pause_op_execution)
         self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._start_op_execution)
+
+    def get_engine_summary_state(self) -> EngineSummaryState:
+        with self._lock:
+            if len(self._cache_load_request_queue) > 0 or len(self._gdrive_download_whole_tree_queue) > 0:
+                # still starting up
+                return EngineSummaryState.RED
+
+            total_enqueued = len(self._load_request_priority0_queue) \
+                             + len(self._load_request_priority1_queue) \
+                             + len(self._load_request_priority2_queue) \
+                             + len(self._signature_calc_queue)
+
+            if total_enqueued > 0:
+                return EngineSummaryState.YELLOW
+
+            pending_op_count = self.backend.cacheman.get_pending_op_count()
+            if pending_op_count > 0:
+                return EngineSummaryState.YELLOW
+
+            return EngineSummaryState.GREEN
 
     def submit_async_task(self, task_func, *args) -> Future:
         """Will expand on this later."""

@@ -50,6 +50,16 @@ class OpGraph(HasLifecycle):
             # unblock any get() task which is waiting
             self._cv_can_get.notifyAll()
 
+    def __len__(self):
+        with self._struct_lock:
+            op_set = set()
+            # '_node_q_dict' must contain the same number of nodes as the graph, but should be slightly more efficient to iterate over (maybe)
+            for node_uid, deque in self._node_q_dict.items():
+                for node in deque:
+                    op_set.add(node.op.op_uid)
+
+            return len(op_set)
+
     def _print_current_state(self):
         graph_line_list = self._graph_root.print_recursively()
 

@@ -46,8 +46,6 @@ class BackendIntegrated(OutletBackend):
 
         self.executor.start()
 
-        self.connect_dispatch_listener(signal=Signal.ENQUEUE_UI_TASK, receiver=self.executor.submit_async_task)
-
         # Kick off cache load now that we have a progress bar
         dispatcher.send(Signal.START_CACHEMAN, sender=ID_CENTRAL_EXEC)
 

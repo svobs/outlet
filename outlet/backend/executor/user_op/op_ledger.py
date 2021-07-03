@@ -354,6 +354,9 @@ class OpLedger(HasLifecycle):
 
         return self._cmd_builder.build_command(op)
 
+    def get_pending_op_count(self) -> int:
+        return len(self._op_graph)
+
     def finish_command(self, command: Command):
         logger.debug(f'Archiving op: {command.op}')
         self._disk_store.archive_pending_ops_to_disk([command.op])

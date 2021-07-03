@@ -177,6 +177,12 @@ class TreeLoadState(IntEnum):
     COMPLETELY_LOADED = 10  # final state
 
 
+class EngineSummaryState(IntEnum):
+    RED = 0
+    YELLOW = 1
+    GREEN = 2
+
+
 # --- FRONT END ONLY ---
 
 APP_NAME = 'Outlet'
