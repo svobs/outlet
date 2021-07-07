@@ -528,7 +528,7 @@ class CacheManager(HasLifecycle):
     def enqueue_load_tree_task(self, tree_id: TreeID, send_signals: bool):
         """Called from backend.start_subtree_load(). See load_data_for_display_tree() below."""
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, False, self.load_data_for_display_tree, tree_id, send_signals)
+        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, True, self.load_data_for_display_tree, tree_id, send_signals)
 
     def load_data_for_display_tree(self, tree_id: TreeID, send_signals: bool):
         """
@@ -663,7 +663,7 @@ class CacheManager(HasLifecycle):
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
         # TODO: split this in LOAD_0 and LOAD_3 tasks
-        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, False, self._refresh_subtree, node_identifier, tree_id)
+        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, True, self._refresh_subtree, node_identifier, tree_id)
 
     # PersistedCacheInfo stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
