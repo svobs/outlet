@@ -31,6 +31,7 @@ class OpGraph(HasLifecycle):
         self._cv_can_get = threading.Condition(self._struct_lock)
         """Used to help consumers block"""
 
+        # FIXME: add another layer of this for device_uid
         self._node_q_dict: Dict[UID, Deque[OpGraphNode]] = {}
         """Contains entries for all nodes have pending ops. Each entry has a queue of pending ops for that target node"""
 
@@ -517,6 +518,20 @@ class OpGraph(HasLifecycle):
                 else:
                     logger.debug(f'No pending ops; sleeping until notified')
                     self._cv_can_get.wait()
+
+    def get_next_op_nowait(self) -> Optional[UserOp]:
+        """Same as get_next_op(), but returns immediately"""
+        if self.was_shutdown:
+            logger.debug(f'get_next_op(): Discovered shutdown flag was set. Returning None')
+            return None
+
+        with self._cv_can_get:
+            op = self._try_get()
+            if op:
+                logger.info(f'Got next pending op: {op}')
+                return op
+
+        return None
 
     def _is_child_of_root(self, node: OpGraphNode) -> bool:
         parent = node.get_first_parent()

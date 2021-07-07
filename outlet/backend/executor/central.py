@@ -1,23 +1,36 @@
-import threading
 import logging
+import threading
 from collections import deque
 from concurrent.futures import Future
-from typing import Deque, Optional
+from enum import IntEnum
+from functools import partial
+from queue import Empty, Queue
+from typing import Deque, Dict, Optional
+from uuid import UUID
 
 from pydispatch import dispatcher
 
-from backend.diff.task.tree_diff_task import TreeDiffTask
 from backend.executor.command.cmd_executor import CommandExecutor
-from constants import COMMAND_EXECUTION_TIMEOUT_SEC, EngineSummaryState
-from util.task_runner import TaskRunner
+from constants import CENTRAL_EXEC_THREAD_NAME, EngineSummaryState, OP_EXECUTION_THREAD_NAME, SUPER_DEBUG_ENABLED, \
+    TASK_RUNNER_MAX_WORKERS
 from global_actions import GlobalActions
-from model.display_tree.build_struct import DiffResultTreeIds
-from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_DIFF_TREE, ID_LEFT_TREE, ID_RIGHT_DIFF_TREE, ID_RIGHT_TREE, Signal
+from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
+from util.task_runner import Task, TaskRunner
 
 logger = logging.getLogger(__name__)
 
-OP_EXECUTION_THREAD_NAME = 'OpExecutionThread'
+TASK_EXEC_IMEOUT = 30
+
+
+class ExecPriority(IntEnum):
+    LOAD_0 = 1
+    LOAD_1 = 2
+    LOAD_2 = 3
+    CACHE_LOAD = 4
+    LIVE_UPDATE = 5
+    SIGNATURE_CALC = 6
+    USER_OP_EXEC = 7
 
 
 class CentralExecutor(HasLifecycle):
@@ -35,38 +48,41 @@ class CentralExecutor(HasLifecycle):
         self._command_executor = CommandExecutor(self.backend)
         self._global_actions = GlobalActions(self.backend)
         self._be_task_runner = TaskRunner()
+        self._running_task_deque: Deque[UUID] = deque()
         self.enable_op_execution = backend.get_config('executor.enable_op_execution')
         self._lock = threading.Lock()
+        self._running_task_cv = threading.Condition(self._lock)
 
         # -- QUEUES --
+        self._exec_queue_dict: Dict[ExecPriority, Queue[Task]] = {
 
-        self._load_request_priority0_queue: Deque = deque()
-        """Highest priority load requests: immediately visible nodes in UI tree.
-         For user-initated refresh requests, this queue will be used if the nodes are already visible."""
+            # Highest priority load requests: immediately visible nodes in UI tree.
+            # For user-initiated refresh requests, this queue will be used if the nodes are already visible.
+            ExecPriority.LOAD_0: Queue[Task](maxsize=1),
 
-        self._load_request_priority1_queue: Deque = deque()
-        """Second highest priority load requests: visible if filter toggled"""
+            # Second highest priority load requests: visible if filter toggled
+            ExecPriority.LOAD_1: Queue[Task](maxsize=1),
 
-        self._load_request_priority2_queue: Deque = deque()
-        """Third highest priority load requests: dir in UI tree but not yet visible, and not yet in cache.
-        For user-initated refresh requests, this queue will be used if the nodes are not already visible."""
+            # Third highest priority load requests: dir in UI tree but not yet visible, and not yet in cache.
+            # For user-initiated refresh requests, this queue will be used if the nodes are not already visible.
+            ExecPriority.LOAD_2: Queue[Task](maxsize=1),
 
-        self._cache_load_request_queue: Deque = deque()
-        """Fourth highest priority load requests: cache loads from disk into memory (such as during startup)"""
+            # Fourth highest priority load requests: cache loads from disk into memory (such as during startup), as well as GDrive whole tree
+            # downloads (in chunks).
+            ExecPriority.CACHE_LOAD: Queue[Task](),
 
-        self._gdrive_download_whole_tree_queue: Deque = deque()
-        """Fifth highest priority load requests: donwloading the whole GDrive tree in chunks of nodes."""
-        # TODO: maybe combine this with _cache_load_request_queue
+            # Updates to the cache based on disk monitoring, in batches:
+            ExecPriority.LIVE_UPDATE: Queue[Task](),
 
-        self._signature_calc_queue: Deque = deque()
-        """Signature calculations"""
+            # Signature calculations: IO-dominant
+            ExecPriority.SIGNATURE_CALC: Queue[Task](),
 
-        # Not shown: Op Execution (popped from OpGraph via OpExecutionThread, which blocks until it gets a command)
+            # This queue stores operations like "resume pending ops on startup", but we also consult the OpLedger
+            ExecPriority.USER_OP_EXEC: Queue[Task](),
+        }
 
-        # -- End QUEUES --
-
-        self._op_execution_thread: Optional[threading.Thread] = None
-        """Executes UserOps as needed in its own thread, which blocks until a UserOp is available."""
+        self._central_exec_thread: threading.Thread = threading.Thread(target=self._run_central_exec_thread,
+                                                                       name=CENTRAL_EXEC_THREAD_NAME, daemon=True)
 
     def start(self):
         logger.debug('Central Executor starting')
@@ -74,39 +90,13 @@ class CentralExecutor(HasLifecycle):
 
         self._global_actions.start()
 
-        if self.enable_op_execution:
-            self.start_op_execution_thread()
-        else:
-            logger.warning(f'{self._op_execution_thread.name} is disabled!')
+        self._central_exec_thread.start()
+
+        if not self.enable_op_execution:
+            logger.warning(f'{OP_EXECUTION_THREAD_NAME} is disabled!')
 
         self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._pause_op_execution)
         self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._start_op_execution)
-
-    def get_engine_summary_state(self) -> EngineSummaryState:
-        with self._lock:
-            if len(self._cache_load_request_queue) > 0 or len(self._gdrive_download_whole_tree_queue) > 0:
-                # still starting up
-                return EngineSummaryState.RED
-
-            total_enqueued = len(self._load_request_priority0_queue) \
-                             + len(self._load_request_priority1_queue) \
-                             + len(self._load_request_priority2_queue) \
-                             + len(self._signature_calc_queue)
-
-            if total_enqueued > 0:
-                return EngineSummaryState.YELLOW
-
-            pending_op_count = self.backend.cacheman.get_pending_op_count()
-            if pending_op_count > 0:
-                return EngineSummaryState.YELLOW
-
-            return EngineSummaryState.GREEN
-
-    def submit_async_task(self, task_func, *args) -> Future:
-        """Will expand on this later."""
-        # TODO: add mechanism to prioritize some tasks over others
-
-        return self._be_task_runner.enqueue(task_func, *args)
 
     def shutdown(self):
         if self.was_shutdown:
@@ -120,59 +110,151 @@ class CentralExecutor(HasLifecycle):
 
         logger.debug('CentralExecutor shut down')
 
-    # Op Execution Thread
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def start_op_execution_thread(self):
+    def get_engine_summary_state(self) -> EngineSummaryState:
         with self._lock:
-            if not self._op_execution_thread or not self._op_execution_thread.is_alive():
-                logger.info(f'Starting {OP_EXECUTION_THREAD_NAME}...')
-                self._op_execution_thread = threading.Thread(target=self._run_op_execution_thread, name=OP_EXECUTION_THREAD_NAME, daemon=True)
-                self._op_execution_thread.start()
+            if self._exec_queue_dict[ExecPriority.CACHE_LOAD].qsize() > 0:
+                # still starting up
+                return EngineSummaryState.RED
 
-    def _run_op_execution_thread(self):
-        """This is a consumer thread for the ChangeManager's dependency tree"""
-        while self.enable_op_execution and not self.was_shutdown:
-            # Should be ok to do simple infinite loop, because get_next_command() will block until work is available.
-            # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations
+            total_enqueued = self._exec_queue_dict[ExecPriority.LOAD_0].qsize() + \
+                             self._exec_queue_dict[ExecPriority.LOAD_1].qsize() + \
+                             self._exec_queue_dict[ExecPriority.LOAD_2].qsize() + \
+                             self._exec_queue_dict[ExecPriority.SIGNATURE_CALC].qsize()
+
+            if total_enqueued > 0:
+                return EngineSummaryState.YELLOW
+
+            pending_op_count = self.backend.cacheman.get_pending_op_count()
+            if pending_op_count > 0:
+                return EngineSummaryState.YELLOW
+
+            return EngineSummaryState.GREEN
+
+    # Central Executor Thread
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    def _run_central_exec_thread(self):
+        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Starting thread...')
+
+        try:
+            while not self.was_shutdown:
+                task: Optional[Task] = None
+                with self._running_task_cv:
+                    # wait until we are notified of new task (assuming task queue is not full) or task finished (if task queue is full)
+                    if not self._running_task_cv.wait(TASK_EXEC_IMEOUT):
+                        if SUPER_DEBUG_ENABLED:
+                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV TIMEOUT!')
+
+                    if len(self._running_task_deque) < TASK_RUNNER_MAX_WORKERS:
+                        task = self._get_next_task_to_run_nolock()
+                        if task:
+                            self._running_task_deque.append(task.task_uuid)
+                    else:
+                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS})')
+                        logger.debug(self._running_task_deque)
+
+                # Do this outside the CV:
+                if task:
+                    future = self._be_task_runner.enqueue_task(task)
+                    callback = partial(self._on_task_done, task)
+                    # This will call back immediately if the task already completed:
+                    future.add_done_callback(callback)
+        finally:
+            logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
+
+    def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
+        try:
+            task = self._exec_queue_dict[priority].get_nowait()
+            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority={ExecPriority.LOAD_0.name}: {task.task_func.__name__}'
+                         f' (task_uuid: {task.task_uuid})')
+            return task
+        except Empty:
+            return None
+
+    def _get_next_task_to_run_nolock(self) -> Optional[Task]:
+        task = self._get_from_queue(ExecPriority.LOAD_0)
+        if task:
+            return task
+
+        task = self._get_from_queue(ExecPriority.LOAD_1)
+        if task:
+            return task
+
+        task = self._get_from_queue(ExecPriority.LOAD_2)
+        if task:
+            return task
+
+        task = self._get_from_queue(ExecPriority.CACHE_LOAD)
+        if task:
+            return task
+
+        task = self._get_from_queue(ExecPriority.LIVE_UPDATE)
+        if task:
+            return task
+
+        task = self._get_from_queue(ExecPriority.SIGNATURE_CALC)
+        if task:
+            return task
+
+        if self.enable_op_execution:
+
+            # Special case for op execution: we have both a queue and the ledger. The queue takes higher precedence.
+            task = self._get_from_queue(ExecPriority.USER_OP_EXEC)
+            if task:
+                return task
 
             command = None
             try:
-                logger.debug(f'[{OP_EXECUTION_THREAD_NAME}] Getting next command...')
-                command = self.backend.cacheman.get_next_command()  # Blocks until received
+                command = self.backend.cacheman.get_next_command_nowait()
             except RuntimeError as e:
-                logger.exception(f'[{OP_EXECUTION_THREAD_NAME}] BAD: caught exception: halting execution')
-                self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error executing command', secondary_msg=f'{e}')
+                logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] BAD: caught exception while retreiving command: halting execution')
+                self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error reteiving command', secondary_msg=f'{e}')
                 self._pause_op_execution(sender=ID_CENTRAL_EXEC)
-
-            # best place to pause is here, after we got unblocked from command (remember: waiting for a command is also blocking behavior)
-            if not self.enable_op_execution or self.was_shutdown:
-                break
-
             if command:
-                logger.debug(f'[{OP_EXECUTION_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
-                future: Future = self.submit_async_task(self._command_executor.execute_command, command, None, True)
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
+                return self._be_task_runner.create_task(self._command_executor.execute_command, command, None, True)
 
-                try:
-                    # Wait for the command to return before enqueuing others. We currently only process 1 command at a time.
-                    # TODO: allow parallel processing via forked execution (see README)
-                    future.result(timeout=COMMAND_EXECUTION_TIMEOUT_SEC)
-                except TimeoutError:
-                    logger.error(f'[{OP_EXECUTION_THREAD_NAME}] Timed out waiting for command (moving on): {command}')
-            else:
-                # This should never happen unless the whole app is shutting down
-                logger.debug(f'[{OP_EXECUTION_THREAD_NAME}] Got None for next command. Shutting down')
-                self.shutdown()
-                break
+        return None
 
-        logger.info(f'[{OP_EXECUTION_THREAD_NAME}] Execution stopped')
-        with self._lock:
-            self._op_execution_thread = None
+    def _on_task_done(self, task: Task, future: Future):
+        with self._running_task_cv:
+            if SUPER_DEBUG_ENABLED:
+                if future.cancelled():
+                    logger.debug(f'Task cancelled: "{task.task_func.__name__}" (task_uuid={task.task_uuid})')
+                else:
+                    logger.debug(f'Task done: "{task.task_func.__name__}" (task_uuid={task.task_uuid})')
+
+            # Removing based on object identity should work for now, since we are in the same process:
+            # Note: this is O(n). Best not to let the deque get too large
+            self._running_task_deque.remove(task.task_uuid)
+            logger.info(f'Running task deque now has {len(self._running_task_deque)} tasks')
+            self._running_task_cv.notify_all()
+
+    def submit_async_task(self, priority: ExecPriority, block: bool, task_func, *args):
+        """API: enqueue task to be executed, with given priority."""
+        if not isinstance(priority, ExecPriority):
+            raise RuntimeError(f'Bad arg: {priority}')
+
+        task: Task = self._be_task_runner.create_task(task_func, *args)
+
+        if block:
+            logger.debug(f'Enqueuing blocking task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
+            self._exec_queue_dict[priority].put(task)
+            logger.debug(f'Successful: enqueued blocking task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
+        else:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Enqueuing (non-blocking) task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
+            self._exec_queue_dict[priority].put_nowait(task)
+
+        with self._running_task_cv:
+            if len(self._running_task_deque) < TASK_RUNNER_MAX_WORKERS:
+                self._running_task_cv.notify_all()
+
+    # Op Execution State
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _start_op_execution(self, sender):
         logger.debug(f'Received signal "{Signal.RESUME_OP_EXECUTION.name}" from {sender}')
         self.enable_op_execution = True
-        self.start_op_execution_thread()
         logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution})')
         dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution)
 
@@ -181,13 +263,3 @@ class CentralExecutor(HasLifecycle):
         self.enable_op_execution = False
         logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution})')
         dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution)
-
-    # Misc tasks
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def start_tree_diff(self, tree_id_left, tree_id_right) -> DiffResultTreeIds:
-        """Starts the Diff Trees task async"""
-        assert tree_id_left == ID_LEFT_TREE and tree_id_right == ID_RIGHT_TREE, f'Wrong tree IDs: {ID_LEFT_TREE}, {ID_RIGHT_TREE}'
-        tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE)
-        self.submit_async_task(TreeDiffTask.do_tree_diff, self.backend, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct)
-        return tree_id_struct

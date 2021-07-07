@@ -451,7 +451,8 @@ class ActiveTreeManager(HasLifecycle):
             # Retain the persister for next time:
             display_tree_meta.root_path_config_persister = root_path_persister
 
-        # Update monitoring state
+        # Update monitoring state.
+        # FIXME: this should be started AT THE SAME TIME as tree load, then queue operations, then execute
         if self._is_live_monitoring_enabled:
             if display_tree_meta.root_exists:
                 self._live_monitor.start_or_update_capture(display_tree_meta.root_sn.spid, response_tree_id)

@@ -348,11 +348,20 @@ class OpLedger(HasLifecycle):
         # This will block until a op is ready:
         op: UserOp = self._op_graph.get_next_op()
 
-        if not op:
+        if op:
+            return self._cmd_builder.build_command(op)
+        else:
             logger.debug('Received None; looks like we are shutting down')
             return None
 
-        return self._cmd_builder.build_command(op)
+    def get_next_command_nowait(self) -> Optional[Command]:
+        # Non-blocking
+        op: UserOp = self._op_graph.get_next_op_nowait()
+
+        if op:
+            return self._cmd_builder.build_command(op)
+        else:
+            return None
 
     def get_pending_op_count(self) -> int:
         return len(self._op_graph)

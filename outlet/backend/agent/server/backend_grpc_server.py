@@ -96,10 +96,11 @@ class OutletAgent(BackendIntegrated):
             server.start()
             logger.info('gRPC server started!')
             server.wait_for_termination()  # <- blocks
-            logger.info('gRPC server stopped!')
         except Exception:
             self.unregister_zeroconf()
             raise
+        finally:
+            logger.info('gRPC server stopped!')
 
     def unregister_zeroconf(self):
         try:

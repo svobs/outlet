@@ -4,7 +4,8 @@ from pydispatch import dispatcher
 import logging
 
 from backend.backend_interface import OutletBackend
-from backend.executor.central import CentralExecutor
+from backend.diff.task.tree_diff_task import TreeDiffTask
+from backend.executor.central import CentralExecutor, ExecPriority
 from backend.cache_manager import CacheManager
 from backend.icon_store import IconStorePy
 from constants import IconId, TreeID
@@ -18,7 +19,7 @@ from model.uid import UID
 from model.user_op import UserOp
 from backend.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from backend.diff.task.tree_diff_merge_task import TreeDiffMergeTask
-from signal_constants import ID_CENTRAL_EXEC, Signal
+from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_DIFF_TREE, ID_LEFT_TREE, ID_RIGHT_DIFF_TREE, ID_RIGHT_TREE, Signal
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,13 @@ class BackendIntegrated(OutletBackend):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_guid_list, is_into, dst_tree_id, dst_guid)
 
     def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
-        return self.executor.start_tree_diff(tree_id_left, tree_id_right)
+        """Starts the Diff Trees task async"""
+        assert tree_id_left == ID_LEFT_TREE and tree_id_right == ID_RIGHT_TREE, f'Wrong tree IDs: {ID_LEFT_TREE}, {ID_RIGHT_TREE}'
+        tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE)
+        # submit with UserOp priority:
+        self.executor.submit_async_task(ExecPriority.USER_OP_EXEC, False, TreeDiffTask.do_tree_diff,
+                                        self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct)
+        return tree_id_struct
 
     def generate_merge_tree(self, tree_id_left: TreeID, tree_id_right: TreeID,
                             selected_change_list_left: List[GUID], selected_change_list_right: List[GUID]):

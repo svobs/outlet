@@ -1,9 +1,11 @@
+import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 import logging
-from typing import Callable
+from typing import Callable, Optional
 
 from constants import TASK_RUNNER_MAX_WORKERS
 from global_actions import GlobalActions
+from util import time_util
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -19,19 +21,22 @@ class Task:
     def __init__(self, task_func: Callable, *args):
         self.task_func: Callable = task_func
         self.args = args
+        self.task_uuid: uuid.UUID = uuid.uuid4()
+        self.task_start_time_ms: Optional[int] = None
 
     def run(self):
-        logger.debug(f'Starting task: "{self.task_func.__name__}" with args={self.args}')
+        self.task_start_time_ms = time_util.now_ms()
+        logger.debug(f'Starting task: "{self.task_func.__name__}" with args={self.args}, start_time_ms={self.task_start_time_ms}')
         task_time = Stopwatch()
         try:
             self.task_func(*self.args)
         except Exception as err:
-            msg = f'Task "{self.task_func.__name__}" failed during execution'
+            msg = f'Task failed during execution: "{self.task_func.__name__}" (task_uuid={self.task_uuid})'
             logger.exception(msg)
             GlobalActions.display_error_in_ui(msg, repr(err))
             raise
         finally:
-            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}"')
+            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" (task_uuid={self.task_uuid})')
 
 
 class TaskRunner(HasLifecycle):
@@ -46,9 +51,17 @@ class TaskRunner(HasLifecycle):
         HasLifecycle.__init__(self)
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
+    @staticmethod
+    def create_task(task_func, *args) -> Task:
+        return Task(task_func, *args)
+
     def enqueue(self, task_func, *args) -> Future:
-        logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')
-        task = Task(task_func, *args)
+        task = TaskRunner.create_task(task_func, args)
+        future: Future = self.enqueue_task(task)
+        return future
+
+    def enqueue_task(self, task: Task) -> Future:
+        logger.debug(f'Submitting new task to executor: "{task.task_func.__name__}" (task_uuid={task.task_uuid})')
         future: Future = self._executor.submit(task.run)
         return future
 

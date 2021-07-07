@@ -7,7 +7,8 @@ from typing import Deque, Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID
+from backend.executor.central import ExecPriority
+from constants import CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID
 from error import CacheNotLoadedError
 from global_actions import GlobalActions
 from model.device import Device
@@ -137,10 +138,11 @@ class GDriveMasterStore(TreeStore):
 
     def download_all_gdrive_data(self, sender):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self.backend.executor.submit_async_task(self._download_all_gdrive_meta, sender)
+        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._download_all_gdrive_meta, sender)
 
     def _download_all_gdrive_meta(self, tree_id):
         """See above. Executed by Task Runner. NOT UI thread"""
+        # FIXME: break this into digestible chunks for Executor
         logger.debug(f'Downloading all GDrive meta (device_uid={self.device_uid})')
         try:
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
@@ -155,14 +157,14 @@ class GDriveMasterStore(TreeStore):
                      f'sync_latest_changes={sync_latest_changes}')
 
         if not self.backend.cacheman.enable_load_from_disk:
-            logger.debug('Skipping cache load because cache.enable_cache_load is False')
+            logger.debug(f'Skipping cache load because {CFG_ENABLE_LOAD_FROM_DISK} is False')
             return None
 
         stopwatch_total = Stopwatch()
 
         if not self._memstore.master_tree or invalidate_cache:
             self._memstore.master_tree = self.tree_loader.load_all(invalidate_cache=invalidate_cache)
-            logger.debug('Master tree set.')
+            logger.debug('Master tree completely loaded!')
 
         if sync_latest_changes:
             # This may add a noticeable delay:
@@ -209,7 +211,7 @@ class GDriveMasterStore(TreeStore):
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES.name}"')
-        self.backend.executor.submit_async_task(self.load_and_sync_master_tree)
+        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self.load_and_sync_master_tree)
 
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

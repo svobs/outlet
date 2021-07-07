@@ -7,11 +7,11 @@ import threading
 from typing import Dict, List, Optional, Tuple
 
 from backend.display_tree.filter_state import FilterState
+from backend.executor.central import ExecPriority
 from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local import content_hasher
 from backend.tree_store.local.local_disk_scanner import LocalDiskScanner
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
-from backend.tree_store.local.local_sig_calc_thread import SignatureCalcThread
 from backend.tree_store.local.master_local_disk import LocalDiskDiskStore
 from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, UpsertSingleNodeOp
@@ -26,7 +26,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from signal_constants import ID_GLOBAL_CACHE
+from signal_constants import ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
 
@@ -53,19 +53,15 @@ class LocalDiskMasterStore(TreeStore):
         self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(backend, self.device.uid)
 
         initial_sleep_sec: float = self.backend.get_config('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
-        self._signature_calc_thread = SignatureCalcThread(self.backend, initial_sleep_sec, device.uid)
 
         self.lazy_load_signatures: bool = backend.get_config('cache.lazy_load_local_file_signatures')
-
-    def start_signature_calc_thread(self):
-        if not self._signature_calc_thread.is_alive():
-            self._signature_calc_thread.start()
 
     def start(self):
         TreeStore.start(self)
         self._diskstore.start()
+
         if self.lazy_load_signatures:
-            self.start_signature_calc_thread()
+            self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted_in_cache)
 
     def shutdown(self):
         TreeStore.shutdown(self)
@@ -73,9 +69,6 @@ class LocalDiskMasterStore(TreeStore):
             self.backend = None
             self._memstore = None
             self._diskstore = None
-            if self._signature_calc_thread:
-                self._signature_calc_thread.shutdown()
-                self._signature_calc_thread = None
         except (AttributeError, NameError):
             pass
 
@@ -104,6 +97,42 @@ class LocalDiskMasterStore(TreeStore):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Sending signals for operation {operation}')
         operation.send_signals()
+
+    # Signature calculation
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def _on_node_upserted_in_cache(self, sender: str, node: LocalNode):
+        if node.device_uid == self.device_uid and node.is_file() and not node.md5 and not node.sha256:
+            assert isinstance(node, LocalFileNode)
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Enqueuing node for sig calc: {node.node_identifier}')
+            self.backend.executor.submit_async_task(ExecPriority.SIGNATURE_CALC, False, self.calculate_signature_for_local_node, node)
+
+    def calculate_signature_for_local_node(self, node: LocalFileNode):
+        # Get up-to-date copy:
+        node = self.backend.cacheman.get_node_for_uid(node.uid, node.device_uid)
+
+        if node.md5 or node.sha256:
+            # Other threads, e.g., CommandExecutor, can also fill this in asynchronously
+            logger.debug(f'Node already has signature; skipping; {node}')
+            return
+
+        logger.debug(f'[SigCalc] Calculating signature for node: {node.node_identifier}')
+        md5, sha256 = content_hasher.calculate_signatures(full_path=node.get_single_path())
+        if not md5 and not sha256:
+            logger.debug(f'[SigCalc] Failed to calculate signature for node {node.uid}: assuming it was deleted')
+            return
+
+        # Do not modify the original node, or cacheman will not detect that it has changed. Edit and submit a copy instead
+        node_with_signature = copy.deepcopy(node)
+        node_with_signature.md5 = md5
+        node_with_signature.sha256 = sha256
+
+        logger.debug(f'[SigCalc] Node {node_with_signature.node_identifier.guid} has MD5: {node_with_signature.md5}')
+
+        # TODO: consider batching writes
+        # Send back to ourselves to be re-stored in memory & disk caches:
+        self.backend.cacheman.update_single_node(node_with_signature)
 
     # Disk access
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

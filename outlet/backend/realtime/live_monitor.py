@@ -8,6 +8,7 @@ from pydispatch import dispatcher
 from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
+from backend.executor.central import ExecPriority
 from backend.realtime.local_event_handler import LocalChangeEventHandler
 from constants import SUPER_DEBUG_ENABLED, TreeID, TreeType
 from model.node.local_disk_node import LocalNode
@@ -101,14 +102,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
 
             count = len(change_set)
             if count > 0:
-                logger.debug(f'{self.name}: applying {count} local file updates...')
-                for change_path in change_set:
-                    try:
-                        logger.debug(f'Applying CH file: {change_path}')
-                        node: LocalNode = self.backend.cacheman.build_local_file_node(change_path)
-                        self.backend.cacheman.upsert_single_node(node)
-                    except FileNotFoundError as err:
-                        logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
+                self.backend.executor.submit_async_task(ExecPriority.LIVE_UPDATE, False, self._apply_change_set_batch, change_set)
 
             logger.debug(f'{self.name}: sleeping for {self.local_change_batch_interval_ms} ms')
             time.sleep(self.local_change_batch_interval_ms / 1000.0)
@@ -116,6 +110,16 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
             with self._cv_can_get:
                 if not self.change_set:
                     self._cv_can_get.wait()
+
+    def _apply_change_set_batch(self, change_set: Set[str]):
+        logger.debug(f'{self.name}: applying {len(change_set)} local file updates...')
+        for change_path in change_set:
+            try:
+                logger.debug(f'Applying CH file: {change_path}')
+                node: LocalNode = self.backend.cacheman.build_local_file_node(change_path)
+                self.backend.cacheman.upsert_single_node(node)
+            except FileNotFoundError as err:
+                logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
 
 
 class LiveMonitor(HasLifecycle):
@@ -171,9 +175,12 @@ class LiveMonitor(HasLifecycle):
             self._local_change_batching_thread = LocalFileChangeBatchingThread(self.backend)
             self._local_change_batching_thread.start()
 
-        event_handler = LocalChangeEventHandler(self.backend, self._local_change_batching_thread)
-        watch: ObservedWatch = self._watchdog_observer.schedule(event_handler, full_path, recursive=True)
-        self._local_tree_watcher_dict[full_path] = watch
+        if self._local_tree_watcher_dict.get(full_path, None):
+            logger.warning(f'Already watching (will ignore second watch request): {full_path}')
+        else:
+            event_handler = LocalChangeEventHandler(self.backend, self._local_change_batching_thread)
+            watch: ObservedWatch = self._watchdog_observer.schedule(event_handler, full_path, recursive=True)
+            self._local_tree_watcher_dict[full_path] = watch
 
         tree_id_set: Set[str] = self._active_local_tree_dict.get(full_path, None)
         if not tree_id_set:
