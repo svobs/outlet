@@ -64,6 +64,7 @@ class GRPCConverter:
                 self.dir_stats_to_grpc(node.dir_stats, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
                 grpc_node.local_dir_meta.parent_uid = node.get_single_parent_uid()
+                grpc_node.local_dir_meta.all_children_fetched = node.all_children_fetched
             else:
                 if node.get_size_bytes():
                     grpc_node.local_file_meta.size_bytes = node.get_size_bytes()

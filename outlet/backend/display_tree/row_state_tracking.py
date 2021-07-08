@@ -59,9 +59,9 @@ class RowStateTracking:
         # NOTE: the purge process will actually end up populating the expanded_row_set in the display_tree_meta, but we will just overwrite it
         expanded_row_set = self._load_expanded_rows_from_config(meta.tree_id)
         selected_row_set = self._load_selected_rows_from_config(meta.tree_id)
-        rows_of_interest = self._purge_dead_rows(expanded_row_set, selected_row_set, meta)
-        meta.expanded_row_set = rows_of_interest.expanded
-        meta.selected_row_set = rows_of_interest.selected
+        # rows_of_interest = self._purge_dead_rows(expanded_row_set, selected_row_set, meta)  # TODO
+        meta.expanded_row_set = expanded_row_set
+        meta.selected_row_set = selected_row_set
 
     def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
         display_tree_meta: ActiveDisplayTreeMeta = self._active_tree_manager.get_active_display_tree_meta(tree_id)

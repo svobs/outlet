@@ -176,7 +176,7 @@ class TreeLoadState(IntEnum):
     LOAD_STARTED = 2
     VISIBLE_UNFILTERED_NODES_LOADED = 3  # if no filter currently applied
     VISIBLE_FILTERED_NODES_LOADED = 4  # if a filter is currently applied, the currently filtered nodes are loaded first
-    VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED = 5  # combination of the previous 2 states
+    # VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED = 5  # combination of the previous 2 states
     ADDITIONAL_NODES_LOADED = 6  # this exists to send status updates
     COMPLETELY_LOADED = 10  # final state
 

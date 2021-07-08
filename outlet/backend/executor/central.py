@@ -153,8 +153,8 @@ class CentralExecutor(HasLifecycle):
                         if task:
                             self._running_task_dict[task.task_uuid] = task
                     else:
-                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS})')
-                        logger.debug(self._running_task_dict)
+                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS}): '
+                                     f'{self._running_task_dict}')
 
                 # Do this outside the CV:
                 if task:
@@ -230,7 +230,7 @@ class CentralExecutor(HasLifecycle):
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
             self._running_task_dict.pop(task.task_uuid)
-            logger.info(f'Running task dict now has {len(self._running_task_dict)} tasks')
+            logger.debug(f'Running task dict now has {len(self._running_task_dict)} tasks')
             self._running_task_cv.notify_all()
 
     def submit_async_task(self, priority: ExecPriority, block: bool, task_func, *args):

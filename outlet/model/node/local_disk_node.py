@@ -92,7 +92,7 @@ class LocalDirNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_path(), self.get_trashed_status(), self.is_live(), self.all_children_fetched
+        return self.uid, self.get_single_parent_uid(), self.get_single_path(), self.get_trashed_status(), self.is_live(), self.all_children_fetched
 
     @classmethod
     def get_obj_type(cls):
@@ -132,7 +132,7 @@ class LocalDirNode(LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalDirNode({self.node_identifier} parent_uid={self._parent_uids} trashed={self._trashed} is_live={self.is_live()} ' \
+        return f'LocalDirNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} trashed={self._trashed} is_live={self.is_live()} ' \
                f'size_bytes={self.get_size_bytes()} all_children_fetched={self.all_children_fetched}")'
 
 
@@ -227,8 +227,8 @@ class LocalFileNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(), \
-               self._trashed, self._is_live
+        return self.uid, self.get_single_parent_uid(), self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, \
+               self.get_single_path(), self._trashed, self._is_live
 
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
@@ -250,6 +250,6 @@ class LocalFileNode(LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalFileNode({self.node_identifier} parent_uid={self._parent_uids} md5={self._md5} sha256={self.sha256} ' \
+        return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} md5={self._md5} sha256={self.sha256} ' \
                f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts} ' \
                f'change_ts={self._change_ts})'

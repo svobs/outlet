@@ -29,6 +29,7 @@ class LocalDiskDatabase(MetaDatabase):
     """
     TABLE_LOCAL_FILE = Table(name='local_file', cols=OrderedDict([
         ('uid', 'INTEGER PRIMARY KEY'),
+        ('parent_uid', 'INTEGER'),
         ('md5', 'TEXT'),
         ('sha256', 'TEXT'),
         ('size_bytes', 'INTEGER'),
@@ -43,6 +44,7 @@ class LocalDiskDatabase(MetaDatabase):
     # 2020-06, So far this is really just a mapping of UIDs to paths, to keep things consistent across runs.
     TABLE_LOCAL_DIR = Table(name='local_dir', cols=OrderedDict([
         ('uid', 'INTEGER PRIMARY KEY'),
+        ('parent_uid', 'INTEGER'),
         ('full_path', 'TEXT'),
         ('trashed', 'INTEGER'),
         ('live', 'INTEGER'),
@@ -64,13 +66,14 @@ class LocalDiskDatabase(MetaDatabase):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
-        uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
+        uid_int, parent_uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
         # make sure we call get_uid_for_local_path() for both the node's path and its parent's path, so that UID mapper has a chance to store it
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
-        assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
+        assert uid == uid_int, f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, full_path=full_path)
         parent_uid: UID = self._get_parent_uid(full_path)
+        assert parent_uid == parent_uid_int, f'UID conflict! Got {uid} but read {parent_uid_int} in row: {row}'
         return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
 
     def has_local_files(self):
@@ -105,12 +108,13 @@ class LocalDiskDatabase(MetaDatabase):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
-        full_path = row[1]
-        uid = self.cacheman.get_uid_for_local_path(full_path, row[0])
-        assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
+        uid_int, parent_uid_int, full_path, trashed, is_live, all_children_fetched = row
+        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
+        assert uid == uid_int, f'UID conflict! Got {uid} from memstore but read from disk: {uid_int}'
         parent_uid: UID = self._get_parent_uid(full_path)
-        return LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, full_path=full_path), parent_uid, row[2], bool(row[3]),
-                            bool(row[4]))
+        assert parent_uid == parent_uid_int, f'UID conflict! Got {parent_uid} from memstore but read from disk: {parent_uid_int}'
+        return LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, full_path=full_path), parent_uid=parent_uid,
+                            trashed=trashed, is_live=bool(is_live), all_children_fetched=bool(all_children_fetched))
 
     def has_local_dirs(self):
         return self.table_local_dir.has_rows()
@@ -139,6 +143,11 @@ class LocalDiskDatabase(MetaDatabase):
 
     def truncate_local_dirs(self, commit=True):
         self.table_local_dir.truncate_table(commit=commit)
+
+    def get_children_for_node_uid(self, node_uid: UID) -> List[LocalNode]:
+        child_dir_list = self.table_local_dir.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
+        child_file_list = self.table_local_file.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
+        return child_dir_list + child_file_list
 
     # Mixed type operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

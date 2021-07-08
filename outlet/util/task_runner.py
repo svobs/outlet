@@ -39,6 +39,9 @@ class Task:
         finally:
             logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" (task_uuid={self.task_uuid})')
 
+    def __repr__(self):
+        return f'Task(start_time_ms={self.task_start_time_ms} exec_priority={self.exec_priority} func={self.task_func.__name__} args={self.args})'
+
 
 class TaskRunner(HasLifecycle):
     """

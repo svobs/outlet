@@ -360,6 +360,7 @@ class CacheManager(HasLifecycle):
 
         # Write back to cache if we need to clean things up:
         if skipped_count > 0:
+            self.write_cache_registry_updates_to_disk()
             caches = self._cache_info_dict.get_all()
             self._overwrite_all_caches_in_registry(caches)
 
@@ -367,6 +368,11 @@ class CacheManager(HasLifecycle):
         dispatcher.send(signal=Signal.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
 
         logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
+
+    def write_cache_registry_updates_to_disk(self):
+        """Overrites all entries in the CacheInfoRegistry with the entries in memory"""
+        caches = self._cache_info_dict.get_all()
+        self._overwrite_all_caches_in_registry(caches)
 
     def wait_for_load_registry_done(self, fail_on_timeout: bool = True):
         if self._load_registry_done.is_set():
@@ -591,30 +597,33 @@ class CacheManager(HasLifecycle):
         # TODO
 
         # starting from root: load dirs in BFS order
-        cache_info: PersistedCacheInfo = self.get_cache_info_for_subtree(tree_meta.root_sn.spid, create_if_not_found=True)
+        cache_info: Optional[PersistedCacheInfo] = self.get_cache_info_for_subtree(tree_meta.root_sn.spid, create_if_not_found=False)
 
-        # For LocalDisk:
-        # If cache found:
-        # If loaded: just return.
-        # If not loaded but disk cache exists: load from disk cache only what is needed
-        # If no disk cache: do file scanner level by level, starting with "visible" nodes based on expanded state
+        if cache_info:
+            if cache_info.is_loaded:
+                # Somehow it got loaded between when we earlier checked, and now. Don't duplicate work:
+                return
+            else:
+                # Load only the immediate info we need from the cache.
+                pass
 
-        # For GDrive:
-        # If cache found:
-        # If loaded: just return.
-        # If not loaded but disk cache exists: load from disk cache only what is needed
-        # If no disk cache: do GDrive requests level by level, starting with "visible" nodes based on expanded state. Send notification each time
-        #  so that client knows to grab another level
+        else:
+            pass # TODO
+            # LocalDisk: If no disk cache: do file scanner level by level, starting with "visible" nodes based on expanded state
+
+            # GDrive: request dirs level by level, starting with "visible" nodes based on expanded state. Send notification each time
+            #  so that client knows to grab another level
+
 
         # FIXME
         # self.backend.executor.submit_async_task(ExecPriority.LOAD_2, False, self.load_non_visible_data, tree_meta, send_signals)
 
-        tree_meta.load_state = TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED
+        tree_meta.load_state = TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED
         if send_signals:
             # This will be carried across gRPC if needed
             logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
             dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id,
-                            tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED, status_msg='Loading...')
+                            tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED, status_msg='Loading...')
 
     def load_non_visible_data(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
         assert tree_meta.is_first_order(), f'Not first-order: {tree_meta}'
@@ -833,7 +842,7 @@ class CacheManager(HasLifecycle):
         sync_ts = time_util.now_sec()
         db_entry = CacheInfoEntry(cache_location=cache_location,
                                   subtree_root=subtree_root, sync_ts=sync_ts,
-                                  is_complete=True)
+                                  is_complete=False)
 
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
             logger.info(f'Inserting new cache info into registry: {subtree_root}')
