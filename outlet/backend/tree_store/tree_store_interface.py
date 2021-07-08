@@ -40,6 +40,10 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
+    def is_cache_loaded_for(self, subtree_root: NodeIdentifier) -> bool:
+        pass
+
+    @abstractmethod
     def get_node_for_uid(self, uid: UID) -> Optional[Node]:
         """throws CacheNotLoadedError if appropriate cache not loaded"""
         pass
@@ -91,6 +95,10 @@ class TreeStore(HasLifecycle, ABC):
 
     @abstractmethod
     def generate_dir_stats(self, subtree_root_node: Node, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
+        pass
+
+    @abstractmethod
+    def populate_filter(self, filter_state: FilterState):
         pass
 
     @abstractmethod

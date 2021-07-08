@@ -11,7 +11,7 @@
         "selected_row_set": "2:11702626:12750112"
     },
     "global": {
-        "last_uid": 14381963
+        "last_uid": 14382965
     },
     "left_tree": {
         "expanded_row_set": "1:12398663,1:12398667",
@@ -34,10 +34,10 @@
         "root_exists": false,
         "root_path": "/Volumes/MattBackup2017",
         "root_uid": 13358909,
-        "selected_row_set": "1:13143646",
+        "selected_row_set": "1:13143646"
     },
     "left_tree_diff": {
-        "expanded_row_set": "2:RM:12398665,2:RM:12408812,2:CP:12398665,2:CP:13163067,2:RM:12408811,2:CP:13163118,2:RM:12408807,2:CP:13163141,2:CP:13163098,2:CP:13163068",
+        "expanded_row_set": "2:RM:12398665,2:RM:12408812,2:CP:12398665,2:CP:13163067,2:RM:12408811,2:CP:13163118,2:RM:12408807,2:CP:13163141,2:CP:13163098,2:CP:13163068"
     },
     "main_win": {
         "height": "815",
@@ -78,7 +78,7 @@
         "root_exists": true,
         "root_path": "/",
         "root_uid": 3,
-        "selected_row_set": "2:11702628:12750135",
+        "selected_row_set": "2:11702628:12750135"
     },
     "right_tree_diff": {
         "expanded_row_set": "",

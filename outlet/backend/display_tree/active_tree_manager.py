@@ -451,16 +451,6 @@ class ActiveTreeManager(HasLifecycle):
             # Retain the persister for next time:
             display_tree_meta.root_path_config_persister = root_path_persister
 
-        # Update monitoring state.
-        # FIXME: this should be started AT THE SAME TIME as tree load, then queue operations, then execute
-        if self._is_live_monitoring_enabled:
-            if display_tree_meta.root_exists:
-                self._live_monitor.start_or_update_capture(display_tree_meta.root_sn.spid, response_tree_id)
-            else:
-                self._live_monitor.stop_capture(response_tree_id)
-        else:
-            logger.debug(f'[{sender_tree_id}] Live monitoring is disabled: will not capture')
-
         if is_cancelling_diff and propogate_diff_tree_cancellation:
             self._cancel_diff_mode(display_tree_meta.state.to_display_tree(self.backend))
 
@@ -558,3 +548,12 @@ class ActiveTreeManager(HasLifecycle):
         meta.filter_state = FilterState(filter_criteria, meta.root_sn)
         # write to disk
         meta.filter_state.write_to_config(self.backend, tree_id)
+
+    def update_live_capture(self, root_exists: bool, root_spid: SinglePathNodeIdentifier, tree_id: TreeID):
+        if self._is_live_monitoring_enabled:
+            if root_exists:
+                self._live_monitor.start_or_update_capture(root_spid, tree_id)
+            else:
+                self._live_monitor.stop_capture(tree_id)
+        else:
+            logger.debug(f'[{tree_id}] Live monitoring is disabled: will not capture')

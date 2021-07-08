@@ -26,6 +26,7 @@ class ExecPriority(IntEnum):
     LOAD_0 = 1
 
     # Second highest priority load requests: visible if filter toggled
+    # NOTE: Not currently used!
     LOAD_1 = 2
 
     # Third highest priority load requests: dir in UI tree but not yet visible, and not yet in cache.
@@ -69,11 +70,11 @@ class CentralExecutor(HasLifecycle):
         # -- QUEUES --
         self._exec_queue_dict: Dict[ExecPriority, Queue[Task]] = {
 
-            ExecPriority.LOAD_0: Queue[Task](maxsize=1),
+            ExecPriority.LOAD_0: Queue[Task](),
 
-            ExecPriority.LOAD_1: Queue[Task](maxsize=1),
+            ExecPriority.LOAD_1: Queue[Task](),
 
-            ExecPriority.LOAD_2: Queue[Task](maxsize=1),
+            ExecPriority.LOAD_2: Queue[Task](),
 
             ExecPriority.CACHE_LOAD: Queue[Task](),
 

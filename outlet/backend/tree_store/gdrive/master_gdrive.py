@@ -222,6 +222,10 @@ class GDriveMasterStore(TreeStore):
     def load_subtree(self, subtree_root: SinglePathNodeIdentifier, tree_id: TreeID):
         self._load_master_cache(sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
 
+    def is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
+        # very easy: either our whole cache is loaded or it is not
+        return self._memstore.master_tree is not None
+
     def load_and_sync_master_tree(self, invalidate_cache: bool = False):
         """This will sync the latest changes before returning."""
         self._load_master_cache(sync_latest_changes=True, invalidate_cache=invalidate_cache)

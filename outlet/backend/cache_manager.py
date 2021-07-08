@@ -528,7 +528,7 @@ class CacheManager(HasLifecycle):
     def start_subtree_load(self, tree_id: TreeID, send_signals: bool):
         """Called from backend.start_subtree_load(). See load_data_for_display_tree() below."""
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, True, self.load_data_for_display_tree, tree_id, send_signals)
+        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, False, self.load_data_for_display_tree, tree_id, send_signals)
 
     def load_data_for_display_tree(self, tree_id: TreeID, send_signals: bool):
         """
@@ -568,40 +568,101 @@ class CacheManager(HasLifecycle):
         self._row_state_tracking.load_rows_of_interest(tree_id)
 
         if tree_meta.is_first_order():  # i.e. not ChangeTree
+
+            # Update monitoring state.
+            # This should be started AT THE SAME TIME as tree load start, and its operations will be queued until after load completed
+            self._active_tree_manager.update_live_capture(tree_meta.root_exists, tree_meta.root_sn.spid, tree_id)
+
+            if not self._is_cache_loaded_for(tree_meta.root_sn.spid):
+                self.backend.executor.submit_async_task(ExecPriority.LOAD_0, False, self._load_visible_data, tree_meta, send_signals)
+
+            # fall through
+
+        # Full cache load. Both first-order & higher-order trees do this:
+        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._load_cache_for_subtree, tree_meta, send_signals)
+
+    def _is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
+        # this will return False if either a cache exists but is not loaded, or no cache yet exists:
+        return self._get_store_for_device_uid(subtree_root.device_uid).is_cache_loaded_for(subtree_root)
+
+    def _load_visible_data(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
+        assert tree_meta.is_first_order(), f'Not first-order: {tree_meta}'
+
+        # TODO
+
+        # starting from root: load dirs in BFS order
+        cache_info: PersistedCacheInfo = self.get_cache_info_for_subtree(tree_meta.root_sn.spid, create_if_not_found=True)
+
+        # For LocalDisk:
+        # If cache found:
+        # If loaded: just return.
+        # If not loaded but disk cache exists: load from disk cache only what is needed
+        # If no disk cache: do file scanner level by level, starting with "visible" nodes based on expanded state
+
+        # For GDrive:
+        # If cache found:
+        # If loaded: just return.
+        # If not loaded but disk cache exists: load from disk cache only what is needed
+        # If no disk cache: do GDrive requests level by level, starting with "visible" nodes based on expanded state. Send notification each time
+        #  so that client knows to grab another level
+
+        # FIXME
+        # self.backend.executor.submit_async_task(ExecPriority.LOAD_2, False, self.load_non_visible_data, tree_meta, send_signals)
+
+        tree_meta.load_state = TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED
+        if send_signals:
+            # This will be carried across gRPC if needed
+            logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id,
+                            tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED, status_msg='Loading...')
+
+    def load_non_visible_data(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
+        assert tree_meta.is_first_order(), f'Not first-order: {tree_meta}'
+
+        # TODO: fill this out
+
+        # For LocalDisk:
+        # If no disk cache: do file scanner level by level, starting at shallowest all_dirs_fetched=false and moving down
+
+        # For GDrive:
+        # If no disk cache: do file scanner level by level, starting at shallowest all_dirs_fetched=false and moving down
+
+        if send_signals:
+            # TODO: include more informative status msg
+            # This will be carried across gRPC if needed
+            logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id,
+                            tree_load_state=TreeLoadState.ADDITIONAL_NODES_LOADED, status_msg='Loading...')
+
+    def _load_cache_for_subtree(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
+        if tree_meta.is_first_order():  # i.e. not ChangeTree
             # Load meta for all nodes:
             spid = tree_meta.root_sn.spid
             store = self._get_store_for_device_uid(spid.device_uid)
 
-            if tree_id == ID_GDRIVE_DIR_SELECT:
+            if tree_meta.tree_id == ID_GDRIVE_DIR_SELECT:
                 # special handling for dir select dialog: make sure we are fully synced first
                 assert isinstance(store, GDriveMasterStore)
                 store.load_and_sync_master_tree()
             else:
                 # make sure cache is loaded for relevant subtree:
-                store.load_subtree(spid, tree_id)
+                store.load_subtree(spid, tree_meta.tree_id)
 
             if tree_meta.state.root_exists:
                 # get up-to-date root node:
                 subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
                 if not subtree_root_node:
-                    raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_id})')
+                    raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_meta.tree_id})')
 
                 store.populate_filter(tree_meta.filter_state)
 
         else:
+            # ChangeTree: should already be loaded into memory, except for FilterState
             assert not tree_meta.is_first_order()
-            # ChangeTree: should already be loaded
-            tree_meta.load_state = TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED
-            if send_signals:
-                # This will be carried across gRPC if needed
-                logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
-                dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id,
-                                tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED, status_msg='Loading...')
-
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
-            # fall through:
+            # fall through
 
         self.repopulate_dir_stats_for_tree(tree_meta)
 
@@ -609,9 +670,9 @@ class CacheManager(HasLifecycle):
         if send_signals:
             # Transition: Load State = COMPLETELY_LOADED
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
+            logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
                          f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
                             status_msg=tree_meta.summary_msg)
 
     def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta):

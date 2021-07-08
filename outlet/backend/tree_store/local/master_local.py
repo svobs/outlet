@@ -205,6 +205,20 @@ class LocalDiskMasterStore(TreeStore):
         logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
         self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 
+    def is_cache_loaded_for(self, subtree_root: LocalNodeIdentifier) -> bool:
+        if not os.path.exists(subtree_root.get_single_path()):
+            logger.error(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
+            return True
+
+        self._ensure_uid_consistency(subtree_root)
+
+        # If we have already loaded this subtree as part of a larger cache, use that:
+        cache_man = self.backend.cacheman
+        cache_info: PersistedCacheInfo = cache_man.get_cache_info_for_subtree(subtree_root, create_if_not_found=True)
+        assert cache_info
+
+        return cache_info.is_loaded
+
     def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID, is_live_refresh: bool = False) -> None:
         """
         Performs a read-through retrieval of all the LocalFileNodes in the given subtree
