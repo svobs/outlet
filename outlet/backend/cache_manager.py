@@ -525,20 +525,31 @@ class CacheManager(HasLifecycle):
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def enqueue_load_tree_task(self, tree_id: TreeID, send_signals: bool):
+    def start_subtree_load(self, tree_id: TreeID, send_signals: bool):
         """Called from backend.start_subtree_load(). See load_data_for_display_tree() below."""
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
         self.backend.executor.submit_async_task(ExecPriority.LOAD_0, True, self.load_data_for_display_tree, tree_id, send_signals)
 
     def load_data_for_display_tree(self, tree_id: TreeID, send_signals: bool):
         """
-        TODO: update these docs
-        Executed asyncly via the LoadRequestThread.
-            1. We send LOAD_SUBTREE_STARTED first
-            2. Ensure the primary meta is loaded from disk for all nodes in the subtree
-            3. Ensure UI state of the tree is loaded and up-to-date (expanded rows, selected)
-            4. Ensure dir stats & summary msg are up-to-date
-            5. We send LOAD_SUBTREE_DONE when done
+        TREE LOAD SEQUENCE:
+        - Client requests display tree: see request_display_tree()
+        - TreeState changes to: NOT_LOADED
+        - Client calls start_subtree_load()
+        - TreeState changes to: LOAD_STARTED
+        - BE loads all *visible* nodes (based on expand state) - loading directly from disk if not avaiable in memory.
+          This may be a filtered state if filter is enabled.
+        - TreeState: VISIBLE_UNFILTERED_NODES_LOADED or VISIBLE_FILTERED_NODES_LOADED, respectively.
+        - FE can now display current state to user, but filter controls are grayed out
+        - BE loads the other state - filtered or unfiltered
+        - TreeState changes to: VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED
+        - Now user can toggle filter on/off
+        - BE now loads the tree, either (a) from cache, all at once, if it exists, or (b) layer by layer, BFS style,
+          in discrete chunks based on directory (sending periodic ADDITIONAL_NODES_LOADED updates).
+          But also allows for the user to expand a dir, and gives higher priority to load that directory in that case
+        - Finally all directories are loaded. We can now calculate stats and push those out
+        - TreeState: COMPLETELY_LOADED
+        - Calculate MD5s for all items, if local drive
         """
         logger.debug(f'[{tree_id}] Loading data for display tree (send_signals={send_signals})')
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
@@ -546,12 +557,17 @@ class CacheManager(HasLifecycle):
             logger.info(f'[{tree_id}] Display tree is no longer tracked; discarding data load')
             return
 
+        # Transition: Load State = LOAD_STARTED
+        tree_meta.load_state = TreeLoadState.LOAD_STARTED
         if send_signals:
             # This will be carried across gRPC if needed
             logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
             dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.LOAD_STARTED, status_msg='Loading...')
 
-        if tree_meta.is_first_order():
+        # Load and bring up-to-date expanded & selected rows:
+        self._row_state_tracking.load_rows_of_interest(tree_id)
+
+        if tree_meta.is_first_order():  # i.e. not ChangeTree
             # Load meta for all nodes:
             spid = tree_meta.root_sn.spid
             store = self._get_store_for_device_uid(spid.device_uid)
@@ -573,23 +589,25 @@ class CacheManager(HasLifecycle):
                 store.populate_filter(tree_meta.filter_state)
 
         else:
-            # ChangeTree
             assert not tree_meta.is_first_order()
+            # ChangeTree: should already be loaded
+            tree_meta.load_state = TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED
+            if send_signals:
+                # This will be carried across gRPC if needed
+                logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
+                dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id,
+                                tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED, status_msg='Loading...')
+
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
+            # fall through:
+
         self.repopulate_dir_stats_for_tree(tree_meta)
 
-        # Load and bring up-to-date expanded & selected rows:
-        self._row_state_tracking.load_rows_of_interest(tree_id)
-
+        tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
         if send_signals:
-            # FIXME: this is just a hack for now
-            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
-                         f' tree_load_state={TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED.name} status_msg="{tree_meta.summary_msg}"')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED,
-                            status_msg=tree_meta.summary_msg)
-
+            # Transition: Load State = COMPLETELY_LOADED
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
             logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
                          f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
@@ -1216,8 +1234,8 @@ class CacheManager(HasLifecycle):
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
         return self._this_disk_local_store.build_local_file_node(full_path, staging_path, must_scan_signature)
 
-    def build_local_dir_node(self, full_path: str, is_live: bool = True) -> LocalDirNode:
-        return self._this_disk_local_store.build_local_dir_node(full_path, is_live)
+    def build_local_dir_node(self, full_path: str, is_live: bool = True, all_children_fetched: bool = False) -> LocalDirNode:
+        return self._this_disk_local_store.build_local_dir_node(full_path, is_live, all_children_fetched=all_children_fetched)
 
     def build_gdrive_root_node(self, device_uid: UID) -> GDriveNode:
         store = self._get_gdrive_store_for_device_uid(device_uid)
@@ -1242,7 +1260,7 @@ class CacheManager(HasLifecycle):
                 logger.debug(f'Normalized path: {full_path}')
 
             assert isinstance(store, LocalDiskMasterStore)
-            return store.load_single_node_for_path(full_path)
+            return store.read_single_node_for_path(full_path)
 
         elif spid.tree_type == TreeType.GDRIVE:
             assert isinstance(store, GDriveMasterStore)

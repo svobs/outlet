@@ -95,6 +95,7 @@ message LocalDirMeta {
   DirMeta dir_meta = 1;
   bool is_live = 2;
   uint32 parent_uid = 3;
+  bool all_children_fetched = 4;
 }
 
 message LocalFileMeta {

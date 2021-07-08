@@ -97,7 +97,7 @@ class LocalDiskScanner(LocalTreeRecurser):
             # logger.debug(f'[{self.tree_id}] Found existing dir node: {dir_node.node_identifier}')
             dir_node.set_is_live(True)
         else:
-            dir_node = self.cacheman.build_local_dir_node(dir_path, is_live=True)
+            dir_node = self.cacheman.build_local_dir_node(dir_path, is_live=True, all_children_fetched=False)
             logger.debug(f'[{self.tree_id}] Adding dir node: {dir_node.node_identifier}')
 
         self._local_tree.add_to_tree(dir_node)
@@ -120,7 +120,7 @@ class LocalDiskScanner(LocalTreeRecurser):
             return self._local_tree
 
         # FIXME: need to account for parent UID of root! This can become inconsistent across caches
-        root_node = self.cacheman.build_local_dir_node(self.root_node_identifier.get_single_path(), is_live=True)
+        root_node = self.cacheman.build_local_dir_node(self.root_node_identifier.get_single_path(), is_live=True, all_children_fetched=False)
         self._local_tree.add_node(node=root_node, parent=None)
 
         self.total = self._find_total_files_to_scan()

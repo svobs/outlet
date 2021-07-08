@@ -318,13 +318,13 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
-        action_uid_int, device_uid, uid_int, full_path, trashed_status, is_live = row
+        action_uid_int, device_uid, uid_int, full_path, trashed_status, is_live, all_children_fetched = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         parent_uid: UID = self._get_parent_uid(full_path)
         obj = LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid),
-                                               full_path=full_path), parent_uid, trashed_status, bool(is_live))
+                                               full_path=full_path), parent_uid, trashed_status, bool(is_live), bool(all_children_fetched))
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')

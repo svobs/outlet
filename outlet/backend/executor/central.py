@@ -1,11 +1,10 @@
 import logging
 import threading
-from collections import deque
 from concurrent.futures import Future
 from enum import IntEnum
 from functools import partial
 from queue import Empty, Queue
-from typing import Deque, Dict, Optional
+from typing import Dict, Optional
 from uuid import UUID
 
 from pydispatch import dispatcher
@@ -223,9 +222,9 @@ class CentralExecutor(HasLifecycle):
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
                 if future.cancelled():
-                    logger.debug(f'Task cancelled: "{task.task_func.__name__}" (task_uuid={task.task_uuid})')
+                    logger.debug(f'Task cancelled: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.exec_priority})')
                 else:
-                    logger.debug(f'Task done: "{task.task_func.__name__}" (task_uuid={task.task_uuid})')
+                    logger.debug(f'Task done: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.exec_priority})')
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
@@ -239,6 +238,7 @@ class CentralExecutor(HasLifecycle):
             raise RuntimeError(f'Bad arg: {priority}')
 
         task: Task = self._be_task_runner.create_task(task_func, *args)
+        task.exec_priority = priority
 
         if block:
             logger.debug(f'Enqueuing blocking task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')

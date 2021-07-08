@@ -165,6 +165,9 @@ class GDriveMasterStore(TreeStore):
         if not self._memstore.master_tree or invalidate_cache:
             self._memstore.master_tree = self.tree_loader.load_all(invalidate_cache=invalidate_cache)
             logger.debug('Master tree completely loaded!')
+        else:
+            assert invalidate_cache == False
+            logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
 
         if sync_latest_changes:
             # This may add a noticeable delay:

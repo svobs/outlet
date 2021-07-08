@@ -146,7 +146,8 @@ class GRPCConverter:
             node.dir_stats = self.dir_stats_from_grpc(meta.dir_meta)
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)
-            node = LocalDirNode(node_identifier, grpc_node.local_dir_meta.parent_uid, grpc_node.trashed, grpc_node.local_dir_meta.is_live)
+            node = LocalDirNode(node_identifier, grpc_node.local_dir_meta.parent_uid, grpc_node.trashed, grpc_node.local_dir_meta.is_live,
+                                grpc_node.all_children_fetched)
             node.dir_stats = self.dir_stats_from_grpc(grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta

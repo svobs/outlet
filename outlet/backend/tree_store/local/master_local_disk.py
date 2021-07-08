@@ -132,7 +132,7 @@ class LocalDiskDiskStore(HasLifecycle):
             parent_path = root_node_identifer.get_single_parent_path()
             subtree_root_parent_uid = self.backend.cacheman.get_uid_for_local_path(parent_path)
             root_node = LocalDirNode(node_identifier=root_node_identifer, parent_uid=subtree_root_parent_uid,
-                                     trashed=TrashStatus.NOT_TRASHED, is_live=True)
+                                     trashed=TrashStatus.NOT_TRASHED, is_live=True, all_children_fetched=False)
             tree.add_node(node=root_node, parent=None)
 
             missing_nodes: List[LocalNode] = []
@@ -142,12 +142,17 @@ class LocalDiskDiskStore(HasLifecycle):
             if len(dir_list) == 0:
                 logger.debug('No dirs found in disk cache')
 
+            # if any child dir has all_children_fetched==False, then root's all_children_fetched:=False
+            all_children_fetched = True
             for dir_node in dir_list:
                 if dir_node.uid != root_node_identifer.node_uid:
                     if dir_node.is_live():
                         tree.add_to_tree(dir_node)
+                        if not dir_node.all_children_fetched:
+                            all_children_fetched = False
                     else:
                         missing_nodes.append(dir_node)
+            root_node.all_children_fetched = all_children_fetched
 
             # Files next
             file_list: List[LocalFileNode] = db.get_local_files()

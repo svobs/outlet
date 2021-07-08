@@ -178,7 +178,6 @@ class TreeLoadState(IntEnum):
     VISIBLE_FILTERED_NODES_LOADED = 4  # if a filter is currently applied, the currently filtered nodes are loaded first
     VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED = 5  # combination of the previous 2 states
     ADDITIONAL_NODES_LOADED = 6  # this exists to send status updates
-    ALL_NODES_LOADED_MINUS_SIGNATURES = 7  # once cache is completely loaded & synced (note: GDrive skips this state)
     COMPLETELY_LOADED = 10  # final state
 
 

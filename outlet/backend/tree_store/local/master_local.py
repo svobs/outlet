@@ -18,7 +18,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
 from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
-from error import NodeNotPresentError
+from error import CacheNotLoadedError, NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
@@ -52,9 +52,8 @@ class LocalDiskMasterStore(TreeStore):
         self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(backend, self.device.uid)
         self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(backend, self.device.uid)
 
-        initial_sleep_sec: float = self.backend.get_config('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
-
         self.lazy_load_signatures: bool = backend.get_config('cache.lazy_load_local_file_signatures')
+        logger.debug(f'lazy_load_signatures = {self.lazy_load_signatures}')
 
     def start(self):
         TreeStore.start(self)
@@ -365,11 +364,10 @@ class LocalDiskMasterStore(TreeStore):
     # Cache CRUD operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def load_single_node_for_path(self, full_path: str) -> Optional[LocalNode]:
+    def read_single_node_for_path(self, full_path: str) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache"""
         logger.debug(f'Loading single node for path: "{full_path}"')
-        cache_man = self.backend.cacheman
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
+        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
         if not cache_info:
             logger.debug(f'Could not find cache containing path: "{full_path}"')
             return None
@@ -585,7 +583,26 @@ class LocalDiskMasterStore(TreeStore):
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
         if TRACE_ENABLED:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
-        return self._memstore.master_tree.get_node_for_uid(uid)
+
+        node = self._memstore.master_tree.get_node_for_uid(uid)
+        if node:
+            return node
+
+        # if node not found, let's try to find the cache it belongs to:
+
+        # throws exception if path not found:
+        try:
+            full_path = self.uid_path_mapper.get_path_for_uid(uid)
+        except RuntimeError as err:
+            logger.debug(f'Cannot retrieve node (UID={uid}): could not get full_path for node: {err}')
+            return None
+
+        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
+        if not cache_info:
+            logger.debug(f'Could not find cache containing path: "{full_path}"')
+            return None
+        if not cache_info.is_loaded:
+            raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}): LocalDisk cache not loaded!')
 
     def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
         parent_node = self.get_single_parent_for_node(node)
@@ -622,13 +639,13 @@ class LocalDiskMasterStore(TreeStore):
             logger.error(f'Error getting parent for node: {node}, required_path: {required_subtree_path}')
             raise
 
-    def build_local_dir_node(self, full_path: str, is_live: bool) -> LocalDirNode:
+    def build_local_dir_node(self, full_path: str, is_live: bool, all_children_fetched: bool) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
 
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
         return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path), parent_uid=parent_uid,
-                            trashed=TrashStatus.NOT_TRASHED, is_live=is_live)
+                            trashed=TrashStatus.NOT_TRASHED, is_live=is_live, all_children_fetched=all_children_fetched)
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)

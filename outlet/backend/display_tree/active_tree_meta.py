@@ -3,7 +3,7 @@ from typing import Dict, Optional, Set
 
 from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
-from constants import TreeID
+from constants import TreeID, TreeLoadState
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from model.node.directory_stats import DirectoryStats
@@ -23,6 +23,8 @@ class ActiveDisplayTreeMeta:
     """
 
     def __init__(self, backend, state: DisplayTreeUiState, filter_state: FilterState):
+        self.load_state: TreeLoadState = TreeLoadState.NOT_LOADED
+
         self.state: DisplayTreeUiState = state
         self.filter_state: FilterState = filter_state
 

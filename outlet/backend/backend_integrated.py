@@ -104,7 +104,7 @@ class BackendIntegrated(OutletBackend):
             return None
 
     def start_subtree_load(self, tree_id: TreeID):
-        self.cacheman.enqueue_load_tree_task(tree_id, send_signals=True)
+        self.cacheman.start_subtree_load(tree_id, send_signals=True)
 
     def get_op_execution_play_state(self) -> bool:
         return self.executor.enable_op_execution

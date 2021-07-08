@@ -23,6 +23,7 @@ class Task:
         self.args = args
         self.task_uuid: uuid.UUID = uuid.uuid4()
         self.task_start_time_ms: Optional[int] = None
+        self.exec_priority = None
 
     def run(self):
         self.task_start_time_ms = time_util.now_ms()

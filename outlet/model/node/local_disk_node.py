@@ -58,14 +58,16 @@ class LocalDirNode(LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool, all_children_fetched: bool):
         LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
         self.dir_stats: Optional[DirectoryStats] = None
+        self.all_children_fetched: bool = all_children_fetched
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
         LocalNode.update_from(self, other_node)
         self.dir_stats = other_node.dir_stats
+        self.all_children_fetched = other_node.all_children_fetched
 
     def is_parent_of(self, potential_child_node: Node):
         if potential_child_node.device_uid == self.device_uid:
@@ -90,7 +92,7 @@ class LocalDirNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_path(), self.get_trashed_status(), self.is_live()
+        return self.uid, self.get_single_path(), self.get_trashed_status(), self.is_live(), self.all_children_fetched
 
     @classmethod
     def get_obj_type(cls):
@@ -120,6 +122,7 @@ class LocalDirNode(LocalNode):
                 other.name == self.name and \
                 other.get_trashed_status() == self.get_trashed_status() and \
                 other._is_live == self._is_live and \
+                other.all_children_fetched == self.all_children_fetched and \
                 other.get_icon() == self.get_icon():
             return True
 
@@ -130,7 +133,7 @@ class LocalDirNode(LocalNode):
 
     def __repr__(self):
         return f'LocalDirNode({self.node_identifier} parent_uid={self._parent_uids} trashed={self._trashed} is_live={self.is_live()} ' \
-               f'size_bytes={self.get_size_bytes()}")'
+               f'size_bytes={self.get_size_bytes()} all_children_fetched={self.all_children_fetched}")'
 
 
 class LocalFileNode(LocalNode):

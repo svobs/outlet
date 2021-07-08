@@ -39,7 +39,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
             logger.info(f'Detected MK {_what(event)}: {event.src_path}')
 
             if event.is_directory:
-                node: LocalDirNode = self.cacheman.build_local_dir_node(event.src_path)
+                node: LocalDirNode = self.cacheman.build_local_dir_node(event.src_path, is_live=True, all_children_fetched=True)
             else:
                 node: LocalNode = self.cacheman.build_local_file_node(event.src_path)
             self.cacheman.upsert_single_node(node)

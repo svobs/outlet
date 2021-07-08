@@ -41,6 +41,7 @@ class TreeStore(HasLifecycle, ABC):
 
     @abstractmethod
     def get_node_for_uid(self, uid: UID) -> Optional[Node]:
+        """throws CacheNotLoadedError if appropriate cache not loaded"""
         pass
 
     @abstractmethod
