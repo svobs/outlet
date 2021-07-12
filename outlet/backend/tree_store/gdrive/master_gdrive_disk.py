@@ -192,3 +192,6 @@ class GDriveDiskStore(HasLifecycle):
 
     def delete_nodes(self, file_uid_list: List[UID], folder_uid_list: List[UID]):
         self._db.delete_nodes(file_uid_list, folder_uid_list)
+
+    def get_child_list_for_parent_uid(self, node_uid: UID) -> List[GDriveNode]:
+        return self._db.get_child_list_for_parent_uid(node_uid)

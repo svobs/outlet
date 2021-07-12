@@ -5,7 +5,7 @@ from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, \
     TreeType
-from error import GDriveItemNotFoundError
+from error import GDriveItemNotFoundError, NodeNotPresentError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.node import Node, SPIDNodePair
@@ -401,6 +401,12 @@ class GDriveWholeTree(BaseTree):
                                                                path_list=single_path, must_be_single_path=True)
         return SPIDNodePair(spid, node)
 
+    def to_sn_from_node_and_parent_spid(self, node: GDriveNode, parent_spid: SinglePathNodeIdentifier) -> SPIDNodePair:
+        # derive single child path from single parent path
+        child_path: str = os.path.join(parent_spid.get_single_path(), node.name)
+        # Yuck...this is more expensive than preferred... at least there's no network call
+        return self.to_sn(node, child_path)
+
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
         parent_uids = sn.node.get_parent_uids()
         if parent_uids:
@@ -439,17 +445,17 @@ class GDriveWholeTree(BaseTree):
     def tree_type(self) -> TreeType:
         return TreeType.GDRIVE
 
-    def get_child_list_for_identifier(self, node_uid: UID) -> List[Node]:
+    def get_child_list_for_identifier(self, node_uid: UID) -> List[GDriveNode]:
+        if node_uid not in self.uid_dict:
+            raise NodeNotPresentError(f'Cannot get children: parent "{node_uid}" is not in the tree (device_uid={self.device_uid})!')
         return self.parent_child_dict.get(node_uid, [])
 
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
+        """Raises NodeNotPresentError if parent is not in this tree"""
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
         child_sn_list = []
         for child_node in self.get_child_list_for_identifier(parent_spid.node_uid):
-            child_path: str = os.path.join(parent_spid.get_single_path(), child_node.name)
-            # Yuck...this is more expensive than preferred... at least there's no network call
-            child_sn = self.backend.cacheman.get_sn_for(node_uid=child_node.uid, device_uid=child_node.device_uid, full_path=child_path)
-            child_sn_list.append(child_sn)
+            child_sn_list.append(self.to_sn_from_node_and_parent_spid(child_node, parent_spid))
 
         return child_sn_list
 

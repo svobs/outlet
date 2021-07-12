@@ -170,6 +170,9 @@ class NodeIdentifierFactory:
         if must_be_single_path:
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Could not make identifier: must_be_single_path=True but given too many paths: {full_path_list}')
+            full_path = full_path_list[0]
+            if not full_path:
+                raise RuntimeError(f'Could not make identifier: must_be_single_path=True but full_path is empty ({full_path})')
             if not path_uid:
                 path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
             return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])

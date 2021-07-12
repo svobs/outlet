@@ -205,19 +205,10 @@ class LocalDiskMasterStore(TreeStore):
         logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
         self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 
-    def is_cache_loaded_for(self, subtree_root: LocalNodeIdentifier) -> bool:
-        if not os.path.exists(subtree_root.get_single_path()):
-            logger.error(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
-            return True
-
-        self._ensure_uid_consistency(subtree_root)
-
+    def is_cache_loaded_for(self, spid: LocalNodeIdentifier) -> bool:
         # If we have already loaded this subtree as part of a larger cache, use that:
-        cache_man = self.backend.cacheman
-        cache_info: PersistedCacheInfo = cache_man.get_cache_info_for_subtree(subtree_root, create_if_not_found=True)
-        assert cache_info
-
-        return cache_info.is_loaded
+        cache_info: PersistedCacheInfo = self.backend.cacheman.get_cache_info_for_subtree(spid, create_if_not_found=False)
+        return cache_info and cache_info.is_loaded
 
     def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID, is_live_refresh: bool = False) -> None:
         """
@@ -578,38 +569,46 @@ class LocalDiskMasterStore(TreeStore):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
         if filter_state and filter_state.has_criteria():
+            # This only works if cache already loaded:
+            if not self.is_cache_loaded_for(parent_spid):
+                raise RuntimeError(f'Cannot load filtered child list: cache not yet loaded for: {parent_spid}')
+
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
-        else:
-            in_memory_cache_hit = False
-            # logger.warning('LOCK ON!')
-            with self._struct_lock:
-                parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
-                assert isinstance(parent_node, LocalDirNode), f'Not a LocalDirNode: {parent_node}'
-                if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
-                    try:
-                        child_nodes = self._memstore.master_tree.get_child_list_for_spid(parent_spid)
-                        in_memory_cache_hit = True
-                    except NodeNotPresentError as e:
-                        # In-memory cache miss. Try seeing if the relevant cache is loaded:
-                        pass
-            # logger.warning('LOCK off')
 
-            if in_memory_cache_hit:
-                return child_nodes
+        with self._struct_lock:
+
+            # 1. Use in-memory cache if it exists:
+            parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
+            if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
+                try:
+                    return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
+                except NodeNotPresentError as e:
+                    # In-memory cache miss. Try seeing if the relevant cache is loaded:
+                    logger.debug(f'Could not find node in in-memory cache: {parent_spid}')
+                    pass
             else:
-                cache_info: Optional[PersistedCacheInfo] = \
-                    self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
-                if not cache_info:
-                    logger.error(f'Could not get children: could not find cache containing path: "{parent_spid.get_single_path()}"')
-                    # FIXME: scan dir on disk (read-through)
-                    return []
+                # in-memory cache miss
+                logger.debug(f'In-memory cache miss (cache returned parent_node: {parent_node})')
 
+            # 2. Read from disk cache if it exists:
+            cache_info: Optional[PersistedCacheInfo] = \
+                self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
+            if cache_info:
                 if cache_info.is_loaded:
                     # something is probably wrong, or node truly doesn't exist
                     logger.warning(f'Could not find node in in-memory subtree but cache claims it is laoded: "{parent_spid}"')
 
                 with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-                    return [self.to_sn(x) for x in cache.get_children_for_node_uid(parent_spid.node_uid)]
+                    return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
+
+            # 3. No cache hits. Must do a live scan:
+            logger.debug(f'Could not find cache containing path: "{parent_spid.get_single_path()}"; will attempt a disk scan')
+            return self._scan_and_cache_dir(parent_spid)
+
+    def _scan_and_cache_dir(self, parent_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
+        # FIXME: implement scan dir on disk (read-through)
+        raise RuntimeError('Not implemented yet!!!')
+        # return []
 
     @staticmethod
     def to_sn(node) -> SPIDNodePair:

@@ -543,15 +543,9 @@ class CacheManager(HasLifecycle):
         - TreeState changes to: NOT_LOADED
         - Client calls start_subtree_load()
         - TreeState changes to: LOAD_STARTED
-        - BE loads all *visible* nodes (based on expand state) - loading directly from disk if not avaiable in memory.
-          This may be a filtered state if filter is enabled.
-        - TreeState: VISIBLE_UNFILTERED_NODES_LOADED or VISIBLE_FILTERED_NODES_LOADED, respectively.
-        - FE can now display current state to user, but filter controls are grayed out
-        - BE loads the other state - filtered or unfiltered
-        - TreeState changes to: VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED
-        - Now user can toggle filter on/off
+        - FE can now request unfiltered dirs, but filter controls are grayed out
         - BE now loads the tree, either (a) from cache, all at once, if it exists, or (b) layer by layer, BFS style,
-          in discrete chunks based on directory (sending periodic ADDITIONAL_NODES_LOADED updates).
+          in discrete chunks based on directory.
           But also allows for the user to expand a dir, and gives higher priority to load that directory in that case
         - Finally all directories are loaded. We can now calculate stats and push those out
         - TreeState: COMPLETELY_LOADED
@@ -579,69 +573,14 @@ class CacheManager(HasLifecycle):
             # This should be started AT THE SAME TIME as tree load start, and its operations will be queued until after load completed
             self._active_tree_manager.update_live_capture(tree_meta.root_exists, tree_meta.root_sn.spid, tree_id)
 
-            if not self._is_cache_loaded_for(tree_meta.root_sn.spid):
-                self.backend.executor.submit_async_task(ExecPriority.LOAD_0, False, self._load_visible_data, tree_meta, send_signals)
-
             # fall through
 
         # Full cache load. Both first-order & higher-order trees do this:
         self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._load_cache_for_subtree, tree_meta, send_signals)
 
-    def _is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
+    def is_cache_loaded_for(self, spid: SinglePathNodeIdentifier) -> bool:
         # this will return False if either a cache exists but is not loaded, or no cache yet exists:
-        return self._get_store_for_device_uid(subtree_root.device_uid).is_cache_loaded_for(subtree_root)
-
-    def _load_visible_data(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
-        assert tree_meta.is_first_order(), f'Not first-order: {tree_meta}'
-
-        # TODO
-
-        # starting from root: load dirs in BFS order
-        cache_info: Optional[PersistedCacheInfo] = self.get_cache_info_for_subtree(tree_meta.root_sn.spid, create_if_not_found=False)
-
-        if cache_info:
-            if cache_info.is_loaded:
-                # Somehow it got loaded between when we earlier checked, and now. Don't duplicate work:
-                return
-            else:
-                # Load only the immediate info we need from the cache.
-                pass
-
-        else:
-            pass # TODO
-            # LocalDisk: If no disk cache: do file scanner level by level, starting with "visible" nodes based on expanded state
-
-            # GDrive: request dirs level by level, starting with "visible" nodes based on expanded state. Send notification each time
-            #  so that client knows to grab another level
-
-
-        # FIXME
-        # self.backend.executor.submit_async_task(ExecPriority.LOAD_2, False, self.load_non_visible_data, tree_meta, send_signals)
-
-        tree_meta.load_state = TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED
-        if send_signals:
-            # This will be carried across gRPC if needed
-            logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id,
-                            tree_load_state=TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED, status_msg='Loading...')
-
-    def load_non_visible_data(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
-        assert tree_meta.is_first_order(), f'Not first-order: {tree_meta}'
-
-        # TODO: fill this out
-
-        # For LocalDisk:
-        # If no disk cache: do file scanner level by level, starting at shallowest all_dirs_fetched=false and moving down
-
-        # For GDrive:
-        # If no disk cache: do file scanner level by level, starting at shallowest all_dirs_fetched=false and moving down
-
-        if send_signals:
-            # TODO: include more informative status msg
-            # This will be carried across gRPC if needed
-            logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id,
-                            tree_load_state=TreeLoadState.ADDITIONAL_NODES_LOADED, status_msg='Loading...')
+        return self._get_store_for_device_uid(spid.device_uid).is_cache_loaded_for(spid)
 
     def _load_cache_for_subtree(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
         if tree_meta.is_first_order():  # i.e. not ChangeTree
@@ -917,7 +856,7 @@ class CacheManager(HasLifecycle):
 
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
-        assert full_path and isinstance(full_path, str)
+        assert full_path and isinstance(full_path, str), f'full_path value is invalid: {full_path}'
         return self._uid_path_mapper.get_uid_for_path(full_path, uid_suggestion)
 
     def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[Node]:

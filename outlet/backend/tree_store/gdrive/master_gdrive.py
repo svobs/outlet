@@ -8,8 +8,9 @@ from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
 from backend.executor.central import ExecPriority
-from constants import CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID
-from error import CacheNotLoadedError
+from constants import CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, \
+    TreeID
+from error import CacheNotLoadedError, NodeNotPresentError
 from global_actions import GlobalActions
 from model.device import Device
 from model.gdrive_meta import GDriveUser, MimeType
@@ -166,7 +167,7 @@ class GDriveMasterStore(TreeStore):
             self._memstore.master_tree = self.tree_loader.load_all(invalidate_cache=invalidate_cache)
             logger.debug('Master tree completely loaded!')
         else:
-            assert invalidate_cache == False
+            assert not invalidate_cache
             logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
 
         if sync_latest_changes:
@@ -451,12 +452,55 @@ class GDriveMasterStore(TreeStore):
             return node.goog_id
         return None
 
+    def to_sn(self, node: GDriveNode, single_path: str) -> SPIDNodePair:
+        spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid, tree_type=node.tree_type,
+                                                               path_list=single_path, must_be_single_path=True)
+        return SPIDNodePair(spid, node)
+
+    def to_sn_from_node_and_parent_spid(self, node: GDriveNode, parent_spid: SinglePathNodeIdentifier) -> SPIDNodePair:
+        # derive single child path from single parent path
+        child_path: str = os.path.join(parent_spid.get_single_path(), node.name)
+        assert child_path, f'derived child_path is empty for parent_spid: {parent_spid}'
+        # Yuck...this is more expensive than preferred... at least there's no network call
+        return self.to_sn(node, child_path)
+
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: Optional[FilterState]) -> List[SPIDNodePair]:
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
+
         if filter_state and filter_state.has_criteria():
+            if not self.is_cache_loaded_for(parent_spid):
+                raise RuntimeError(f'Cannot load filtered child list: GDrive cache not yet loaded!')
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
-        else:
-            return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
+
+        # 1. Use in-memory cache if it exists:
+        if self._memstore.master_tree:
+            parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
+            if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
+                try:
+                    return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
+                except NodeNotPresentError as e:
+                    # In-memory cache miss. Try seeing if the relevant cache is loaded:
+                    logger.debug(f'Could not find node in in-memory cache: {parent_spid}')
+                    pass
+            else:
+                # in-memory cache miss
+                logger.debug(f'In-memory cache miss (cache returned parent_node: {parent_node})')
+
+        # 2. Read from disk cache if it exists:
+        parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
+        if (parent_node and parent_node.is_dir() and parent_node.all_children_fetched) or parent_spid.node_uid == GDRIVE_ROOT_UID:
+            logger.debug(f'Getting child list from disk cache: {parent_node}')
+            child_node_list: List[GDriveNode] = self._diskstore.get_child_list_for_parent_uid(parent_spid.node_uid)
+            for child_node in child_node_list:
+                # Need to fill in at least one path:
+                child_node.node_identifier.add_path_if_missing(os.path.join(parent_spid.get_single_path(), child_node.name))
+            return [self.to_sn_from_node_and_parent_spid(child_node, parent_spid) for child_node in child_node_list]
+
+        # 3. No cache hits. Must resort to a slow-ass GDrive API request:
+        logger.debug(f'Could not find node in disk cache: "{parent_spid}"; will attempt direct GDrive requests')
+        raise RuntimeError('Not implemented yet!!!')
 
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
         return self._memstore.master_tree.get_parent_for_sn(sn)

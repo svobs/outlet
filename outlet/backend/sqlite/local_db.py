@@ -144,7 +144,7 @@ class LocalDiskDatabase(MetaDatabase):
     def truncate_local_dirs(self, commit=True):
         self.table_local_dir.truncate_table(commit=commit)
 
-    def get_children_for_node_uid(self, node_uid: UID) -> List[LocalNode]:
+    def get_child_list_for_node_uid(self, node_uid: UID) -> List[LocalNode]:
         child_dir_list = self.table_local_dir.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
         child_file_list = self.table_local_file.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
         return child_dir_list + child_file_list

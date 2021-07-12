@@ -1,3 +1,4 @@
+import itertools
 import sqlite3
 import logging
 from typing import Any, Callable, Iterable, List, Optional, OrderedDict, Tuple, Union
@@ -311,6 +312,10 @@ class LiveTable(Table):
         sql = f"SELECT {row_name} FROM {self.name} ORDER BY {row_name} DESC LIMIT 1"
         cursor.execute(sql)
         return cursor.fetchone()[0]
+
+    @staticmethod
+    def build_question_list(size: int) -> str:
+        return ",".join(list(itertools.repeat('?', size)))
 
 
 class MetaDatabase:

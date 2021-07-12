@@ -97,7 +97,7 @@ class LocalDiskScanner(LocalTreeRecurser):
             # logger.debug(f'[{self.tree_id}] Found existing dir node: {dir_node.node_identifier}')
             dir_node.set_is_live(True)
         else:
-            dir_node = self.cacheman.build_local_dir_node(dir_path, is_live=True, all_children_fetched=False)
+            dir_node = self.cacheman.build_local_dir_node(dir_path, is_live=True, all_children_fetched=True)
             logger.debug(f'[{self.tree_id}] Adding dir node: {dir_node.node_identifier}')
 
         self._local_tree.add_to_tree(dir_node)

@@ -1,3 +1,4 @@
+import itertools
 import logging
 from collections import OrderedDict
 from typing import List, Optional, Tuple
@@ -231,10 +232,10 @@ class GDriveDatabase(MetaDatabase):
         self.id_parent_mapping.insert_many(id_parent_mappings, commit=commit)
 
     def _delete_parent_mappings(self, uid_list: List[UID], commit=True):
-        uid_str_list: List[str] = list(map(lambda uid: str(uid), uid_list))
-        sql = self.id_parent_mapping.build_delete() + f' WHERE item_uid IN ({",".join(uid_str_list)})'
+        question_list = self.id_parent_mapping.build_question_list(len(uid_list))
+        sql = self.id_parent_mapping.build_delete() + f' WHERE item_uid IN ({question_list})'
         logger.debug(f'Executing SQL: {sql}')
-        self.conn.execute(sql)
+        self.conn.execute(sql, uid_list)
 
         if commit:
             logger.debug('Committing!')
@@ -350,3 +351,17 @@ class GDriveDatabase(MetaDatabase):
             self.delete_gdrive_folder_with_uid(node.uid, commit=False)
         else:
             self.delete_gdrive_file_with_uid(node.uid, commit=commit)
+
+    def get_child_list_for_parent_uid(self, parent_uid: UID) -> List[GDriveNode]:
+        if not self.table_gdrive_file.has_rows():
+            return []
+
+        tuple_list: List[Tuple] = self.id_parent_mapping.select_object_list(where_clause=' WHERE parent_uid = ?', where_tuple=(parent_uid,))
+        question_list = self.id_parent_mapping.build_question_list(len(tuple_list))
+        where_tuple = tuple(x[0] for x in tuple_list)
+
+        folder_list = self.table_gdrive_folder.select_object_list(where_clause=f'WHERE uid IN ({question_list})', where_tuple=where_tuple)
+
+        file_list = self.table_gdrive_file.select_object_list(where_clause=f'WHERE uid IN ({question_list})', where_tuple=where_tuple)
+
+        return folder_list + file_list
