@@ -60,11 +60,11 @@ class GDriveMasterStore(TreeStore):
     # TODO: support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, device: Device):
+    def __init__(self, backend, goog_id_mapper: UidGoogIdMapper, device: Device):
         TreeStore.__init__(self, device)
         self.backend = backend
 
-        self._uid_mapper = UidGoogIdMapper(backend)
+        self._uid_mapper: UidGoogIdMapper = goog_id_mapper
         """Single source of UID<->GoogID mappings and UID assignments. Thread-safe."""
 
         self._struct_lock = threading.Lock()
@@ -83,6 +83,9 @@ class GDriveMasterStore(TreeStore):
         self._diskstore.start()
         self.gdrive_client.start()
         self.connect_dispatch_listener(signal=Signal.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
+
+        if self._diskstore.needs_full_reload:
+            self.download_all_gdrive_data()
 
     def shutdown(self):
         # disconnects all listeners:
@@ -137,14 +140,14 @@ class GDriveMasterStore(TreeStore):
     # Tree-wide stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def download_all_gdrive_data(self, sender):
+    def download_all_gdrive_data(self):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._download_all_gdrive_meta, sender)
+        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._download_all_gdrive_meta)
 
-    def _download_all_gdrive_meta(self, tree_id):
+    def _download_all_gdrive_meta(self):
         """See above. Executed by Task Runner. NOT UI thread"""
         # FIXME: break this into digestible chunks for Executor
-        logger.debug(f'Downloading all GDrive meta (device_uid={self.device_uid})')
+        logger.info(f'Downloading all GDrive meta (device_uid={self.device_uid})')
         try:
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
             self.load_and_sync_master_tree(invalidate_cache=True)
@@ -272,29 +275,38 @@ class GDriveMasterStore(TreeStore):
         count_total: int = 0
         while len(folders_to_process) > 0:
             folder: GDriveFolder = folders_to_process.popleft()
-            logger.debug(f'Querying GDrive for children of folder ({folder})')
-            child_list: List[GDriveNode] = self.gdrive_client.get_all_children_for_parent(folder.goog_id)
+            child_list: List[GDriveNode] = self.fetch_and_merge_child_nodes_for_parent(folder)
             count_folders += 1
             count_total += len(child_list)
-            # Derive paths with some cleverness:
-            for child in child_list:
-                child_path_list = []
-                for path in folder.get_path_list():
-                    child_path_list.append(os.path.join(path, child.name))
-                child.node_identifier.set_path_list(child_path_list)
 
+            for child in child_list:
                 if child.is_dir():
                     assert isinstance(child, GDriveFolder)
                     folders_to_process.append(child)
-            folder.all_children_fetched = True
-
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'refresh_subtree(): locked={self._struct_lock.locked()}')
-            with self._struct_lock:
-                self._execute_write_op(RefreshFolderOp(self.backend, parent_node, child_list))
 
         logger.info(f'[{tree_id}] {stats_sw} Refresh subtree complete (SubtreeRoot={subtree_root_node.node_identifier} '
                     f'Folders={count_folders} Total={count_total})')
+
+    def fetch_and_merge_child_nodes_for_parent(self, folder: GDriveFolder) -> List[GDriveNode]:
+        """Fetches all the children for the given GDriveFolder from the GDrive client, and merge the updated nodes into our cache"""
+        logger.debug(f'Querying GDrive for children of folder ({folder})')
+        child_list: List[GDriveNode] = self.gdrive_client.get_all_children_for_parent(folder.goog_id)
+        # Derive paths with some cleverness:
+        for child in child_list:
+            child_path_list = []
+            for path in folder.get_path_list():
+                child_path_list.append(os.path.join(path, child.name))
+            child.node_identifier.set_path_list(child_path_list)
+
+        folder.all_children_fetched = True
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'fetch_and_merge_child_nodes_for_parent(): locked={self._struct_lock.locked()}')
+        with self._struct_lock:
+            # This will write into the memory & disk caches, and notify FEs of updates
+            self._execute_write_op(RefreshFolderOp(self.backend, folder, child_list))
+
+        return child_list
 
     def show_tree(self, subtree_root: GDriveIdentifier) -> str:
         return self._memstore.master_tree.show_tree(subtree_root.node_uid)
@@ -444,7 +456,7 @@ class GDriveMasterStore(TreeStore):
     def build_gdrive_root_node(self) -> GDriveFolder:
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
         node_identifier = self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)
-        return GDriveFolder(node_identifier, None, '/', TrashStatus.NOT_TRASHED, None, None, None, None, False, None, None, False)
+        return GDriveFolder(node_identifier, 'root', '/', TrashStatus.NOT_TRASHED, None, None, None, None, False, None, None, False)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
         node = self.get_node_for_uid(uid)
@@ -487,20 +499,44 @@ class GDriveMasterStore(TreeStore):
             else:
                 # in-memory cache miss
                 logger.debug(f'In-memory cache miss (cache returned parent_node: {parent_node})')
+        else:
+            parent_node = None
+
+        if not parent_node:
+            # FIXME: need to store root node in disk cache!
+            if parent_spid.node_uid == GDRIVE_ROOT_UID:
+                parent_node = self.backend.cacheman.build_gdrive_root_node(self.device_uid)
+                assert not parent_node.all_children_fetched
+            else:
+                # We *must* have a node in order to continue
+                parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
+                if not parent_node:
+                    goog_id = self._uid_mapper.get_goog_id_for_uid(parent_spid.node_uid)
+                    if goog_id:
+                        parent_node = self.gdrive_client.get_existing_node_by_id(goog_id=goog_id)
+                        if not parent_node:
+                            raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
+                                               f'and could not find node in Google Drive with ID="{goog_id}": {parent_spid}')
+                    else:
+                        raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
+                                           f'and could not resolve its Google ID: {parent_spid}')
+        assert parent_node
+        if not parent_node.is_dir():
+            raise RuntimeError(f'Could not get child list for node: node is not a folder: {parent_node}')
 
         # 2. Read from disk cache if it exists:
-        parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
-        if (parent_node and parent_node.is_dir() and parent_node.all_children_fetched) or parent_spid.node_uid == GDRIVE_ROOT_UID:
+        if parent_node.all_children_fetched:
             logger.debug(f'Getting child list from disk cache: {parent_node}')
             child_node_list: List[GDriveNode] = self._diskstore.get_child_list_for_parent_uid(parent_spid.node_uid)
             for child_node in child_node_list:
                 # Need to fill in at least one path:
                 child_node.node_identifier.add_path_if_missing(os.path.join(parent_spid.get_single_path(), child_node.name))
-            return [self.to_sn_from_node_and_parent_spid(child_node, parent_spid) for child_node in child_node_list]
+        else:
+            # 3. Children not fetched. Must resort to a slow-ass GDrive API request:
+            logger.debug(f'Found node in cache but children not fetched: "{parent_spid}"; will query GDrive for children')
+            child_node_list: List[GDriveNode] = self.fetch_and_merge_child_nodes_for_parent(parent_node)
 
-        # 3. No cache hits. Must resort to a slow-ass GDrive API request:
-        logger.debug(f'Could not find node in disk cache: "{parent_spid}"; will attempt direct GDrive requests')
-        raise RuntimeError('Not implemented yet!!!')
+        return [self.to_sn_from_node_and_parent_spid(child_node, parent_spid) for child_node in child_node_list]
 
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
         return self._memstore.master_tree.get_parent_for_sn(sn)

@@ -38,23 +38,26 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
-* [3] Mac installer
+
+#### ESSENTIAL FOR FIRST RELEASE
+* [3] BFS loading of tree, instead of all-at-once. Calc MD5s only after tree loaded [IN PROGRESS]
+
 * [3] Google Drive connect flow
-* [1] Better tracking of BE readiness states:
-  1. CacheMan state: were all trees loaded?
-  2. OpExecution (ledger state)
-  3. TreeState (subtree loading + SignatureCalcThread) of each tree
-* [1] Copy metadata when copying files (MAC times)
-* [3] Extend config file to support windows on different servers
+* [3] Mac installer
+* [1] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)
+* [1] Better tracking of BE readiness states: see CentralExecutor.get_engine_summary_state()
 * [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
 * [3] Disable UI elements for trees until cache loaded
-* [5] BFS loading of tree, instead of all-at-once. Calc MD5s only after tree loaded
+  
+#### FUTURE / NON-ESSENTIAL
+* [1] Copy metadata when copying files (MAC times)
+* [3] Extend config file to support windows on different servers
 * [1] Put GDrive files in trash
 * [3] Put local files in trash
 * [3] Tombstone trash support
 * [5] Run multiple concurrent ops
 * [3] Optimal Path - CommandBuilder: look up MD5 for src_node and use a closer node
-* [1] UID <-> MD5/SHA256
+* [1] UID <-> MD5/SHA256 mappings
 * [5] OpLedger: simplify the op tree each time the next change requested
 * [3] Bulk delete dir trees instead of one by one
 * [5] Progress bar for current task + view all pending & current tasks

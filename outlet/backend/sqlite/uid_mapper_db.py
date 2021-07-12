@@ -8,10 +8,10 @@ from model.uid import UID
 logger = logging.getLogger(__name__)
 
 
-class UidPathMapperDb(MetaDatabase):
+class UidMapperDb(MetaDatabase):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS UidPathMapperDb
+    CLASS UidMapperDb
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     TABLE_UID_PATH = Table(name='uid_path', cols=OrderedDict([
@@ -19,20 +19,25 @@ class UidPathMapperDb(MetaDatabase):
         ('full_path', 'TEXT')
     ]))
 
-    def __init__(self, db_path, backend):
+    TABLE_UID_GOOG_ID = Table(name='uid_goog_id', cols=OrderedDict([
+        ('uid', 'INTEGER PRIMARY KEY'),
+        ('goog_id', 'TEXT')
+    ]))
+
+    def __init__(self, db_path, backend, table: Table):
         super().__init__(db_path)
         self.cacheman = backend.cacheman
-        self.table_uid_path = LiveTable(UidPathMapperDb.TABLE_UID_PATH, self.conn)
+        self.table = LiveTable(table, self.conn)
 
     # UID_PATH operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_all_uid_path_mappings(self) -> List[Tuple[str, str]]:
-        self.table_uid_path.create_table_if_not_exist(commit=False)
-        return self.table_uid_path.get_all_rows()
+    def get_all_uid_mappings(self) -> List[Tuple[str, str]]:
+        self.table.create_table_if_not_exist(commit=False)
+        return self.table.get_all_rows()
 
-    def upsert_uid_path_mapping_list(self, mapping_list: List[Tuple[UID, str]], commit=True):
-        self.table_uid_path.upsert_many(mapping_list, commit=commit)
+    def upsert_uid_str_mapping_list(self, mapping_list: List[Tuple[UID, str]], commit=True):
+        self.table.upsert_many(mapping_list, commit=commit)
 
     def get_last_uid(self) -> UID:
-        return self.table_uid_path.select_max('uid')
+        return UID(self.table.select_max('uid'))

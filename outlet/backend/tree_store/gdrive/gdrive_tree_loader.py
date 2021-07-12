@@ -104,6 +104,9 @@ class GDriveTreeLoader:
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             self.backend.cacheman.delete_all_gdrive_data(self.device_uid)
 
+            # this was already created with the tree: all its data is known
+            gdrive_root_node = tree.get_node_for_uid(GDRIVE_ROOT_UID)
+
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             initial_download.update_ts = sync_ts
@@ -112,7 +115,7 @@ class GDriveTreeLoader:
 
             initial_download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
             initial_download.page_token = None
-            self._diskstore.insert_gdrive_folder_list(folder_list=[drive_root], commit=False)
+            self._diskstore.insert_gdrive_folder_list(folder_list=[gdrive_root_node, drive_root], commit=False)
             self._diskstore.create_or_update_download(download=initial_download)
             # fall through
 

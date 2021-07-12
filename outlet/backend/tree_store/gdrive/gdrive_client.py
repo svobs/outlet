@@ -389,6 +389,11 @@ class GDriveClient(HasLifecycle):
         return observer.nodes
 
     def get_all_children_for_parent(self, parent_goog_id: str) -> List[GDriveNode]:
+        if not parent_goog_id:
+            logger.debug(f'get_all_children_for_parent(): parent_goog_id is null: setting it to "root"')
+            parent_goog_id = 'root'
+            # raise RuntimeError(f'Cannot query GDrive for children: parent_goog_id is empty!')
+
         """Gets all nodes (files, folders, etc) for the given parent"""
         query = f"'{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'

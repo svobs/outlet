@@ -306,12 +306,15 @@ class LiveTable(Table):
             logger.debug('Committing!')
             self.conn.commit()
 
-    def select_max(self, row_name: str):
+    def select_max(self, row_name: str) -> int:
         cursor = self.conn.cursor()
         # more efficient than using max(), but achieves same result
         sql = f"SELECT {row_name} FROM {self.name} ORDER BY {row_name} DESC LIMIT 1"
         cursor.execute(sql)
-        return cursor.fetchone()[0]
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        return -1
 
     @staticmethod
     def build_question_list(size: int) -> str:

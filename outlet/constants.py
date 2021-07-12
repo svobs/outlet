@@ -54,6 +54,7 @@ MAIN_REGISTRY_FILE_NAME = f'registry.{INDEX_FILE_SUFFIX}'
 GDRIVE_INDEX_FILE_NAME = f'GD.{INDEX_FILE_SUFFIX}'
 OPS_FILE_NAME = f'ops.{INDEX_FILE_SUFFIX}'
 UID_PATH_FILE_NAME = f'uid_path.{INDEX_FILE_SUFFIX}'
+UID_GOOG_ID_FILE_NAME = f'uid_goog_id.{INDEX_FILE_SUFFIX}'
 
 BASE_ICON_BASE_DIR = 'resources/Base'
 COMPOSITE_ICON_BASE_DIR = 'resources/Composite'
@@ -125,8 +126,9 @@ TRASHED_STATUS_STR = ['No', 'UserTrashed', 'Trashed', 'Deleted']
 REBUILD_IMAGES = True
 VALID_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512, 1024]
 
-# TreeID typedef
+# Simple typedef
 TreeID = str
+GoogID = str
 
 
 # Trashed state

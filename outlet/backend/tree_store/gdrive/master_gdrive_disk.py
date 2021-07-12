@@ -5,6 +5,7 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_ROOT_UID, TreeID
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from error import CacheNotFoundError
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -31,6 +32,7 @@ class GDriveDiskStore(HasLifecycle):
         self.device_uid: UID = device_uid
         self._memstore: GDriveMemoryStore = memstore
         self._db: Optional[GDriveDatabase] = None
+        self.needs_full_reload: bool = False
 
     def start(self):
         logger.debug(f'Starting GDriveDiskStore')
@@ -46,9 +48,13 @@ class GDriveDiskStore(HasLifecycle):
 
     def _get_gdrive_cache_path(self) -> str:
         master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
-        cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root)
-        if not cache_info:
-            raise RuntimeError(f'Failed to find CacheInfo for GDrive device_uid: {self.device_uid}')
+        try:
+            cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root, create_if_not_found=False)
+        except CacheNotFoundError:
+            logger.warning(f'Failed to find CacheInfo for GDrive device_uid: {self.device_uid}. Triggering a rebuild of the cache from the network.')
+            cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root, create_if_not_found=True)
+            self.needs_full_reload = True
+
         return cache_info.cache_location
 
     def load_tree_from_cache(self, is_complete: bool, tree_id: TreeID) -> GDriveWholeTree:

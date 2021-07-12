@@ -21,11 +21,11 @@ from backend.tree_store.gdrive.master_gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from backend.tree_store.local.master_local import LocalDiskMasterStore
 from backend.tree_store.tree_store_interface import TreeStore
-from backend.uid.uid_mapper import UidChangeTreeMapper, UidPathMapper
+from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
-    SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeLoadState, TreeType, UID_PATH_FILE_NAME
-from error import CacheNotLoadedError, ResultsExceededError
+    SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeLoadState, TreeType, UID_GOOG_ID_FILE_NAME, UID_PATH_FILE_NAME
+from error import CacheNotFoundError, CacheNotLoadedError, ResultsExceededError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
@@ -97,8 +97,6 @@ class CacheManager(HasLifecycle):
 
         self._cache_info_dict: CacheInfoByDeviceUid = CacheInfoByDeviceUid()
 
-        self._change_tree_uid_mapper = UidChangeTreeMapper(self.backend)
-
         self.enable_load_from_disk = backend.get_config(CFG_ENABLE_LOAD_FROM_DISK)
         self.enable_save_to_disk = backend.get_config('cache.enable_cache_save')
         self.load_all_caches_on_startup = backend.get_config('cache.load_all_caches_on_startup')
@@ -120,6 +118,10 @@ class CacheManager(HasLifecycle):
         self._uid_path_mapper = UidPathMapper(backend, uid_path_cache_path)
         """Officially, we allow for different devices to have different UIDs for a given path. But in practice, given a single agent, 
         all devices under its ownership will share the same UID-Path mapper, which means that the will all map the same UIDs to the same paths."""
+
+        uid_goog_id_cache_path = os.path.join(self.cache_dir_path, UID_GOOG_ID_FILE_NAME)
+        self._uid_goog_id_mapper = UidGoogIdMapper(backend, uid_goog_id_cache_path)
+        """Same deal with GoogID mapper. We init it here, so that we can load in all the cached GoogIDs ASAP"""
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
         self._op_ledger: OpLedger = OpLedger(self.backend, op_db_path)
@@ -146,6 +148,12 @@ class CacheManager(HasLifecycle):
         try:
             if self._uid_path_mapper:
                 self._uid_path_mapper.shutdown()
+        except (AttributeError, NameError):
+            pass
+
+        try:
+            if self._uid_goog_id_mapper:
+                self._uid_goog_id_mapper.shutdown()
         except (AttributeError, NameError):
             pass
 
@@ -186,6 +194,8 @@ class CacheManager(HasLifecycle):
         try:
             # Get paths loaded ASAP, so we won't worry about creating duplicate paths or UIDs for them
             self._uid_path_mapper.start()
+            # same deal with GoogIDs
+            self._uid_goog_id_mapper.start()
 
             self._init_store_dict()
 
@@ -296,7 +306,7 @@ class CacheManager(HasLifecycle):
 
                 self._store_dict[device.uid] = store
             elif device.tree_type == TreeType.GDRIVE:
-                store = GDriveMasterStore(self.backend, device)
+                store = GDriveMasterStore(self.backend, self._uid_goog_id_mapper, device)
                 master_gdrive = store
 
                 self._store_dict[device.uid] = store
@@ -523,16 +533,13 @@ class CacheManager(HasLifecycle):
 
         self._op_ledger.finish_command(command)
 
-    # Not currently used
-    def _download_all_gdrive_meta(self, sender, device_uid: UID):
-        store = self._get_gdrive_store_for_device_uid(device_uid)
-        store.download_all_gdrive_data(sender)
-
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def start_subtree_load(self, tree_id: TreeID, send_signals: bool):
         """Called from backend.start_subtree_load(). See load_data_for_display_tree() below."""
+        self.wait_for_startup_done()
+
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
         self.backend.executor.submit_async_task(ExecPriority.LOAD_0, False, self.load_data_for_display_tree, tree_id, send_signals)
 
@@ -654,6 +661,8 @@ class CacheManager(HasLifecycle):
         """The FE needs to first call this to ensure the given tree_id has a ActiveDisplayTreeMeta loaded into memory.
         Afterwards, the FE should call backend.start_subtree_load(), which will call enqueue_load_tree_task(),
         which will then asynchronously call load_data_for_display_tree()"""
+        self.wait_for_startup_done()
+
         return self._active_tree_manager.request_display_tree(request)
 
     def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID) -> DisplayTree:
@@ -699,12 +708,14 @@ class CacheManager(HasLifecycle):
             -> Optional[PersistedCacheInfo]:
         """Finds the cache which contains the given subtree, if there is one.
         If create_if_not_found==True, then it will create & register a new cache and return that.
-        If create_if_not_found==False, then it will return None if no associated cache could be found."""
+        If create_if_not_found==False, then it will raise CacheNotFoundError if no associated cache could be found.
+        Note that this will also occur if a cache file was deleted, because such caches are detected and purged from the registry
+        at startup."""
 
         self.wait_for_load_registry_done()
 
         if subtree_root.tree_type == TreeType.GDRIVE:
-            # there is only 1 GDrive cache:
+            # there is only 1 GDrive cache per GDrive account:
             cache_info = self._cache_info_dict.get_single(subtree_root.device_uid, ROOT_PATH)
         elif subtree_root.tree_type == TreeType.LOCAL_DISK:
             cache_info = self.find_existing_cache_info_for_local_subtree(subtree_root.device_uid, subtree_root.get_single_path())
@@ -715,7 +726,7 @@ class CacheManager(HasLifecycle):
             if create_if_not_found:
                 cache_info = self._create_new_cache_info(subtree_root)
             else:
-                raise RuntimeError(f'Could not find cache_info in memory for: {subtree_root} (and create_if_not_found=false)')
+                raise CacheNotFoundError(f'Could not find cache_info in memory for: {subtree_root} (and create_if_not_found=false)')
 
         return cache_info
 
@@ -846,9 +857,6 @@ class CacheManager(HasLifecycle):
 
     # Getters: Nodes and node identifiers
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def get_uid_for_change_tree_node(self, device_uid: UID, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
-        return self._change_tree_uid_mapper.get_uid_for(device_uid, single_path, op)
 
     def get_path_for_uid(self, uid: UID) -> str:
         # Throws exception if no path found
