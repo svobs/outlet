@@ -284,7 +284,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
         self._updated_node_list: List[GDriveNode] = []
 
     def update_memstore(self, memstore: GDriveMemoryStore):
-        logger.debug(f'RefreshFolderOp: upserting parent folder ({self.parent_folder}) and its {len(self.child_list)} '
+        logger.debug(f'RefreshFolderOp: upserting into memory cache: parent folder ({self.parent_folder}) and children: {self.child_list} '
                      f'children in memory cache')
         self._updated_node_list = memstore.master_tree.upsert_folder_and_children(self.parent_folder, self.child_list)
         logger.debug(f'RefreshFolderOp: done upserting nodes to memory cache')

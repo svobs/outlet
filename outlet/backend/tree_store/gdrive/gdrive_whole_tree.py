@@ -42,20 +42,13 @@ class GDriveWholeTree(BaseTree):
         self.uid_dict: Dict[UID, GDriveNode] = {}
         """ Forward lookup table: nodes are indexed by UID"""
 
-        # It's a lot cleaner to have a single root node, even if it does not map to anything in GDrive:
-        self.root = self.backend.cacheman.build_gdrive_root_node(self.device_uid)
-        self.uid_dict[self.root.uid] = self.root
-
         self.parent_child_dict: Dict[UID, List[GDriveNode]] = {}
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
-
-        # init root list:
-        self.parent_child_dict[GDRIVE_ROOT_UID] = []
 
         self.me: Optional[GDriveUser] = None
 
     def get_root_node(self) -> Optional[GDriveNode]:
-        return self.root
+        return self.uid_dict[GDRIVE_ROOT_UID]
 
     @property
     def node_identifier(self):
@@ -69,6 +62,8 @@ class GDriveWholeTree(BaseTree):
         former_child_list: List[GDriveNode] = self.parent_child_dict.get(parent_node.uid)
         if former_child_list:
             self.parent_child_dict[parent_node.uid] = []
+
+        former_child_count = len(former_child_list)
 
         for child in child_list:
             upserted_node_list.append(self.upsert_node(child))
@@ -85,8 +80,8 @@ class GDriveWholeTree(BaseTree):
                     orphan_list.append(potential_orphan)
 
         if orphan_list:
-            logger.debug(f'After updating parent node ({parent_node.uid}) with {len(child_list)} nodes, the following '
-                         f'{len(orphan_list)} nodes were orphaned: {orphan_list}')
+            logger.debug(f'After updating parent node (uid={parent_node.uid}) with {len(child_list)} nodes ({child_list}), the following '
+                         f'{len(orphan_list)} nodes (of {former_child_count} originally) were orphaned: {orphan_list}')
             # TODO: separate these and query GDrive to see if they still exist; remove them (they are probably deleted on the server)
             upserted_node_list += orphan_list
 
@@ -128,7 +123,7 @@ class GDriveWholeTree(BaseTree):
             for parent_uid in new_parent_uids:
                 self._add_to_parent_dict(parent_uid, node)
 
-        if node.has_no_parents():
+        if node.has_no_parents() and node.uid != GDRIVE_ROOT_UID:  # do not make root a child of itself
             self._upsert_root(node)
 
         # Generate full_path for node, if not already done (we assume this is a newly created node)

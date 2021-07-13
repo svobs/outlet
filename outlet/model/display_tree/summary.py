@@ -31,17 +31,14 @@ class TreeSummarizer:
         root_sn = tree_meta.root_sn
 
         uses_uid_key = False
-        if tree_meta.filter_state.has_criteria():
-            is_filtered = True
-            dir_stats_dict = tree_meta.filter_state.get_dir_stats()
+        # Do not use filtered stats at all for now:
+        is_filtered = False
+        if tree_meta.dir_stats_unfiltered_by_guid:
+            dir_stats_dict = tree_meta.dir_stats_unfiltered_by_guid
         else:
-            is_filtered = False
-            if tree_meta.dir_stats_unfiltered_by_guid:
-                dir_stats_dict = tree_meta.dir_stats_unfiltered_by_guid
-            else:
-                # this will only happen for first-order trees pulling directly from the cache:
-                uses_uid_key = True
-                dir_stats_dict = tree_meta.dir_stats_unfiltered_by_uid
+            # this will only happen for first-order trees pulling directly from the cache:
+            uses_uid_key = True
+            dir_stats_dict = tree_meta.dir_stats_unfiltered_by_uid
 
         if tree_meta.change_tree:
             logger.debug(f'[{tree_id}] This is a ChangeTree: it will provide the summary')

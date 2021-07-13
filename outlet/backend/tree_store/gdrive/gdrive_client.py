@@ -18,7 +18,8 @@ from pydispatch import dispatcher
 from backend.tree_store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
-    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TrashStatus, TreeID
+    GDRIVE_MY_DRIVE_ROOT_GOOG_ID,, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TrashStatus, \
+    TreeID
 from backend.tree_store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
@@ -369,7 +370,7 @@ class GDriveClient(HasLifecycle):
         """
 
         def request():
-            return self.service.files().get(fileId='root', fields=fields).execute()
+            return self.service.files().get(fileId=GDRIVE_MY_DRIVE_ROOT_GOOG_ID, fields=fields).execute()
 
         fields = GDRIVE_FOLDER_FIELDS
 

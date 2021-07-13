@@ -8,7 +8,9 @@ from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
 from backend.executor.central import ExecPriority
-from constants import CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, \
+from constants import CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, ROOT_PATH, \
+    SUPER_DEBUG_ENABLED, \
+    TRACE_ENABLED, TrashStatus, \
     TreeID
 from error import CacheNotLoadedError, NodeNotPresentError
 from global_actions import GlobalActions
@@ -456,7 +458,8 @@ class GDriveMasterStore(TreeStore):
     def build_gdrive_root_node(self) -> GDriveFolder:
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
         node_identifier = self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)
-        return GDriveFolder(node_identifier, 'root', '/', TrashStatus.NOT_TRASHED, None, None, None, None, False, None, None, False)
+        return GDriveFolder(node_identifier, GDRIVE_ROOT_GOOG_ID, ROOT_PATH, TrashStatus.NOT_TRASHED, None, None,
+                            GDRIVE_ME_USER_UID, None, False, None, None, False)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
         node = self.get_node_for_uid(uid)

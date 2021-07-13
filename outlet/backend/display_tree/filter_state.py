@@ -151,9 +151,9 @@ class FilterState:
                 # Add to dir_stats (Compare with BaseTree.generate_dir_stats())
                 if sn.node.is_dir():
                     if sn.node.get_trashed_status() == TrashStatus.NOT_TRASHED:
-                        dir_stats.trashed_dir_count += 1
-                    else:
                         dir_stats.dir_count += 1
+                    else:
+                        dir_stats.trashed_dir_count += 1
                 else:
                     dir_stats.add_file_node(sn.node)
 
@@ -208,7 +208,7 @@ class FilterState:
         return sn_list
 
     def get_dir_stats(self) -> Dict[GUID, DirectoryStats]:
-        assert self.cached_dir_stats is not None
+        assert self.cached_dir_stats
         return self.cached_dir_stats
 
     @staticmethod

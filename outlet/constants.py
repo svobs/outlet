@@ -104,6 +104,8 @@ GDRIVE_FOLDER_MIME_TYPE_UID = 1
 
 GDRIVE_ME_USER_UID = 1
 
+GDRIVE_MY_DRIVE_ROOT_GOOG_ID = 'root'
+
 DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
 OPEN = 1
 SHOW = 2

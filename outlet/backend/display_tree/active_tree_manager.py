@@ -12,7 +12,7 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
+from constants import GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
     SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
     TreeID, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
@@ -104,8 +104,14 @@ class ActiveTreeManager(HasLifecycle):
 
         parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
         if not parent_sn:
-            # this really shouldn't happen...
-            logger.warning(f'[{tree_meta.tree_id}] No parent found in cacheman for: {sn.spid}. Will discard notification!')
+            if sn.spid.tree_type == TreeType.LOCAL_DISK and sn.spid.node_uid == LOCAL_ROOT_UID:
+                return None
+            if sn.spid.tree_type == TreeType.GDRIVE and sn.spid.node_uid == GDRIVE_ROOT_UID:
+                return None
+
+            # this really shouldn't happen otherwise...
+            logger.warning(f'[{tree_meta.tree_id}] No parent found in cacheman for: {sn.spid}. (tree_type={sn.spid.tree_type}). '
+                           f'Will discard notification!')
             return None
 
         # Will need to refresh stats for parent, even if the node is filtered out:

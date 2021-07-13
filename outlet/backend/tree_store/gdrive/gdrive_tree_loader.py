@@ -8,7 +8,8 @@ from pydispatch import dispatcher
 from backend.tree_store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, \
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, \
+    ROOT_PATH, SUPER_DEBUG_ENABLED, \
     TRACE_ENABLED, TreeID
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
@@ -106,6 +107,7 @@ class GDriveTreeLoader:
 
             # this was already created with the tree: all its data is known
             gdrive_root_node = tree.get_node_for_uid(GDRIVE_ROOT_UID)
+            gdrive_root_node.sync_ts = sync_ts
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
@@ -157,7 +159,7 @@ class GDriveTreeLoader:
             # fall through
 
         # Still need to compute this in memory:
-        self._determine_roots(tree)
+        self._fix_orphans(tree)
         self._compile_full_paths(tree)
 
         self._check_for_broken_nodes(tree)
@@ -168,21 +170,29 @@ class GDriveTreeLoader:
         logger.debug('GDrive: load_all() done')
         return tree
 
-    def _determine_roots(self, tree: GDriveWholeTree):
+    def _fix_orphans(self, tree: GDriveWholeTree):
+        """Finds orphans (nodes with no parents) and sets them as children of root"""
         # TODO: can we roll this into the node loading?
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Determining roots for {len(tree.uid_dict)} GDrive nodes')
+            logger.debug(f'Determining topmost nodes for {len(tree.uid_dict)} GDrive nodes')
+
+        count_found = 0
+
         max_uid = GDRIVE_ROOT_UID + 1
         for node in tree.uid_dict.values():
             if node.uid == GDRIVE_ROOT_UID:
                 continue
 
             if not node.get_parent_uids():
+                logger.info(f'Found GDrive orphan (attaching to root): {node.node_identifier}')
                 node.add_parent(GDRIVE_ROOT_UID)
                 tree.get_child_list_for_root().append(node)
+                count_found += 1
 
             if node.uid >= max_uid:
                 max_uid = node.uid
+
+        logger.debug(f'Found {count_found} GDrive orphans')
 
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 
@@ -194,11 +204,8 @@ class GDriveTreeLoader:
         new_mappings: List[Tuple] = []
         for mapping in id_parent_mappings:
             parent_uid = mapping[1]
-            # [0]=item_uid, [1]=parent_uid, [2]=parent_goog_id, [3]=sync_ts
-            if parent_uid and parent_uid == GDRIVE_ROOT_UID:
-                # Special handling for children of GDrive root
-                assert not mapping[2]
-            else:
+            if not parent_uid:
+                # [0]=item_uid, [1]=parent_uid, [2]=parent_goog_id, [3]=sync_ts
                 parent_goog_id: str = mapping[2]
 
                 # Add parent UID to tuple for later DB update:
@@ -219,6 +226,10 @@ class GDriveTreeLoader:
 
         item_count: int = 0
         path_count: int = 0
+
+        # set path list for root
+        root_node = tree.get_root_node()
+        root_node.node_identifier.set_path_list(ROOT_PATH)
 
         queue = deque()
         for root in tree.get_child_list_for_root():

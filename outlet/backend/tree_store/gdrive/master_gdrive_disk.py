@@ -88,6 +88,7 @@ class GDriveDiskStore(HasLifecycle):
                 raise RuntimeError(f'GDriveFolder is missing goog_id: {folder}')
 
             if tree.uid_dict.get(folder.uid, None):
+                # This should never happen since we use UIDs as primary keys in our SQLite DB.
                 raise RuntimeError(f'GDrive folder cache conflict for UID: {folder.uid} (1st: {tree.uid_dict[folder.uid]}; 2nd: {folder}')
             tree.uid_dict[folder.uid] = folder
             count_folders_loaded += 1
