@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from typing import Union
 
 from model.node.node import BaseNode
 from model.uid import UID
@@ -76,7 +77,7 @@ class Command(BaseNode, ABC):
             return self.op.result.status
         return UserOpStatus.NOT_STARTED
 
-    def set_error_result(self, err: Exception) -> UserOpResult:
+    def set_error_result(self, err: Union[str, Exception]) -> UserOpResult:
         result = UserOpResult(UserOpStatus.STOPPED_ON_ERROR, error=err)
         self.op.result = result
         return result

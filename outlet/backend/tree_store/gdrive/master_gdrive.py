@@ -458,7 +458,7 @@ class GDriveMasterStore(TreeStore):
     def build_gdrive_root_node(self) -> GDriveFolder:
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
         node_identifier = self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)
-        return GDriveFolder(node_identifier, GDRIVE_ROOT_GOOG_ID, ROOT_PATH, TrashStatus.NOT_TRASHED, None, None,
+        return GDriveFolder(node_identifier, None, ROOT_PATH, TrashStatus.NOT_TRASHED, None, None,
                             GDRIVE_ME_USER_UID, None, False, None, None, False)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:

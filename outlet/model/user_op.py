@@ -1,6 +1,6 @@
 from enum import IntEnum
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from model.uid import UID
 from model.node.node import BaseNode, Node
@@ -61,9 +61,10 @@ class UserOpResult:
     CLASS UserOpResult
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, status: UserOpStatus, error=None, to_upsert: Optional[List[Node]] = None, to_remove: Optional[List[Node]] = None):
+    def __init__(self, status: UserOpStatus, error: Optional[Union[str, Exception]] = None,
+                 to_upsert: Optional[List[Node]] = None, to_remove: Optional[List[Node]] = None):
         self.status: UserOpStatus = status
-        self.error: Optional[Exception] = error
+        self.error: Optional[Union[str, Exception]] = error
         self.nodes_to_upsert: Optional[List[Node]] = to_upsert
         self.nodes_to_remove: Optional[List[Node]] = to_remove
 

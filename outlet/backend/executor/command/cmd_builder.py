@@ -85,7 +85,6 @@ def _populate_build_dict():
 
         GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=False)
     }, UserOpType.RM: {
-        # TODO: add support for local trash
         LO: lambda uid, change: DeleteLocalNodeCommand(uid, change, to_trash=False),
 
         GD: lambda uid, change: DeleteGDriveNodeCommand(uid, change, to_trash=False)

@@ -1,7 +1,12 @@
 
+class GDriveError(RuntimeError):
+    def __init__(self, msg):
+        super(GDriveError, self).__init__(msg)
+
+
 # CLASS GDriveItemNotFoundError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class GDriveItemNotFoundError(RuntimeError):
+class GDriveItemNotFoundError(GDriveError):
     def __init__(self, node_identifier, offending_path: str, msg: str = None):
         if msg is None:
             # Set some default useful error message
@@ -19,6 +24,20 @@ class CacheNotLoadedError(RuntimeError):
             # Set some default useful error message
             msg = f'Cache not loaded!'
         super(CacheNotLoadedError, self).__init__(msg)
+
+
+class CacheNotFoundError(RuntimeError):
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS CacheNotFoundError
+
+    Thrown by CacheMan when get_cache_info_for_subtree(create_if_not_found=False) is called, and cache_info not found
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+    def __init__(self, msg: str = None):
+        if not msg:
+            msg = f'Node not present!'
+        super(CacheNotFoundError, self).__init__(msg)
 
 
 # CLASS IdenticalFileExistsError
@@ -81,17 +100,3 @@ class ResultsExceededError(RuntimeError):
         if not msg:
             msg = f'Result count ({actual_count}) exceeded max allowed!'
         super(ResultsExceededError, self).__init__(msg)
-
-
-class CacheNotFoundError(RuntimeError):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS CacheNotFoundError
-
-    Thrown by CacheMan when get_cache_info_for_subtree(create_if_not_found=False) is called, and cache_info not found
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-    def __init__(self, msg: str = None):
-        if not msg:
-            msg = f'Node not present!'
-        super(CacheNotFoundError, self).__init__(msg)

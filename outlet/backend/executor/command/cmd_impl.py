@@ -2,11 +2,12 @@ import logging
 import os
 from typing import List
 
+from error import InvalidOperationError
 from util import file_util
 from model.user_op import UserOp, UserOpType
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand, \
     TwoNodeCommand
-from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
+from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.gdrive_node import GDriveFile, GDriveNode
@@ -78,6 +79,10 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, LocalNode), f'Got {self.op.src_node}'
+
+        if self.to_trash:
+            # TODO: add support for local trash
+            raise InvalidOperationError(f'to_trash==True not supported!')
 
         deleted_nodes_list = []
 
@@ -441,6 +446,9 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
         existing = gdrive_client.get_single_node_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
         if not existing:
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_remove=[self.op.src_node])
+
+        if existing.owner_uid != GDRIVE_ME_USER_UID:
+            logger.warning(f'It appears the user does not own this file! We will see if this works (owner_uid={existing.owner_uid})')
 
         if self.to_trash and existing.get_trashed_status() != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')

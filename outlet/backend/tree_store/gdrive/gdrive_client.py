@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import os.path
 import pickle
@@ -21,6 +22,7 @@ from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDR
     GDRIVE_MY_DRIVE_ROOT_GOOG_ID, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TrashStatus, \
     TreeID
 from backend.tree_store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
+from error import GDriveError
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -126,9 +128,12 @@ class GDriveClient(HasLifecycle):
                 else:
                     if isinstance(err, HttpError):
                         try:
-                            if err.resp and err.resp.status == 403 or err.resp.status == 404:
-                                # TODO: custom error class
-                                raise
+                            if err.resp and err.resp.status in [403, 404]:
+                                error_json = json.loads(err.content).get('error').get('errors')[0]
+                                reason = error_json.get('reason')
+                                message = error_json.get('message')
+                                # TODO: something more slick
+                                raise GDriveError(f'Google Drive returned HTTP {err.resp.status}: Reason: "{reason}": "{message}"')
                         except AttributeError as err2:
                             logger.error(f'Additional error: {err2}')
 
