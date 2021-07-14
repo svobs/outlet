@@ -1,7 +1,8 @@
 import logging
 import os
 from collections import deque
-from typing import List, Optional, Tuple
+from functools import partial
+from typing import Callable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -22,6 +23,7 @@ from backend.sqlite.gdrive_db import CurrentDownload
 from signal_constants import Signal
 from util import time_util
 from util.stopwatch_sec import Stopwatch
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +41,18 @@ class GDriveTreeLoader:
         self.device_uid: UID = device_uid
         self.tree_id: TreeID = tree_id
 
-    def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
+    def load_all(self, this_task: Optional[Task], invalidate_cache: bool, on_tree_loaded: Callable[[GDriveWholeTree], None]):
         logger.debug(f'GDriveTreeLoader.load_all() called with invalidate_cache={invalidate_cache}')
 
         try:
             # scroll down ⯆⯆⯆
-            return self._load_all(invalidate_cache)
+            self._load_all(this_task, invalidate_cache, on_tree_loaded)
         finally:
             if self.tree_id:
                 logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
                 dispatcher.send(Signal.STOP_PROGRESS, sender=self.tree_id)
 
-    def _load_all(self, invalidate_cache: bool) -> GDriveWholeTree:
+    def _load_all(self, this_task: Optional[Task], invalidate_cache: bool, on_tree_loaded: Callable[[GDriveWholeTree], None]):
         if self.tree_id:
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
             dispatcher.send(Signal.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
@@ -93,21 +95,63 @@ class GDriveTreeLoader:
 
             tree: GDriveWholeTree = self._diskstore.load_tree_from_cache(initial_download.is_complete(), self.tree_id)
 
-        # TODO
-        tree.me = self.gdrive_client.get_about()
+        # TODO: do something with this data
+        # tree.me = self.gdrive_client.get_about()
 
         if not initial_download.is_complete():
             state = 'Starting' if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
             logger.info(f'{state} download of all Google Drive tree (state={initial_download.current_state})')
 
-        # BEGIN STATE MACHINE:
+            # BEGIN STATE MACHINE:
 
+            if this_task:
+                # Create child task for each phase.
+                # Each child's completion handler will call the next task in a chain.
+
+                def launch_step_5():
+                    next_subtask = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
+                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
+                    next_subtask.on_complete = partial(on_tree_loaded, tree)
+
+                def launch_step_4():
+                    next_subtask = Task(this_task.priority, self._compile_downloaded_meta, tree, initial_download)
+                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
+                    next_subtask.on_complete = launch_step_5
+
+                def launch_step_3():
+                    next_subtask = Task(this_task.priority, self._download_all_gdrive_non_dir_meta, tree, initial_download)
+                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
+                    next_subtask.on_complete = launch_step_4
+
+                def launch_step_2():
+                    next_subtask = Task(this_task.priority, self._download_all_gdrive_dir_meta, tree, initial_download)
+                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
+                    next_subtask.on_complete = launch_step_3
+
+                first_subtask = Task(this_task.priority, self._download_gdrive_root_meta, tree, initial_download, sync_ts)
+                first_subtask.on_complete = launch_step_2
+
+                self.backend.executor.submit_async_task(first_subtask, parent_task=this_task)
+
+            else:  # Not inside an async task: just execute procedurally
+                # bit of a hack, using None like this...
+                self._download_gdrive_root_meta(None, tree, initial_download, sync_ts)
+                self._download_all_gdrive_dir_meta(None, tree, initial_download)
+                self._download_all_gdrive_non_dir_meta(None, tree, initial_download)
+                self._compile_downloaded_meta(None, tree, initial_download)
+
+                self._do_post_load_processing(None, tree, cache_info)
+
+                on_tree_loaded(tree)
+
+    def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload, sync_ts: int):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             self.backend.cacheman.delete_all_gdrive_data(self.device_uid)
 
             # this was already created with the tree: all its data is known
-            gdrive_root_node = tree.get_node_for_uid(GDRIVE_ROOT_UID)
-            gdrive_root_node.sync_ts = sync_ts
+            gdrive_root_node = self.backend.cacheman.build_gdrive_root_node(self.device_uid, sync_ts=sync_ts)
+            tree.uid_dict[GDRIVE_ROOT_UID] = gdrive_root_node
+            tree.parent_child_dict[GDRIVE_ROOT_UID] = []
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
@@ -119,21 +163,19 @@ class GDriveTreeLoader:
             initial_download.page_token = None
             self._diskstore.insert_gdrive_folder_list(folder_list=[gdrive_root_node, drive_root], commit=False)
             self._diskstore.create_or_update_download(download=initial_download)
-            # fall through
 
-        if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
+    def _download_all_gdrive_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
+        if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
             observer = FolderMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer)
-            # fall through
 
-        if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
+    def _download_all_gdrive_non_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
+        if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
             observer = FileMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer)
-            # fall through
 
-        if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
-            initial_download.current_state = GDRIVE_DOWNLOAD_STATE_COMPLETE
-
+    def _compile_downloaded_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
+        if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
             # Some post-processing needed...
 
             # (1) Update all_children_fetched state
@@ -153,12 +195,12 @@ class GDriveTreeLoader:
             logger.debug(f'Updated {len(parent_mappings)} id-parent mappings')
 
             # (3) mark download finished
+            initial_download.current_state = GDRIVE_DOWNLOAD_STATE_COMPLETE
             self._diskstore.create_or_update_download(download=initial_download)
             logger.debug('GDrive data download complete.')
 
-            # fall through
-
-        # Still need to compute this in memory:
+    def _do_post_load_processing(self, this_task: Optional[Task], tree: GDriveWholeTree, cache_info):
+        # Still need to compute this in memory every time we load:
         self._fix_orphans(tree)
         self._compile_full_paths(tree)
 
@@ -168,7 +210,6 @@ class GDriveTreeLoader:
         cache_info.is_loaded = True
 
         logger.debug('GDrive: load_all() done')
-        return tree
 
     def _fix_orphans(self, tree: GDriveWholeTree):
         """Finds orphans (nodes with no parents) and sets them as children of root"""

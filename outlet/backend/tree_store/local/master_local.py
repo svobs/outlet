@@ -29,6 +29,7 @@ from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +106,9 @@ class LocalDiskMasterStore(TreeStore):
             assert isinstance(node, LocalFileNode)
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Enqueuing node for sig calc: {node.node_identifier}')
-            self.backend.executor.submit_async_task(ExecPriority.SIGNATURE_CALC, False, self.calculate_signature_for_local_node, node)
+            self.backend.executor.submit_async_task(Task(ExecPriority.SIGNATURE_CALC, self.calculate_signature_for_local_node, node))
 
-    def calculate_signature_for_local_node(self, node: LocalFileNode):
+    def calculate_signature_for_local_node(self, this_task: Task, node: LocalFileNode):
         # Get up-to-date copy:
         node = self.backend.cacheman.get_node_for_uid(node.uid, node.device_uid)
 
@@ -568,6 +569,7 @@ class LocalDiskMasterStore(TreeStore):
     def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
+
         if filter_state and filter_state.has_criteria():
             # This only works if cache already loaded:
             if not self.is_cache_loaded_for(parent_spid):

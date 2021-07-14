@@ -20,6 +20,7 @@ from model.user_op import UserOp
 from backend.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from backend.diff.task.tree_diff_merge_task import TreeDiffMergeTask
 from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_DIFF_TREE, ID_LEFT_TREE, ID_RIGHT_DIFF_TREE, ID_RIGHT_TREE, Signal
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +138,8 @@ class BackendIntegrated(OutletBackend):
         assert tree_id_left == ID_LEFT_TREE and tree_id_right == ID_RIGHT_TREE, f'Wrong tree IDs: {ID_LEFT_TREE}, {ID_RIGHT_TREE}'
         tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE)
         # submit with UserOp priority:
-        self.executor.submit_async_task(ExecPriority.USER_OP_EXEC, False, TreeDiffTask.do_tree_diff,
-                                        self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct)
+        self.executor.submit_async_task(Task(ExecPriority.USER_OP_EXEC, TreeDiffTask.do_tree_diff,
+                                        self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct))
         return tree_id_struct
 
     def generate_merge_tree(self, tree_id_left: TreeID, tree_id_right: TreeID,

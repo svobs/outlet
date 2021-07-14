@@ -44,6 +44,7 @@ from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
+from util.task_runner import Task
 from util.two_level_dict import TwoLevelDict
 
 logger = logging.getLogger(__name__)
@@ -210,7 +211,7 @@ class CacheManager(HasLifecycle):
 
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
-                self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._load_all_caches)
+                self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._load_all_caches))
             else:
                 logger.info(f'Configured not to load on startup')
 
@@ -220,7 +221,7 @@ class CacheManager(HasLifecycle):
                 pending_ops_task = self._op_ledger.cancel_pending_ops_from_disk
             else:
                 pending_ops_task = self._op_ledger.resume_pending_ops_from_disk
-            self.backend.executor.submit_async_task(ExecPriority.USER_OP_EXEC, False, pending_ops_task)
+            self.backend.executor.submit_async_task(Task(ExecPriority.USER_OP_EXEC, pending_ops_task))
 
         finally:
             dispatcher.send(Signal.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -314,10 +315,10 @@ class CacheManager(HasLifecycle):
                 raise RuntimeError(f'Invalid tree type: {device.tree_type} for device {device}')
 
         if has_super_root:
-            logger.debug(f'Writing super-root device to registry')
-        else:
             logger.debug(f'Found super-root in registry')
+        else:
             # Need to create new device for this disk (first run)
+            logger.debug(f'Writing super-root device to registry')
             device = Device(SUPER_ROOT_DEVICE_UID, "ROOT", TreeType.MIXED, "Super Root")
             self._write_new_device(device)
 
@@ -409,7 +410,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'get_tree_type(): no store found for device_uid: {device_uid}')
         return store
 
-    def _load_all_caches(self):
+    def _load_all_caches(self, this_task: Task):
         """Load ALL the caches into memory. This is needed in certain circumstances, such as when a UID is being derefernced but we
         don't know which cache it belongs to."""
         if not self.enable_load_from_disk:
@@ -452,8 +453,12 @@ class CacheManager(HasLifecycle):
         for cache_num, existing_disk_cache in enumerate(existing_cache_list):
             self._cache_info_dict.put_item(existing_disk_cache)
 
-            self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._init_existing_cache,
-                                                    existing_disk_cache, cache_num + 1, len(existing_cache_list))
+            cache_num_plus_1 = cache_num + 1
+            cache_count = len(existing_cache_list)
+
+            # Load each cache as a separate async task.
+            self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._init_existing_cache,
+                                                    existing_disk_cache, cache_num_plus_1, cache_count))
 
     def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
@@ -472,7 +477,7 @@ class CacheManager(HasLifecycle):
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
             db.insert_cache_info(cache_info_list, append=False, overwrite=True)
 
-    def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo, cache_num: int, total_cache_count: int):
+    def _init_existing_cache(self, this_task: Task, existing_disk_cache: PersistedCacheInfo, cache_num: int, total_cache_count: int):
         try:
             logger.info(f'Init cache {cache_num}/{total_cache_count}: id={existing_disk_cache.subtree_root}')
 
@@ -505,11 +510,11 @@ class CacheManager(HasLifecycle):
             logger.info(f'{stopwatch} Done loading cache: {cache_num}/{total_cache_count}: id={existing_disk_cache.subtree_root}')
         except RuntimeError:
             logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
-
-        # Last task has responsibility to clean up:
-        if cache_num == total_cache_count:
-            self._load_all_caches_in_process = False
-            self._load_all_caches_done.set()
+        finally:
+            # Last task has responsibility to clean up (a bit of a kludge but if this doesn't work we have huge problems)
+            if cache_num == total_cache_count:
+                self._load_all_caches_in_process = False
+                self._load_all_caches_done.set()
 
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -541,9 +546,9 @@ class CacheManager(HasLifecycle):
         self.wait_for_startup_done()
 
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, False, self.load_data_for_display_tree, tree_id, send_signals)
+        self.backend.executor.submit_async_task(Task(ExecPriority.LOAD_0, self.load_data_for_display_tree, tree_id, send_signals))
 
-    def load_data_for_display_tree(self, tree_id: TreeID, send_signals: bool):
+    def load_data_for_display_tree(self, this_task: Task, tree_id: TreeID, send_signals: bool):
         """
         TREE LOAD SEQUENCE:
         - Client requests display tree: see request_display_tree()
@@ -583,13 +588,13 @@ class CacheManager(HasLifecycle):
             # fall through
 
         # Full cache load. Both first-order & higher-order trees do this:
-        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._load_cache_for_subtree, tree_meta, send_signals)
+        self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._load_cache_for_subtree, tree_meta, send_signals))
 
     def is_cache_loaded_for(self, spid: SinglePathNodeIdentifier) -> bool:
         # this will return False if either a cache exists but is not loaded, or no cache yet exists:
         return self._get_store_for_device_uid(spid.device_uid).is_cache_loaded_for(spid)
 
-    def _load_cache_for_subtree(self, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
+    def _load_cache_for_subtree(self, this_task: Task, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
         if tree_meta.is_first_order():  # i.e. not ChangeTree
             # Load meta for all nodes:
             spid = tree_meta.root_sn.spid
@@ -699,7 +704,7 @@ class CacheManager(HasLifecycle):
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
         # TODO: split this in LOAD_0 and LOAD_3 tasks
-        self.backend.executor.submit_async_task(ExecPriority.LOAD_0, True, self._refresh_subtree, node_identifier, tree_id)
+        self.backend.executor.submit_async_task(Task(ExecPriority.LOAD_0, self._refresh_subtree, node_identifier, tree_id))
 
     # PersistedCacheInfo stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -1219,7 +1224,7 @@ class CacheManager(HasLifecycle):
     def show_tree(self, subtree_root: NodeIdentifier) -> str:
         return self._get_store_for_device_uid(subtree_root.device_uid).show_tree(subtree_root)
 
-    def _refresh_subtree(self, node_identifier: NodeIdentifier, tree_id: TreeID):
+    def _refresh_subtree(self, this_task: Task, node_identifier: NodeIdentifier, tree_id: TreeID):
         """Called asynchronously via task executor"""
         logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
         self._get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(node_identifier, tree_id)
@@ -1254,9 +1259,9 @@ class CacheManager(HasLifecycle):
     def build_local_dir_node(self, full_path: str, is_live: bool = True, all_children_fetched: bool = False) -> LocalDirNode:
         return self._this_disk_local_store.build_local_dir_node(full_path, is_live, all_children_fetched=all_children_fetched)
 
-    def build_gdrive_root_node(self, device_uid: UID) -> GDriveNode:
+    def build_gdrive_root_node(self, device_uid: UID, sync_ts: Optional[int] = None) -> GDriveNode:
         store = self._get_gdrive_store_for_device_uid(device_uid)
-        return store.build_gdrive_root_node()
+        return store.build_gdrive_root_node(sync_ts=sync_ts)
 
     def read_single_node(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
         store = self._get_store_for_device_uid(spid.device_uid)
@@ -1281,11 +1286,6 @@ class CacheManager(HasLifecycle):
 
         elif spid.tree_type == TreeType.GDRIVE:
             assert isinstance(store, GDriveMasterStore)
-
-            if spid.node_uid == GDRIVE_ROOT_UID:
-                # special case for faux-node '/' since it won't be stored in disk
-                return store.build_gdrive_root_node()
-
             return store.read_single_node_from_disk_for_uid(spid.node_uid)
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')

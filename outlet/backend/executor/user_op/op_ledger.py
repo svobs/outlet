@@ -14,6 +14,7 @@ from model.node.node import Node
 from model.user_op import UserOp, UserOpType
 from model.uid import UID
 from util.has_lifecycle import HasLifecycle
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -212,11 +213,11 @@ class OpLedger(HasLifecycle):
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     # Reduce Changes logic
 
-    def cancel_pending_ops_from_disk(self):
+    def cancel_pending_ops_from_disk(self, this_task: Task):
         """Call this at startup, to CANCEL pending ops which have not yet been applied (archive them on disk)."""
         self._disk_store.cancel_pending_ops_from_disk()
 
-    def resume_pending_ops_from_disk(self):
+    def resume_pending_ops_from_disk(self, this_task: Task):
         """Call this at startup, to RESUME pending ops which have not yet been applied."""
 
         # Load from disk
@@ -244,6 +245,7 @@ class OpLedger(HasLifecycle):
             big_node_list: List[Node] = self._get_all_nodes(batch_op_list)
 
             # Make sure all relevant caches are loaded:
+            # TODO: make this async
             self.backend.cacheman.ensure_loaded(big_node_list)
 
             self._append_batch(batch_uid, batch_op_list, save_to_disk=False)

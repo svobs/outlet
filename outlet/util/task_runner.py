@@ -18,29 +18,41 @@ class Task:
     CLASS Task
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, task_func: Callable, *args):
+    def __init__(self, priority, task_func: Callable, *args):
         self.task_func: Callable = task_func
         self.args = args
+
+        self.priority = priority
+        self.on_complete: Optional[Callable] = None
+        self.on_error: Optional[Callable[[Exception], None]] = None
+
+        # set internally:
         self.task_uuid: uuid.UUID = uuid.uuid4()
         self.task_start_time_ms: Optional[int] = None
-        self.exec_priority = None
 
     def run(self):
         self.task_start_time_ms = time_util.now_ms()
         logger.debug(f'Starting task: "{self.task_func.__name__}" with args={self.args}, start_time_ms={self.task_start_time_ms}')
         task_time = Stopwatch()
         try:
-            self.task_func(*self.args)
+            self.task_func(self, *self.args)
         except Exception as err:
             msg = f'Task failed during execution: "{self.task_func.__name__}" (task_uuid={self.task_uuid})'
             logger.exception(msg)
+
+            if self.on_error:
+                logger.debug(f'Calling task.on_error() (task_uuid={self.task_uuid})')
+                self.on_error(err)
+                return
+
             GlobalActions.display_error_in_ui(msg, repr(err))
             raise
         finally:
             logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" (task_uuid={self.task_uuid})')
 
     def __repr__(self):
-        return f'Task(start_time_ms={self.task_start_time_ms} exec_priority={self.exec_priority} func={self.task_func.__name__} args={self.args})'
+        return f'Task(uuid={self.task_uuid} start_time_ms={self.task_start_time_ms} priority={self.priority} ' \
+               f'func={self.task_func.__name__} args={self.args})'
 
 
 class TaskRunner(HasLifecycle):
@@ -54,15 +66,6 @@ class TaskRunner(HasLifecycle):
     def __init__(self):
         HasLifecycle.__init__(self)
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
-
-    @staticmethod
-    def create_task(task_func, *args) -> Task:
-        return Task(task_func, *args)
-
-    def enqueue(self, task_func, *args) -> Future:
-        task = TaskRunner.create_task(task_func, args)
-        future: Future = self.enqueue_task(task)
-        return future
 
     def enqueue_task(self, task: Task) -> Future:
         logger.debug(f'Submitting new task to executor: "{task.task_func.__name__}" (task_uuid={task.task_uuid})')

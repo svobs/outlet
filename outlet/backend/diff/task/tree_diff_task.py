@@ -12,6 +12,7 @@ from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.stopwatch_sec import Stopwatch
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class TreeDiffTask:
     """
     
     @staticmethod
-    def do_tree_diff(backend, sender, tree_id_left: str, tree_id_right: str, new_tree_ids: DiffResultTreeIds):
+    def do_tree_diff(this_task: Task, backend, sender, tree_id_left: str, tree_id_right: str, new_tree_ids: DiffResultTreeIds):
         stopwatch_diff_total = Stopwatch()
         try:
             meta_left = backend.cacheman.get_active_display_tree_meta(tree_id_left)

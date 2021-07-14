@@ -33,18 +33,20 @@ class ExecPriority(IntEnum):
     # For user-initiated refresh requests, this queue will be used if the nodes are not already visible.
     LOAD_2 = 3
 
-    # Fourth highest priority load requests: cache loads from disk into memory (such as during startup), as well as GDrive whole tree
-    # downloads (in chunks).
+    # Fourth highest priority load requests: cache loads from disk into memory (such as during startup)
     CACHE_LOAD = 4
 
+    # GDrive whole tree downloads (in chunks)
+    LONG_RUNNING_NETWORK_LOAD = 5
+
     # Updates to the cache based on disk monitoring, in batches:
-    LIVE_UPDATE = 5
+    LIVE_UPDATE = 6
 
     # Signature calculations: IO-dominant
-    SIGNATURE_CALC = 6
+    SIGNATURE_CALC = 7
 
     # This queue stores operations like "resume pending ops on startup", but we also consult the OpLedger
-    USER_OP_EXEC = 7
+    USER_OP_EXEC = 8
 
 
 class CentralExecutor(HasLifecycle):
@@ -77,6 +79,8 @@ class CentralExecutor(HasLifecycle):
             ExecPriority.LOAD_2: Queue[Task](),
 
             ExecPriority.CACHE_LOAD: Queue[Task](),
+
+            ExecPriority.LONG_RUNNING_NETWORK_LOAD: Queue[Task](),
 
             ExecPriority.LIVE_UPDATE: Queue[Task](),
 
@@ -116,8 +120,9 @@ class CentralExecutor(HasLifecycle):
 
     def get_engine_summary_state(self) -> EngineSummaryState:
         with self._lock:
-            if self._exec_queue_dict[ExecPriority.CACHE_LOAD].qsize() > 0:
-                # still starting up
+            if self._exec_queue_dict[ExecPriority.CACHE_LOAD].qsize() > 0 \
+                    or self._exec_queue_dict[ExecPriority.LONG_RUNNING_NETWORK_LOAD].qsize() > 0:
+                # still getting up to speed on the BE
                 return EngineSummaryState.RED
 
             total_enqueued = self._exec_queue_dict[ExecPriority.LOAD_0].qsize() + \
@@ -191,6 +196,10 @@ class CentralExecutor(HasLifecycle):
         if task:
             return task
 
+        task = self._get_from_queue(ExecPriority.LONG_RUNNING_NETWORK_LOAD)
+        if task:
+            return task
+
         task = self._get_from_queue(ExecPriority.LIVE_UPDATE)
         if task:
             return task
@@ -215,7 +224,7 @@ class CentralExecutor(HasLifecycle):
                 self._pause_op_execution(sender=ID_CENTRAL_EXEC)
             if command:
                 logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
-                return self._be_task_runner.create_task(self._command_executor.execute_command, command, None, True)
+                return Task(ExecPriority.USER_OP_EXEC, self._command_executor.execute_command, command, None, True)
 
         return None
 
@@ -223,9 +232,14 @@ class CentralExecutor(HasLifecycle):
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
                 if future.cancelled():
-                    logger.debug(f'Task cancelled: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.exec_priority})')
+                    logger.debug(f'Task cancelled: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.priority})')
                 else:
-                    logger.debug(f'Task done: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.exec_priority})')
+                    logger.debug(f'Task done: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.priority})')
+
+            # FIXME: account for child tasks here
+
+
+            # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
@@ -233,22 +247,16 @@ class CentralExecutor(HasLifecycle):
             logger.debug(f'Running task dict now has {len(self._running_task_dict)} tasks')
             self._running_task_cv.notify_all()
 
-    def submit_async_task(self, priority: ExecPriority, block: bool, task_func, *args):
+    def submit_async_task(self, task: Task, parent_task: Optional[Task] = None):
         """API: enqueue task to be executed, with given priority."""
+        priority = task.priority
+
         if not isinstance(priority, ExecPriority):
             raise RuntimeError(f'Bad arg: {priority}')
 
-        task: Task = self._be_task_runner.create_task(task_func, *args)
-        task.exec_priority = priority
-
-        if block:
-            logger.debug(f'Enqueuing blocking task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
-            self._exec_queue_dict[priority].put(task)
-            logger.debug(f'Successful: enqueued blocking task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
-        else:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Enqueuing (non-blocking) task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
-            self._exec_queue_dict[priority].put_nowait(task)
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Enqueuing task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
+        self._exec_queue_dict[priority].put_nowait(task)
 
         with self._running_task_cv:
             if len(self._running_task_dict) < TASK_RUNNER_MAX_WORKERS:

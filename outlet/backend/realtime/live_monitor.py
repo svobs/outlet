@@ -16,6 +16,7 @@ from model.node_identifier import NodeIdentifier
 from signal_constants import ID_GDRIVE_POLLING_THREAD, Signal
 from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
 
             count = len(change_set)
             if count > 0:
-                self.backend.executor.submit_async_task(ExecPriority.LIVE_UPDATE, False, self._apply_change_set_batch, change_set)
+                self.backend.executor.submit_async_task(Task(ExecPriority.LIVE_UPDATE, self._apply_change_set_batch, change_set))
 
             logger.debug(f'{self.name}: sleeping for {self.local_change_batch_interval_ms} ms')
             time.sleep(self.local_change_batch_interval_ms / 1000.0)
@@ -111,7 +112,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
                 if not self.change_set:
                     self._cv_can_get.wait()
 
-    def _apply_change_set_batch(self, change_set: Set[str]):
+    def _apply_change_set_batch(self, this_task: Task, change_set: Set[str]):
         logger.debug(f'{self.name}: applying {len(change_set)} local file updates...')
         for change_path in change_set:
             try:

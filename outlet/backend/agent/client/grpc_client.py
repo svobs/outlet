@@ -35,7 +35,7 @@ from model.user_op import UserOp, UserOpType
 from signal_constants import Signal
 from util import daemon_util
 from util.ensure import ensure_bool, ensure_int
-from util.task_runner import TaskRunner
+from util.task_runner import Task, TaskRunner
 import grpc
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class BackendGRPCClient(OutletBackend):
         self.signal_thread: SignalReceiverThread = SignalReceiverThread(self, self._converter)
 
         self._fe_task_runner = TaskRunner()
-        """Only needed to generate UIDs which are unique to drag & drop"""
+        """Only needed to generate UIDs which are unique to drag & drop. Looking increasingly kludgey"""
 
         self._cached_device_list: List[Device] = []
 
@@ -135,7 +135,8 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=signal, receiver=_forward_signal, weak=False)
 
     def _on_ui_task_requested(self, sender, task_func, *args):
-        self._fe_task_runner.enqueue(task_func, *args)
+        task = Task(None, task_func, args)
+        self._fe_task_runner.enqueue_task(task)
 
     def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = True) -> Optional[str]:
         """Note: params 'default_val' and 'required' are only enforced locally, not by the server"""

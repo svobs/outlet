@@ -5,6 +5,7 @@ import os.path
 import pickle
 import socket
 import time
+from functools import partial
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
@@ -16,6 +17,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
+from backend.executor.central import ExecPriority
 from backend.tree_store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
@@ -31,6 +33,7 @@ from signal_constants import Signal
 from util import file_util, time_util
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,17 @@ class MemoryCache:
 
     def set(self, url, content):
         MemoryCache._CACHE[url] = content
+
+
+class QueryRequestState:
+    def __init__(self, initial_page_token, sync_ts: int, observer: GDriveQueryObserver, parent_task: Optional[Task] = None):
+        self.page_token: Optional[str] = initial_page_token
+        self.page_count: int = 0
+        self.item_count: int = 0
+        self.sync_ts: int = sync_ts
+        self.observer: GDriveQueryObserver = observer
+        self.parent_task: Optional[Task] = parent_task
+        self.stopwatch_retrieval = Stopwatch()
 
 
 class GDriveClient(HasLifecycle):
@@ -264,49 +278,19 @@ class GDriveClient(HasLifecycle):
 
         return goog_node
 
-    def _execute_query(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver):
-        """Gets a list of files and/or folders which match the query criteria."""
+    def _exec_single_request(self, make_request_func: Callable[[QueryRequestState], None], request_state: QueryRequestState):
+        binded_request = partial(make_request_func, request_state)
+        results: dict = GDriveClient._try_repeatedly(binded_request)
 
-        # Google Drive only; not backend data or Google Photos:
-        spaces = 'drive'
+        # TODO: how will we know if the token is invalid?
 
-        if initial_page_token:
-            logger.info('Found a page token. Attempting to resume previous download')
+        if results.get('incompleteSearch', False):
+            # Not clear when this would happen, but fail fast if so.
+            # If executing via the Central Executor, this will be caught and reported (and task.on_error() called if it exists)
+            raise RuntimeError(f'Results are incomplete! (page {request_state.page_count})')
 
-        def request():
-            m = f'Sending request for GDrive items, page {request.page_count}...'
-            logger.debug(m)
-            if self.tree_id:
-                dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
-
-            # Call the Drive v3 API
-            response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
-                                                 # include items from shared drives
-                                                 includeItemsFromAllDrives=True, supportsAllDrives=True,
-                                                 pageToken=request.page_token).execute()
-            request.page_count += 1
-            return response
-
-        request.page_token = initial_page_token
-        request.page_count = 0
-        item_count = 0
-
-        stopwatch_retrieval = Stopwatch()
-
-        while True:
-            results: dict = GDriveClient._try_repeatedly(request)
-
-            # TODO: how will we know if the token is invalid?
-
-            if results.get('incompleteSearch', False):
-                # Not clear when this would happen, but fail fast if so
-                raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
-
-            items: list = results.get('files', [])
-            if not items:
-                logger.debug('Request returned no files')
-                break
-
+        items: list = results.get('files', [])
+        if items:
             msg = f'Received {len(items)} items'
             logger.debug(msg)
             if self.tree_id:
@@ -315,22 +299,62 @@ class GDriveClient(HasLifecycle):
             for item in items:
                 mime_type = item['mimeType']
                 if mime_type == MIME_TYPE_FOLDER:
-                    goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=sync_ts)
+                    goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=request_state.sync_ts)
                 else:
-                    goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
+                    goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=request_state.sync_ts)
 
-                observer.node_received(goog_node, item)
-                item_count += 1
+                request_state.observer.node_received(goog_node, item)
+                request_state.item_count += 1
+        else:
+            logger.debug('Request returned no files')
 
-            request.page_token = results.get('nextPageToken')
+        request_state.page_token = results.get('nextPageToken')
 
-            observer.end_of_page(request.page_token)
+        request_state.observer.end_of_page(request_state.page_token)
 
-            if not request.page_token:
-                logger.debug('Done!')
-                break
+        if not request_state.page_token:
+            logger.debug(f'{request_state.stopwatch_retrieval} Done. Query returned {request_state.item_count} nodes')
+        elif request_state.parent_task:
+            # essentially loop, with each loop being scheduled through the Central Executor as a child task of the parent:
+            next_child_task = Task(request_state.parent_task.priority, self._exec_single_request, make_request_func, request_state)
+            self.backend.executor.submit_async_task(next_child_task, parent_task=request_state.parent_task)
 
-        logger.debug(f'{stopwatch_retrieval} Query returned {item_count} nodes')
+    def _execute_query(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver,
+                       this_task: Optional[Task] = None):
+        """Gets a list of files and/or folders which match the query criteria."""
+
+        # Google Drive only; not backend data or Google Photos:
+        spaces = 'drive'
+
+        def make_request(state: QueryRequestState):
+            m = f'Sending request for GDrive items, page {state.page_count}...'
+            logger.debug(m)
+            if self.tree_id:
+                dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
+
+            # Call the Drive v3 API
+            response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
+                                                 # include items from shared drives
+                                                 includeItemsFromAllDrives=True, supportsAllDrives=True,
+                                                 pageToken=state.page_token).execute()
+            state.page_count += 1
+            return response
+
+        if initial_page_token:
+            logger.info('Found a page token. Attempting to resume previous download')
+
+        request_state = QueryRequestState(initial_page_token, sync_ts, observer, parent_task=this_task)
+
+        if this_task:
+            # Kick off first request as a child task:
+            next_child_task = Task(request_state.parent_task.priority, self._exec_single_request, make_request, request_state)
+            self.backend.executor.submit_async_task(next_child_task, parent_task=request_state.parent_task)
+        else:
+            while True:
+                self._exec_single_request(make_request, request_state)
+                if not request_state.page_token:
+                    logger.debug('Done!')
+                    break
 
     # API CALLS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -513,13 +537,14 @@ class GDriveClient(HasLifecycle):
 
         return observer
 
-    def get_all_non_folders(self, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver):
+    def get_all_non_folders(self, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver,
+                            this_task: Optional[Task] = None):
         query = QUERY_NON_FOLDERS_ONLY
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'
 
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
 
-        return self._execute_query(query, fields, initial_page_token, sync_ts, observer)
+        return self._execute_query(query, fields, initial_page_token, sync_ts, observer, this_task)
 
     def copy_existing_file(self, src_goog_id: str, new_name: str, new_parent_goog_ids: List[str]) -> Optional[GDriveNode]:
         if not src_goog_id:
@@ -552,7 +577,8 @@ class GDriveClient(HasLifecycle):
     # FOLDERS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_all_folders(self, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver):
+    def get_all_folders(self, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver,
+                        this_task: Optional[Task] = None):
         """
         Downloads all of the directory nodes from the user's GDrive and puts them into a
         GDriveMeta object.
@@ -562,7 +588,7 @@ class GDriveClient(HasLifecycle):
         """
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FOLDER_FIELDS}, parents)'
 
-        self._execute_query(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer)
+        self._execute_query(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer, this_task)
 
     def get_folders_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = f"{QUERY_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"

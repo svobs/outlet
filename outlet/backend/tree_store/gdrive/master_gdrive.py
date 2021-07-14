@@ -36,6 +36,7 @@ from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -144,9 +145,9 @@ class GDriveMasterStore(TreeStore):
 
     def download_all_gdrive_data(self):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self._download_all_gdrive_meta)
+        self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._download_all_gdrive_meta))
 
-    def _download_all_gdrive_meta(self):
+    def _download_all_gdrive_meta(self, this_task: Task):
         """See above. Executed by Task Runner. NOT UI thread"""
         # FIXME: break this into digestible chunks for Executor
         logger.info(f'Downloading all GDrive meta (device_uid={self.device_uid})')
@@ -157,7 +158,7 @@ class GDriveMasterStore(TreeStore):
             logger.exception(err)
             GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
 
-    def _load_master_cache(self, invalidate_cache: bool, sync_latest_changes: bool):
+    def _load_master_cache(self, this_task: Optional[Task], invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
                      f'sync_latest_changes={sync_latest_changes}')
@@ -169,7 +170,9 @@ class GDriveMasterStore(TreeStore):
         stopwatch_total = Stopwatch()
 
         if not self._memstore.master_tree or invalidate_cache:
-            self._memstore.master_tree = self.tree_loader.load_all(invalidate_cache=invalidate_cache)
+            def on_tree_loaded(tree):
+                self._memstore.master_tree = tree
+            self.tree_loader.load_all(this_task=this_task, invalidate_cache=invalidate_cache, on_tree_loaded=on_tree_loaded)
             logger.debug('Master tree completely loaded!')
         else:
             assert not invalidate_cache
@@ -220,21 +223,21 @@ class GDriveMasterStore(TreeStore):
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES.name}"')
-        self.backend.executor.submit_async_task(ExecPriority.CACHE_LOAD, False, self.load_and_sync_master_tree)
+        self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self.load_and_sync_master_tree))
 
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def load_subtree(self, subtree_root: SinglePathNodeIdentifier, tree_id: TreeID):
-        self._load_master_cache(sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
+        self._load_master_cache(this_task=None, sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
 
     def is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
         # very easy: either our whole cache is loaded or it is not
         return self._memstore.master_tree is not None
 
-    def load_and_sync_master_tree(self, invalidate_cache: bool = False):
+    def load_and_sync_master_tree(self, this_task: Optional[Task] = None, invalidate_cache: bool = False):
         """This will sync the latest changes before returning."""
-        self._load_master_cache(sync_latest_changes=True, invalidate_cache=invalidate_cache)
+        self._load_master_cache(this_task=this_task, sync_latest_changes=True, invalidate_cache=invalidate_cache)
 
     def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         if SUPER_DEBUG_ENABLED:
@@ -455,11 +458,11 @@ class GDriveMasterStore(TreeStore):
         logger.debug(f'Loading single node for uid: {uid}')
         return self._diskstore.get_single_node_with_uid(uid)
 
-    def build_gdrive_root_node(self) -> GDriveFolder:
+    def build_gdrive_root_node(self, sync_ts: Optional[int] = None) -> GDriveFolder:
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
         node_identifier = self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)
         return GDriveFolder(node_identifier, None, ROOT_PATH, TrashStatus.NOT_TRASHED, None, None,
-                            GDRIVE_ME_USER_UID, None, False, None, None, False)
+                            GDRIVE_ME_USER_UID, None, False, None, sync_ts=sync_ts, all_children_fetched=False)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
         node = self.get_node_for_uid(uid)
@@ -506,23 +509,18 @@ class GDriveMasterStore(TreeStore):
             parent_node = None
 
         if not parent_node:
-            # FIXME: need to store root node in disk cache!
-            if parent_spid.node_uid == GDRIVE_ROOT_UID:
-                parent_node = self.backend.cacheman.build_gdrive_root_node(self.device_uid)
-                assert not parent_node.all_children_fetched
-            else:
-                # We *must* have a node in order to continue
-                parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
-                if not parent_node:
-                    goog_id = self._uid_mapper.get_goog_id_for_uid(parent_spid.node_uid)
-                    if goog_id:
-                        parent_node = self.gdrive_client.get_existing_node_by_id(goog_id=goog_id)
-                        if not parent_node:
-                            raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
-                                               f'and could not find node in Google Drive with ID="{goog_id}": {parent_spid}')
-                    else:
+            # We *must* have a node in order to continue
+            parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
+            if not parent_node:
+                goog_id = self._uid_mapper.get_goog_id_for_uid(parent_spid.node_uid)
+                if goog_id:
+                    parent_node = self.gdrive_client.get_existing_node_by_id(goog_id=goog_id)
+                    if not parent_node:
                         raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
-                                           f'and could not resolve its Google ID: {parent_spid}')
+                                           f'and could not find node in Google Drive with ID="{goog_id}": {parent_spid}')
+                else:
+                    raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
+                                       f'and could not resolve its Google ID: {parent_spid}')
         assert parent_node
         if not parent_node.is_dir():
             raise RuntimeError(f'Could not get child list for node: node is not a folder: {parent_node}')
@@ -537,6 +535,10 @@ class GDriveMasterStore(TreeStore):
         else:
             # 3. Children not fetched. Must resort to a slow-ass GDrive API request:
             logger.debug(f'Found node in cache but children not fetched: "{parent_spid}"; will query GDrive for children')
+
+            if parent_node.uid == GDRIVE_ROOT_UID:
+                # This appears to be a limitation of Google Drive
+                raise RuntimeError(f'Cannot determine topmost nodes of Google Drive until entire tree has been downloaded!')
             child_node_list: List[GDriveNode] = self.fetch_and_merge_child_nodes_for_parent(parent_node)
 
         return [self.to_sn_from_node_and_parent_spid(child_node, parent_spid) for child_node in child_node_list]
