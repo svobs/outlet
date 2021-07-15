@@ -41,18 +41,18 @@ class GDriveTreeLoader:
         self.device_uid: UID = device_uid
         self.tree_id: TreeID = tree_id
 
-    def load_all(self, this_task: Optional[Task], invalidate_cache: bool, on_tree_loaded: Callable[[GDriveWholeTree], None]):
+    def load_all(self, this_task: Optional[Task], invalidate_cache: bool, after_tree_loaded: Callable[[GDriveWholeTree], None]):
         logger.debug(f'GDriveTreeLoader.load_all() called with invalidate_cache={invalidate_cache}')
 
         try:
             # scroll down ⯆⯆⯆
-            self._load_all(this_task, invalidate_cache, on_tree_loaded)
+            self._load_all(this_task, invalidate_cache, after_tree_loaded)
         finally:
             if self.tree_id:
                 logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
                 dispatcher.send(Signal.STOP_PROGRESS, sender=self.tree_id)
 
-    def _load_all(self, this_task: Optional[Task], invalidate_cache: bool, on_tree_loaded: Callable[[GDriveWholeTree], None]):
+    def _load_all(self, this_task: Optional[Task], invalidate_cache: bool, after_tree_loaded: Callable[[GDriveWholeTree], None]):
         if self.tree_id:
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
             dispatcher.send(Signal.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
@@ -98,20 +98,29 @@ class GDriveTreeLoader:
         # TODO: do something with this data
         # tree.me = self.gdrive_client.get_about()
 
+        is_synchronous = this_task is None
+
         if not initial_download.is_complete():
             state = 'Starting' if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
             logger.info(f'{state} download of all Google Drive tree (state={initial_download.current_state})')
 
             # BEGIN STATE MACHINE:
 
-            if this_task:
+            if is_synchronous:
+                # Not inside an async task: just execute procedurally
+                # It's a bit of a hack, using None like this...
+                self._download_gdrive_root_meta(None, tree, initial_download, sync_ts)
+                self._download_all_gdrive_dir_meta(None, tree, initial_download)
+                self._download_all_gdrive_non_dir_meta(None, tree, initial_download)
+                self._compile_downloaded_meta(None, tree, initial_download)
+            else:
                 # Create child task for each phase.
                 # Each child's completion handler will call the next task in a chain.
 
                 def launch_step_5():
                     next_subtask = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
                     self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.on_complete = partial(on_tree_loaded, tree)
+                    next_subtask.on_complete = partial(after_tree_loaded, tree)
 
                 def launch_step_4():
                     next_subtask = Task(this_task.priority, self._compile_downloaded_meta, tree, initial_download)
@@ -133,16 +142,10 @@ class GDriveTreeLoader:
 
                 self.backend.executor.submit_async_task(first_subtask, parent_task=this_task)
 
-            else:  # Not inside an async task: just execute procedurally
-                # bit of a hack, using None like this...
-                self._download_gdrive_root_meta(None, tree, initial_download, sync_ts)
-                self._download_all_gdrive_dir_meta(None, tree, initial_download)
-                self._download_all_gdrive_non_dir_meta(None, tree, initial_download)
-                self._compile_downloaded_meta(None, tree, initial_download)
-
-                self._do_post_load_processing(None, tree, cache_info)
-
-                on_tree_loaded(tree)
+        if not is_synchronous:
+            # for async case, this is done in launch_step_5()
+            self._do_post_load_processing(None, tree, cache_info)
+            after_tree_loaded(tree)
 
     def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload, sync_ts: int):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:

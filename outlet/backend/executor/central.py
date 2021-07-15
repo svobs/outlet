@@ -249,9 +249,7 @@ class CentralExecutor(HasLifecycle):
                 logger.debug(f'Task {task.task_uuid} has children running ({child_set}): will delay completion handler until they are done')
                 self._waiting_parent_task_dict[task.task_uuid] = task
             else:
-                logger.debug(f'Task {task.task_uuid} has no children; will run its completion handler')
-                if not task.on_complete:
-                    logger.debug(f'Task {task.task_uuid} has no completion handler')
+                logger.debug(f'Task {task.task_uuid} has no children {": will run its" if task.on_complete else "and has no"} completion handler')
                 # just set this here - will call it outside of lock
                 completion_handler_1 = task.on_complete
 
@@ -265,12 +263,11 @@ class CentralExecutor(HasLifecycle):
                                        f'ParentChildDict={self._parent_child_task_dict} ChildParentDic={self._child_parent_task_dict}')
                 child_set.remove(task.task_uuid)
                 if not child_set:
-                    logger.debug(f'Parent task {parent_uuid} has no children left; will run its completion handler')
                     parent_task = self._waiting_parent_task_dict.pop(parent_uuid, None)
                     if not parent_task:
                         raise RuntimeError(f'Serious internal error: failed to find expected parent task ({parent_uuid}) in waiting_parent_dict!)')
-                    if not parent_task.on_complete:
-                        logger.debug(f'Parent task {parent_uuid} has no completion handler')
+                    logger.debug(f'Parent task {parent_uuid} has no children left {": will run its" if parent_task.on_complete else "and has no"}'
+                                 f' completion handler')
                     completion_handler_2 = parent_task.on_complete
 
             # Removing based on object identity should work for now, since we are in the same process:
@@ -297,8 +294,7 @@ class CentralExecutor(HasLifecycle):
             raise RuntimeError(f'Bad arg: {priority}')
 
         with self._running_task_cv:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Enqueuing task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
+            logger.debug(f'Enqueuing task with priority={priority.name}: func_name="{task.task_func.__name__}" uuid: {task.task_uuid}')
 
             if parent_task:
                 # Do this *before* putting in queue, in case it gets picked up too quickly

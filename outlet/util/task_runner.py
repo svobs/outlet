@@ -39,7 +39,7 @@ class Task:
         try:
             self.task_func(self, *self.args)
         except Exception as err:
-            msg = f'Task failed during execution: "{self.task_func.__name__}" (task_uuid={self.task_uuid})'
+            msg = f'Task failed during execution: name="{self.task_func.__name__}" uuid={self.task_uuid}'
             logger.exception(msg)
 
             if self.on_error:
@@ -50,7 +50,7 @@ class Task:
             GlobalActions.display_error_in_ui(msg, repr(err))
             raise
         finally:
-            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" (task_uuid={self.task_uuid})')
+            logger.info(f'{task_time} Task returned: name="{self.task_func.__name__}" uuid={self.task_uuid}')
 
     def __repr__(self):
         return f'Task(uuid={self.task_uuid} start_time_ms={self.task_start_time_ms} priority={self.priority} ' \
@@ -70,7 +70,7 @@ class TaskRunner(HasLifecycle):
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
     def enqueue_task(self, task: Task) -> Future:
-        logger.debug(f'Submitting new task to executor: "{task.task_func.__name__}" (task_uuid={task.task_uuid})')
+        logger.debug(f'Submitting new task to executor: name="{task.task_func.__name__}" uuid={task.task_uuid}')
         future: Future = self._executor.submit(task.run)
         return future
 

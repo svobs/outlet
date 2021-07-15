@@ -169,23 +169,29 @@ class GDriveMasterStore(TreeStore):
 
         stopwatch_total = Stopwatch()
 
+        def _sync_if_specified():
+            if sync_latest_changes:
+                # This may add a noticeable delay:
+                self.sync_latest_changes()
+
+            logger.info(f'{stopwatch_total} GDrive master tree loaded')
+
         if not self._memstore.master_tree or invalidate_cache:
-            def on_tree_loaded(tree):
+            def _after_tree_loaded(tree):
+                assert tree
                 self._memstore.master_tree = tree
-            self.tree_loader.load_all(this_task=this_task, invalidate_cache=invalidate_cache, on_tree_loaded=on_tree_loaded)
-            logger.debug('Master tree completely loaded!')
+                logger.debug(f'GDrive master tree completely loaded; device_uid={self._memstore.master_tree.device_uid}')
+
+                _sync_if_specified()
+
+            self.tree_loader.load_all(this_task=this_task, invalidate_cache=invalidate_cache, after_tree_loaded=_after_tree_loaded)
         else:
             assert not invalidate_cache
             logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
-
-        if sync_latest_changes:
-            # This may add a noticeable delay:
-            self.sync_latest_changes()
-
-        logger.info(f'{stopwatch_total} GDrive master tree loaded')
+            _sync_if_specified()
 
     def sync_latest_changes(self):
-        logger.debug(f'sync_latest_changes(): locked={self._struct_lock.locked()}')
+        logger.debug(f'Entered sync_latest_changes(): locked={self._struct_lock.locked()}')
         changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
         if not changes_download:
             raise RuntimeError(f'Download state not found for GDrive change log!')

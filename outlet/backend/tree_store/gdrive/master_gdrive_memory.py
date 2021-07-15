@@ -35,6 +35,8 @@ class GDriveMemoryStore:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting GDriveNode to memory cache: {node}')
 
+        assert self.master_tree
+
         # Detect whether it's already in the cache
         if node.goog_id:
             uid_from_mapper = self._uid_mapper.get_uid_for_goog_id(goog_id=node.goog_id)

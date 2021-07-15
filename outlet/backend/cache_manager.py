@@ -214,7 +214,7 @@ class CacheManager(HasLifecycle):
                 def on_complete():
                     self._load_all_caches_in_process = False
                     self._load_all_caches_done.set()
-                    logger.info(f'Load All Caches complete.')
+                    logger.info(f'Done loading all caches.')
 
                 load_all_caches_task = Task(ExecPriority.CACHE_LOAD, self._load_all_caches)
                 load_all_caches_task.on_complete = on_complete
