@@ -98,11 +98,17 @@ class GDriveTreeLoader:
         # TODO: do something with this data
         # tree.me = self.gdrive_client.get_about()
 
+        # TODO: there must be a better way to do this...
         is_synchronous = this_task is None
+
+        def launch_step_5():
+            next_subtask = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
+            self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
+            next_subtask.on_complete = partial(after_tree_loaded, tree)
 
         if not initial_download.is_complete():
             state = 'Starting' if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
-            logger.info(f'{state} download of all Google Drive tree (state={initial_download.current_state})')
+            logger.info(f'{state} download of all Google Drive tree (state={initial_download.current_state}, is_synchronous={is_synchronous})')
 
             # BEGIN STATE MACHINE:
 
@@ -116,11 +122,6 @@ class GDriveTreeLoader:
             else:
                 # Create child task for each phase.
                 # Each child's completion handler will call the next task in a chain.
-
-                def launch_step_5():
-                    next_subtask = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
-                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.on_complete = partial(after_tree_loaded, tree)
 
                 def launch_step_4():
                     next_subtask = Task(this_task.priority, self._compile_downloaded_meta, tree, initial_download)
@@ -141,8 +142,11 @@ class GDriveTreeLoader:
                 first_subtask.on_complete = launch_step_2
 
                 self.backend.executor.submit_async_task(first_subtask, parent_task=this_task)
+        else:
+            if not is_synchronous:
+                launch_step_5()
 
-        if not is_synchronous:
+        if is_synchronous:
             # for async case, this is done in launch_step_5()
             self._do_post_load_processing(None, tree, cache_info)
             after_tree_loaded(tree)

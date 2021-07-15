@@ -32,15 +32,14 @@ class PersistedCacheInfo(CacheInfoEntry):
         super().__init__(cache_location=base.cache_location, subtree_root=base.subtree_root,
                          sync_ts=base.sync_ts, is_complete=base.is_complete)
         self.is_loaded = False
-        """Indicates the data needs to be loaded from disk again"""
+        """Indicates the data needs to be loaded from disk cache into memory cache"""
 
-        self.needs_refresh = True
-        """Indicates the data needs to be synced with disk"""
+        self.needs_refresh = False
+        """Indicates the data needs to be synced from source into disk/memory caches"""
 
         self.needs_save = False
-        """Indicates the data needs to be saved to disk again"""
+        """Indicates the data needs to be saved to disk cache again"""
 
     def __repr__(self):
         return f'PersistedCacheInfo(location="{self.cache_location}" subtree_root={self.subtree_root} ' \
                f'complete={self.is_complete} loaded={self.is_loaded} needs_refresh={self.needs_refresh})'
-

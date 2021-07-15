@@ -45,7 +45,8 @@ class ExecPriority(IntEnum):
     # Signature calculations: IO-dominant
     SIGNATURE_CALC = 7
 
-    # This queue stores operations like "resume pending ops on startup", but we also consult the OpLedger
+    # This queue stores operations like "resume pending ops on startup", but we also consult the OpLedger.
+    # Also used for TreeDiffTask presently
     USER_OP_EXEC = 8
 
 

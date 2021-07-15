@@ -39,11 +39,10 @@ class LocalDiskMasterStore(TreeStore):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDiskMasterStore
 
-    Singleton in-memory cache for local filesystem
-
-    # TODO: Scan only root dir at first, then enqueuing subdirectories
+    In-memory cache for local filesystem
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, uid_path_mapper, device: Device):
         TreeStore.__init__(self, device)
         self.backend = backend
@@ -204,17 +203,17 @@ class LocalDiskMasterStore(TreeStore):
 
     def load_subtree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
-        self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
+        self._load_subtree_from_disk_for_identifier(subtree_root, tree_id, force_rescan_disk=False)
 
     def is_cache_loaded_for(self, spid: LocalNodeIdentifier) -> bool:
         # If we have already loaded this subtree as part of a larger cache, use that:
         cache_info: PersistedCacheInfo = self.backend.cacheman.get_cache_info_for_subtree(spid, create_if_not_found=False)
         return cache_info and cache_info.is_loaded
 
-    def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID, is_live_refresh: bool = False) -> None:
+    def _load_subtree_from_disk_for_identifier(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID, force_rescan_disk: bool = False):
         """
-        Performs a read-through retrieval of all the LocalFileNodes in the given subtree
-        on the local filesystem.
+        Performs a read-through retrieval of all the LocalFileNodes in the given subtree on the local filesystem.
+        Esentially just a wrapper for _load_subtree_from_disk() which first finds the appropriate cache for the given subtree.
         """
 
         if not os.path.exists(subtree_root.get_single_path()):
@@ -227,11 +226,12 @@ class LocalDiskMasterStore(TreeStore):
         cache_man = self.backend.cacheman
         cache_info: PersistedCacheInfo = cache_man.get_cache_info_for_subtree(subtree_root, create_if_not_found=True)
         assert cache_info
-        self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
+        self._load_subtree_from_disk(cache_info, tree_id, subtree_root, force_rescan_disk)
 
-    def _create_display_tree(self, cache_info: PersistedCacheInfo, tree_id: TreeID, requested_subtree_root: LocalNodeIdentifier = None,
-                             is_live_refresh: bool = False) -> None:
-        """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
+    def _load_subtree_from_disk(self, cache_info: PersistedCacheInfo, tree_id: TreeID, requested_subtree_root: LocalNodeIdentifier = None,
+                                force_rescan_disk: bool = False) -> None:
+        """Loads the appropriate cache from disk (if not already loaded into memory) for the given subtree root, and
+        requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
         stopwatch_total = Stopwatch()
@@ -243,8 +243,10 @@ class LocalDiskMasterStore(TreeStore):
         else:
             self._ensure_uid_consistency(requested_subtree_root)
 
+        was_loaded = True
         # LOAD into master tree. Only for first load!
         if not cache_info.is_loaded:
+            was_loaded = False
             if self.backend.cacheman.enable_load_from_disk:
                 tree = self._diskstore.load_subtree(cache_info, tree_id)
                 if tree:
@@ -259,11 +261,10 @@ class LocalDiskMasterStore(TreeStore):
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
 
         # FS SYNC
-        if is_live_refresh or cache_info.needs_refresh or \
-                (not cache_info.is_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
+        if force_rescan_disk or cache_info.needs_refresh or (not was_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
             logger.debug(f'[{tree_id}] Will resync with file system (is_loaded={cache_info.is_loaded}, sync_on_cache_load='
                          f'{self.backend.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh}, '
-                         f'is_live_refresh={is_live_refresh})')
+                         f'force_rescan_disk={force_rescan_disk})')
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(requested_subtree_root, tree_id)
             cache_info.is_complete = True
@@ -348,7 +349,7 @@ class LocalDiskMasterStore(TreeStore):
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
-                self._create_display_tree(supertree_cache, tree_id)
+                self._load_subtree_from_disk(supertree_cache, tree_id)
                 # Now it is safe to delete the subtree cache:
                 file_util.delete_file(subtree_cache.cache_location)
 
@@ -357,7 +358,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def refresh_subtree(self, node_identifier: LocalNodeIdentifier, tree_id: TreeID):
         assert isinstance(node_identifier, LocalNodeIdentifier)
-        self._get_display_tree(node_identifier, tree_id, is_live_refresh=True)
+        self._load_subtree_from_disk_for_identifier(node_identifier, tree_id, force_rescan_disk=True)
 
     def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         """Generate DirStatsDict for the given subtree, with no filter applied"""
