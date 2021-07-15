@@ -211,7 +211,14 @@ class CacheManager(HasLifecycle):
 
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
-                self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._load_all_caches))
+                def on_complete():
+                    self._load_all_caches_in_process = False
+                    self._load_all_caches_done.set()
+                    logger.info(f'Load All Caches complete.')
+
+                load_all_caches_task = Task(ExecPriority.CACHE_LOAD, self._load_all_caches)
+                load_all_caches_task.on_complete = on_complete
+                self.backend.executor.submit_async_task(load_all_caches_task)
             else:
                 logger.info(f'Configured not to load on startup')
 
@@ -458,7 +465,7 @@ class CacheManager(HasLifecycle):
 
             # Load each cache as a separate async task.
             self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._init_existing_cache,
-                                                    existing_disk_cache, cache_num_plus_1, cache_count))
+                                                    existing_disk_cache, cache_num_plus_1, cache_count), parent_task=this_task)
 
     def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
@@ -510,11 +517,6 @@ class CacheManager(HasLifecycle):
             logger.info(f'{stopwatch} Done loading cache: {cache_num}/{total_cache_count}: id={existing_disk_cache.subtree_root}')
         except RuntimeError:
             logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
-        finally:
-            # Last task has responsibility to clean up (a bit of a kludge but if this doesn't work we have huge problems)
-            if cache_num == total_cache_count:
-                self._load_all_caches_in_process = False
-                self._load_all_caches_done.set()
 
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

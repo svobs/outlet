@@ -4,7 +4,7 @@ from concurrent.futures import Future
 from enum import IntEnum
 from functools import partial
 from queue import Empty, Queue
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 from uuid import UUID
 
 from pydispatch import dispatcher
@@ -88,6 +88,10 @@ class CentralExecutor(HasLifecycle):
 
             ExecPriority.USER_OP_EXEC: Queue[Task](),
         }
+
+        self._parent_child_task_dict: Dict[UUID, Set[UUID]] = {}
+        self._child_parent_task_dict: Dict[UUID, UUID] = {}
+        self._waiting_parent_task_dict: Dict[UUID, Task] = {}
 
         self._central_exec_thread: threading.Thread = threading.Thread(target=self._run_central_exec_thread,
                                                                        name=CENTRAL_EXEC_THREAD_NAME, daemon=True)
@@ -229,23 +233,61 @@ class CentralExecutor(HasLifecycle):
         return None
 
     def _on_task_done(self, task: Task, future: Future):
+        completion_handler_1 = None
+        completion_handler_2 = None
+
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
                 if future.cancelled():
-                    logger.debug(f'Task cancelled: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.priority})')
+                    logger.debug(f'Task cancelled: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority}')
                 else:
-                    logger.debug(f'Task done: "{task.task_func.__name__}" (task_uuid={task.task_uuid}, priority={task.priority})')
+                    logger.debug(f'Task done: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority}')
 
-            # FIXME: account for child tasks here
+            # Did this task spawn child tasks which need to be waited for?
+            child_set = self._parent_child_task_dict.get(task.task_uuid, None)
+            if child_set:
+                logger.debug(f'Task {task.task_uuid} has children running ({child_set}): will delay completion handler until they are done')
+                self._waiting_parent_task_dict[task.task_uuid] = task
+            else:
+                logger.debug(f'Task {task.task_uuid} has no children; will run its completion handler')
+                if not task.on_complete:
+                    logger.debug(f'Task {task.task_uuid} has no completion handler')
+                # just set this here - will call it outside of lock
+                completion_handler_1 = task.on_complete
 
-
-            # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
+            # Was this task a child of some other parent task?
+            parent_uuid = self._child_parent_task_dict.pop(task.task_uuid, None)
+            if parent_uuid:
+                logger.debug(f'Task {task.task_uuid} was a child of parent task {parent_uuid}')
+                child_set = self._parent_child_task_dict.get(parent_uuid, None)
+                if child_set is None:
+                    raise RuntimeError(f'Serious internal error: state of parent & child tasks is inconsistent! '
+                                       f'ParentChildDict={self._parent_child_task_dict} ChildParentDic={self._child_parent_task_dict}')
+                child_set.remove(task.task_uuid)
+                if not child_set:
+                    logger.debug(f'Parent task {parent_uuid} has no children left; will run its completion handler')
+                    parent_task = self._waiting_parent_task_dict.pop(parent_uuid, None)
+                    if not parent_task:
+                        raise RuntimeError(f'Serious internal error: failed to find expected parent task ({parent_uuid}) in waiting_parent_dict!)')
+                    if not parent_task.on_complete:
+                        logger.debug(f'Parent task {parent_uuid} has no completion handler')
+                    completion_handler_2 = parent_task.on_complete
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
             self._running_task_dict.pop(task.task_uuid)
             logger.debug(f'Running task dict now has {len(self._running_task_dict)} tasks')
             self._running_task_cv.notify_all()
+
+        if completion_handler_1:
+            logger.debug(f'Calling completion handler for task {task.task_uuid}')
+            completion_handler_1()
+
+        if completion_handler_2:
+            logger.debug(f'Calling completion handler for parent task')
+            completion_handler_2()
+
+        # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 
     def submit_async_task(self, task: Task, parent_task: Optional[Task] = None):
         """API: enqueue task to be executed, with given priority."""
@@ -254,11 +296,21 @@ class CentralExecutor(HasLifecycle):
         if not isinstance(priority, ExecPriority):
             raise RuntimeError(f'Bad arg: {priority}')
 
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Enqueuing task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
-        self._exec_queue_dict[priority].put_nowait(task)
-
         with self._running_task_cv:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Enqueuing task with priority={priority.name}: {task.task_func.__name__} (task_uuid: {task.task_uuid}')
+
+            if parent_task:
+                # Do this *before* putting in queue, in case it gets picked up too quickly
+                child_set = self._parent_child_task_dict.get(parent_task.task_uuid, None)
+                if not child_set:
+                    child_set = set()
+                    self._parent_child_task_dict[parent_task.task_uuid] = child_set
+                child_set.add(task.task_uuid)
+                self._child_parent_task_dict[task.task_uuid] = parent_task.task_uuid
+
+            self._exec_queue_dict[priority].put_nowait(task)
+
             if len(self._running_task_dict) < TASK_RUNNER_MAX_WORKERS:
                 self._running_task_cv.notify_all()
 

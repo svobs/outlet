@@ -203,7 +203,9 @@ class GDriveWholeTree(BaseTree):
         self._add_to_parent_dict(parent_uid, node)
 
         # Add ref in node:
-        node.add_parent(parent_uid)
+        if parent_uid not in node.get_parent_uids():
+            logger.debug(f'add_parent_mapping(): Adding parent {parent_uid} to node {node.uid} (device_uid={self.device_uid})')
+            node.add_parent(parent_uid)
 
     def _remove_root(self, node: GDriveNode):
         root_list = self.get_child_list_for_root()

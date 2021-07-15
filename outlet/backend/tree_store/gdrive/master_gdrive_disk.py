@@ -84,7 +84,7 @@ class GDriveDiskStore(HasLifecycle):
                     logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{folder.goog_id}", uid={folder.uid}')
                     invalidate_uids[folder.uid] = folder.goog_id
                     continue
-            else:
+            elif folder.uid != GDRIVE_ROOT_UID:
                 raise RuntimeError(f'GDriveFolder is missing goog_id: {folder}')
 
             if tree.uid_dict.get(folder.uid, None):

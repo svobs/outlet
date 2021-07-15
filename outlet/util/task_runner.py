@@ -25,6 +25,8 @@ class Task:
         self.priority = priority
         self.on_complete: Optional[Callable] = None
         self.on_error: Optional[Callable[[Exception], None]] = None
+        """Note: the executor has no way of knowing whether a task failed. It is up to the author of the task to ensure that on_error() does
+        the appropriate cleanup or notifies the relevant entities."""
 
         # set internally:
         self.task_uuid: uuid.UUID = uuid.uuid4()
