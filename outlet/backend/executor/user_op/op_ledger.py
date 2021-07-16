@@ -4,6 +4,7 @@ from collections import defaultdict
 from enum import IntEnum
 from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
+from backend.executor.central import ExecPriority
 from backend.executor.user_op.op_graph import OpGraph
 from constants import IconId, SUPER_DEBUG_ENABLED
 from backend.executor.command.cmd_builder import CommandBuilder
@@ -244,11 +245,11 @@ class OpLedger(HasLifecycle):
 
             big_node_list: List[Node] = self._get_all_nodes(batch_op_list)
 
-            # Make sure all relevant caches are loaded:
-            # TODO: make this async
-            self.backend.cacheman.ensure_loaded(big_node_list)
+            # Make sure all relevant caches are loaded. Do this via executor tasks:
+            self.backend.cacheman.ensure_loaded(this_task, big_node_list)
 
-            self._append_batch(batch_uid, batch_op_list, save_to_disk=False)
+            # launch this with USER_OP_EXEC priority so that it executes after the cache load tasks:
+            self.backend.executor.submit_async_task(Task(ExecPriority.USER_OP_EXEC, self._append_batch, batch_uid, batch_op_list, False))
 
     @staticmethod
     def _get_all_nodes(batch_op_list: List[UserOp]) -> List[Node]:

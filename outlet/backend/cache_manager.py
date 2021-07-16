@@ -748,8 +748,9 @@ class CacheManager(HasLifecycle):
         # Nothing in the cache contains subtree
         return None
 
-    def ensure_loaded(self, node_list: List[Node]):
-        """Ensures that all the necessary caches are loaded for all of the given nodes"""
+    def ensure_loaded(self, this_task: Task, node_list: List[Node]):
+        """Ensures that all the necessary caches are loaded for all of the given nodes.
+        We launch separate executor tasks for each cache load that we require."""
 
         # use dict and set here to root out duplicate caches:
         needed_localdisk_cache_dict: Dict[str, PersistedCacheInfo] = {}  # cache location -> PersistedCacheInfo
@@ -770,7 +771,7 @@ class CacheManager(HasLifecycle):
         for gdrive_device_uid in needed_gdrive_device_uid_set:
             store = self._get_store_for_device_uid(gdrive_device_uid)
             assert isinstance(store, GDriveMasterStore)
-            store.load_and_sync_master_tree()
+            self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, store.load_and_sync_master_tree), parent_task=this_task)
 
         # LocalDisk:
         for cache in needed_localdisk_cache_dict.values():
@@ -781,7 +782,8 @@ class CacheManager(HasLifecycle):
                 else:
                     assert isinstance(cache.subtree_root, LocalNodeIdentifier)
                     store = self._get_store_for_device_uid(cache.subtree_root.device_uid)
-                    store.load_subtree(cache.subtree_root, ID_GLOBAL_CACHE)
+                    load_subtree_task = Task(ExecPriority.CACHE_LOAD, store.load_subtree, cache.subtree_root, ID_GLOBAL_CACHE)
+                    self.backend.executor.submit_async_task(load_subtree_task, parent_task=this_task)
 
     def _create_new_cache_info(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
         if not subtree_root.is_spid():
