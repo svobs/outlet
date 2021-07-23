@@ -101,10 +101,13 @@ class GDriveTreeLoader:
         # TODO: there must be a better way to do this...
         is_synchronous = this_task is None
 
-        def launch_step_5():
+        def launch_step_5(this_task_4):
             next_subtask = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
             self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-            next_subtask.add_completion_handler(partial(after_tree_loaded, tree))
+
+            def _after_tree_loaded(this_task_5):
+                after_tree_loaded(tree)
+            next_subtask.add_next_task(_after_tree_loaded)
 
         if not initial_download.is_complete():
             state = 'Starting' if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
@@ -123,28 +126,28 @@ class GDriveTreeLoader:
                 # Create child task for each phase.
                 # Each child's completion handler will call the next task in a chain.
 
-                def launch_step_4():
+                def launch_step_4(this_task_3):
                     next_subtask = Task(this_task.priority, self._compile_downloaded_meta, tree, initial_download)
                     self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.add_completion_handler(launch_step_5)
+                    next_subtask.add_next_task(launch_step_5)
 
-                def launch_step_3():
+                def launch_step_3(this_task_2):
                     next_subtask = Task(this_task.priority, self._download_all_gdrive_non_dir_meta, tree, initial_download)
                     self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.add_completion_handler(launch_step_4)
+                    next_subtask.add_next_task(launch_step_4)
 
-                def launch_step_2():
+                def launch_step_2(this_task_1):
                     next_subtask = Task(this_task.priority, self._download_all_gdrive_dir_meta, tree, initial_download)
                     self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.add_completion_handler(launch_step_3)
+                    next_subtask.add_next_task(launch_step_3)
 
                 first_subtask = Task(this_task.priority, self._download_gdrive_root_meta, tree, initial_download, sync_ts)
-                first_subtask.add_completion_handler(launch_step_2)
+                first_subtask.add_next_task(launch_step_2)
 
                 self.backend.executor.submit_async_task(first_subtask, parent_task=this_task)
         else:
             if not is_synchronous:
-                launch_step_5()
+                launch_step_5(None)
 
         if is_synchronous:
             # for async case, this is done in launch_step_5()

@@ -149,7 +149,7 @@ class LocalDiskMasterStore(TreeStore):
         scanner = LocalDiskScanner(backend=self.backend, root_node_identifer=subtree_root, tree_id=tree_id)
         return scanner.scan()
 
-    def _resync_with_file_system(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
+    def _resync_with_file_system(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
         fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
 
@@ -166,6 +166,7 @@ class LocalDiskMasterStore(TreeStore):
                 # "Pending op" nodes are not stored in the regular cache (they should all have is_live()==False)
                 pending_op_nodes: List[LocalNode] = []
 
+                # Check old tree for removed and pending op nodes:
                 for existing_node in self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid):
                     if not fresh_tree.get_node_for_uid(existing_node.uid):
                         if existing_node.is_live():
@@ -269,33 +270,42 @@ class LocalDiskMasterStore(TreeStore):
                          f'{self.backend.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh}, '
                          f'force_rescan_disk={force_rescan_disk})')
             # Update from the file system, and optionally save any changes back to cache:
-            self._resync_with_file_system(requested_subtree_root, tree_id)
-            cache_info.is_complete = True
-            # Need to save changes to CacheInfo, but we don't have an API for a single line. Just overwrite all for now - shouldn't hurt
-            self.backend.cacheman.write_cache_registry_updates_to_disk()
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{tree_id}] File system sync complete')
-            # We can only mark this as 'done' (False) if the entire cache contents has been refreshed:
-            if requested_subtree_root.node_uid == cache_info.subtree_root.node_uid:
-                cache_info.needs_refresh = False
+            self._resync_with_file_system(this_task, requested_subtree_root, tree_id)
+
+            def _after_resync_complete(this_task):
+                # Need to save changes to CacheInfo, but we don't have an API for a single line. Just overwrite all for now - shouldn't hurt
+                cache_info.is_complete = True
+                self.backend.cacheman.write_cache_registry_updates_to_disk()
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{tree_id}] File system sync complete')
+                # We can only mark this as 'done' (False) if the entire cache contents has been refreshed:
+                if requested_subtree_root.node_uid == cache_info.subtree_root.node_uid:
+                    cache_info.needs_refresh = False
+
+            this_task.add_next_task(_after_resync_complete)
         elif not self.backend.cacheman.sync_from_local_disk_on_cache_load:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because it is disabled for cache loads')
         elif not cache_info.needs_refresh:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
 
-        # SAVE
-        if cache_info.needs_save:
-            if not cache_info.is_loaded:
-                logger.warning(f'[{tree_id}] Skipping cache save: cache was never loaded!')
-            elif self.backend.cacheman.enable_save_to_disk:
-                # Save the updates back to local disk cache:
-                self._save_subtree_to_disk(cache_info, tree_id)
-            else:
-                logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
-        elif SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{tree_id}] Skipping cache save: not needed')
+        def _after_load_complete(this_task):
+            """Finish up"""
 
-        logger.info(f'[{tree_id}] {stopwatch_total} Load complete for {requested_subtree_root}')
+            # SAVE
+            if cache_info.needs_save:
+                if not cache_info.is_loaded:
+                    logger.warning(f'[{tree_id}] Skipping cache save: cache was never loaded!')
+                elif self.backend.cacheman.enable_save_to_disk:
+                    # Save the updates back to local disk cache:
+                    self._save_subtree_to_disk(cache_info, tree_id)
+                else:
+                    logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
+            elif SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{tree_id}] Skipping cache save: not needed')
+
+            logger.info(f'[{tree_id}] {stopwatch_total} Load complete for {requested_subtree_root}')
+
+        this_task.add_next_task(_after_load_complete)
 
     def _ensure_uid_consistency(self, subtree_root: SinglePathNodeIdentifier):
         """Since the UID of the subtree root node is stored in 3 different locations (registry, cache file, and memory),

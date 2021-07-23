@@ -168,12 +168,15 @@ class CentralExecutor(HasLifecycle):
 
                 # Do this outside the CV:
                 if task:
-                    future = self._be_task_runner.enqueue_task(task)
-                    callback = partial(self._on_task_done, task)
-                    # This will call back immediately if the task already completed:
-                    future.add_done_callback(callback)
+                    self._enqueue_task(task)
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
+
+    def _enqueue_task(self, task: Task):
+        future = self._be_task_runner.enqueue_task(task)
+        callback = partial(self._on_task_done, task)
+        # This will call back immediately if the task already completed:
+        future.add_done_callback(callback)
 
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
         try:
@@ -234,8 +237,8 @@ class CentralExecutor(HasLifecycle):
         return None
 
     def _on_task_done(self, task: Task, future: Future):
-        completion_handler_list_1 = None
-        completion_handler_list_2 = None
+        next_task = None
+        next_parent_task = None
 
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
@@ -250,10 +253,10 @@ class CentralExecutor(HasLifecycle):
                 logger.debug(f'Task {task.task_uuid} has children running ({child_set}): will delay completion handler until they are done')
                 self._waiting_parent_task_dict[task.task_uuid] = task
             else:
-                logger.debug(f'Task {task.task_uuid} has no children {": will run its" if task.on_complete_list else "and has no"} '
-                             f'completion handlers')
+                logger.debug(f'Task {task.task_uuid} has no children {": will run its" if task.next_task else "and has no"}'
+                             f' next task')
                 # just set this here - will call it outside of lock
-                completion_handler_list_1 = task.on_complete_list
+                next_task = task.next_task
 
             # Was this task a child of some other parent task?
             parent_uuid = self._child_parent_task_dict.pop(task.task_uuid, None)
@@ -268,9 +271,9 @@ class CentralExecutor(HasLifecycle):
                     parent_task = self._waiting_parent_task_dict.pop(parent_uuid, None)
                     if not parent_task:
                         raise RuntimeError(f'Serious internal error: failed to find expected parent task ({parent_uuid}) in waiting_parent_dict!)')
-                    logger.debug(f'Parent task {parent_uuid} has no children left {": will run its" if parent_task.on_complete_list else "and has no"}'
-                                 f' completion handlers')
-                    completion_handler_list_2 = parent_task.on_complete_list
+                    logger.debug(f'Parent task {parent_uuid} has no children left {": will run its" if parent_task.next_task else "and has no"}'
+                                 f' next task')
+                    next_parent_task = parent_task.next_task
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
@@ -278,15 +281,13 @@ class CentralExecutor(HasLifecycle):
             logger.debug(f'Running task dict now has {len(self._running_task_dict)} tasks')
             self._running_task_cv.notify_all()
 
-        if completion_handler_list_1:
-            for index, handler in enumerate(completion_handler_list_1):
-                logger.debug(f'Calling completion handler #{index} ("{handler.__name__}") for task {task.task_uuid}')
-                handler()
+        if next_task:
+            logger.debug(f'Enqueuing next_task for task {task.task_uuid}')
+            self._enqueue_task(next_task)
 
-        if completion_handler_list_2:
-            for index, handler in enumerate(completion_handler_list_2):
-                logger.debug(f'Calling completion handler #{index} ("{handler.__name__}") for parent task')
-                handler()
+        if next_parent_task:
+            logger.debug(f'Enqueuing next_task for parent task')
+            self._enqueue_task(next_parent_task)
 
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 

@@ -23,7 +23,7 @@ class Task:
         self.args = args
 
         self.priority = priority
-        self.on_complete_list: List[Callable] = []
+        self.next_task: Optional[Task] = None
         self.on_error: Optional[Callable[[Exception], None]] = None
         """Note: the executor has no way of knowing whether a task failed. It is up to the author of the task to ensure that on_error() does
         the appropriate cleanup or notifies the relevant entities."""
@@ -37,7 +37,10 @@ class Task:
         logger.debug(f'Starting task: "{self.task_func.__name__}" with args={self.args}, start_time_ms={self.task_start_time_ms}')
         task_time = Stopwatch()
         try:
-            self.task_func(self, *self.args)
+            if len(self.args) == 0:
+                self.task_func(self)
+            else:
+                self.task_func(self, *self.args)
         except Exception as err:
             msg = f'Task failed during execution: name="{self.task_func.__name__}" uuid={self.task_uuid}'
             logger.exception(msg)
@@ -52,8 +55,20 @@ class Task:
         finally:
             logger.info(f'{task_time} Task returned: name="{self.task_func.__name__}" uuid={self.task_uuid}')
 
-    def add_completion_handler(self, on_complete: Callable):
-        self.on_complete_list.append(on_complete)
+    def add_next_task(self, next_task_func: Callable, *args):
+        """Adds the given task to the end of the chain of tasks"""
+        next_task = Task(self.priority, next_task_func, args)
+
+        task = self
+
+        while True:
+            logger.debug(f'add_next_task(): looping')
+
+            if task.next_task:
+                task = task.next_task
+            else:
+                task.next_task = next_task
+                return
 
     def __repr__(self):
         return f'Task(uuid={self.task_uuid} start_time_ms={self.task_start_time_ms} priority={self.priority} ' \

@@ -211,13 +211,13 @@ class CacheManager(HasLifecycle):
 
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
-                def notify_load_all_done():
+                def notify_load_all_done(this_task):
                     self._load_all_caches_in_process = False
                     self._load_all_caches_done.set()
                     logger.info(f'Done loading all caches.')
 
                 load_all_caches_task = Task(ExecPriority.CACHE_LOAD, self._load_all_caches)
-                load_all_caches_task.add_completion_handler(notify_load_all_done)
+                load_all_caches_task.add_next_task(notify_load_all_done)
                 self.backend.executor.submit_async_task(load_all_caches_task)
             else:
                 logger.info(f'Configured not to load on startup')
@@ -598,24 +598,13 @@ class CacheManager(HasLifecycle):
 
     def _load_cache_for_subtree(self, this_task: Task, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
         """Note: this method is the "owner" of this_task"""
-        def _post_load():
-            self.repopulate_dir_stats_for_tree(tree_meta)
-
-            tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
-            if send_signals:
-                # Transition: Load State = COMPLETELY_LOADED
-                # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-                logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
-                             f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
-                dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
-                                status_msg=tree_meta.summary_msg)
 
         if tree_meta.is_first_order():  # i.e. not ChangeTree
             # Load meta for all nodes:
             spid = tree_meta.root_sn.spid
             store = self._get_store_for_device_uid(spid.device_uid)
 
-            def _pre_post_load():
+            def _pre_post_load(this_task):
                 if tree_meta.state.root_exists:
                     # get up-to-date root node:
                     subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
@@ -624,9 +613,7 @@ class CacheManager(HasLifecycle):
 
                     store.populate_filter(tree_meta.filter_state)
 
-                _post_load()
-
-            this_task.add_completion_handler(_pre_post_load)
+            this_task.add_next_task(_pre_post_load)
 
             if tree_meta.tree_id == ID_GDRIVE_DIR_SELECT:
                 # special handling for dir select dialog: make sure we are fully synced first
@@ -644,7 +631,19 @@ class CacheManager(HasLifecycle):
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
-            _post_load()
+        def _post_load(this_task):
+            self.repopulate_dir_stats_for_tree(tree_meta)
+
+            tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
+            if send_signals:
+                # Transition: Load State = COMPLETELY_LOADED
+                # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
+                logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
+                             f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
+                dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
+                                status_msg=tree_meta.summary_msg)
+
+        this_task.add_next_task(_post_load)
 
     def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta):
         """
