@@ -1,7 +1,7 @@
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 import logging
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 from constants import TASK_RUNNER_MAX_WORKERS
 from global_actions import GlobalActions
@@ -23,7 +23,7 @@ class Task:
         self.args = args
 
         self.priority = priority
-        self.on_complete: Optional[Callable] = None
+        self.on_complete_list: List[Callable] = []
         self.on_error: Optional[Callable[[Exception], None]] = None
         """Note: the executor has no way of knowing whether a task failed. It is up to the author of the task to ensure that on_error() does
         the appropriate cleanup or notifies the relevant entities."""
@@ -51,6 +51,9 @@ class Task:
             raise
         finally:
             logger.info(f'{task_time} Task returned: name="{self.task_func.__name__}" uuid={self.task_uuid}')
+
+    def add_completion_handler(self, on_complete: Callable):
+        self.on_complete_list.append(on_complete)
 
     def __repr__(self):
         return f'Task(uuid={self.task_uuid} start_time_ms={self.task_start_time_ms} priority={self.priority} ' \

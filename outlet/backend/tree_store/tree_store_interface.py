@@ -9,6 +9,7 @@ from model.uid import UID
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from util.has_lifecycle import HasLifecycle
+from util.task_runner import Task
 
 
 class TreeStore(HasLifecycle, ABC):
@@ -36,7 +37,9 @@ class TreeStore(HasLifecycle, ABC):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def load_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
+    def load_subtree(self, this_task: Task, subtree_root: NodeIdentifier, tree_id: TreeID):
+        """Loads an entire subtree from cache, possibly including other long-running operations to bring it up-to-date.
+        This will always be run inside a Task (as denoted in the args)"""
         pass
 
     @abstractmethod
@@ -102,7 +105,7 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def refresh_subtree(self, subtree_root: NodeIdentifier, tree_id: TreeID):
+    def refresh_subtree(self, this_task: Task, subtree_root: NodeIdentifier, tree_id: TreeID):
         pass
 
     # UID <-> DomainID mapping

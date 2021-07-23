@@ -14,12 +14,6 @@ from backend.tree_store.local.local_tree_recurser import LocalTreeRecurser
 
 logger = logging.getLogger(__name__)
 
-# disabled:
-VALID_SUFFIXES = None
-
-
-# SUPPORT CLASSES ####################
-
 
 class FileCounter(LocalTreeRecurser):
     """

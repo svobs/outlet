@@ -234,8 +234,8 @@ class GDriveMasterStore(TreeStore):
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def load_subtree(self, subtree_root: SinglePathNodeIdentifier, tree_id: TreeID):
-        self._load_master_cache(this_task=None, sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
+    def load_subtree(self, this_task: Task, subtree_root: SinglePathNodeIdentifier, tree_id: TreeID):
+        self._load_master_cache(this_task=this_task, sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
 
     def is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
         # very easy: either our whole cache is loaded or it is not
@@ -254,7 +254,7 @@ class GDriveMasterStore(TreeStore):
     def populate_filter(self, filter_state: FilterState):
         filter_state.ensure_cache_populated(self._memstore.master_tree)
 
-    def refresh_subtree(self, subtree_root: GDriveIdentifier, tree_id: TreeID):
+    def refresh_subtree(self, this_task: Task, subtree_root: GDriveIdentifier, tree_id: TreeID):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
         logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root})')
         stats_sw = Stopwatch()
@@ -279,6 +279,7 @@ class GDriveMasterStore(TreeStore):
         assert isinstance(parent_node, GDriveFolder)
         parent_node.node_identifier.set_path_list(subtree_root.get_path_list())
 
+        # TODO: break these into separate Tasks
         folders_to_process: Deque[GDriveFolder] = deque()
         folders_to_process.append(parent_node)
 

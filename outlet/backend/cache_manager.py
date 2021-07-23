@@ -211,13 +211,13 @@ class CacheManager(HasLifecycle):
 
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
-                def on_complete():
+                def notify_load_all_done():
                     self._load_all_caches_in_process = False
                     self._load_all_caches_done.set()
                     logger.info(f'Done loading all caches.')
 
                 load_all_caches_task = Task(ExecPriority.CACHE_LOAD, self._load_all_caches)
-                load_all_caches_task.on_complete = on_complete
+                load_all_caches_task.add_completion_handler(notify_load_all_done)
                 self.backend.executor.submit_async_task(load_all_caches_task)
             else:
                 logger.info(f'Configured not to load on startup')
@@ -444,7 +444,7 @@ class CacheManager(HasLifecycle):
                 store: TreeStore = self._store_dict[device_uid]
                 if store.device.tree_type == TreeType.LOCAL_DISK:
                     assert isinstance(store, LocalDiskMasterStore)
-                    if store.consolidate_local_caches(device_cache_list, ID_GLOBAL_CACHE):  # this modifies device_cache_list
+                    if store.consolidate_local_caches(this_task, device_cache_list, ID_GLOBAL_CACHE):  # this modifies device_cache_list
                         registry_needs_update = True
 
                 # TODO: idea: detect bad shutdown, and if it's bad, check max UIDs of all caches
@@ -463,7 +463,7 @@ class CacheManager(HasLifecycle):
             cache_num_plus_1 = cache_num + 1
             cache_count = len(existing_cache_list)
 
-            # Load each cache as a separate async task.
+            # Load each cache as a separate child task.
             self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._init_existing_cache,
                                                     existing_disk_cache, cache_num_plus_1, cache_count), parent_task=this_task)
 
@@ -504,7 +504,7 @@ class CacheManager(HasLifecycle):
                     existing_disk_cache.needs_refresh = True
                 else:
                     assert isinstance(existing_disk_cache.subtree_root, LocalNodeIdentifier)
-                    store.load_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
+                    store.load_subtree(this_task, existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
             elif tree_type == TreeType.GDRIVE:
                 assert existing_disk_cache.subtree_root == self.backend.node_identifier_factory.get_root_constant_gdrive_spid(device_uid), \
                     f'Expected GDrive root ({self.backend.node_identifier_factory.get_root_constant_gdrive_spid(device_uid)}) ' \
@@ -597,45 +597,54 @@ class CacheManager(HasLifecycle):
         return self._get_store_for_device_uid(spid.device_uid).is_cache_loaded_for(spid)
 
     def _load_cache_for_subtree(self, this_task: Task, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
+        """Note: this method is the "owner" of this_task"""
+        def _post_load():
+            self.repopulate_dir_stats_for_tree(tree_meta)
+
+            tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
+            if send_signals:
+                # Transition: Load State = COMPLETELY_LOADED
+                # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
+                logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
+                             f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
+                dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
+                                status_msg=tree_meta.summary_msg)
+
         if tree_meta.is_first_order():  # i.e. not ChangeTree
             # Load meta for all nodes:
             spid = tree_meta.root_sn.spid
             store = self._get_store_for_device_uid(spid.device_uid)
 
+            def _pre_post_load():
+                if tree_meta.state.root_exists:
+                    # get up-to-date root node:
+                    subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
+                    if not subtree_root_node:
+                        raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_meta.tree_id})')
+
+                    store.populate_filter(tree_meta.filter_state)
+
+                _post_load()
+
+            this_task.add_completion_handler(_pre_post_load)
+
             if tree_meta.tree_id == ID_GDRIVE_DIR_SELECT:
                 # special handling for dir select dialog: make sure we are fully synced first
                 assert isinstance(store, GDriveMasterStore)
-                store.load_and_sync_master_tree()
+                store.load_and_sync_master_tree(this_task)
             else:
                 # make sure cache is loaded for relevant subtree:
-                store.load_subtree(spid, tree_meta.tree_id)
+                store.load_subtree(this_task, spid, tree_meta.tree_id)
 
-            if tree_meta.state.root_exists:
-                # get up-to-date root node:
-                subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
-                if not subtree_root_node:
-                    raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_meta.tree_id})')
-
-                store.populate_filter(tree_meta.filter_state)
-
+            # Let _pre_post_load() be called when any subtasks are done
+            return
         else:
             # ChangeTree: should already be loaded into memory, except for FilterState
             assert not tree_meta.is_first_order()
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
-            # fall through
-
-        self.repopulate_dir_stats_for_tree(tree_meta)
-
-        tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
-        if send_signals:
-            # Transition: Load State = COMPLETELY_LOADED
-            # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-            logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
-                         f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
-                            status_msg=tree_meta.summary_msg)
+            _post_load()
 
     def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta):
         """
@@ -1231,7 +1240,7 @@ class CacheManager(HasLifecycle):
     def _refresh_subtree(self, this_task: Task, node_identifier: NodeIdentifier, tree_id: TreeID):
         """Called asynchronously via task executor"""
         logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
-        self._get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(node_identifier, tree_id)
+        self._get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(this_task, node_identifier, tree_id)
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_ledger.get_last_pending_op_for_node(device_uid, node_uid)

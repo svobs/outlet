@@ -234,8 +234,8 @@ class CentralExecutor(HasLifecycle):
         return None
 
     def _on_task_done(self, task: Task, future: Future):
-        completion_handler_1 = None
-        completion_handler_2 = None
+        completion_handler_list_1 = None
+        completion_handler_list_2 = None
 
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
@@ -250,9 +250,10 @@ class CentralExecutor(HasLifecycle):
                 logger.debug(f'Task {task.task_uuid} has children running ({child_set}): will delay completion handler until they are done')
                 self._waiting_parent_task_dict[task.task_uuid] = task
             else:
-                logger.debug(f'Task {task.task_uuid} has no children {": will run its" if task.on_complete else "and has no"} completion handler')
+                logger.debug(f'Task {task.task_uuid} has no children {": will run its" if task.on_complete_list else "and has no"} '
+                             f'completion handlers')
                 # just set this here - will call it outside of lock
-                completion_handler_1 = task.on_complete
+                completion_handler_list_1 = task.on_complete_list
 
             # Was this task a child of some other parent task?
             parent_uuid = self._child_parent_task_dict.pop(task.task_uuid, None)
@@ -267,9 +268,9 @@ class CentralExecutor(HasLifecycle):
                     parent_task = self._waiting_parent_task_dict.pop(parent_uuid, None)
                     if not parent_task:
                         raise RuntimeError(f'Serious internal error: failed to find expected parent task ({parent_uuid}) in waiting_parent_dict!)')
-                    logger.debug(f'Parent task {parent_uuid} has no children left {": will run its" if parent_task.on_complete else "and has no"}'
-                                 f' completion handler')
-                    completion_handler_2 = parent_task.on_complete
+                    logger.debug(f'Parent task {parent_uuid} has no children left {": will run its" if parent_task.on_complete_list else "and has no"}'
+                                 f' completion handlers')
+                    completion_handler_list_2 = parent_task.on_complete_list
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
@@ -277,13 +278,15 @@ class CentralExecutor(HasLifecycle):
             logger.debug(f'Running task dict now has {len(self._running_task_dict)} tasks')
             self._running_task_cv.notify_all()
 
-        if completion_handler_1:
-            logger.debug(f'Calling completion handler for task {task.task_uuid}')
-            completion_handler_1()
+        if completion_handler_list_1:
+            for index, handler in enumerate(completion_handler_list_1):
+                logger.debug(f'Calling completion handler #{index} ("{handler.__name__}") for task {task.task_uuid}')
+                handler()
 
-        if completion_handler_2:
-            logger.debug(f'Calling completion handler for parent task')
-            completion_handler_2()
+        if completion_handler_list_2:
+            for index, handler in enumerate(completion_handler_list_2):
+                logger.debug(f'Calling completion handler #{index} ("{handler.__name__}") for parent task')
+                handler()
 
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 

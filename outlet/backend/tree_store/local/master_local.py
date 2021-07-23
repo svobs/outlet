@@ -201,16 +201,17 @@ class LocalDiskMasterStore(TreeStore):
         # logger.warning('LOCK off')
         return result
 
-    def load_subtree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
+    def load_subtree(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
-        self._load_subtree_from_disk_for_identifier(subtree_root, tree_id, force_rescan_disk=False)
+        self._load_subtree_from_disk_for_identifier(this_task, subtree_root, tree_id, force_rescan_disk=False)
 
     def is_cache_loaded_for(self, spid: LocalNodeIdentifier) -> bool:
         # If we have already loaded this subtree as part of a larger cache, use that:
         cache_info: PersistedCacheInfo = self.backend.cacheman.get_cache_info_for_subtree(spid, create_if_not_found=False)
         return cache_info and cache_info.is_loaded
 
-    def _load_subtree_from_disk_for_identifier(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID, force_rescan_disk: bool = False):
+    def _load_subtree_from_disk_for_identifier(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID,
+                                               force_rescan_disk: bool = False):
         """
         Performs a read-through retrieval of all the LocalFileNodes in the given subtree on the local filesystem.
         Esentially just a wrapper for _load_subtree_from_disk() which first finds the appropriate cache for the given subtree.
@@ -226,15 +227,17 @@ class LocalDiskMasterStore(TreeStore):
         cache_man = self.backend.cacheman
         cache_info: PersistedCacheInfo = cache_man.get_cache_info_for_subtree(subtree_root, create_if_not_found=True)
         assert cache_info
-        self._load_subtree_from_disk(cache_info, tree_id, subtree_root, force_rescan_disk)
+        self._load_subtree_from_disk(this_task, cache_info, tree_id, subtree_root, force_rescan_disk)
 
-    def _load_subtree_from_disk(self, cache_info: PersistedCacheInfo, tree_id: TreeID, requested_subtree_root: LocalNodeIdentifier = None,
-                                force_rescan_disk: bool = False) -> None:
+    def _load_subtree_from_disk(self, this_task: Task, cache_info: PersistedCacheInfo, tree_id: TreeID,
+                                requested_subtree_root: LocalNodeIdentifier = None, force_rescan_disk: bool = False) -> None:
         """Loads the appropriate cache from disk (if not already loaded into memory) for the given subtree root, and
         requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
         stopwatch_total = Stopwatch()
+
+        # FIXME: don't forget consolidate_local_caches()
 
         self._ensure_uid_consistency(cache_info.subtree_root)
 
@@ -304,7 +307,7 @@ class LocalDiskMasterStore(TreeStore):
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.node_uid = new_uid
 
-    def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
+    def consolidate_local_caches(self, this_task: Task, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
 
         if not self.backend.cacheman.enable_save_to_disk:
@@ -349,16 +352,16 @@ class LocalDiskMasterStore(TreeStore):
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
-                self._load_subtree_from_disk(supertree_cache, tree_id)
+                self._load_subtree_from_disk(this_task, supertree_cache, tree_id)
                 # Now it is safe to delete the subtree cache:
                 file_util.delete_file(subtree_cache.cache_location)
 
         registry_needs_update = len(supertree_sets) > 0
         return registry_needs_update
 
-    def refresh_subtree(self, node_identifier: LocalNodeIdentifier, tree_id: TreeID):
+    def refresh_subtree(self, this_task: Task, node_identifier: LocalNodeIdentifier, tree_id: TreeID):
         assert isinstance(node_identifier, LocalNodeIdentifier)
-        self._load_subtree_from_disk_for_identifier(node_identifier, tree_id, force_rescan_disk=True)
+        self._load_subtree_from_disk_for_identifier(this_task, node_identifier, tree_id, force_rescan_disk=True)
 
     def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         """Generate DirStatsDict for the given subtree, with no filter applied"""
