@@ -51,6 +51,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
   
 #### FUTURE / NON-ESSENTIAL
 * [1] Copy metadata when copying files (MAC times)
+* [1] Add modification dates for local dirs
 * [3] Extend config file to support windows on different servers
 * [1] Put GDrive files in trash
 * [3] Put local files in trash

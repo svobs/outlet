@@ -37,7 +37,7 @@ class Task:
         logger.debug(f'Starting task: "{self.task_func.__name__}" with args={self.args}, start_time_ms={self.task_start_time_ms}')
         task_time = Stopwatch()
         try:
-            if len(self.args) == 0:
+            if not self.args or len(self.args) == 0:
                 self.task_func(self)
             else:
                 self.task_func(self, *self.args)
@@ -57,7 +57,10 @@ class Task:
 
     def add_next_task(self, next_task_func: Callable, *args):
         """Adds the given task to the end of the chain of tasks"""
-        next_task = Task(self.priority, next_task_func, args)
+        if not args or len(args) == 0:
+            next_task = Task(self.priority, next_task_func)
+        else:
+            next_task = Task(self.priority, next_task_func, args)
 
         task = self
 

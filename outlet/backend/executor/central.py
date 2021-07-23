@@ -282,12 +282,12 @@ class CentralExecutor(HasLifecycle):
             self._running_task_cv.notify_all()
 
         if next_task:
-            logger.debug(f'Enqueuing next_task for task {task.task_uuid}')
-            self._enqueue_task(next_task)
+            logger.debug(f'Submitting next_task for task {task.task_uuid}')
+            self.submit_async_task(next_task)
 
         if next_parent_task:
-            logger.debug(f'Enqueuing next_task for parent task')
-            self._enqueue_task(next_parent_task)
+            logger.debug(f'Submitting next_task for parent task')
+            self.submit_async_task(next_parent_task)
 
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 
