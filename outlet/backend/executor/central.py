@@ -238,7 +238,6 @@ class CentralExecutor(HasLifecycle):
 
     def _on_task_done(self, task: Task, future: Future):
         next_task = None
-        next_parent_task = None
 
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
@@ -259,6 +258,7 @@ class CentralExecutor(HasLifecycle):
                 next_task = task.next_task
 
             # Was this task a child of some other parent task?
+            existing_parent_task: Optional[Task] = None
             parent_uuid = self._child_parent_task_dict.pop(task.task_uuid, None)
             if parent_uuid:
                 logger.debug(f'Task {task.task_uuid} was a child of parent task {parent_uuid}')
@@ -267,13 +267,22 @@ class CentralExecutor(HasLifecycle):
                     raise RuntimeError(f'Serious internal error: state of parent & child tasks is inconsistent! '
                                        f'ParentChildDict={self._parent_child_task_dict} ChildParentDic={self._child_parent_task_dict}')
                 child_set.remove(task.task_uuid)
-                if not child_set:
+
+                if next_task:
+                    # If task was a child of parent, make its next_task also a child of parent and run that before parent's next_task
+                    child_set.add(next_task.task_uuid)
+                    # fail if not present
+                    existing_parent_task = self._waiting_parent_task_dict[parent_uuid]
+
+                elif not child_set:
+                    # No next_task and no children left in parent task: run parent's next_task
                     parent_task = self._waiting_parent_task_dict.pop(parent_uuid, None)
                     if not parent_task:
                         raise RuntimeError(f'Serious internal error: failed to find expected parent task ({parent_uuid}) in waiting_parent_dict!)')
                     logger.debug(f'Parent task {parent_uuid} has no children left {": will run its" if parent_task.next_task else "and has no"}'
                                  f' next task')
-                    next_parent_task = parent_task.next_task
+                    assert next_task is None
+                    next_task = parent_task.next_task
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
@@ -282,12 +291,12 @@ class CentralExecutor(HasLifecycle):
             self._running_task_cv.notify_all()
 
         if next_task:
-            logger.debug(f'Submitting next_task for task {task.task_uuid}')
-            self.submit_async_task(next_task)
-
-        if next_parent_task:
-            logger.debug(f'Submitting next_task for parent task')
-            self.submit_async_task(next_parent_task)
+            if existing_parent_task:
+                parent_uuid = existing_parent_task.task_uuid
+            else:
+                parent_uuid = None
+            logger.debug(f'Submitting next_task for task {task.task_uuid} with parent={parent_uuid}')
+            self.submit_async_task(next_task, parent_task=existing_parent_task)
 
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 
@@ -307,6 +316,7 @@ class CentralExecutor(HasLifecycle):
                 if not child_set:
                     child_set = set()
                     self._parent_child_task_dict[parent_task.task_uuid] = child_set
+
                 child_set.add(task.task_uuid)
                 self._child_parent_task_dict[task.task_uuid] = parent_task.task_uuid
 

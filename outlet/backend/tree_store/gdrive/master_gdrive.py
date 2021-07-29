@@ -287,7 +287,7 @@ class GDriveMasterStore(TreeStore):
         count_total: int = 0
         while len(folders_to_process) > 0:
             folder: GDriveFolder = folders_to_process.popleft()
-            child_list: List[GDriveNode] = self.fetch_and_merge_child_nodes_for_parent(folder)
+            child_list: List[GDriveNode] = self._fetch_and_merge_child_nodes_for_parent(folder)
             count_folders += 1
             count_total += len(child_list)
 
@@ -299,7 +299,7 @@ class GDriveMasterStore(TreeStore):
         logger.info(f'[{tree_id}] {stats_sw} Refresh subtree complete (SubtreeRoot={subtree_root_node.node_identifier} '
                     f'Folders={count_folders} Total={count_total})')
 
-    def fetch_and_merge_child_nodes_for_parent(self, folder: GDriveFolder) -> List[GDriveNode]:
+    def _fetch_and_merge_child_nodes_for_parent(self, folder: GDriveFolder) -> List[GDriveNode]:
         """Fetches all the children for the given GDriveFolder from the GDrive client, and merge the updated nodes into our cache"""
         logger.debug(f'Querying GDrive for children of folder ({folder})')
         child_list: List[GDriveNode] = self.gdrive_client.get_all_children_for_parent(folder.goog_id)
@@ -313,7 +313,7 @@ class GDriveMasterStore(TreeStore):
         folder.all_children_fetched = True
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'fetch_and_merge_child_nodes_for_parent(): locked={self._struct_lock.locked()}')
+            logger.debug(f'_fetch_and_merge_child_nodes_for_parent(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             # This will write into the memory & disk caches, and notify FEs of updates
             self._execute_write_op(RefreshFolderOp(self.backend, folder, child_list))
@@ -546,7 +546,7 @@ class GDriveMasterStore(TreeStore):
             if parent_node.uid == GDRIVE_ROOT_UID:
                 # This appears to be a limitation of Google Drive
                 raise RuntimeError(f'Cannot determine topmost nodes of Google Drive until entire tree has been downloaded!')
-            child_node_list: List[GDriveNode] = self.fetch_and_merge_child_nodes_for_parent(parent_node)
+            child_node_list: List[GDriveNode] = self._fetch_and_merge_child_nodes_for_parent(parent_node)
 
         return [self.to_sn_from_node_and_parent_spid(child_node, parent_spid) for child_node in child_node_list]
 

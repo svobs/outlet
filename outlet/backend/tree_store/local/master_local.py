@@ -143,15 +143,45 @@ class LocalDiskMasterStore(TreeStore):
 
         self._diskstore.save_subtree(cache_info, file_list, dir_list, tree_id)
 
-    def _scan_file_tree(self, subtree_root: LocalNodeIdentifier, tree_id: TreeID) -> LocalDiskTree:
+    def _scan_file_tree(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID) -> LocalDiskTree:
         """If subtree_root is a file, then a tree is returned with only 1 node"""
-        logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
-        scanner = LocalDiskScanner(backend=self.backend, root_node_identifer=subtree_root, tree_id=tree_id)
-        return scanner.scan()
+        # FIXME: handle other calling method
+        # logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
+        # scanner = LocalDiskScanner(backend=self.backend, root_node_identifer=subtree_root, tree_id=tree_id)
+        # return scanner.scan()
+
+    def overwrite_dir_entries_list(self, parent_full_path: str, child_list: List[LocalNode]):
+        parent_dir = self.get_node_for_uid(self.get_uid_for_path(parent_full_path))
+        if not parent_dir or not parent_dir.is_dir():
+            # Possibly just the cache for this one node is out-of-date. Let's bring it up to date.
+            parent_dir = self.build_local_file_node(full_path=parent_full_path)
+            if not parent_dir:
+                logger.error(f'overwrite_dir_entries_list(): Parent dir not found! (path={parent_full_path}) Skipping...')
+                # TODO: distinguish between removable volume dirs (volatile) & regular dirs which should be there
+
+                # FIXME: if dir is not volatile, delete dir tree from cache
+                return
+            elif not parent_dir.is_dir():
+                logger.warning(f'overwrite_dir_entries_list(): Parent dir is not a dir! (path={parent_full_path}) Will overwrite cache entries...')
+
+                # FIXME: add functionality to overwrite dir node with file node
+                raise NotImplementedError('Not implemented yet!')
+
+        self._execute_write_op(RefreshDirEntriesOp(self.backend, parent_dir, child_list))
 
     def _resync_with_file_system(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
-        fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
+        logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
+        scanner = LocalDiskScanner(backend=self.backend, master_local=self, root_node_identifer=subtree_root, tree_id=tree_id)
+
+        # Create child task. It will create next_task instances as it goes along, thus delaying execution of this_task's next_task
+        child_task = Task(this_task.priority, scanner.start_recursive_scan)
+        self.backend.executor.submit_async_task(child_task, parent_task=this_task)
+
+
+        return
+        # FIXME
+        # fresh_tree: LocalDiskTree = self._scan_file_tree(this_task, subtree_root, tree_id)
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] Scanned fresh tree: \n{fresh_tree.show()}')
@@ -272,7 +302,7 @@ class LocalDiskMasterStore(TreeStore):
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(this_task, requested_subtree_root, tree_id)
 
-            def _after_resync_complete(this_task):
+            def _after_resync_complete(_this_task):
                 # Need to save changes to CacheInfo, but we don't have an API for a single line. Just overwrite all for now - shouldn't hurt
                 cache_info.is_complete = True
                 self.backend.cacheman.write_cache_registry_updates_to_disk()
@@ -288,7 +318,7 @@ class LocalDiskMasterStore(TreeStore):
         elif not cache_info.needs_refresh:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
 
-        def _after_load_complete(this_task):
+        def _after_load_complete(_this_task):
             """Finish up"""
 
             # SAVE
@@ -503,7 +533,8 @@ class LocalDiskMasterStore(TreeStore):
             else:
                 # Rescan dir in dst_full_path for nodes
                 if os.path.isdir(dst_full_path):
-                    fresh_tree: LocalDiskTree = self._scan_file_tree(dst_node_identifier, ID_GLOBAL_CACHE)
+                    # FIXME: this is broken!
+                    fresh_tree: LocalDiskTree = self._resync_with_file_system(dst_node_identifier, ID_GLOBAL_CACHE)
                     for dst_node in fresh_tree.get_subtree_bfs():
                         dst_subtree.upsert_node_list.append(dst_node)
                     logger.debug(f'Added node list contains {len(dst_subtree.upsert_node_list)} nodes')
@@ -622,9 +653,11 @@ class LocalDiskMasterStore(TreeStore):
             return self._scan_and_cache_dir(parent_spid)
 
     def _scan_and_cache_dir(self, parent_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
-        # FIXME: implement scan dir on disk (read-through)
-        raise RuntimeError('Not implemented yet!!!')
-        # return []
+        # Scan dir on disk (read-through)
+
+        scanner = LocalDiskScanner(backend=self.backend, master_local=self, root_node_identifer=parent_spid, tree_id=None)
+        child_list = scanner.scan_single_dir(parent_spid.get_single_path())
+        return [self.to_sn(x) for x in child_list]
 
     @staticmethod
     def to_sn(node) -> SPIDNodePair:
