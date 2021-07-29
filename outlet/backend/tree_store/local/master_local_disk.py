@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
-from backend.tree_store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
+from backend.tree_store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskMultiNodeOp
 from constants import TrashStatus, TreeType
 from model.cache_info import PersistedCacheInfo
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -60,14 +60,14 @@ class LocalDiskDiskStore(HasLifecycle):
 
     def execute_op(self, operation):
         with self._struct_lock:
-            if operation.is_subtree_op():
-                assert isinstance(operation, LocalDiskSubtreeOp)
-                self._update_diskstore_for_subtree(operation)
-            else:
+            if operation.is_single_node_op():
                 assert isinstance(operation, LocalDiskSingleNodeOp)
                 self._update_diskstore_for_single_op(operation)
+            else:
+                assert isinstance(operation, LocalDiskMultiNodeOp)
+                self._update_diskstore_for_subtree(operation)
 
-    def _update_diskstore_for_subtree(self, op: LocalDiskSubtreeOp):
+    def _update_diskstore_for_subtree(self, op: LocalDiskMultiNodeOp):
         """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
         cache_man = self.backend.cacheman
         if not cache_man.enable_save_to_disk:

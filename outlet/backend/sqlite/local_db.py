@@ -199,6 +199,17 @@ class LocalDiskDatabase(MetaDatabase):
         if file_uid_list:
             self.delete_local_files_for_uid_list(file_uid_list, commit=commit)
 
+    def get_file_or_dir_for_uid(self, uid: UID) -> Optional[LocalNode]:
+        dir_list = self.table_local_dir.select_object_list(where_clause='WHERE uid = ?', where_tuple=(uid,))
+        if dir_list:
+            return dir_list[0]
+
+        file_list = self.table_local_file.select_object_list(where_clause='WHERE uid = ?', where_tuple=(uid,))
+        if file_list:
+            return file_list[0]
+
+        return None
+
     def get_file_or_dir_for_path(self, full_path: str) -> Optional[LocalNode]:
         dir_list = self.table_local_dir.select_object_list(where_clause='WHERE full_path = ?', where_tuple=(full_path,))
         if dir_list:

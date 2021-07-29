@@ -14,7 +14,7 @@ from backend.tree_store.local.local_disk_scanner import LocalDiskScanner
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
 from backend.tree_store.local.master_local_disk import LocalDiskDiskStore
 from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
-    LocalWriteThroughOp, UpsertSingleNodeOp
+    LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
 from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
@@ -143,15 +143,8 @@ class LocalDiskMasterStore(TreeStore):
 
         self._diskstore.save_subtree(cache_info, file_list, dir_list, tree_id)
 
-    def _scan_file_tree(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID) -> LocalDiskTree:
-        """If subtree_root is a file, then a tree is returned with only 1 node"""
-        # FIXME: handle other calling method
-        # logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
-        # scanner = LocalDiskScanner(backend=self.backend, root_node_identifer=subtree_root, tree_id=tree_id)
-        # return scanner.scan()
-
     def overwrite_dir_entries_list(self, parent_full_path: str, child_list: List[LocalNode]):
-        parent_dir = self.get_node_for_uid(self.get_uid_for_path(parent_full_path))
+        parent_dir: Optional[LocalNode] = self.get_node_for_uid(self.get_uid_for_path(parent_full_path))
         if not parent_dir or not parent_dir.is_dir():
             # Possibly just the cache for this one node is out-of-date. Let's bring it up to date.
             parent_dir = self.build_local_file_node(full_path=parent_full_path)
@@ -165,9 +158,43 @@ class LocalDiskMasterStore(TreeStore):
                 logger.warning(f'overwrite_dir_entries_list(): Parent dir is not a dir! (path={parent_full_path}) Will overwrite cache entries...')
 
                 # FIXME: add functionality to overwrite dir node with file node
-                raise NotImplementedError('Not implemented yet!')
+                raise NotImplementedError('Cannot yet overwrite dir node with file node!')
 
-        self._execute_write_op(RefreshDirEntriesOp(self.backend, parent_dir, child_list))
+        parent_dir.all_children_fetched = True
+        parent_spid: LocalNodeIdentifier = parent_dir.node_identifier
+
+        existing_child_dict: Dict[UID, LocalNode] = {}
+        existing_child_list: List[SPIDNodePair] = self._get_child_list_from_cache_for_spid(parent_spid)
+        for existing_child in existing_child_list:
+            # don't need SPIDs; just unwrap the node from the pair:
+            existing_child_dict[existing_child.node.uid] = existing_child.node
+
+        for new_child in child_list:
+            existing_child_dict.pop(new_child.uid, None)
+
+        remove_dir_list = []
+        remove_file_list = []
+        for node_to_remove in existing_child_dict.values():
+            if node_to_remove.is_live():  # ignore nodes which are not live (i.e. pending op nodes)
+                if node_to_remove.is_dir():
+                    remove_dir_list.append(node_to_remove)
+                else:
+                    remove_file_list.append(node_to_remove)
+
+        remove_op_list = []
+        for remove_dir in remove_dir_list:
+            subtree_node_list = self._get_subtree_bfs(remove_dir.node_identifier)
+            if subtree_node_list:
+                logger.debug(f'Dir with {len(subtree_node_list)} nodes will be removed: {remove_dir.node_identifier}')
+                remove_op_list.append(DeleteSubtreeOp(parent_spid, node_list=subtree_node_list))
+            else:
+                # should never happen
+                logger.error(f'Dir not found in cache despite being listed somewhere: {remove_dir.node_identifier}')
+
+        with self._struct_lock:
+            self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=remove_file_list))
+            for remove_op in remove_op_list:
+                self._execute_write_op(remove_op)
 
     def _resync_with_file_system(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
@@ -177,50 +204,6 @@ class LocalDiskMasterStore(TreeStore):
         # Create child task. It will create next_task instances as it goes along, thus delaying execution of this_task's next_task
         child_task = Task(this_task.priority, scanner.start_recursive_scan)
         self.backend.executor.submit_async_task(child_task, parent_task=this_task)
-
-
-        return
-        # FIXME
-        # fresh_tree: LocalDiskTree = self._scan_file_tree(this_task, subtree_root, tree_id)
-
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{tree_id}] Scanned fresh tree: \n{fresh_tree.show()}')
-
-        # logger.warning('LOCK ON!')
-        with self._struct_lock:
-            # Just upsert all nodes in the updated tree and let God (or some logic) sort them out.
-            # Need extra logic to find removed nodes and pending op nodes though:
-            root_node: LocalNode = fresh_tree.get_root_node()
-            remove_node_list: List[LocalNode] = []
-            if root_node.is_dir():
-                # "Pending op" nodes are not stored in the regular cache (they should all have is_live()==False)
-                pending_op_nodes: List[LocalNode] = []
-
-                # Check old tree for removed and pending op nodes:
-                for existing_node in self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid):
-                    if not fresh_tree.get_node_for_uid(existing_node.uid):
-                        if existing_node.is_live():
-                            remove_node_list.append(existing_node)
-                        else:
-                            pending_op_nodes.append(existing_node)
-
-                if pending_op_nodes:
-                    logger.debug(f'Attempting to transfer {len(pending_op_nodes)} pending op src/dst nodes to the newly synced tree')
-                    for pending_op_node in pending_op_nodes:
-                        if SUPER_DEBUG_ENABLED:
-                            logger.debug(f'Inserting pending op node: {pending_op_node}')
-                        assert not pending_op_node.is_live()
-                        if fresh_tree.can_add_without_mkdir(pending_op_node):
-                            fresh_tree.add_to_tree(pending_op_node)
-                        else:
-                            # TODO: notify the OpLedger and devise a recovery strategy
-                            logger.error(f'Cannot add pending op node (its parent is gone): {pending_op_node}')
-
-            subtree = LocalSubtree(subtree_root, remove_node_list, fresh_tree.get_subtree_bfs())
-            batch_changes_op: BatchChangesOp = BatchChangesOp(subtree_list=[subtree])
-            self._execute_write_op(batch_changes_op)
-
-        # logger.warning('LOCK off')
 
     # LocalSubtree-level methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -568,7 +551,7 @@ class LocalDiskMasterStore(TreeStore):
 
         # logger.warning('LOCK ON!')
         with self._struct_lock:
-            subtree_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root_node.uid)
+            subtree_nodes: List[LocalNode] = self._get_subtree_bfs(subtree_root_node.node_identifier)
             assert isinstance(subtree_root_node.node_identifier, LocalNodeIdentifier)
             operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_nodes)
             self._execute_write_op(operation)
@@ -611,17 +594,22 @@ class LocalDiskMasterStore(TreeStore):
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
-    def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
+    def _get_subtree_bfs(self, parent_spid: LocalNodeIdentifier) -> Optional[List[LocalNode]]:
+        cache_info: Optional[PersistedCacheInfo] = \
+            self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
+        if cache_info:
+            if cache_info.is_loaded:
+                return self._memstore.master_tree.get_subtree_bfs(parent_spid.node_uid)
 
-        if filter_state and filter_state.has_criteria():
-            # This only works if cache already loaded:
-            if not self.is_cache_loaded_for(parent_spid):
-                raise RuntimeError(f'Cannot load filtered child list: cache not yet loaded for: {parent_spid}')
+            else:
+                # FIXME: add support for recursively getting subtree from disk
+                raise NotImplementedError('FIXME: add support for recursively getting subtree from disk')
 
-            return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
+        # both caches miss
+        return None
 
+    def _get_child_list_from_cache_for_spid(self, parent_spid: LocalNodeIdentifier) -> Optional[List[SPIDNodePair]]:
+        """Searches in-memory cache, followed by disk cache, for children of the given SPID. Returns None if parent not found in either cache"""
         with self._struct_lock:
 
             # 1. Use in-memory cache if it exists:
@@ -646,16 +634,37 @@ class LocalDiskMasterStore(TreeStore):
                     logger.warning(f'Could not find node in in-memory subtree but cache claims it is laoded: "{parent_spid}"')
 
                 with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-                    return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
+                    parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
+                    if parent_dir and parent_dir.is_dir() and parent_dir.all_children_fetched:
+                        return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
 
+        # both caches miss
+        return None
+
+    def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
+
+        if filter_state and filter_state.has_criteria():
+            # This only works if cache already loaded:
+            if not self.is_cache_loaded_for(parent_spid):
+                raise RuntimeError(f'Cannot load filtered child list: cache not yet loaded for: {parent_spid}')
+
+            return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
+
+        child_list = self._get_child_list_from_cache_for_spid(parent_spid)
+        if child_list is None:
             # 3. No cache hits. Must do a live scan:
             logger.debug(f'Could not find cache containing path: "{parent_spid.get_single_path()}"; will attempt a disk scan')
             return self._scan_and_cache_dir(parent_spid)
+        else:
+            return child_list
 
     def _scan_and_cache_dir(self, parent_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
         # Scan dir on disk (read-through)
 
         scanner = LocalDiskScanner(backend=self.backend, master_local=self, root_node_identifer=parent_spid, tree_id=None)
+        # This may call overwrite_dir_entries_list()
         child_list = scanner.scan_single_dir(parent_spid.get_single_path())
         return [self.to_sn(x) for x in child_list]
 
