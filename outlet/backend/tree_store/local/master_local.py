@@ -181,6 +181,7 @@ class LocalDiskMasterStore(TreeStore):
                 else:
                     remove_file_list.append(node_to_remove)
 
+        # Files can be removed in the main op, but dirs represent tress so we will create a DeleteSubtreeOp for each.
         remove_op_list = []
         for remove_dir in remove_dir_list:
             subtree_node_list = self._get_subtree_bfs(remove_dir.node_identifier)

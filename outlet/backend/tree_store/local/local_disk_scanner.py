@@ -7,6 +7,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
+from constants import DISK_SCAN_MIN_ITEMS_PER_TASK
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode, LocalNode
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
@@ -139,20 +140,27 @@ class LocalDiskScanner:
         this_task.next_task = Task(this_task.priority, self.scan_next_dir)
 
     def scan_next_dir(self, this_task: Task):
-        if len(self._dir_queue) == 0:
-            logger.debug(f'Dir scan complete')
+        items_scanned_this_task = 0
+
+        while True:
+            if len(self._dir_queue) == 0:
+                logger.debug(f'Dir scan complete')
+
+                if self.tree_id:
+                    logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
+                    dispatcher.send(Signal.STOP_PROGRESS, sender=self.tree_id)
+                return
+
+            target_dir: str = self._dir_queue.popleft()
+
+            items_scanned_this_task += len(self.scan_single_dir(target_dir))
 
             if self.tree_id:
-                logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                dispatcher.send(Signal.STOP_PROGRESS, sender=self.tree_id)
-            return
+                logger.debug(f'[{self.tree_id}] Progress: {self.progress} of {self.total} files (dir_queue size: {len(self._dir_queue)})')
 
-        target_dir: str = self._dir_queue.popleft()
-
-        self.scan_single_dir(target_dir)
-
-        if self.tree_id:
-            logger.debug(f'[{self.tree_id}] Progress: {self.progress} of {self.total} files (dir_queue size: {len(self._dir_queue)})')
+            # small or empty dirs will cause excessive overhead, so try to optimize by reusing tasks for these:
+            if items_scanned_this_task >= DISK_SCAN_MIN_ITEMS_PER_TASK:
+                break
 
         # Run next iteration next:
         this_task.next_task = Task(this_task.priority, self.scan_next_dir)
