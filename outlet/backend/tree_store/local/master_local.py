@@ -4,7 +4,8 @@ import math
 import os
 import pathlib
 import threading
-from typing import Dict, List, Optional, Tuple
+from collections import deque
+from typing import Deque, Dict, List, Optional, Tuple
 
 from backend.display_tree.filter_state import FilterState
 from backend.executor.central import ExecPriority
@@ -172,28 +173,22 @@ class LocalDiskMasterStore(TreeStore):
         for new_child in child_list:
             existing_child_dict.pop(new_child.uid, None)
 
-        remove_dir_list = []
-        remove_file_list = []
+        dir_node_remove_list = []
+        file_node_remove_list = []
         for node_to_remove in existing_child_dict.values():
             if node_to_remove.is_live():  # ignore nodes which are not live (i.e. pending op nodes)
                 if node_to_remove.is_dir():
-                    remove_dir_list.append(node_to_remove)
+                    dir_node_remove_list.append(node_to_remove)
                 else:
-                    remove_file_list.append(node_to_remove)
+                    file_node_remove_list.append(node_to_remove)
 
         # Files can be removed in the main op, but dirs represent tress so we will create a DeleteSubtreeOp for each.
         remove_op_list = []
-        for remove_dir in remove_dir_list:
-            subtree_node_list = self._get_subtree_bfs(remove_dir.node_identifier)
-            if subtree_node_list:
-                logger.debug(f'Dir with {len(subtree_node_list)} nodes will be removed: {remove_dir.node_identifier}')
-                remove_op_list.append(DeleteSubtreeOp(parent_spid, node_list=subtree_node_list))
-            else:
-                # should never happen
-                logger.error(f'Dir not found in cache despite being listed somewhere: {remove_dir.node_identifier}')
+        for dir_node in dir_node_remove_list:
+            self.remove_subtree(dir_node, to_trash=False)
 
         with self._struct_lock:
-            self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=remove_file_list))
+            self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=file_node_remove_list))
             for remove_op in remove_op_list:
                 self._execute_write_op(remove_op)
 
@@ -536,7 +531,7 @@ class LocalDiskMasterStore(TreeStore):
         # logger.warning('LOCK off')
 
     def remove_subtree(self, subtree_root_node: LocalNode, to_trash: bool):
-        """subtree_root can be either a file or dir"""
+        """Recursively remove all nodes with the given subtree root from the cache. Param subtree_root_node can be either a file or dir"""
         logger.debug(f'Removing subtree_root from caches (to_trash={to_trash}): {subtree_root_node}')
 
         if to_trash:
@@ -552,9 +547,11 @@ class LocalDiskMasterStore(TreeStore):
 
         # logger.warning('LOCK ON!')
         with self._struct_lock:
-            subtree_nodes: List[LocalNode] = self._get_subtree_bfs(subtree_root_node.node_identifier)
             assert isinstance(subtree_root_node.node_identifier, LocalNodeIdentifier)
-            operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_nodes)
+            subtree_node_list: List[LocalNode] = self._get_subtree_bfs_from_cache(subtree_root_node.node_identifier)
+            if not subtree_node_list:
+                raise RuntimeError(f'Unexpected error: no nodes returned from BFS search for subroot: {subtree_root_node.node_identifier}')
+            operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_node_list)
             self._execute_write_op(operation)
         # logger.warning('LOCK off')
 
@@ -595,7 +592,10 @@ class LocalDiskMasterStore(TreeStore):
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
-    def _get_subtree_bfs(self, parent_spid: LocalNodeIdentifier) -> Optional[List[LocalNode]]:
+    def _get_subtree_bfs_from_cache(self, parent_spid: LocalNodeIdentifier) -> Optional[List[LocalNode]]:
+        """Returns all nodes in the given subtree which can be found in the cache. If the cache is not loaded into memory, loads them from disk."""
+        assert self._struct_lock.locked()
+
         cache_info: Optional[PersistedCacheInfo] = \
             self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
         if cache_info:
@@ -603,7 +603,31 @@ class LocalDiskMasterStore(TreeStore):
                 return self._memstore.master_tree.get_subtree_bfs(parent_spid.node_uid)
 
             else:
-                # FIXME: add support for recursively getting subtree from disk
+                # Load subtree nodes directly from disk cache:
+                with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
+                    subtree_node_list: List[LocalNode] = []
+                    dir_queue: Deque[LocalDirNode] = deque()
+
+                    # Compare logic with _get_child_list_from_cache_for_spid():
+                    parent_dir_node = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
+                    subtree_node_list.append(parent_dir_node)
+                    if parent_dir_node.is_dir():  # note: we don't care if all_children_fetched: we want to collect any children which were fetched
+                        assert isinstance(parent_dir_node, LocalDirNode)
+                        dir_queue.append(parent_dir_node)
+
+                    while len(dir_queue) > 0:
+                        parent_dir_node = dir_queue.popleft()
+                        child_node_list = cache.get_child_list_for_node_uid(parent_dir_node.uid)
+                        subtree_node_list += child_node_list
+
+                        for child_node in child_node_list:
+                            if child_node.is_dir():
+                                assert isinstance(child_node, LocalDirNode)
+                                dir_queue.append(child_node)
+
+                # Bring in-memory cache up-to-date: [DISABLED]
+                # self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=subtree_node_list, remove_node_list=[]))
+
                 raise NotImplementedError('FIXME: add support for recursively getting subtree from disk')
 
         # both caches miss

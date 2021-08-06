@@ -2,7 +2,6 @@ import errno
 import logging
 import os
 from collections import deque
-from pathlib import Path
 from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
