@@ -41,6 +41,38 @@ from util.task_runner import Task
 logger = logging.getLogger(__name__)
 
 
+class RefreshSubtreeCompoundTask:
+    """Creates a chain of tasks, each of which executes the refresh_next_folder() method"""
+    def __init__(self, master_gdrive, subtree_root: GDriveIdentifier, tree_id: TreeID):
+        self.master_gdrive = master_gdrive
+        self.subtree_root: GDriveIdentifier = subtree_root
+        self.stats_sw = Stopwatch()
+        self.folders_to_process: Deque[GDriveFolder] = deque()
+        self.count_folders: int = 0
+        self.count_total: int = 0
+        self.tree_id: TreeID = tree_id
+
+    def refresh_next_folder(self, this_task: Task):
+        if TRACE_ENABLED:
+            logger.debug(f'Entered refresh_next_folder()')
+
+        if len(self.folders_to_process) > 0:
+            folder: GDriveFolder = self.folders_to_process.popleft()
+            child_list: List[GDriveNode] = self.master_gdrive.fetch_and_merge_child_nodes_for_parent(folder)
+            self.count_folders += 1
+            self.count_total += len(child_list)
+
+            for child in child_list:
+                if child.is_dir():
+                    assert isinstance(child, GDriveFolder)
+                    self.folders_to_process.append(child)
+
+            this_task.add_next_task(self.refresh_next_folder)
+        else:
+            logger.info(f'[{self.tree_id}] {self.stats_sw} Refresh subtree complete (SubtreeRoot={self.subtree_root} '
+                        f'Folders={self.count_folders} Total={self.count_total})')
+
+
 class GDriveMasterStore(TreeStore):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -257,7 +289,8 @@ class GDriveMasterStore(TreeStore):
     def refresh_subtree(self, this_task: Task, subtree_root: GDriveIdentifier, tree_id: TreeID):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
         logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root})')
-        stats_sw = Stopwatch()
+
+        refresh_task = RefreshSubtreeCompoundTask(self, subtree_root, tree_id)
 
         subtree_root_node = self.get_node_for_uid(subtree_root.node_uid)
 
@@ -279,27 +312,12 @@ class GDriveMasterStore(TreeStore):
         assert isinstance(parent_node, GDriveFolder)
         parent_node.node_identifier.set_path_list(subtree_root.get_path_list())
 
-        # TODO: break these into separate Tasks
-        folders_to_process: Deque[GDriveFolder] = deque()
-        folders_to_process.append(parent_node)
+        refresh_task.folders_to_process.append(parent_node)
 
-        count_folders: int = 0
-        count_total: int = 0
-        while len(folders_to_process) > 0:
-            folder: GDriveFolder = folders_to_process.popleft()
-            child_list: List[GDriveNode] = self._fetch_and_merge_child_nodes_for_parent(folder)
-            count_folders += 1
-            count_total += len(child_list)
+        child_task = Task(this_task.priority, refresh_task.refresh_next_folder)
+        self.backend.executor.submit_async_task(child_task, parent_task=this_task)
 
-            for child in child_list:
-                if child.is_dir():
-                    assert isinstance(child, GDriveFolder)
-                    folders_to_process.append(child)
-
-        logger.info(f'[{tree_id}] {stats_sw} Refresh subtree complete (SubtreeRoot={subtree_root_node.node_identifier} '
-                    f'Folders={count_folders} Total={count_total})')
-
-    def _fetch_and_merge_child_nodes_for_parent(self, folder: GDriveFolder) -> List[GDriveNode]:
+    def fetch_and_merge_child_nodes_for_parent(self, folder: GDriveFolder) -> List[GDriveNode]:
         """Fetches all the children for the given GDriveFolder from the GDrive client, and merge the updated nodes into our cache"""
         logger.debug(f'Querying GDrive for children of folder ({folder})')
         child_list: List[GDriveNode] = self.gdrive_client.get_all_children_for_parent(folder.goog_id)

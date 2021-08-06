@@ -713,7 +713,7 @@ class CacheManager(HasLifecycle):
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
-        # TODO: split this in LOAD_0 and LOAD_3 tasks
+        # TODO: split this in LOAD_0 and LOAD_2 tasks. Need to cross-reference each dir with the visible dirs indicated by tree_id's metadata
         self.backend.executor.submit_async_task(Task(ExecPriority.LOAD_0, self._refresh_subtree, node_identifier, tree_id))
 
     # PersistedCacheInfo stuff
