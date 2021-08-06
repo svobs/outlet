@@ -98,8 +98,8 @@ class CacheManager(HasLifecycle):
 
         self._cache_info_dict: CacheInfoByDeviceUid = CacheInfoByDeviceUid()
 
-        self.enable_load_from_disk = backend.get_config(CFG_ENABLE_LOAD_FROM_DISK)
-        self.enable_save_to_disk = backend.get_config('cache.enable_cache_save')
+        self.enable_load_from_disk = backend.get_config(CFG_ENABLE_LOAD_FROM_DISK)  # FIXME: delete this config
+        self.enable_save_to_disk = backend.get_config('cache.enable_cache_save')  # FIXME: delete this config
         self.load_all_caches_on_startup = backend.get_config('cache.load_all_caches_on_startup')
         self.load_caches_for_displayed_trees_at_startup = backend.get_config('cache.load_caches_for_displayed_trees_on_startup')
         self.sync_from_local_disk_on_cache_load = backend.get_config('cache.sync_from_local_disk_on_cache_load')
@@ -228,6 +228,7 @@ class CacheManager(HasLifecycle):
                 pending_ops_task = self._op_ledger.cancel_pending_ops_from_disk
             else:
                 pending_ops_task = self._op_ledger.resume_pending_ops_from_disk
+            # This is a lower priority, so will not execute until after caches are all loaded
             self.backend.executor.submit_async_task(Task(ExecPriority.USER_OP_EXEC, pending_ops_task))
 
         finally:
@@ -435,37 +436,55 @@ class CacheManager(HasLifecycle):
         self._load_all_caches_in_process = True
         logger.info('Loading all caches from disk')
 
-        existing_cache_list: List[PersistedCacheInfo] = []
-        registry_needs_update: bool = False
-        for device_uid, second_dict in self._cache_info_dict.get_first_dict().items():
-            device_cache_list: List[PersistedCacheInfo] = list(second_dict.values())
-            if device_cache_list:
-                device_uid = device_cache_list[0].subtree_root.device_uid
-                store: TreeStore = self._store_dict[device_uid]
-                if store.device.tree_type == TreeType.LOCAL_DISK:
-                    assert isinstance(store, LocalDiskMasterStore)
-                    if store.consolidate_local_caches(this_task, device_cache_list, ID_GLOBAL_CACHE):  # this modifies device_cache_list
-                        registry_needs_update = True
+        class ConsolidateCachesTask:
+            def __init__(self):
+                self.existing_cache_list: List[PersistedCacheInfo] = []
+                self.registry_needs_update: bool = False
 
-                # TODO: idea: detect bad shutdown, and if it's bad, check max UIDs of all caches
-                existing_cache_list += device_cache_list  # do this for all devices
+        state = ConsolidateCachesTask()
 
-        if registry_needs_update and self.enable_save_to_disk:
-            self._overwrite_all_caches_in_registry(existing_cache_list)
-            logger.debug(f'Overwriting in-memory list ({len(self._cache_info_dict)}) with {len(existing_cache_list)} entries')
-            self._cache_info_dict.clear()
-            for cache in existing_cache_list:
-                self._cache_info_dict.put_item(cache)
+        def _clean_up_caches():
+            for device_uid, second_dict in self._cache_info_dict.get_first_dict().items():
+                device_cache_list: List[PersistedCacheInfo] = list(second_dict.values())
+                if device_cache_list:
+                    device_uid = device_cache_list[0].subtree_root.device_uid
+                    store: TreeStore = self._store_dict[device_uid]
+                    if store.device.tree_type == TreeType.LOCAL_DISK:
+                        assert isinstance(store, LocalDiskMasterStore)
 
-        for cache_num, existing_disk_cache in enumerate(existing_cache_list):
-            self._cache_info_dict.put_item(existing_disk_cache)
+                        # Add as child task, so that it executes prior to _update_registry()
+                        child_task = Task(this_task.priority, store.consolidate_local_caches, device_cache_list, state)
+                        self.backend.executor.submit_async_task(child_task, parent_task=this_task)
+                    else:
+                        # this is otherwise done by consolidate_local_caches()
+                        state.existing_cache_list += device_cache_list  # do this for all devices
 
-            cache_num_plus_1 = cache_num + 1
-            cache_count = len(existing_cache_list)
+            # TODO: idea: detect bad shutdown, and if it's bad, check max UIDs of all caches
 
-            # Load each cache as a separate child task.
-            self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._init_existing_cache,
-                                                    existing_disk_cache, cache_num_plus_1, cache_count), parent_task=this_task)
+        this_task.add_next_task(_clean_up_caches)
+
+        def _update_registry():
+            if state.registry_needs_update and self.enable_save_to_disk:
+                self._overwrite_all_caches_in_registry(state.existing_cache_list)
+                logger.debug(f'Overwriting in-memory list ({len(self._cache_info_dict)}) with {len(state.existing_cache_list)} entries')
+                self._cache_info_dict.clear()
+                for cache in state.existing_cache_list:
+                    self._cache_info_dict.put_item(cache)
+
+        this_task.add_next_task(_update_registry)
+
+        def _load_all_caches_finally():
+            for cache_num, existing_disk_cache in enumerate(state.existing_cache_list):
+                self._cache_info_dict.put_item(existing_disk_cache)
+
+                cache_num_plus_1 = cache_num + 1
+                cache_count = len(state.existing_cache_list)
+
+                # Load each cache as a separate child task.
+                self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._init_existing_cache,
+                                                        existing_disk_cache, cache_num_plus_1, cache_count), parent_task=this_task)
+
+        this_task.add_next_task(_load_all_caches_finally)
 
     def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:

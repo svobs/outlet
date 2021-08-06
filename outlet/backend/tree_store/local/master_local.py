@@ -247,8 +247,6 @@ class LocalDiskMasterStore(TreeStore):
         assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
         stopwatch_total = Stopwatch()
 
-        # FIXME: don't forget consolidate_local_caches()
-
         self._ensure_uid_consistency(cache_info.subtree_root)
 
         if not requested_subtree_root:
@@ -326,30 +324,22 @@ class LocalDiskMasterStore(TreeStore):
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.node_uid = new_uid
 
-    def consolidate_local_caches(self, this_task: Task, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
-        supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
+    def consolidate_local_caches(self, this_task: Task, local_caches: List[PersistedCacheInfo], state):
 
         if not self.backend.cacheman.enable_save_to_disk:
-            logger.debug(f'[{tree_id}] Will not consolidate caches; save to disk is disabled')
+            logger.debug(f'Will not consolidate caches; save to disk is disabled')
             return False
 
-        for cache in local_caches:
-            for other_cache in local_caches:
-                if other_cache.subtree_root.get_single_path().startswith(cache.subtree_root.get_single_path()) and \
-                        not cache.subtree_root.get_single_path() == other_cache.subtree_root.get_single_path():
-                    # cache is a super-tree of other_cache
-                    supertree_sets.append((cache, other_cache))
-
-        for supertree_cache, subtree_cache in supertree_sets:
+        def _consolidate(supertree_cache, subtree_cache):
             local_caches.remove(subtree_cache)
 
             if supertree_cache.sync_ts > subtree_cache.sync_ts:
-                logger.info(f'[{tree_id}] Cache for supertree (root={supertree_cache.subtree_root.get_single_path()}, ts={supertree_cache.sync_ts}) '
+                logger.info(f'Cache for supertree (root={supertree_cache.subtree_root.get_single_path()}, ts={supertree_cache.sync_ts}) '
                             f'is newer than for subtree (root={subtree_cache.subtree_root.get_single_path()}, ts={subtree_cache.sync_ts}): '
                             f'it will be deleted')
                 file_util.delete_file(subtree_cache.cache_location)
             else:
-                logger.info(f'[{tree_id}] Cache for subtree (root={subtree_cache.subtree_root.get_single_path()}, ts={subtree_cache.sync_ts}) '
+                logger.info(f'Cache for subtree (root={subtree_cache.subtree_root.get_single_path()}, ts={subtree_cache.sync_ts}) '
                             f'is newer than for supertree (root={supertree_cache.subtree_root.get_single_path()}, ts={supertree_cache.sync_ts}): '
                             f'it will be merged into supertree')
 
@@ -369,14 +359,40 @@ class LocalDiskMasterStore(TreeStore):
                     self._memstore.master_tree.replace_subtree(super_tree)
                 # logger.warning('LOCK off')
 
-                # this will resync with file system and/or save if configured
+                # 6. This will resync with file system and re-save
                 supertree_cache.needs_save = True
-                self._load_subtree_from_disk(this_task, supertree_cache, tree_id)
-                # Now it is safe to delete the subtree cache:
-                file_util.delete_file(subtree_cache.cache_location)
+                load_subtree_child_task = Task(this_task.priority, self._load_subtree_from_disk, supertree_cache, ID_GLOBAL_CACHE)
+                self.backend.executor.submit_async_task(load_subtree_child_task, parent_task=this_task)
 
-        registry_needs_update = len(supertree_sets) > 0
-        return registry_needs_update
+                # 7. Now it is safe to delete the subtree cache:
+                def _delete_cache_file():
+                    file_util.delete_file(subtree_cache.cache_location)
+
+                delete_cache_file_child_task = Task(this_task.priority, _delete_cache_file)
+                self.backend.executor.submit_async_task(delete_cache_file_child_task, parent_task=this_task)
+
+        supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
+
+        for cache in local_caches:
+            for other_cache in local_caches:
+                if other_cache.subtree_root.get_single_path().startswith(cache.subtree_root.get_single_path()) and \
+                        not cache.subtree_root.get_single_path() == other_cache.subtree_root.get_single_path():
+                    # cache is a super-tree of other_cache
+                    supertree_sets.append((cache, other_cache))
+
+        for _supertree_cache, _subtree_cache in supertree_sets:
+            consolidate_child_task = Task(this_task.priority, _consolidate, _supertree_cache, _subtree_cache)
+            self.backend.executor.submit_async_task(consolidate_child_task, parent_task=this_task)
+
+        def _finally():
+            registry_needs_update = len(supertree_sets) > 0
+            if registry_needs_update:
+                state.registry_needs_update = True
+
+            state.existing_cache_list += local_caches
+
+        finally_child_task = Task(this_task.priority, _finally)
+        self.backend.executor.submit_async_task(finally_child_task, parent_task=this_task)
 
     def refresh_subtree(self, this_task: Task, node_identifier: LocalNodeIdentifier, tree_id: TreeID):
         assert isinstance(node_identifier, LocalNodeIdentifier)
@@ -627,8 +643,7 @@ class LocalDiskMasterStore(TreeStore):
 
                 # Bring in-memory cache up-to-date: [DISABLED]
                 # self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=subtree_node_list, remove_node_list=[]))
-
-                raise NotImplementedError('FIXME: add support for recursively getting subtree from disk')
+                return subtree_node_list
 
         # both caches miss
         return None

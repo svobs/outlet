@@ -304,6 +304,8 @@ class CentralExecutor(HasLifecycle):
         """API: enqueue task to be executed, with given priority."""
         priority = task.priority
 
+        # TODO: allow child tasks to be added directly to tasks, without needing the central executor
+
         if not isinstance(priority, ExecPriority):
             raise RuntimeError(f'Bad arg: {priority}')
 
