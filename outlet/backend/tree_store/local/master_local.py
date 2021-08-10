@@ -389,7 +389,7 @@ class LocalDiskMasterStore(TreeStore):
             consolidate_child_task = Task(this_task.priority, _consolidate, _supertree_cache, _subtree_cache)
             self.backend.executor.submit_async_task(consolidate_child_task, parent_task=this_task)
 
-        def _finally():
+        def _finally(_finally_task: Task):
             registry_needs_update = len(supertree_sets) > 0
             if registry_needs_update:
                 state.registry_needs_update = True

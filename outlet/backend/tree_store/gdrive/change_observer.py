@@ -85,7 +85,7 @@ class GDriveChangeObserver(ABC):
         pass
 
     @abstractmethod
-    def end_of_page(self, next_page_token: str):
+    def end_of_page(self):
         pass
 
 
@@ -107,10 +107,8 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
     def change_received(self, change: GDriveChange, item):
         self.change_list.append(change)
 
-    def end_of_page(self, next_page_token: str):
+    def end_of_page(self):
         self.total_change_count += len(self.change_list)
         logger.debug(f'End of page: sending {len(self.change_list)} changes to cacheman (total count: {self.total_change_count})')
         self.gdrive_store.apply_gdrive_changes(self.change_list)
         self.change_list.clear()
-
-

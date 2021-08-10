@@ -11,7 +11,7 @@ from pydispatch import dispatcher
 
 from backend.executor.command.cmd_executor import CommandExecutor
 from constants import CENTRAL_EXEC_THREAD_NAME, EngineSummaryState, OP_EXECUTION_THREAD_NAME, SUPER_DEBUG_ENABLED, \
-    TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_WORKERS
+    TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_WORKERS, TRACE_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
@@ -155,13 +155,15 @@ class CentralExecutor(HasLifecycle):
                 with self._running_task_cv:
                     # wait until we are notified of new task (assuming task queue is not full) or task finished (if task queue is full)
                     if not self._running_task_cv.wait(TASK_EXEC_IMEOUT_SEC):
-                        if SUPER_DEBUG_ENABLED:
-                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV TIMEOUT!')
+                        if TRACE_ENABLED:
+                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV timeout!')
 
                     if len(self._running_task_dict) < TASK_RUNNER_MAX_WORKERS:
                         task = self._get_next_task_to_run_nolock()
                         if task:
                             self._running_task_dict[task.task_uuid] = task
+                        elif SUPER_DEBUG_ENABLED:
+                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks to run (currently running: {len(self._running_task_dict)})')
                     else:
                         logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS}): '
                                      f'{self._running_task_dict}')
@@ -181,8 +183,8 @@ class CentralExecutor(HasLifecycle):
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
         try:
             task = self._exec_queue_dict[priority].get_nowait()
-            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority={ExecPriority.LOAD_0.name}: {task.task_func.__name__}'
-                         f' (task_uuid: {task.task_uuid})')
+            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority: {ExecPriority.LOAD_0.name}: {task.task_func.__name__}'
+                         f' uuid: {task.task_uuid}')
             return task
         except Empty:
             return None
@@ -249,7 +251,7 @@ class CentralExecutor(HasLifecycle):
             # Did this task spawn child tasks which need to be waited for?
             child_set = self._parent_child_task_dict.get(task.task_uuid, None)
             if child_set:
-                logger.debug(f'Task {task.task_uuid} has children running ({child_set}): will delay completion handler until they are done')
+                logger.debug(f'Task {task.task_uuid} has children running ({child_set}): will delay next task until they are done')
                 self._waiting_parent_task_dict[task.task_uuid] = task
             else:
                 logger.debug(f'Task {task.task_uuid} has no children {": will run its" if task.next_task else "and has no"}'
@@ -295,7 +297,7 @@ class CentralExecutor(HasLifecycle):
                 parent_uuid = existing_parent_task.task_uuid
             else:
                 parent_uuid = None
-            logger.debug(f'Submitting next_task for task {task.task_uuid} with parent={parent_uuid}')
+            logger.debug(f'Submitting next task for completed task {task.task_uuid}: {next_task.task_uuid} with parent={parent_uuid}: ')
             self.submit_async_task(next_task, parent_task=existing_parent_task)
 
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
@@ -310,17 +312,27 @@ class CentralExecutor(HasLifecycle):
             raise RuntimeError(f'Bad arg: {priority}')
 
         with self._running_task_cv:
-            logger.debug(f'Enqueuing task with priority={priority.name}: func_name="{task.task_func.__name__}" uuid: {task.task_uuid}')
+            if parent_task:
+                parent_task_uuid = parent_task.task_uuid
+            else:
+                parent_task_uuid = None
+            logger.debug(f'Enqueuing task (priority: {priority.name}: func_name: "{task.task_func.__name__}" uuid: {task.task_uuid} '
+                         f'parent: {parent_task_uuid})')
 
             if parent_task:
+                if not self._running_task_dict.get(parent_task_uuid, None) and not self._waiting_parent_task_dict.get(parent_task_uuid):
+                    raise RuntimeError(f'Cannot add task {task.task_uuid}: referenced parent task {parent_task_uuid} was not found! '
+                                       f'Maybe it and all its children already completed?')
+
                 # Do this *before* putting in queue, in case it gets picked up too quickly
-                child_set = self._parent_child_task_dict.get(parent_task.task_uuid, None)
+                child_set = self._parent_child_task_dict.get(parent_task_uuid, None)
                 if not child_set:
                     child_set = set()
-                    self._parent_child_task_dict[parent_task.task_uuid] = child_set
-
+                    self._parent_child_task_dict[parent_task_uuid] = child_set
                 child_set.add(task.task_uuid)
-                self._child_parent_task_dict[task.task_uuid] = parent_task.task_uuid
+
+                # Add pointer to parent
+                self._child_parent_task_dict[task.task_uuid] = parent_task_uuid
 
             self._exec_queue_dict[priority].put_nowait(task)
 

@@ -161,8 +161,15 @@ class GDriveMasterStore(TreeStore):
 
     def _execute_write_op(self, operation: GDriveWriteThroughOp):
         """Executes a single GDriveWriteThroughOp ({start}->memory->disk->UI)"""
-        assert self._struct_lock.locked()
 
+        # Make sure we are locked, but allow the caller the flexibility of not locking (also, prevent hanging):
+        if self._struct_lock.locked():
+            self._execute_write_op_nolock(operation)
+        else:
+            with self._struct_lock:
+                self._execute_write_op_nolock(operation)
+
+    def _execute_write_op_nolock(self, operation: GDriveWriteThroughOp):
         # 1. Update memory store
         operation.update_memstore(self._memstore)
 
@@ -197,7 +204,7 @@ class GDriveMasterStore(TreeStore):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
                      f'sync_latest_changes={sync_latest_changes}')
-        assert this_task.priority == ExecPriority.CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
+        assert not this_task or this_task.priority == ExecPriority.CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
 
         if not self.backend.cacheman.enable_load_from_disk:
             logger.debug(f'Skipping cache load because {CFG_ENABLE_LOAD_FROM_DISK} is False')
@@ -333,8 +340,7 @@ class GDriveMasterStore(TreeStore):
             # TODO: better handling
             raise RuntimeError(f'Node with goog_id "{subtree_root_node.goog_id}" was not found in Google Drive: {subtree_root_node}')
         if not parent_node.is_dir():
-            with self._struct_lock:
-                self._execute_write_op(UpsertSingleNodeOp(parent_node))
+            self._execute_write_op(UpsertSingleNodeOp(parent_node))
             return
 
         assert isinstance(parent_node, GDriveFolder)
@@ -360,9 +366,8 @@ class GDriveMasterStore(TreeStore):
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'fetch_and_merge_child_nodes_for_parent(): locked={self._struct_lock.locked()}')
-        with self._struct_lock:
-            # This will write into the memory & disk caches, and notify FEs of updates
-            self._execute_write_op(RefreshFolderOp(self.backend, folder, child_list))
+        # This will write into the memory & disk caches, and notify FEs of updates
+        self._execute_write_op(RefreshFolderOp(self.backend, folder, child_list))
 
         return child_list
 
@@ -375,8 +380,11 @@ class GDriveMasterStore(TreeStore):
     def upsert_single_node(self, node: GDriveNode) -> GDriveNode:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered upsert_single_node(): locked={self._struct_lock.locked()}')
-        with self._struct_lock:
+        if self._struct_lock.locked():
             return self._upsert_single_node_nolock(node)
+        else:
+            with self._struct_lock:
+                return self._upsert_single_node_nolock(node)
 
     def _upsert_single_node_nolock(self, node: GDriveNode) -> GDriveNode:
         logger.debug(f'Upserting GDrive node to caches: {node}')
@@ -388,9 +396,8 @@ class GDriveMasterStore(TreeStore):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered update_single_node(): locked={self._struct_lock.locked()}')
         write_op = UpsertSingleNodeOp(node, update_only=True)
-        with self._struct_lock:
-            logger.debug(f'Updating GDrive node in caches: {node}')
-            self._execute_write_op(write_op)
+        logger.debug(f'Updating GDrive node in caches: {node}')
+        self._execute_write_op(write_op)
 
         return write_op.node
 
@@ -411,8 +418,11 @@ class GDriveMasterStore(TreeStore):
     def remove_single_node(self, node: GDriveNode, to_trash) -> Optional[GDriveNode]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered remove_single_node(): locked={self._struct_lock.locked()}')
-        with self._struct_lock:
+        if self._struct_lock.locked():
             return self._remove_single_node_nolock(node, to_trash)
+        else:
+            with self._struct_lock:
+                return self._remove_single_node_nolock(node, to_trash)
 
     def _remove_single_node_nolock(self, node: GDriveNode, to_trash) -> Optional[GDriveNode]:
         logger.debug(f'Removing node from caches: {node}')
@@ -450,12 +460,11 @@ class GDriveMasterStore(TreeStore):
         logger.debug(f'Applying {len(gdrive_change_list)} GDrive changes...')
         operation: BatchChangesOp = BatchChangesOp(self.backend, gdrive_change_list)
 
-        with self._struct_lock:
-            try:
-                self._execute_write_op(operation)
-            except RuntimeError:
-                logger.error(f'While executing GDrive change list: {gdrive_change_list}')
-                raise
+        try:
+            self._execute_write_op(operation)
+        except RuntimeError:
+            logger.error(f'While executing GDrive change list: {gdrive_change_list}')
+            raise
 
     def get_goog_id_list_for_uid_list(self, uid_list: List[UID], fail_if_missing: bool = True) -> List[str]:
         try:
@@ -626,16 +635,16 @@ class GDriveMasterStore(TreeStore):
     def create_gdrive_user(self, user: GDriveUser):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered create_gdrive_user(): locked={self._struct_lock.locked()}')
-        with self._struct_lock:
-            self._execute_write_op(CreateUserOp(user))
+        op = CreateUserOp(user)
+        self._execute_write_op(op)
 
     def get_or_create_gdrive_mime_type(self, mime_type_string: str) -> MimeType:
         # Note: this operation must be synchronous, so that it can return the MIME type
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_or_create_gdrive_mime_type(): locked={self._struct_lock.locked()}')
+
         op = UpsertMimeTypeOp(mime_type_string)
-        with self._struct_lock:
-            self._execute_write_op(op)
+        self._execute_write_op(op)
         return op.mime_type
 
     def get_mime_type_for_uid(self, uid: UID) -> Optional[MimeType]:
@@ -646,5 +655,4 @@ class GDriveMasterStore(TreeStore):
     def delete_all_gdrive_data(self):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered delete_all_gdrive_data(): locked={self._struct_lock.locked()}')
-        with self._struct_lock:
-            self._execute_write_op(DeleteAllDataOp())
+        self._execute_write_op(DeleteAllDataOp())

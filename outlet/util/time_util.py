@@ -1,9 +1,9 @@
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def now_ms():
-    return int(datetime.now().microsecond / 1000)
+    return int(datetime.now(tz=timezone.utc).timestamp() * 1000)
 
 
 def now_sec():

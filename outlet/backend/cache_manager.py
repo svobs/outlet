@@ -443,7 +443,7 @@ class CacheManager(HasLifecycle):
 
         state = ConsolidateCachesTask()
 
-        def _clean_up_caches():
+        def _clean_up_caches(_clean_up_caches_task: Task):
             for device_uid, second_dict in self._cache_info_dict.get_first_dict().items():
                 device_cache_list: List[PersistedCacheInfo] = list(second_dict.values())
                 if device_cache_list:
@@ -454,7 +454,7 @@ class CacheManager(HasLifecycle):
 
                         # Add as child task, so that it executes prior to _update_registry()
                         child_task = Task(this_task.priority, store.consolidate_local_caches, device_cache_list, state)
-                        self.backend.executor.submit_async_task(child_task, parent_task=this_task)
+                        self.backend.executor.submit_async_task(child_task, parent_task=_clean_up_caches_task)
                     else:
                         # this is otherwise done by consolidate_local_caches()
                         state.existing_cache_list += device_cache_list  # do this for all devices
@@ -463,7 +463,7 @@ class CacheManager(HasLifecycle):
 
         this_task.add_next_task(_clean_up_caches)
 
-        def _update_registry():
+        def _update_registry(_this_task: Task):
             if state.registry_needs_update and self.enable_save_to_disk:
                 self._overwrite_all_caches_in_registry(state.existing_cache_list)
                 logger.debug(f'Overwriting in-memory list ({len(self._cache_info_dict)}) with {len(state.existing_cache_list)} entries')
@@ -473,7 +473,7 @@ class CacheManager(HasLifecycle):
 
         this_task.add_next_task(_update_registry)
 
-        def _load_all_caches_finally():
+        def _load_all_caches_finally(_load_all_caches_finally_task: Task):
             for cache_num, existing_disk_cache in enumerate(state.existing_cache_list):
                 self._cache_info_dict.put_item(existing_disk_cache)
 
@@ -482,7 +482,7 @@ class CacheManager(HasLifecycle):
 
                 # Load each cache as a separate child task.
                 self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._init_existing_cache,
-                                                        existing_disk_cache, cache_num_plus_1, cache_count), parent_task=this_task)
+                                                        existing_disk_cache, cache_num_plus_1, cache_count), parent_task=_load_all_caches_finally_task)
 
         this_task.add_next_task(_load_all_caches_finally)
 
@@ -529,7 +529,7 @@ class CacheManager(HasLifecycle):
                     f'Expected GDrive root ({self.backend.node_identifier_factory.get_root_constant_gdrive_spid(device_uid)}) ' \
                     f'but found: {existing_disk_cache.subtree_root}'
                 assert isinstance(store, GDriveMasterStore)
-                store.load_and_sync_master_tree()
+                store.load_and_sync_master_tree(this_task)
             else:
                 assert False
 
@@ -623,7 +623,7 @@ class CacheManager(HasLifecycle):
             spid = tree_meta.root_sn.spid
             store = self._get_store_for_device_uid(spid.device_uid)
 
-            def _pre_post_load(this_task):
+            def _pre_post_load(_this_task):
                 if tree_meta.state.root_exists:
                     # get up-to-date root node:
                     subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
@@ -650,7 +650,7 @@ class CacheManager(HasLifecycle):
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
-        def _post_load(this_task):
+        def _post_load(_this_task):
             self.repopulate_dir_stats_for_tree(tree_meta)
 
             tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
@@ -882,7 +882,7 @@ class CacheManager(HasLifecycle):
         return subtree_files + subtree_dirs
 
     def remove_subtree(self, node: Node, to_trash: bool):
-        """TODO: when is this called? Only for tests?"""
+        """NOTE: this is only called for tests currently."""
         self._get_store_for_device_uid(node.device_uid).remove_subtree(node, to_trash)
 
     def move_local_subtree(self, this_task: Task, src_full_path: str, dst_full_path: str) -> Optional[Tuple]:

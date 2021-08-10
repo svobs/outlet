@@ -2,7 +2,7 @@ from enum import IntEnum
 from model.uid import UID
 import platform
 
-SUPER_DEBUG_ENABLED = False
+SUPER_DEBUG_ENABLED = True
 TRACE_ENABLED = False
 
 

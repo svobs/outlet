@@ -840,10 +840,9 @@ class GDriveClient(HasLifecycle):
 
             request.page_token = response_dict.get('nextPageToken', None)
 
-            observer.end_of_page(request.page_token)
+            observer.end_of_page()
 
             if not request.page_token:
-                observer.new_start_token = response_dict.get('newStartPageToken', None)
                 break
 
         logger.debug(f'{stopwatch_retrieval} Requests returned {count} changes '
