@@ -885,8 +885,8 @@ class CacheManager(HasLifecycle):
         """TODO: when is this called? Only for tests?"""
         self._get_store_for_device_uid(node.device_uid).remove_subtree(node, to_trash)
 
-    def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
-        self._this_disk_local_store.move_local_subtree(src_full_path, dst_full_path, is_from_watchdog)
+    def move_local_subtree(self, this_task: Task, src_full_path: str, dst_full_path: str) -> Optional[Tuple]:
+        return self._this_disk_local_store.move_local_subtree(this_task, src_full_path, dst_full_path)
 
     def remove_node(self, node: Node, to_trash):
         self._get_store_for_device_uid(node.device_uid).remove_single_node(node, to_trash)

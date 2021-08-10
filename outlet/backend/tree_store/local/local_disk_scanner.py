@@ -67,7 +67,7 @@ class LocalDiskScanner:
 
     def _find_total_files_to_scan(self):
         # First survey our local files:
-        root_path = self.root_node_identifer.get_single_path()
+        root_path = self.root_node_identifier.get_single_path()
         logger.info(f'[{self.tree_id}] Scanning path: {root_path}')
         file_counter = FileCounter(root_path)
         file_counter.recurse_through_dir_tree()

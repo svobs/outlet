@@ -39,12 +39,6 @@ class LocalDiskMemoryStore:
         root_node = RootTypeNode(node_identifier=LocalNodeIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID, device_uid=self.device_uid))
         self.master_tree.add_node(node=root_node, parent=None)
 
-        self.expected_node_moves: Dict[str, str] = {}
-        """When the FileSystemEventHandler gives us MOVE notifications for a tree, it gives us a separate notification for each
-        and every node. Since we want our tree move to be an atomic operation, we do it all at once, but then keep track of the
-        nodes we've moved so that we know exactly which notifications to ignore after that.
-        Dict is key-value pair of [old_file_path -> new_file_path]"""
-
     def remove_single_node(self, node: LocalNode):
         """Removes the given node from all in-memory structs (does nothing if it is not found in some or any of them).
         Will raise an exception if trying to remove a non-empty directory."""

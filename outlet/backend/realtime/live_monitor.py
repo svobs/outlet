@@ -8,15 +8,13 @@ from pydispatch import dispatcher
 from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
-from backend.executor.central import ExecPriority
+from backend.realtime.batching_thread import LocalFileChangeBatchingThread
 from backend.realtime.local_event_handler import LocalChangeEventHandler
-from constants import SUPER_DEBUG_ENABLED, TreeID, TreeType
-from model.node.local_disk_node import LocalNode
+from constants import TreeID, TreeType
 from model.node_identifier import NodeIdentifier
 from signal_constants import ID_GDRIVE_POLLING_THREAD, Signal
 from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
-from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -47,80 +45,10 @@ class GDrivePollingThread(HasLifecycle, threading.Thread):
         logger.info(f'Starting {self.name}...')
 
         while not self._shutdown:
-            # FIXME: prevent possible buildup of requests if a sync runs longer than the polling interval
             dispatcher.send(signal=Signal.SYNC_GDRIVE_CHANGES, sender=ID_GDRIVE_POLLING_THREAD)
 
             logger.debug(f'{self.name}: sleeping for {self.gdrive_thread_polling_interval_sec} sec')
             time.sleep(self.gdrive_thread_polling_interval_sec)
-
-
-class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS LocalFileChangeBatchingThread
-
-    Local file update notifications tend to be messy, and often we get lots of duplicate notifictations, even during a short period.
-    This thread collects all the updated file paths in a Set, then processes the whole set after a fixed period.
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-    def __init__(self, backend):
-        HasLifecycle.__init__(self)
-        threading.Thread.__init__(self, target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
-        self.backend = backend
-        self._cv_can_get = threading.Condition()
-        self.local_change_batch_interval_ms: int = ensure_int(self.backend.get_config('cache.monitoring.local_change_batch_interval_ms'))
-        self.change_set: Set[str] = set()
-
-    def enqueue(self, file_path: str):
-        with self._cv_can_get:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.name}] Enqueuing path: "{file_path}"')
-
-            self.change_set.add(file_path)
-
-            self._cv_can_get.notifyAll()
-
-    def start(self):
-        HasLifecycle.start(self)
-        threading.Thread.start(self)
-
-    def shutdown(self):
-        logger.debug(f'Shutting down {self.name}')
-        HasLifecycle.shutdown(self)
-
-        with self._cv_can_get:
-            # unblock thread:
-            self._cv_can_get.notifyAll()
-
-    def _run(self):
-        logger.info(f'Starting {self.name}...')
-
-        while not self.was_shutdown:
-
-            with self._cv_can_get:
-                change_set = self.change_set
-                self.change_set = set()
-
-            count = len(change_set)
-            if count > 0:
-                self.backend.executor.submit_async_task(Task(ExecPriority.LIVE_UPDATE, self._apply_change_set_batch, change_set))
-
-            logger.debug(f'{self.name}: sleeping for {self.local_change_batch_interval_ms} ms')
-            time.sleep(self.local_change_batch_interval_ms / 1000.0)
-
-            with self._cv_can_get:
-                if not self.change_set:
-                    self._cv_can_get.wait()
-
-    def _apply_change_set_batch(self, this_task: Task, change_set: Set[str]):
-        logger.debug(f'{self.name}: applying {len(change_set)} local file updates...')
-        for change_path in change_set:
-            try:
-                logger.debug(f'Applying CH file: {change_path}')
-                node: LocalNode = self.backend.cacheman.build_local_file_node(change_path)
-                self.backend.cacheman.upsert_single_node(node)
-            except FileNotFoundError as err:
-                logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
 
 
 class LiveMonitor(HasLifecycle):

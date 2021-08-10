@@ -148,27 +148,33 @@ class LocalDiskMasterStore(TreeStore):
         parent_dir: Optional[LocalNode] = self.get_node_for_uid(self.get_uid_for_path(parent_full_path))
         if not parent_dir or not parent_dir.is_dir():
             # Possibly just the cache for this one node is out-of-date. Let's bring it up to date.
-            parent_dir = self.build_local_file_node(full_path=parent_full_path)
-            if not parent_dir:
-                logger.error(f'overwrite_dir_entries_list(): Parent dir not found! (path={parent_full_path}) Skipping...')
-                # TODO: distinguish between removable volume dirs (volatile) & regular dirs which should be there
+            if os.path.isdir(parent_full_path):
+                parent_dir = self.build_local_dir_node(full_path=parent_full_path, is_live=True, all_children_fetched=True)
+            else:
+                # Updated node is not a dir!
+                parent_dir = self.build_local_file_node(full_path=parent_full_path)
+                if not parent_dir:
+                    logger.error(f'overwrite_dir_entries_list(): Parent not found! (path={parent_full_path}) Skipping...')
+                    # TODO: distinguish between removable volume dirs (volatile) & regular dirs which should be there
 
-                # FIXME: if dir is not volatile, delete dir tree from cache
-                return
-            elif not parent_dir.is_dir():
-                logger.warning(f'overwrite_dir_entries_list(): Parent dir is not a dir! (path={parent_full_path}) Will overwrite cache entries...')
+                    # FIXME: if dir is not volatile, delete dir tree from cache
+                    return
 
-                # FIXME: add functionality to overwrite dir node with file node
-                raise NotImplementedError('Cannot yet overwrite dir node with file node!')
+                if child_list:
+                    assert not parent_dir.is_dir()
+                    raise RuntimeError(f'overwrite_dir_entries_list(): Parent (path={parent_full_path}) is not a dir, but we are asked to add '
+                                       f'{len(child_list)} children to it!')
 
+        assert parent_dir and parent_dir.is_dir()
         parent_dir.all_children_fetched = True
         parent_spid: LocalNodeIdentifier = parent_dir.node_identifier
 
+        # Get children of target parent, and sort into dirs and nondirs:
+        # Files can be removed in the main RefreshDirEntriesOp op, but dirs represent tress so we will create a DeleteSubtreeOp for each.
         existing_child_dict: Dict[UID, LocalNode] = {}
-        existing_child_list: List[SPIDNodePair] = self._get_child_list_from_cache_for_spid(parent_spid)
-        for existing_child in existing_child_list:
+        for existing_child_sn in self._get_child_list_from_cache_for_spid(parent_spid):
             # don't need SPIDs; just unwrap the node from the pair:
-            existing_child_dict[existing_child.node.uid] = existing_child.node
+            existing_child_dict[existing_child_sn.node.uid] = existing_child_sn.node
 
         for new_child in child_list:
             existing_child_dict.pop(new_child.uid, None)
@@ -182,7 +188,6 @@ class LocalDiskMasterStore(TreeStore):
                 else:
                     file_node_remove_list.append(node_to_remove)
 
-        # Files can be removed in the main op, but dirs represent tress so we will create a DeleteSubtreeOp for each.
         remove_op_list = []
         for dir_node in dir_node_remove_list:
             self.remove_subtree(dir_node, to_trash=False)
@@ -476,75 +481,64 @@ class LocalDiskMasterStore(TreeStore):
         new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, device_uid=self.device.uid, full_path=new_node_full_path))
         return new_node
 
-    def _add_to_expected_node_moves(self, src_node_list: List[LocalNode], dst_node_list: List[LocalNode]):
-        first = True
-        # Let's collate these two operations so that in case of failure, we have less inconsistent state
-        for src_node, dst_node in zip(src_node_list, dst_node_list):
-            logger.debug(f'Migrating copy of node {src_node.node_identifier} to {dst_node.node_identifier}')
-            if first:
-                # ignore subroot
-                first = False
-            else:
-                self._memstore.expected_node_moves[src_node.get_single_path()] = dst_node.get_single_path()
+    def move_local_subtree(self, this_task: Task, src_full_path: str, dst_full_path: str) \
+            -> Optional[Tuple[List[LocalNode], List[LocalNode]]]:
+        # TODO: need to test a MV of a large directory tree
 
-    def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
+        if not src_full_path:
+            raise RuntimeError(f'src_full_path is empty: "{src_full_path}"')
+        if not dst_full_path:
+            raise RuntimeError(f'dst_full_path is empty: "{dst_full_path}"')
+        if src_full_path == dst_full_path:
+            raise RuntimeError(f'src_full_path and dst_full_path are identical: "{dst_full_path}"')
+
         # logger.warning('LOCK ON!')
         with self._struct_lock:
-            # FIXME: refactor to put this in watchdog itself
-            if is_from_watchdog:
-                # See if we safely ignore this:
-                expected_move_dst = self._memstore.expected_node_moves.pop(src_full_path, None)
-                if expected_move_dst:
-                    if expected_move_dst == dst_full_path:
-                        logger.debug(f'Ignoring MV ("{src_full_path}" -> "{dst_full_path}") because it was already done')
-                        return
-                    else:
-                        logger.error(f'MV ("{src_full_path}" -> "{dst_full_path}"): was expecting dst = "{expected_move_dst}"!')
-
             src_uid: UID = self.get_uid_for_path(src_full_path)
-            src_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
-            if src_node:
-                src_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(src_node.uid)
-                src_subtree: LocalSubtree = LocalSubtree(src_node.node_identifier, remove_node_list=[], upsert_node_list=src_nodes)
-            else:
+            src_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
+            if not src_subroot_node:
                 logger.error(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
                 return
 
-            # Create up to 3 tree operations which should be executed in a single transaction if possible
             dst_uid: UID = self.get_uid_for_path(dst_full_path)
             dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, full_path=dst_full_path)
-            dst_subtree: LocalSubtree = LocalSubtree(dst_node_identifier, [], [])
+            dst_subtree: LocalSubtree = LocalSubtree(subtree_root=dst_node_identifier, remove_node_list=[], upsert_node_list=[])
 
-            existing_dst_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
-            if existing_dst_node:
-                logger.debug(f'Node already exists at MV dst; will remove: {existing_dst_node.node_identifier}')
-                existing_dst_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(dst_uid)
-                dst_subtree.remove_node_list = existing_dst_nodes
+            existing_dst_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
+            if existing_dst_subroot_node:
+                # This will be very rare and probably means there's a bug, but let's try to handle it:
+                logger.warning(f'Subroot node already exists at MV dst; will remove all nodes in tree: {existing_dst_subroot_node.node_identifier}')
+                existing_dst_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(dst_uid)
+                dst_subtree.remove_node_list = existing_dst_node_list
 
-            if src_subtree:
-                for src_node in src_subtree.remove_node_list:
-                    dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
-                    dst_subtree.upsert_node_list.append(dst_node)
-            else:
-                # Rescan dir in dst_full_path for nodes
-                if os.path.isdir(dst_full_path):
-                    # FIXME: this is broken!
-                    fresh_tree: LocalDiskTree = self._resync_with_file_system(dst_node_identifier, ID_GLOBAL_CACHE)
-                    for dst_node in fresh_tree.get_subtree_bfs():
-                        dst_subtree.upsert_node_list.append(dst_node)
-                    logger.debug(f'Added node list contains {len(dst_subtree.upsert_node_list)} nodes')
-                else:
-                    local_node: LocalFileNode = self.build_local_file_node(dst_full_path)
-                    dst_subtree.upsert_node_list.append(local_node)
+            existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(src_subroot_node.uid)
+        # logger.warning('LOCK off')
+
+        if existing_src_node_list:
+            # Use cached list of existing nodes in the old location to infer the nodes in the new location:
+            src_subtree: LocalSubtree = LocalSubtree(src_subroot_node.node_identifier, remove_node_list=existing_src_node_list, upsert_node_list=[])
+
+            for src_node in existing_src_node_list:
+                dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
+                dst_subtree.upsert_node_list.append(dst_node)
 
             subtree_list: List[LocalSubtree] = [src_subtree, dst_subtree]
 
-            if is_from_watchdog:
-                self._add_to_expected_node_moves(src_subtree.remove_node_list, dst_subtree.upsert_node_list)
+            # logger.warning('LOCK ON!')
+            with self._struct_lock:
+                operation = BatchChangesOp(subtree_list=subtree_list)
+                self._execute_write_op(operation)
+            # logger.warning('LOCK off')
 
-            operation = BatchChangesOp(subtree_list=subtree_list)
-            self._execute_write_op(operation)
-        # logger.warning('LOCK off')
+            return existing_src_node_list, dst_subtree.upsert_node_list
+        else:
+            # We don't have any src nodes. This shouldn't happen if we've done everything right, but we must assume the possibility that the cache
+            # will be out-of-date.
+            # This method will execute asynchronously as a set of child tasks, after we return from this method.
+            # In this case, the child task will already handle all the updates to the dst subtree (and we have no src subtree),
+            # so we won't have any work to do here.
+            self._resync_with_file_system(this_task, dst_node_identifier, ID_GLOBAL_CACHE)
+            return None
 
     def remove_subtree(self, subtree_root_node: LocalNode, to_trash: bool):
         """Recursively remove all nodes with the given subtree root from the cache. Param subtree_root_node can be either a file or dir"""

@@ -99,6 +99,9 @@ class GDriveMasterStore(TreeStore):
         TreeStore.__init__(self, device)
         self.backend = backend
 
+        self._is_sync_in_progress: bool = False
+        self._another_sync_requested = False  # this helps ensure that at most one sync is in progress and one sync is queued at any given time
+
         self._uid_mapper: UidGoogIdMapper = goog_id_mapper
         """Single source of UID<->GoogID mappings and UID assignments. Thread-safe."""
 
@@ -194,43 +197,55 @@ class GDriveMasterStore(TreeStore):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
                      f'sync_latest_changes={sync_latest_changes}')
+        assert this_task.priority == ExecPriority.CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
 
         if not self.backend.cacheman.enable_load_from_disk:
             logger.debug(f'Skipping cache load because {CFG_ENABLE_LOAD_FROM_DISK} is False')
             return None
 
-        stopwatch_total = Stopwatch()
+        if sync_latest_changes:
+            self._is_sync_in_progress = True
 
-        def _sync_if_specified():
-            if sync_latest_changes:
-                # This may add a noticeable delay:
-                self.sync_latest_changes()
+        try:
 
-            logger.info(f'{stopwatch_total} GDrive master tree loaded')
+            stopwatch_total = Stopwatch()
 
-        if not self._memstore.master_tree or invalidate_cache:
-            def _after_tree_loaded(tree):
-                assert tree
-                self._memstore.master_tree = tree
-                logger.debug(f'GDrive master tree completely loaded; device_uid={self._memstore.master_tree.device_uid}')
+            def _sync_if_specified():
+                if sync_latest_changes:
+                    try:
+                        # This may add a noticeable delay:
+                        with self._struct_lock:
+                            self._sync_latest_changes()
+                    finally:
+                        self._is_sync_in_progress = False
 
+                logger.info(f'{stopwatch_total} GDrive master tree loaded')
+
+            if not self._memstore.master_tree or invalidate_cache:
+                def _after_tree_loaded(tree):
+                    assert tree
+                    self._memstore.master_tree = tree
+                    logger.debug(f'GDrive master tree completely loaded; device_uid={self._memstore.master_tree.device_uid}')
+
+                    _sync_if_specified()
+
+                self.tree_loader.load_all(this_task=this_task, invalidate_cache=invalidate_cache, after_tree_loaded=_after_tree_loaded)
+            else:
+                assert not invalidate_cache
+                logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
                 _sync_if_specified()
 
-            self.tree_loader.load_all(this_task=this_task, invalidate_cache=invalidate_cache, after_tree_loaded=_after_tree_loaded)
-        else:
-            assert not invalidate_cache
-            logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
-            _sync_if_specified()
+        except Exception:
+            self._is_sync_in_progress = False
+            raise
 
-    def sync_latest_changes(self):
+    def _sync_latest_changes(self):
         logger.debug(f'Entered sync_latest_changes(): locked={self._struct_lock.locked()}')
+
         changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
         if not changes_download:
             raise RuntimeError(f'Download state not found for GDrive change log!')
 
-        self._sync_latest_changes(changes_download)
-
-    def _sync_latest_changes(self, changes_download: CurrentDownload):
         sw = Stopwatch()
 
         if not changes_download.page_token:
@@ -255,13 +270,26 @@ class GDriveMasterStore(TreeStore):
             msg = f'No GDrive changes on server: cache is up-to-date'
         logger.info(f'{sw} {msg}')
 
+        if self._another_sync_requested:
+            logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
+            self._another_sync_requested = False
+            self._sync_latest_changes()
+
     # Action listener callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _on_gdrive_sync_changes_requested(self, sender):
-        """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
-        logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES.name}"')
-        self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self.load_and_sync_master_tree))
+        """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive.
+        If a sync runs longer than the polling interval, then prevent buildup of multiple requests by just setting a polite flag which reqeuests
+        a sync after the current one."""
+        logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES.name}" '
+                     f'(is_sync_in_prgress={self._is_sync_in_progress}, another_sync_requested={self._another_sync_requested})')
+
+        # Prevent possible buildup of requests
+        if self._is_sync_in_progress:
+            self._another_sync_requested = True
+        else:
+            self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self.load_and_sync_master_tree))
 
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -331,7 +359,7 @@ class GDriveMasterStore(TreeStore):
         folder.all_children_fetched = True
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_fetch_and_merge_child_nodes_for_parent(): locked={self._struct_lock.locked()}')
+            logger.debug(f'fetch_and_merge_child_nodes_for_parent(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             # This will write into the memory & disk caches, and notify FEs of updates
             self._execute_write_op(RefreshFolderOp(self.backend, folder, child_list))
@@ -550,6 +578,8 @@ class GDriveMasterStore(TreeStore):
         if not parent_node.is_dir():
             raise RuntimeError(f'Could not get child list for node: node is not a folder: {parent_node}')
 
+        assert isinstance(parent_node, GDriveFolder)
+
         # 2. Read from disk cache if it exists:
         if parent_node.all_children_fetched:
             logger.debug(f'Getting child list from disk cache: {parent_node}')
@@ -564,7 +594,7 @@ class GDriveMasterStore(TreeStore):
             if parent_node.uid == GDRIVE_ROOT_UID:
                 # This appears to be a limitation of Google Drive
                 raise RuntimeError(f'Cannot determine topmost nodes of Google Drive until entire tree has been downloaded!')
-            child_node_list: List[GDriveNode] = self._fetch_and_merge_child_nodes_for_parent(parent_node)
+            child_node_list: List[GDriveNode] = self.fetch_and_merge_child_nodes_for_parent(parent_node)
 
         return [self.to_sn_from_node_and_parent_spid(child_node, parent_spid) for child_node in child_node_list]
 
