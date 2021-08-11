@@ -95,7 +95,7 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
             identifier = self.extract_id(node)
             dir_stats_dict[identifier] = dir_stats
 
-            if SUPER_DEBUG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'DirNode {identifier} has {dir_stats}"')
 
         logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node}")')

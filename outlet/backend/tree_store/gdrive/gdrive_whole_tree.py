@@ -57,11 +57,13 @@ class GDriveWholeTree(BaseTree):
     def upsert_folder_and_children(self, parent_node: GDriveFolder, child_list: List[GDriveNode]) -> List[GDriveNode]:
         """Adds or replaces the given parent_node and its children. Any previous children which are not in the given list are
         unlinked from the parent, and if they had no other parents, become root-level nodes."""
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Entered upsert_folder_and_children(): parent_node={parent_node}, child_list size={len(child_list)}')
+
         upserted_node_list: List[GDriveNode] = [self.upsert_node(parent_node)]
 
         former_child_list: List[GDriveNode] = self.parent_child_dict.get(parent_node.uid)
-        if former_child_list:
-            self.parent_child_dict[parent_node.uid] = []
+        self.parent_child_dict[parent_node.uid] = child_list
 
         former_child_count = len(former_child_list)
 
@@ -451,9 +453,6 @@ class GDriveWholeTree(BaseTree):
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
         """Raises NodeNotPresentError if parent is not in this tree"""
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
-
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered get_child_list_for_spid() with parent_spid={parent_spid}: parent_child_dict size is {len(self.parent_child_dict)}')
 
         child_node_list = self.get_child_list_for_identifier(parent_spid.node_uid)
         if SUPER_DEBUG_ENABLED:
