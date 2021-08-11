@@ -455,7 +455,7 @@ class GDriveWholeTree(BaseTree):
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
 
         child_node_list = self.get_child_list_for_identifier(parent_spid.node_uid)
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'get_child_list_for_spid(): got {len(child_node_list)} child nodes for node_uid={parent_spid.node_uid}')
 
         child_sn_list = []

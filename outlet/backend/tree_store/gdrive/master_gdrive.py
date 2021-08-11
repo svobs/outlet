@@ -149,9 +149,6 @@ class GDriveMasterStore(TreeStore):
 
     def execute_load_op(self, operation: GDriveDiskLoadOp):
         """Executes a single GDriveDiskLoadOp ({start}->disk->memory"""
-        if not self.backend.cacheman.enable_load_from_disk:
-            logger.debug(f'Load from disk is disable; ignoring load operation!')
-            return
 
         # 1. Load from disk store
         self._diskstore.execute_load_op(operation)
@@ -174,10 +171,7 @@ class GDriveMasterStore(TreeStore):
         operation.update_memstore(self._memstore)
 
         # 2. Update disk store
-        if self.backend.cacheman.enable_save_to_disk:
-            self._diskstore.execute_write_op(operation)
-        else:
-            logger.debug(f'Save to disk is disabled: skipping disk update')
+        self._diskstore.execute_write_op(operation)
 
         # 3. Send signals
         operation.send_signals()
@@ -202,13 +196,11 @@ class GDriveMasterStore(TreeStore):
 
     def _load_master_cache(self, this_task: Optional[Task], invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
+        # FIXME: add check for whether this is already running, and wait on it, similar to CacheMan's initial load
+
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
                      f'sync_latest_changes={sync_latest_changes}')
         assert not this_task or this_task.priority == ExecPriority.CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
-
-        if not self.backend.cacheman.enable_load_from_disk:
-            logger.debug(f'Skipping cache load because {CFG_ENABLE_LOAD_FROM_DISK} is False')
-            return None
 
         if sync_latest_changes:
             self._is_sync_in_progress = True
@@ -548,7 +540,7 @@ class GDriveMasterStore(TreeStore):
         return self.to_sn(node, child_path)
 
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: Optional[FilterState]) -> List[SPIDNodePair]:
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
 
@@ -598,7 +590,8 @@ class GDriveMasterStore(TreeStore):
 
         # 2. Read from disk cache if it exists:
         if parent_node.all_children_fetched:
-            logger.debug(f'get_child_list_for_spid(): getting child list from disk cache: {parent_node}')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'get_child_list_for_spid(): getting child list from disk cache: {parent_node}')
             child_node_list: List[GDriveNode] = self._diskstore.get_child_list_for_parent_uid(parent_spid.node_uid)
             for child_node in child_node_list:
                 # Need to fill in at least one path:

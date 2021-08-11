@@ -69,16 +69,12 @@ class LocalDiskDiskStore(HasLifecycle):
 
     def _update_diskstore_for_subtree(self, op: LocalDiskMultiNodeOp):
         """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
-        cache_man = self.backend.cacheman
-        if not cache_man.enable_save_to_disk:
-            logger.debug(f'Save to disk is disabled: skipping save of {len(op.get_subtree_list())} subtrees')
-            return
 
         cache_dict: Dict[str, LocalDiskDatabase] = {}
 
         for subtree in op.get_subtree_list():
             assert subtree.subtree_root.tree_type == TreeType.LOCAL_DISK and subtree.subtree_root.device_uid == self.device_uid
-            cache_info: Optional[PersistedCacheInfo] = cache_man.get_cache_info_for_subtree(subtree.subtree_root)
+            cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.get_cache_info_for_subtree(subtree.subtree_root)
             if not cache_info:
                 raise RuntimeError(f'Could not find a cache associated with file path: {subtree.subtree_root.get_single_path()}')
 

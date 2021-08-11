@@ -98,8 +98,6 @@ class CacheManager(HasLifecycle):
 
         self._cache_info_dict: CacheInfoByDeviceUid = CacheInfoByDeviceUid()
 
-        self.enable_load_from_disk = backend.get_config(CFG_ENABLE_LOAD_FROM_DISK)  # FIXME: delete this config
-        self.enable_save_to_disk = backend.get_config('cache.enable_cache_save')  # FIXME: delete this config
         self.load_all_caches_on_startup = backend.get_config('cache.load_all_caches_on_startup')
         self.load_caches_for_displayed_trees_at_startup = backend.get_config('cache.load_caches_for_displayed_trees_on_startup')
         self.sync_from_local_disk_on_cache_load = backend.get_config('cache.sync_from_local_disk_on_cache_load')
@@ -210,7 +208,7 @@ class CacheManager(HasLifecycle):
             self._op_ledger.start()
 
             # Now load all caches (if configured):
-            if self.enable_load_from_disk and self.load_all_caches_on_startup:
+            if self.load_all_caches_on_startup:
                 def notify_load_all_done(this_task):
                     self._load_all_caches_in_process = False
                     self._load_all_caches_done.set()
@@ -421,8 +419,6 @@ class CacheManager(HasLifecycle):
     def _load_all_caches(self, this_task: Task):
         """Load ALL the caches into memory. This is needed in certain circumstances, such as when a UID is being derefernced but we
         don't know which cache it belongs to."""
-        if not self.enable_load_from_disk:
-            raise RuntimeError('Cannot load all caches; loading caches from disk is disabled in config!')
 
         if self._load_all_caches_in_process:
             logger.info('Waiting for all caches to finish loading in other thread')
@@ -464,7 +460,7 @@ class CacheManager(HasLifecycle):
         this_task.add_next_task(_clean_up_caches)
 
         def _update_registry(_this_task: Task):
-            if state.registry_needs_update and self.enable_save_to_disk:
+            if state.registry_needs_update:
                 self._overwrite_all_caches_in_registry(state.existing_cache_list)
                 logger.debug(f'Overwriting in-memory list ({len(self._cache_info_dict)}) with {len(state.existing_cache_list)} entries')
                 self._cache_info_dict.clear()

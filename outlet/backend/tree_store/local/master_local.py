@@ -85,13 +85,9 @@ class LocalDiskMasterStore(TreeStore):
 
         # 2. Update disk
         cacheman = self.backend.cacheman
-        if cacheman.enable_save_to_disk:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Updating diskstore for operation {operation}')
-            self._diskstore.execute_op(operation)
-
-        else:
-            logger.debug(f'Save to disk is disabled: skipping save to disk for operation')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Updating diskstore for operation {operation}')
+        self._diskstore.execute_op(operation)
 
         # 3. Send signals
         if SUPER_DEBUG_ENABLED:
@@ -263,18 +259,15 @@ class LocalDiskMasterStore(TreeStore):
         # LOAD into master tree. Only for first load!
         if not cache_info.is_loaded:
             was_loaded = False
-            if self.backend.cacheman.enable_load_from_disk:
-                tree = self._diskstore.load_subtree(cache_info, tree_id)
-                if tree:
-                    if TRACE_ENABLED:
-                        logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
-                    # logger.warning('LOCK ON!')
-                    with self._struct_lock:
-                        self._memstore.master_tree.replace_subtree(tree)
-                        logger.debug(f'[{tree_id}] Updated in-memory cache: tree_size={len(self._memstore.master_tree):n}')
-                    # logger.warning('LOCK off')
-            else:
-                logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
+            tree = self._diskstore.load_subtree(cache_info, tree_id)
+            if tree:
+                if TRACE_ENABLED:
+                    logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
+                # logger.warning('LOCK ON!')
+                with self._struct_lock:
+                    self._memstore.master_tree.replace_subtree(tree)
+                    logger.debug(f'[{tree_id}] Updated in-memory cache: tree_size={len(self._memstore.master_tree):n}')
+                # logger.warning('LOCK off')
 
         # FS SYNC
         if force_rescan_disk or cache_info.needs_refresh or (not was_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
@@ -307,11 +300,9 @@ class LocalDiskMasterStore(TreeStore):
             if cache_info.needs_save:
                 if not cache_info.is_loaded:
                     logger.warning(f'[{tree_id}] Skipping cache save: cache was never loaded!')
-                elif self.backend.cacheman.enable_save_to_disk:
+                else:
                     # Save the updates back to local disk cache:
                     self._save_subtree_to_disk(cache_info, tree_id)
-                else:
-                    logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
             elif SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{tree_id}] Skipping cache save: not needed')
 
@@ -330,10 +321,6 @@ class LocalDiskMasterStore(TreeStore):
         subtree_root.node_uid = new_uid
 
     def consolidate_local_caches(self, this_task: Task, local_caches: List[PersistedCacheInfo], state):
-
-        if not self.backend.cacheman.enable_save_to_disk:
-            logger.debug(f'Will not consolidate caches; save to disk is disabled')
-            return False
 
         def _consolidate(supertree_cache, subtree_cache):
             local_caches.remove(subtree_cache)
