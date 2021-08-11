@@ -1,9 +1,5 @@
 import logging
 from enum import IntEnum
-from typing import Deque, Dict, List
-
-from model.node.node import Node
-from model.uid import UID
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +34,9 @@ class FilterCriteria:
         self.ignore_case: bool = False
         self.show_ancestors_of_matches: bool = False
 
-        self._cached_filter: Dict[str, Dict[UID, List[Node]]] = {}
-
     def has_criteria(self) -> bool:
         return self.search_query or self.is_trashed != Ternary.NOT_SPECIFIED or self.is_shared != Ternary.NOT_SPECIFIED
+
+    def __repr__(self):
+        return f'FilterCriteria(is_trashed={self.is_trashed.name} is_shared={self.is_shared.name} ignore_case={self.ignore_case} ' \
+               f'show_ancestors={self.show_ancestors_of_matches} search_query="{self.search_query}")'

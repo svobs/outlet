@@ -188,7 +188,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
                 reduced_changes.append(last_change)
             else:
                 # skip this node
-                logger.debug(f'No node found in cache for removed goog_id: "{last_change.goog_id}"')
+                logger.debug(f'No node found in cache for removed goog_id: "{last_change.goog_id}"; skipping')
 
         logger.debug(f'Reduced {len(change_list)} changes into {len(reduced_changes)} changes')
         return reduced_changes

@@ -1,6 +1,6 @@
 import logging
 from collections import deque
-from typing import Deque, Dict, List, Union
+from typing import Deque, Dict, List
 
 from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
@@ -28,6 +28,10 @@ class FilterState:
         self.root_sn: SPIDNodePair = root_sn
         self.cached_node_dict: Dict[GUID, List[SPIDNodePair]] = {}
         self.cached_dir_stats: Dict[GUID, DirectoryStats] = {}
+
+    def __repr__(self):
+        return f'FilterState(root={self.root_sn.spid}, cached_node_dict size={len(self.cached_node_dict)} ' \
+               f'cached_dirs_stats size={len(self.cached_dir_stats)} filter={self.filter})'
 
     def has_criteria(self) -> bool:
         return self.filter.has_criteria()
@@ -163,20 +167,22 @@ class FilterState:
                     queue.append(child_sn)
 
         root_guid: GUID = self.root_sn.spid.guid
-        logger.info(f'Built node cache for flat list with root_guid: {root_guid}')
+        logger.info(f'Built node cache for flat list with root_guid={root_guid}, entry_count={len(filtered_list)}')
         # This will be the only entry in the dict:
         self.cached_node_dict[root_guid] = filtered_list
         self.cached_dir_stats[root_guid] = dir_stats
 
     def ensure_cache_populated(self, parent_tree):
-        if self.cached_node_dict or not self.root_sn.node:
+        if self.cached_node_dict or self.root_sn.node is None:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'ensure_cache_populated(): cached_dict size={len(self.cached_node_dict)}; has_root={self.root_sn.node is not None}')
             return
 
         self.rebuild_cache(parent_tree)
 
     def rebuild_cache(self, parent_tree):
         stopwatch = Stopwatch()
-        logger.debug(f'Rebuilding cache for root: {self.root_sn.spid}')
+        logger.debug(f'Rebuilding filter cache for root: {self.root_sn.spid}')
         self.cached_node_dict.clear()
         self.cached_dir_stats.clear()
 
@@ -194,7 +200,7 @@ class FilterState:
     def get_filtered_child_list(self, parent_spid: SinglePathNodeIdentifier, parent_tree) -> List[SPIDNodePair]:
         assert parent_tree, 'parent_tree cannot be None!'
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'get_filtered_child_list(spid={parent_spid})')
+            logger.debug(f'get_filtered_child_list(has_criteria={self.filter.has_criteria()}, spid={parent_spid})')
         if not self.filter.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
             return parent_tree.get_child_list_for_spid(parent_spid)

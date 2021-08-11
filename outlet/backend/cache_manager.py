@@ -632,8 +632,6 @@ class CacheManager(HasLifecycle):
 
                     store.populate_filter(tree_meta.filter_state)
 
-            this_task.add_next_task(_pre_post_load)
-
             if tree_meta.tree_id == ID_GDRIVE_DIR_SELECT:
                 # special handling for dir select dialog: make sure we are fully synced first
                 assert isinstance(store, GDriveMasterStore)
@@ -643,7 +641,8 @@ class CacheManager(HasLifecycle):
                 store.load_subtree(this_task, spid, tree_meta.tree_id)
 
             # Let _pre_post_load() be called when any subtasks are done
-            return
+            this_task.add_next_task(_pre_post_load)
+
         else:
             # ChangeTree: should already be loaded into memory, except for FilterState
             assert not tree_meta.is_first_order()

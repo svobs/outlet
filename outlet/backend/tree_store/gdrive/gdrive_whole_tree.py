@@ -451,8 +451,16 @@ class GDriveWholeTree(BaseTree):
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
         """Raises NodeNotPresentError if parent is not in this tree"""
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Entered get_child_list_for_spid() with parent_spid={parent_spid}: parent_child_dict size is {len(self.parent_child_dict)}')
+
+        child_node_list = self.get_child_list_for_identifier(parent_spid.node_uid)
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'get_child_list_for_spid(): got {len(child_node_list)} child nodes for node_uid={parent_spid.node_uid}')
+
         child_sn_list = []
-        for child_node in self.get_child_list_for_identifier(parent_spid.node_uid):
+        for child_node in child_node_list:
             child_sn_list.append(self.to_sn_from_node_and_parent_spid(child_node, parent_spid))
 
         return child_sn_list
