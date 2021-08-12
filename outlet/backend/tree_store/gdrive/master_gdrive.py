@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
 from backend.executor.central import ExecPriority
-from constants import CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, ROOT_PATH, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, ROOT_PATH, \
     SUPER_DEBUG_ENABLED, \
     TRACE_ENABLED, TrashStatus, \
     TreeID
@@ -113,6 +113,8 @@ class GDriveMasterStore(TreeStore):
         self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, gdrive_client=self.gdrive_client,
                                             device_uid=device.uid, tree_id=ID_GLOBAL_CACHE)
 
+        self._load_master_cache_in_process: bool = False
+
         self.download_dir = file_util.get_resource_path(self.backend.get_config('agent.local_disk.download_dir'))
 
     def start(self):
@@ -196,11 +198,16 @@ class GDriveMasterStore(TreeStore):
 
     def _load_master_cache(self, this_task: Optional[Task], invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
-        # FIXME: add check for whether this is already running, and wait on it, similar to CacheMan's initial load
 
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
                      f'sync_latest_changes={sync_latest_changes}')
         assert not this_task or this_task.priority == ExecPriority.CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
+
+        if self._load_master_cache_in_process:
+            logger.info('GDrive master cache is already loading; placing this task back in the queue')
+
+            this_task.add_next_task(self._load_master_cache, invalidate_cache, sync_latest_changes)
+            return
 
         if sync_latest_changes:
             self._is_sync_in_progress = True
@@ -209,7 +216,7 @@ class GDriveMasterStore(TreeStore):
 
             stopwatch_total = Stopwatch()
 
-            def _sync_if_specified():
+            def _sync_if_specified_and_finish():
                 if sync_latest_changes:
                     try:
                         # This may add a noticeable delay:
@@ -221,21 +228,24 @@ class GDriveMasterStore(TreeStore):
                     finally:
                         self._is_sync_in_progress = False
 
+                self._load_master_cache_in_process = False
                 logger.info(f'{stopwatch_total} GDrive master tree loaded')
 
-            if not self._memstore.master_tree or invalidate_cache:
+            if self._memstore.master_tree and not invalidate_cache:
+                logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
+                _sync_if_specified_and_finish()
+            else:
+                logger.debug('Setting _load_master_cache_in_process = true')
+                self._load_master_cache_in_process = True
+
                 def _after_tree_loaded(tree):
                     assert tree
                     self._memstore.master_tree = tree
                     logger.debug(f'GDrive master tree completely loaded; device_uid={self._memstore.master_tree.device_uid}')
 
-                    _sync_if_specified()
+                    _sync_if_specified_and_finish()
 
                 self.tree_loader.load_all(this_task=this_task, invalidate_cache=invalidate_cache, after_tree_loaded=_after_tree_loaded)
-            else:
-                assert not invalidate_cache
-                logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
-                _sync_if_specified()
 
         except Exception:
             self._is_sync_in_progress = False

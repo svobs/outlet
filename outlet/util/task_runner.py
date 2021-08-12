@@ -60,7 +60,7 @@ class Task:
         if not args or len(args) == 0:
             next_task = Task(self.priority, next_task_func)
         else:
-            next_task = Task(self.priority, next_task_func, args)
+            next_task = Task(self.priority, next_task_func, *args)
 
         task = self
 
