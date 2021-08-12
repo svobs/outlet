@@ -442,7 +442,6 @@ class GDriveMasterStore(TreeStore):
         os.makedirs(name=self.download_dir, exist_ok=True)
         dest_file = os.path.join(self.download_dir, node.name)
 
-        # TODO: add to front of task queue
         try:
             self.gdrive_client.download_file(node.goog_id, dest_file)
             # notify async when done:

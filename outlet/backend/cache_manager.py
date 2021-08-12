@@ -1138,7 +1138,11 @@ class CacheManager(HasLifecycle):
         self._get_gdrive_store_for_device_uid(device_uid).execute_load_op(op)
 
     def download_file_from_gdrive(self, device_uid: UID, node_uid: UID, requestor_id: str):
-        self._get_gdrive_store_for_device_uid(device_uid).download_file_from_gdrive(node_uid, requestor_id)
+        gdrive_store = self._get_gdrive_store_for_device_uid(device_uid)
+
+        # Launch as task with high priority:
+        download_file_from_gdrive_task = Task(ExecPriority.LOAD_0, gdrive_store.download_file_from_gdrive, node_uid, requestor_id)
+        self.backend.executor.submit_async_task(download_file_from_gdrive_task)
 
     # This local disk-specific
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
