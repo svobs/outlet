@@ -257,7 +257,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
             cache.upsert_gdrive_file_list(files_to_upsert, commit=False)
 
     def send_signals(self):
-        # TODO: refactor so that backend only sends updates to each tree which requires them
+        # TODO: consider optimizing by using SUBTREE_NODES_CHANGED_IN_CACHE (which requires sorting nodes into subtrees...)
         for change in self.change_list:
             assert change.node.get_path_list(), f'Node is missing path list: {change.node}'
             if change.is_removed():
@@ -273,7 +273,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
 
     Upserts a given folder and its immediate children to each cache.
     Any previous children which are not referenced in the given child_list will continue to exist but will be unlinked from
-    the given parent folder."
+    the given parent folder.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, parent_folder: GDriveFolder, child_list: List[GDriveNode]):
@@ -281,22 +281,23 @@ class RefreshFolderOp(GDriveWriteThroughOp):
         assert parent_folder.all_children_fetched, f'Expected all_children_fetched==True for node: {parent_folder}'
         self.parent_folder: GDriveFolder = parent_folder
         self.child_list: List[GDriveNode] = child_list
-        self._updated_node_list: List[GDriveNode] = []
+        self._upserted_node_list: List[GDriveNode] = []
 
     def update_memstore(self, memstore: GDriveMemoryStore):
         logger.debug(f'RefreshFolderOp: upserting into memory cache: parent folder ({self.parent_folder}) and children: {self.child_list} '
                      f'children in memory cache')
-        self._updated_node_list = memstore.master_tree.upsert_folder_and_children(self.parent_folder, self.child_list)
+        memstore.master_tree.get_child_list_for_spid()
+        self._upserted_node_list = memstore.master_tree.upsert_folder_and_children(self.parent_folder, self.child_list)
         logger.debug(f'RefreshFolderOp: done upserting nodes to memory cache')
 
     def update_diskstore(self, cache: GDriveDatabase):
-        logger.debug(f'RefreshFolderOp: upserting {len(self._updated_node_list)} nodes in disk cache')
+        logger.debug(f'RefreshFolderOp: upserting {len(self._upserted_node_list)} nodes in disk cache')
 
         mappings_list_list: List[List[Tuple]] = []
         files_to_upsert: List[GDriveFile] = []
         folders_to_upsert: List[GDriveFolder] = []
 
-        for node in self._updated_node_list:
+        for node in self._upserted_node_list:
             parent_mapping_list = []
             parent_uids = node.get_parent_uids()
             if parent_uids:
@@ -330,9 +331,10 @@ class RefreshFolderOp(GDriveWriteThroughOp):
         logger.debug(f'RefreshFolderOp: done with disk cache')
 
     def send_signals(self):
-        logger.debug(f'RefreshFolderOp: sending "{Signal.NODE_UPSERTED_IN_CACHE.name}" signal for {len(self._updated_node_list)} nodes')
-        for node in self._updated_node_list:
-            dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
+        logger.debug(f'RefreshFolderOp: sending "{Signal.SUBTREE_NODES_CHANGED_IN_CACHE.name}" signal for {len(self._upserted_node_list)} nodes')
+        # no need for removed_node list with GDrive
+        dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root=self.parent_folder.node_identifier,
+                        upserted_node_list=self._upserted_node_list, removed_node_list=[])
 
 
 class CreateUserOp(GDriveWriteThroughOp):

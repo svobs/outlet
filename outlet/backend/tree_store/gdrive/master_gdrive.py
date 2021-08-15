@@ -187,11 +187,10 @@ class GDriveMasterStore(TreeStore):
 
     def _download_all_gdrive_meta(self, this_task: Task):
         """See above. Executed by Task Runner. NOT UI thread"""
-        # FIXME: break this into digestible chunks for Executor
         logger.info(f'Downloading all GDrive meta (device_uid={self.device_uid})')
         try:
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-            self.load_and_sync_master_tree(invalidate_cache=True)
+            self.load_and_sync_master_tree(this_task, invalidate_cache=True)
         except Exception as err:
             logger.exception(err)
             GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
@@ -510,7 +509,7 @@ class GDriveMasterStore(TreeStore):
         return self.get_node_for_goog_id(goog_id)
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
-        if not self._memstore.master_tree:
+        if not self._memstore.is_loaded():
             raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}(: GDrive cache not loaded!')
         return self._memstore.master_tree.get_node_for_uid(uid)
 
@@ -560,10 +559,39 @@ class GDriveMasterStore(TreeStore):
                 raise RuntimeError(f'Cannot load filtered child list: GDrive cache not yet loaded!')
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
 
+        # PARENT:
+        parent_node = None
         # 1. Use in-memory cache if it exists:
-        if self._memstore.master_tree:
+        if self._memstore.is_loaded():
             parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
-            if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
+
+        # 2. Try disk cache if it exists:
+        if not parent_node:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'get_child_list_for_spid(): parent node {parent_spid.node_uid} not found in memory cache; checking disk cache')
+            parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
+
+        # 3. Consult GDrive
+        if not parent_node:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'get_child_list_for_spid(): parent node {parent_spid.node_uid} not found in disk cache; querying GDrive')
+            goog_id = self._uid_mapper.get_goog_id_for_uid(parent_spid.node_uid)
+            if not goog_id:
+                # The UID mapper must at least know about the parent:
+                raise RuntimeError(f'Could not get child list for node: could resolve node UID {parent_spid.node_uid} in caches')
+            parent_node = self.gdrive_client.get_existing_node_by_id(goog_id=goog_id)
+
+        if not parent_node:
+            raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
+                               f'and could not find node in Google Drive with ID="{goog_id}": {parent_spid}')
+
+        if not parent_node.is_dir():
+            logger.error(f'get_child_list_for_spid(): requested parent is not a dir: {parent_spid}')
+            return []
+
+        if parent_node.all_children_fetched:
+            # 1. Use in-memory cache if it exists:
+            if self._memstore.is_loaded():
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'get_child_list_for_spid(): getting child list from in-memory cache (parent_spid={parent_spid})')
                 try:
@@ -572,33 +600,8 @@ class GDriveMasterStore(TreeStore):
                     # In-memory cache miss. Try seeing if the relevant cache is loaded:
                     logger.debug(f'Could not find node in in-memory cache: {parent_spid}')
                     pass
-            else:
-                # in-memory cache miss
-                logger.debug(f'In-memory cache miss (cache returned parent_node: {parent_node})')
-        else:
-            parent_node = None
 
-        if not parent_node:
-            # We *must* have a node in order to continue
-            parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
-            if not parent_node:
-                goog_id = self._uid_mapper.get_goog_id_for_uid(parent_spid.node_uid)
-                if goog_id:
-                    parent_node = self.gdrive_client.get_existing_node_by_id(goog_id=goog_id)
-                    if not parent_node:
-                        raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
-                                           f'and could not find node in Google Drive with ID="{goog_id}": {parent_spid}')
-                else:
-                    raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
-                                       f'and could not resolve its Google ID: {parent_spid}')
-        assert parent_node
-        if not parent_node.is_dir():
-            raise RuntimeError(f'Could not get child list for node: node is not a folder: {parent_node}')
-
-        assert isinstance(parent_node, GDriveFolder)
-
-        # 2. Read from disk cache if it exists:
-        if parent_node.all_children_fetched:
+            # 2. Try disk cache if it exists:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'get_child_list_for_spid(): getting child list from disk cache: {parent_node}')
             child_node_list: List[GDriveNode] = self._diskstore.get_child_list_for_parent_uid(parent_spid.node_uid)
@@ -607,7 +610,7 @@ class GDriveMasterStore(TreeStore):
                 child_node.node_identifier.add_path_if_missing(os.path.join(parent_spid.get_single_path(), child_node.name))
         else:
             # 3. Children not fetched. Must resort to a slow-ass GDrive API request:
-            logger.debug(f'get_child_list_for_spid(): found node in cache but children not fetched: "{parent_spid}"; will query GDrive for children')
+            logger.warning(f'get_child_list_for_spid(): found node in cache but children not fetched: "{parent_spid}"; will query GDrive')
 
             if parent_node.uid == GDRIVE_ROOT_UID:
                 # This appears to be a limitation of Google Drive
@@ -623,7 +626,7 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_parent_list_for_node(node)
 
     def get_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
-        if not self._memstore.master_tree:
+        if not self._memstore.is_loaded():
             # load it
             self.load_and_sync_master_tree()
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)

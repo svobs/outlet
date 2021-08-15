@@ -31,6 +31,9 @@ class GDriveMemoryStore:
         self._user_for_uid_dict: Dict[UID, GDriveUser] = {}
         self._user_uid_nextval: int = GDRIVE_ME_USER_UID + 1
 
+    def is_loaded(self) -> bool:
+        return self.master_tree is not None
+
     def upsert_single_node(self, node: GDriveNode, update_only: bool = False) -> Tuple[GDriveNode, bool]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting GDriveNode to memory cache: {node}')

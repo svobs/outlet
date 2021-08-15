@@ -26,7 +26,7 @@ class Signal(IntEnum):
     """Internal to BE: should only be received by ActiveTreeManager"""
     NODE_REMOVED_IN_CACHE = 17
     """Internal to BE: should only be received by ActiveTreeManager"""
-    # NODE_MOVED_IN_CACHE = 18
+    SUBTREE_NODES_CHANGED_IN_CACHE = 18
     """Internal to BE: should only be received by ActiveTreeManager"""
 
     # --- Tree actions: requests ---
