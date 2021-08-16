@@ -2,9 +2,12 @@ from enum import IntEnum
 from model.uid import UID
 import platform
 
-SUPER_DEBUG_ENABLED = True
 TRACE_ENABLED = False
+SUPER_DEBUG_ENABLED = True
 
+# do not modify this behavior
+if TRACE_ENABLED:
+    SUPER_DEBUG_ENABLED = True
 
 _system = platform.system().lower()
 IS_WINDOWS = _system == 'windows'

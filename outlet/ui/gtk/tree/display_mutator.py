@@ -122,7 +122,7 @@ class DisplayMutator(HasLifecycle):
                      f'with tree_load_state="{tree_load_state.name}" status_msg="{status_msg}"')
         GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
-        if tree_load_state == TreeLoadState.VISIBLE_UNFILTERED_NODES_LOADED:
+        if tree_load_state == TreeLoadState.LOAD_STARTED:
             logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
             dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 

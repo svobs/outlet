@@ -3,7 +3,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 import logging
 from typing import Callable, List, Optional
 
-from constants import TASK_RUNNER_MAX_WORKERS
+from constants import SUPER_DEBUG_ENABLED, TASK_RUNNER_MAX_WORKERS
 from global_actions import GlobalActions
 from util import time_util
 from util.has_lifecycle import HasLifecycle
@@ -65,7 +65,8 @@ class Task:
         task = self
 
         while True:
-            logger.debug(f'add_next_task(): looping')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'add_next_task(): looping. Examining next task ({task.next_task.task_uuid if task.next_task else None})')
 
             if task.next_task:
                 task = task.next_task

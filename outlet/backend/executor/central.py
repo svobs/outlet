@@ -23,16 +23,8 @@ logger = logging.getLogger(__name__)
 
 class ExecPriority(IntEnum):
     # Highest priority load requests: immediately visible nodes in UI tree.
-    # For user-initiated refresh requests, this queue will be used if the nodes are already visible.
+    # For user-initiated refresh requests, this queue will be used if the nodes are already visible (TODO: this is not currently true)
     LOAD_0 = 1
-
-    # Second highest priority load requests: visible if filter toggled
-    # NOTE: Not currently used!
-    LOAD_1 = 2
-
-    # Third highest priority load requests: dir in UI tree but not yet visible, and not yet in cache.
-    # For user-initiated refresh requests, this queue will be used if the nodes are not already visible.
-    LOAD_2 = 3
 
     # Fourth highest priority load requests: cache loads from disk into memory (such as during startup)
     CACHE_LOAD = 4
@@ -75,10 +67,6 @@ class CentralExecutor(HasLifecycle):
         self._exec_queue_dict: Dict[ExecPriority, Queue[Task]] = {
 
             ExecPriority.LOAD_0: Queue[Task](),
-
-            ExecPriority.LOAD_1: Queue[Task](),
-
-            ExecPriority.LOAD_2: Queue[Task](),
 
             ExecPriority.CACHE_LOAD: Queue[Task](),
 
@@ -126,14 +114,13 @@ class CentralExecutor(HasLifecycle):
 
     def get_engine_summary_state(self) -> EngineSummaryState:
         with self._lock:
+            # FIXME: need to revisit these categories
             if self._exec_queue_dict[ExecPriority.CACHE_LOAD].qsize() > 0 \
                     or self._exec_queue_dict[ExecPriority.LONG_RUNNING_NETWORK_LOAD].qsize() > 0:
                 # still getting up to speed on the BE
                 return EngineSummaryState.RED
 
             total_enqueued = self._exec_queue_dict[ExecPriority.LOAD_0].qsize() + \
-                             self._exec_queue_dict[ExecPriority.LOAD_1].qsize() + \
-                             self._exec_queue_dict[ExecPriority.LOAD_2].qsize() + \
                              self._exec_queue_dict[ExecPriority.SIGNATURE_CALC].qsize()
 
             if total_enqueued > 0:
@@ -193,22 +180,13 @@ class CentralExecutor(HasLifecycle):
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
         try:
             task = self._exec_queue_dict[priority].get_nowait()
-            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority: {ExecPriority.LOAD_0.name}: {task.task_func.__name__}'
-                         f' uuid: {task.task_uuid}')
+            logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority: {priority.name}: {task.task_func.__name__} uuid: {task.task_uuid}')
             return task
         except Empty:
             return None
 
     def _get_next_task_to_run_nolock(self) -> Optional[Task]:
         task = self._get_from_queue(ExecPriority.LOAD_0)
-        if task:
-            return task
-
-        task = self._get_from_queue(ExecPriority.LOAD_1)
-        if task:
-            return task
-
-        task = self._get_from_queue(ExecPriority.LOAD_2)
         if task:
             return task
 

@@ -4,7 +4,7 @@ import os
 import sys
 
 from app_config import AppConfig
-from constants import IS_LINUX, IS_MACOS, IS_WINDOWS, SUPER_DEBUG_ENABLED
+from constants import IS_LINUX, IS_MACOS, IS_WINDOWS, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,9 @@ def do_main_boilerplate(executing_script_path: str = None) -> AppConfig:
     # -- logger is now available --
 
     if SUPER_DEBUG_ENABLED:
-        logger.info('SUPER_DEBUG_ENABLED is enabled')
+        logger.info('SUPER_DEBUG_ENABLED is true')
+    elif TRACE_ENABLED:
+        logger.info('TRACE_ENABLED is true')
 
     logger.debug(f'IS_LINUX={IS_LINUX} IS_MACOS={IS_MACOS} IS_WINDOWS={IS_WINDOWS}')
 

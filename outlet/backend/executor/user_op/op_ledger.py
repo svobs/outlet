@@ -6,7 +6,7 @@ from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from backend.executor.central import ExecPriority
 from backend.executor.user_op.op_graph import OpGraph
-from constants import IconId, SUPER_DEBUG_ENABLED
+from constants import IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from backend.executor.command.cmd_builder import CommandBuilder
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_disk_store import OpDiskStore
@@ -336,7 +336,7 @@ class OpLedger(HasLifecycle):
     def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
         op: Optional[UserOp] = self.get_last_pending_op_for_node(device_uid, node_uid)
         if not op or op.is_completed():
-            if SUPER_DEBUG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'Node {device_uid}:{node_uid}: no custom icon (op={op})')
             return None
 

@@ -562,6 +562,7 @@ class GDriveMasterStore(TreeStore):
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
 
+        # 0. Special case if filtered (in-memory cache MUST be loaded already):
         if filter_state and filter_state.has_criteria():
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'get_child_list_for_spid(): getting child list from filter_state')
@@ -569,7 +570,8 @@ class GDriveMasterStore(TreeStore):
                 raise RuntimeError(f'Cannot load filtered child list: GDrive cache not yet loaded!')
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
 
-        # PARENT:
+        # ------------------------------------------------------------------------------------
+        # I. PARENT:
         parent_node = None
         # 1. Use in-memory cache if it exists:
         if self._memstore.is_loaded():
@@ -593,12 +595,14 @@ class GDriveMasterStore(TreeStore):
 
         if not parent_node:
             raise RuntimeError(f'Could not get child list for node: could not find node anywhere in caches '
-                               f'and could not find node in Google Drive with ID="{goog_id}": {parent_spid}')
+                               f'and could not find node in Google Drive: {parent_spid}')
 
         if not parent_node.is_dir():
             logger.error(f'get_child_list_for_spid(): requested parent is not a dir: {parent_spid}')
             return []
 
+        # ------------------------------------------------------------------------------------
+        # II. CHILDREN:
         if parent_node.all_children_fetched:
             # 1. Use in-memory cache if it exists:
             if self._memstore.is_loaded():
