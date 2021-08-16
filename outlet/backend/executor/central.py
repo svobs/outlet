@@ -4,7 +4,7 @@ from concurrent.futures import Future
 from enum import IntEnum
 from functools import partial
 from queue import Empty, Queue
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Tuple
 from uuid import UUID
 
 from pydispatch import dispatcher
@@ -248,69 +248,88 @@ class CentralExecutor(HasLifecycle):
 
         return None
 
-    def _on_task_done(self, task: Task, future: Future):
-        next_task = None
+    def _on_task_done(self, done_task: Task, future: Future):
 
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
+                # whether it succeeded, failed or was cancelled is of little difference from our standpoint; just make a note
                 if future.cancelled():
-                    logger.debug(f'Task cancelled: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority.name}')
+                    logger.debug(f'Task cancelled: func="{done_task.task_func.__name__}" uuid={done_task.task_uuid}, priority={done_task.priority.name}')
                 else:
-                    logger.debug(f'Task done: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority.name}')
-
-            # Did this task spawn child tasks which need to be waited for?
-            child_set = self._parent_child_task_dict.get(task.task_uuid, None)
-            if child_set:
-                logger.debug(f'Task {task.task_uuid} has children running ({child_set}): will delay next task until they are done')
-                self._waiting_parent_task_dict[task.task_uuid] = task
-            else:
-                logger.debug(f'Task {task.task_uuid} has no children {": will run its" if task.next_task else "and has no"}'
-                             f' next task')
-                # just set this here - will call it outside of lock
-                next_task = task.next_task
-
-            # Was this task a child of some other parent task?
-            existing_parent_task: Optional[Task] = None
-            parent_uuid = self._child_parent_task_dict.pop(task.task_uuid, None)
-            if parent_uuid:
-                logger.debug(f'Task {task.task_uuid} was a child of parent task {parent_uuid}')
-                child_set = self._parent_child_task_dict.get(parent_uuid, None)
-                if child_set is None:
-                    raise RuntimeError(f'Serious internal error: state of parent & child tasks is inconsistent! '
-                                       f'ParentChildDict={self._parent_child_task_dict} ChildParentDic={self._child_parent_task_dict}')
-                child_set.remove(task.task_uuid)
-
-                if next_task:
-                    # If task was a child of parent, make its next_task also a child of parent and run that before parent's next_task
-                    child_set.add(next_task.task_uuid)
-                    # fail if not present
-                    existing_parent_task = self._waiting_parent_task_dict[parent_uuid]
-
-                elif not child_set:
-                    # No next_task and no children left in parent task: run parent's next_task
-                    parent_task = self._waiting_parent_task_dict.pop(parent_uuid, None)
-                    if not parent_task:
-                        raise RuntimeError(f'Serious internal error: failed to find expected parent task ({parent_uuid}) in waiting_parent_dict!)')
-                    logger.debug(f'Parent task {parent_uuid} has no children left {": will run its" if parent_task.next_task else "and has no"}'
-                                 f' next task')
-                    assert next_task is None
-                    next_task = parent_task.next_task
+                    logger.debug(f'Task done: func="{done_task.task_func.__name__}" uuid={done_task.task_uuid}, priority={done_task.priority.name}')
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
-            self._running_task_dict.pop(task.task_uuid)
-            logger.debug(f'Running task dict now has {len(self._running_task_dict)} tasks')
-            self._running_task_cv.notify_all()
+            self._running_task_dict.pop(done_task.task_uuid)
+            logger.debug(f'RunningTaskDict now has {len(self._running_task_dict)} tasks')
 
-        if next_task:
-            if existing_parent_task:
-                parent_uuid = existing_parent_task.task_uuid
-            else:
-                parent_uuid = None
-            logger.debug(f'Submitting next task for completed task ({task.task_uuid}): {next_task.task_uuid} with parent={parent_uuid}: ')
-            self.submit_async_task(next_task, parent_task=existing_parent_task)
+            # Did this done_task spawn child tasks which need to be waited for?
+            child_set_of_done_task = self._parent_child_task_dict.get(done_task.task_uuid, None)
+            if child_set_of_done_task:
+                logger.debug(f'Task {done_task.task_uuid} has children to run ({",".join([ str(u) for u in child_set_of_done_task])}): '
+                             f'will run its next_task after they are done')
+                # add to _waiting_parent_task_dict and do not remove it until ready to run its next_task
+                self._waiting_parent_task_dict[done_task.task_uuid] = done_task
+                self._running_task_cv.notify_all()
+                return
+
+            next_task, parent = self._find_next_task(done_task)
+            if not next_task:
+                # wake up main thread, and allow it to run next task in queue
+                self._running_task_cv.notify_all()
+                return
+
+        assert next_task
+        parent_uuid = parent.task_uuid if parent else None
+        logger.debug(f'Submitting next task for completed task ({done_task.task_uuid}): {next_task.task_uuid} with parent={parent_uuid}: ')
+        self.submit_async_task(next_task, parent_task=parent)
 
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
+
+    def _find_next_task(self, done_task: Task) -> Tuple[Optional[Task], Optional[Task]]:
+        logger.debug(f'Task {done_task.task_uuid} has no children {": will run its" if done_task.next_task else "and no"} next task')
+        # just set this here - will call it outside of lock
+        next_task = done_task.next_task
+
+        # Was this task a child of some other parent task?
+        parent_uuid = self._child_parent_task_dict.pop(done_task.task_uuid, None)
+        if parent_uuid:
+            logger.debug(f'Task {done_task.task_uuid} was a child of parent task {parent_uuid}')
+            parent_child_set = self._parent_child_task_dict.get(parent_uuid, None)
+            if parent_child_set is None:
+                raise RuntimeError(f'Serious internal error: state of parent & child tasks is inconsistent! '
+                                   f'ParentChildDict={self._parent_child_task_dict} ChildParentDic={self._child_parent_task_dict}')
+            # update the parent's child set; when it is empty, it is officially complete
+            parent_child_set.remove(done_task.task_uuid)
+
+            if next_task:
+                # If task was a child of parent, make its next_task also a child of parent and run that before parent's next_task
+                parent_child_set.add(next_task.task_uuid)
+                # fail if not present
+                existing_parent_task = self._waiting_parent_task_dict[parent_uuid]
+                assert existing_parent_task.task_uuid == parent_uuid, f'Should be equal: {existing_parent_task.task_uuid} and {parent_uuid}'
+
+                return next_task, existing_parent_task
+
+            if not parent_child_set:
+                # No next_task and no children left in parent task: run parent's next_task
+
+                # clean up data structure: children are all completed:
+                self._parent_child_task_dict.pop(parent_uuid)
+
+                done_parent_task = self._waiting_parent_task_dict.pop(parent_uuid, None)
+                if not done_parent_task:
+                    raise RuntimeError(f'Serious internal error: failed to find expected parent task ({parent_uuid}) in waiting_parent_dict!)')
+                logger.debug(f'Parent task {parent_uuid} has no children left; recursing')
+
+                # Go up next level in the tree and repeat logic:
+                return self._find_next_task(done_parent_task)
+
+            else:
+                logger.debug(f'Parent task {parent_uuid} still has {len(parent_child_set)} children left to run')
+                return None, None
+        else:
+            return next_task, None
 
     def submit_async_task(self, task: Task, parent_task: Optional[Task] = None):
         """API: enqueue task to be executed, with given priority."""
