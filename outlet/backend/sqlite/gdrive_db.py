@@ -3,7 +3,7 @@ import logging
 from collections import OrderedDict
 from typing import List, Optional, Tuple
 
-from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_ME_USER_UID
+from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID
 from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
@@ -285,6 +285,10 @@ class GDriveDatabase(MetaDatabase):
 
     def get_current_download_list(self) -> List[CurrentDownload]:
         return self.table_current_download.select_object_list()
+
+    def update_changes_download_start_token(self, new_page_token, commit: bool = True):
+        where_clause = f'WHERE download_type={GDRIVE_DOWNLOAD_TYPE_CHANGES}'
+        self.table_current_download.update(stmt_vars=(new_page_token,), col_names=['page_token'], where_clause=where_clause, commit=commit)
 
     # GDriveUser operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

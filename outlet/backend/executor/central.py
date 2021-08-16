@@ -14,6 +14,7 @@ from constants import CENTRAL_EXEC_THREAD_NAME, EngineSummaryState, OP_EXECUTION
     TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_WORKERS, TRACE_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC, Signal
+from util import time_util
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task, TaskRunner
 
@@ -166,13 +167,22 @@ class CentralExecutor(HasLifecycle):
                             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks to run (currently running: {len(self._running_task_dict)})')
                     else:
                         logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS}): '
-                                     f'{self._running_task_dict}')
+                                     f'{self._print_running_task_dict()}')
 
                 # Do this outside the CV:
                 if task:
                     self._enqueue_task(task)
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
+
+    def _print_running_task_dict(self) -> str:
+        str_list = []
+        for task in self._running_task_dict.values():
+            sec, ms = divmod(time_util.now_ms() - task.task_start_time_ms, 1000)
+            elapsed_time_str = f'Runtime={sec}.{ms}s'
+            str_list.append(f'{elapsed_time_str}: {task}')
+        # TODO: better solution than newline...
+        return '\n'.join(str_list)
 
     def _enqueue_task(self, task: Task):
         future = self._be_task_runner.enqueue_task(task)
@@ -244,9 +254,9 @@ class CentralExecutor(HasLifecycle):
         with self._running_task_cv:
             if SUPER_DEBUG_ENABLED:
                 if future.cancelled():
-                    logger.debug(f'Task cancelled: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority}')
+                    logger.debug(f'Task cancelled: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority.name}')
                 else:
-                    logger.debug(f'Task done: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority}')
+                    logger.debug(f'Task done: func="{task.task_func.__name__}" uuid={task.task_uuid}, priority={task.priority.name}')
 
             # Did this task spawn child tasks which need to be waited for?
             child_set = self._parent_child_task_dict.get(task.task_uuid, None)
@@ -297,7 +307,7 @@ class CentralExecutor(HasLifecycle):
                 parent_uuid = existing_parent_task.task_uuid
             else:
                 parent_uuid = None
-            logger.debug(f'Submitting next task for completed task {task.task_uuid}: {next_task.task_uuid} with parent={parent_uuid}: ')
+            logger.debug(f'Submitting next task for completed task ({task.task_uuid}): {next_task.task_uuid} with parent={parent_uuid}: ')
             self.submit_async_task(next_task, parent_task=existing_parent_task)
 
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references

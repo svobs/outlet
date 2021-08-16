@@ -163,6 +163,9 @@ class GDriveDiskStore(HasLifecycle):
     def create_or_update_download(self, download: CurrentDownload, commit: bool = True):
         self._db.upsert_download(download, commit)
 
+    def update_changes_download_start_token(self, new_page_token, commit: bool = True):
+        self._db.update_changes_download_start_token(new_page_token, commit)
+
     def get_current_download(self, download_type: int):
         assert download_type
         for download in self._db.get_current_download_list():

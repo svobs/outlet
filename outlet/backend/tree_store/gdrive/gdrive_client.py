@@ -766,20 +766,20 @@ class GDriveClient(HasLifecycle):
         logger.debug(f'Got token: "{token}"')
         return token
 
-    def get_changes_list(self, start_page_token: str, sync_ts: int, observer: GDriveChangeObserver):
-        logger.debug(f'Sending request to get changes from start_page_token: "{start_page_token}"')
+    def get_changes_list(self, sync_ts: int, observer: GDriveChangeObserver):
+        logger.debug(f'Sending request to get changes from start_page_token: "{observer.new_start_token}"')
 
         # Google Drive only; not backend data or Google Photos:
         spaces = 'drive'
 
         def request():
-            m = f'Sending request for changes, page {request.page_count} (token: {request.page_token})...'
+            m = f'Sending request for changes, page {request.page_count} (token: {observer.new_start_token})...'
             logger.debug(m)
             if self.tree_id:
                 dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
-            response = self.service.changes().list(pageToken=request.page_token, fields=f'nextPageToken, newStartPageToken, '
+            response = self.service.changes().list(pageToken=observer.new_start_token, fields=f'nextPageToken, newStartPageToken, '
                                                                                         f'changes(changeType, time, removed, fileId, driveId, '
                                                                                         f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
                                                    # include changes from shared drives
@@ -788,7 +788,6 @@ class GDriveClient(HasLifecycle):
             request.page_count += 1
             return response
 
-        request.page_token = start_page_token
         request.page_count = 0
 
         stopwatch_retrieval = Stopwatch()
@@ -838,11 +837,11 @@ class GDriveClient(HasLifecycle):
 
                 observer.change_received(change, item)
 
-            request.page_token = response_dict.get('nextPageToken', None)
+            observer.new_start_token = response_dict.get('nextPageToken', None)
 
             observer.end_of_page()
 
-            if not request.page_token:
+            if not observer.new_start_token:
                 break
 
         logger.debug(f'{stopwatch_retrieval} Requests returned {count} changes '

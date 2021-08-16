@@ -65,3 +65,6 @@ class ActiveDisplayTreeMeta:
     @property
     def offending_path(self):
         return self.state.offending_path
+
+    def __repr__(self):
+        return f'ActiveDisplayTreeMeta(loaded={self.load_state} state={self.state})'

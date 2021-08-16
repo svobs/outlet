@@ -74,8 +74,8 @@ class Task:
                 return
 
     def __repr__(self):
-        return f'Task(uuid={self.task_uuid} start_time_ms={self.task_start_time_ms} priority={self.priority} ' \
-               f'func={self.task_func.__name__} args={self.args})'
+        next_task_uuid = self.next_task.task_uuid if self.next_task else 'None'
+        return f'Task(uuid={self.task_uuid} priority={self.priority} func={self.task_func.__name__} args={self.args}) next_task={next_task_uuid}'
 
 
 class TaskRunner(HasLifecycle):

@@ -106,7 +106,11 @@ class GDriveTreeLoader:
             self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
 
             def _after_tree_loaded(this_task_5):
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Calling after_tree_loaded func ({after_tree_loaded}) async')
                 after_tree_loaded(tree)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'The after_tree_loaded func returned')
             next_subtask.add_next_task(_after_tree_loaded)
 
         if not initial_download.is_complete():
@@ -152,6 +156,7 @@ class GDriveTreeLoader:
         if is_synchronous:
             # for async case, this is done in launch_step_5()
             self._do_post_load_processing(None, tree, cache_info)
+            logger.debug(f'Calling after_tree_loaded func ({after_tree_loaded})')
             after_tree_loaded(tree)
 
     def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload, sync_ts: int):

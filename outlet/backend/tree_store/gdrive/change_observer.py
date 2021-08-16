@@ -77,8 +77,9 @@ class GDriveChangeObserver(ABC):
     Observer interface, to be implemented with various strategies for processing downloaded Google Drive query results.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self):
-        self.new_start_token: Optional[str] = None
+    def __init__(self, new_start_token):
+        self.new_start_token: Optional[str] = new_start_token
+        """This needs to be updated, so that our download will be updated!"""
 
     @abstractmethod
     def change_received(self, change: GDriveChange, item):
@@ -98,8 +99,8 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
     See: GDriveMasterStore.sync_latest_changes()
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, gdrive_store):
-        super().__init__()
+    def __init__(self, gdrive_store, new_start_token):
+        super().__init__(new_start_token)
         self.gdrive_store = gdrive_store
         self.change_list: List[GDriveChange] = []
         self.total_change_count = 0
@@ -110,5 +111,5 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
     def end_of_page(self):
         self.total_change_count += len(self.change_list)
         logger.debug(f'End of page: sending {len(self.change_list)} changes to cacheman (total count: {self.total_change_count})')
-        self.gdrive_store.apply_gdrive_changes(self.change_list)
+        self.gdrive_store.apply_gdrive_changes(self.change_list, self.new_start_token)
         self.change_list.clear()

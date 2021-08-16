@@ -216,19 +216,24 @@ class GDriveMasterStore(TreeStore):
             stopwatch_total = Stopwatch()
 
             def _sync_if_specified_and_finish():
-                if sync_latest_changes:
-                    try:
-                        # This may add a noticeable delay:
-                        if self._struct_lock.locked:
-                            self._sync_latest_changes()
-                        else:
-                            with self._struct_lock:
+                logger.debug('Entered _sync_if_specified_and_finish()')
+                try:
+                    if sync_latest_changes:
+                        try:
+                            # This may add a noticeable delay:
+                            # FIXME: break each page into a separate task, so there is no delay
+                            if self._struct_lock.locked:
                                 self._sync_latest_changes()
-                    finally:
-                        self._is_sync_in_progress = False
+                            else:
+                                with self._struct_lock:
+                                    self._sync_latest_changes()
+                        finally:
+                            logger.debug(f'GDrive sync exiting')
+                            self._is_sync_in_progress = False
 
-                self._load_master_cache_in_process = False
-                logger.info(f'{stopwatch_total} GDrive master tree loaded')
+                finally:
+                    self._load_master_cache_in_process = False
+                    logger.info(f'{stopwatch_total} GDrive master tree loaded')
 
             if self._memstore.master_tree and not invalidate_cache:
                 logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
@@ -263,17 +268,9 @@ class GDriveMasterStore(TreeStore):
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
-        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self)
+        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self, changes_download.page_token)
         sync_ts = time_util.now_sec()
-        self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
-
-        # Now finally update download token
-        if observer.new_start_token and observer.new_start_token != changes_download.page_token:
-            changes_download.page_token = observer.new_start_token
-            self._diskstore.create_or_update_download(changes_download)
-            logger.debug(f'Updated changes download with token: {observer.new_start_token}')
-        else:
-            logger.debug(f'Changes download did not return a new start token. Will not update download.')
+        self.gdrive_client.get_changes_list(sync_ts, observer)
 
         if observer.total_change_count:
             msg = f'Synced a total of {observer.total_change_count} GDrive changes from server'
@@ -459,12 +456,22 @@ class GDriveMasterStore(TreeStore):
             self.backend.report_error(ID_GLOBAL_CACHE, 'Download failed', repr(err))
             raise
 
-    def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange]):
+    def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange], new_page_token: str):
         logger.debug(f'Applying {len(gdrive_change_list)} GDrive changes...')
         operation: BatchChangesOp = BatchChangesOp(self.backend, gdrive_change_list)
 
         try:
             self._execute_write_op(operation)
+
+            # Update download token so we don't repeat work upon premature termination:
+
+            if not new_page_token:
+                # End of changes list: get new start token for next time, and so we don't submit our prev token again:
+                new_page_token = self.gdrive_client.get_changes_start_token()
+
+            if new_page_token:
+                logger.debug(f'Updating changes download with token: {new_page_token}')
+                self._diskstore.update_changes_download_start_token(new_page_token)
         except RuntimeError:
             logger.error(f'While executing GDrive change list: {gdrive_change_list}')
             raise
@@ -548,6 +555,9 @@ class GDriveMasterStore(TreeStore):
         return self.to_sn(node, child_path)
 
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: Optional[FilterState]) -> List[SPIDNodePair]:
+        """If the in-memory store is loaded, will return results from that.
+        If it is not yet loaded, will try the disk store and return results from that.
+        Failing both of those, will perform a read-through of the GDrive API and update the disk & memory cache before returning."""
         if TRACE_ENABLED:
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
