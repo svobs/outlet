@@ -53,7 +53,7 @@ class Task:
             GlobalActions.display_error_in_ui(msg, repr(err))
             raise
         finally:
-            logger.info(f'{task_time} Task returned: name="{self.task_func.__name__}" uuid={self.task_uuid}')
+            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" uuid={self.task_uuid}')
 
     def add_next_task(self, next_task_func: Callable, *args):
         """Adds the given task to the end of the chain of tasks"""

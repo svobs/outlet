@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 from constants import IconId, OBJ_TYPE_DIR, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.trait import HasParentList
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import DN_UID, NodeIdentifier
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,17 @@ class Node(BaseNode, HasParentList, ABC):
     @property
     def device_uid(self) -> UID:
         return self.node_identifier.device_uid
+
+    @property
+    def dn_uid(self) -> DN_UID:
+        """Device+Node UID (expressed as a str).
+        This guarantees a unique identifier for the node across all devices, but DOES NOT guarantee uniqueness for all of its path instances.
+        (i.e. this is sometimes the same as the node's GUID, but not for all tree types)"""
+        return f'{self.device_uid}:{self.uid}'
+
+    @staticmethod
+    def format_dn_uid(device_uid, node_uid):
+        return f'{device_uid}:{node_uid}'
 
     def get_tag(self) -> str:
         return str(self.node_identifier)

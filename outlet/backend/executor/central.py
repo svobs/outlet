@@ -150,7 +150,7 @@ class CentralExecutor(HasLifecycle):
                         task = self._get_next_task_to_run_nolock()
                         if task:
                             self._running_task_dict[task.task_uuid] = task
-                        elif SUPER_DEBUG_ENABLED:
+                        elif TRACE_ENABLED:
                             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks to run (currently running: {len(self._running_task_dict)})')
                     else:
                         logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS}): '
@@ -180,7 +180,7 @@ class CentralExecutor(HasLifecycle):
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
         try:
             task = self._exec_queue_dict[priority].get_nowait()
-            logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority: {priority.name}: {task.task_func.__name__} uuid: {task.task_uuid}')
+            logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority {priority.name}: "{task.task_func.__name__}" uuid={task.task_uuid}')
             return task
         except Empty:
             return None
@@ -234,7 +234,7 @@ class CentralExecutor(HasLifecycle):
                 if future.cancelled():
                     logger.debug(f'Task cancelled: func="{done_task.task_func.__name__}" uuid={done_task.task_uuid}, priority={done_task.priority.name}')
                 else:
-                    logger.debug(f'Task done: func="{done_task.task_func.__name__}" uuid={done_task.task_uuid}, priority={done_task.priority.name}')
+                    logger.debug(f'Task done: "{done_task.task_func.__name__}" uuid={done_task.task_uuid}, priority={done_task.priority.name}')
 
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large

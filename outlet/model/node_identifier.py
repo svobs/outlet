@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Explicit type alias:
 GUID = str
+DN_UID = str
 
 
 class NodeIdentifier(ABC):

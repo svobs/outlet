@@ -21,8 +21,10 @@ class OpGraphNode(BaseNode, ABC):
     """
     def __init__(self, uid: UID, op: Optional[UserOp]):
         BaseNode.__init__(self)
+
         self.node_uid: UID = uid
-        """This is the UID of the OpGraphNode, *not* either of the Node objects inside its UserOp"""
+        """This is the UID of the OpGraphNode, NOT either of the Node objects inside its UserOp"""
+
         self.op: UserOp = op
         """The UserOp (i.e. "operation")"""
 
