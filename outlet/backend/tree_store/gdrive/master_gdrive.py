@@ -183,7 +183,7 @@ class GDriveMasterStore(TreeStore):
 
     def download_all_gdrive_data(self):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self._download_all_gdrive_meta))
+        self.backend.executor.submit_async_task(Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, self._download_all_gdrive_meta))
 
     def _download_all_gdrive_meta(self, this_task: Task):
         """See above. Executed by Task Runner. NOT UI thread"""
@@ -200,7 +200,7 @@ class GDriveMasterStore(TreeStore):
 
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
                      f'sync_latest_changes={sync_latest_changes}')
-        assert not this_task or this_task.priority == ExecPriority.CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
+        assert not this_task or this_task.priority == ExecPriority.P1_BACKGROUND_CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
 
         if self._load_master_cache_in_process:
             logger.info('GDrive master cache is already loading; placing this task back in the queue')
@@ -297,7 +297,7 @@ class GDriveMasterStore(TreeStore):
         if self._is_sync_in_progress:
             self._another_sync_requested = True
         else:
-            self.backend.executor.submit_async_task(Task(ExecPriority.CACHE_LOAD, self.load_and_sync_master_tree))
+            self.backend.executor.submit_async_task(Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, self.load_and_sync_master_tree))
 
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

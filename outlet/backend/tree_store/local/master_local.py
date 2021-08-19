@@ -102,7 +102,7 @@ class LocalDiskMasterStore(TreeStore):
             assert isinstance(node, LocalFileNode)
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Enqueuing node for sig calc: {node.node_identifier}')
-            self.backend.executor.submit_async_task(Task(ExecPriority.SIGNATURE_CALC, self.calculate_signature_for_local_node, node))
+            self.backend.executor.submit_async_task(Task(ExecPriority.P4_SIGNATURE_CALC, self.calculate_signature_for_local_node, node))
 
     def calculate_signature_for_local_node(self, this_task: Task, node: LocalFileNode):
         # Get up-to-date copy:

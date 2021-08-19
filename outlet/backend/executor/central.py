@@ -24,23 +24,23 @@ logger = logging.getLogger(__name__)
 class ExecPriority(IntEnum):
     # Highest priority load requests: immediately visible nodes in UI tree.
     # For user-initiated refresh requests, this queue will be used if the nodes are already visible (TODO: this is not currently true)
-    LOAD_0 = 1
+    P0_USER_LOAD = 1
 
     # Fourth highest priority load requests: cache loads from disk into memory (such as during startup)
-    CACHE_LOAD = 4
+    P1_BACKGROUND_CACHE_LOAD = 4
 
     # GDrive whole tree downloads (in chunks)
-    LONG_RUNNING_NETWORK_LOAD = 5
+    P2_DOWNLOAD = 5
 
     # Updates to the cache based on disk monitoring, in batches:
-    LIVE_UPDATE = 6
+    P3_LIVE_UPDATE = 6
 
     # Signature calculations: IO-dominant
-    SIGNATURE_CALC = 7
+    P4_SIGNATURE_CALC = 7
 
     # This queue stores operations like "resume pending ops on startup", but we also consult the OpLedger.
     # Also used for TreeDiffTask presently
-    USER_OP_EXEC = 8
+    P5_USER_OP_EXECUTION = 8
 
 
 class CentralExecutor(HasLifecycle):
@@ -66,17 +66,17 @@ class CentralExecutor(HasLifecycle):
         # -- QUEUES --
         self._exec_queue_dict: Dict[ExecPriority, Queue[Task]] = {
 
-            ExecPriority.LOAD_0: Queue[Task](),
+            ExecPriority.P0_USER_LOAD: Queue[Task](),
 
-            ExecPriority.CACHE_LOAD: Queue[Task](),
+            ExecPriority.P1_BACKGROUND_CACHE_LOAD: Queue[Task](),
 
-            ExecPriority.LONG_RUNNING_NETWORK_LOAD: Queue[Task](),
+            ExecPriority.P2_DOWNLOAD: Queue[Task](),
 
-            ExecPriority.LIVE_UPDATE: Queue[Task](),
+            ExecPriority.P3_LIVE_UPDATE: Queue[Task](),
 
-            ExecPriority.SIGNATURE_CALC: Queue[Task](),
+            ExecPriority.P4_SIGNATURE_CALC: Queue[Task](),
 
-            ExecPriority.USER_OP_EXEC: Queue[Task](),
+            ExecPriority.P5_USER_OP_EXECUTION: Queue[Task](),
         }
 
         self._parent_child_task_dict: Dict[UUID, Set[UUID]] = {}
@@ -115,13 +115,13 @@ class CentralExecutor(HasLifecycle):
     def get_engine_summary_state(self) -> EngineSummaryState:
         with self._lock:
             # FIXME: need to revisit these categories
-            if self._exec_queue_dict[ExecPriority.CACHE_LOAD].qsize() > 0 \
-                    or self._exec_queue_dict[ExecPriority.LONG_RUNNING_NETWORK_LOAD].qsize() > 0:
+            if self._exec_queue_dict[ExecPriority.P1_BACKGROUND_CACHE_LOAD].qsize() > 0 \
+                    or self._exec_queue_dict[ExecPriority.P2_DOWNLOAD].qsize() > 0:
                 # still getting up to speed on the BE
                 return EngineSummaryState.RED
 
-            total_enqueued = self._exec_queue_dict[ExecPriority.LOAD_0].qsize() + \
-                             self._exec_queue_dict[ExecPriority.SIGNATURE_CALC].qsize()
+            total_enqueued = self._exec_queue_dict[ExecPriority.P0_USER_LOAD].qsize() + \
+                             self._exec_queue_dict[ExecPriority.P4_SIGNATURE_CALC].qsize()
 
             if total_enqueued > 0:
                 return EngineSummaryState.YELLOW
@@ -186,30 +186,30 @@ class CentralExecutor(HasLifecycle):
             return None
 
     def _get_next_task_to_run_nolock(self) -> Optional[Task]:
-        task = self._get_from_queue(ExecPriority.LOAD_0)
+        task = self._get_from_queue(ExecPriority.P0_USER_LOAD)
         if task:
             return task
 
-        task = self._get_from_queue(ExecPriority.CACHE_LOAD)
+        task = self._get_from_queue(ExecPriority.P1_BACKGROUND_CACHE_LOAD)
         if task:
             return task
 
-        task = self._get_from_queue(ExecPriority.LONG_RUNNING_NETWORK_LOAD)
+        task = self._get_from_queue(ExecPriority.P2_DOWNLOAD)
         if task:
             return task
 
-        task = self._get_from_queue(ExecPriority.LIVE_UPDATE)
+        task = self._get_from_queue(ExecPriority.P3_LIVE_UPDATE)
         if task:
             return task
 
-        task = self._get_from_queue(ExecPriority.SIGNATURE_CALC)
+        task = self._get_from_queue(ExecPriority.P4_SIGNATURE_CALC)
         if task:
             return task
 
         if self.enable_op_execution:
 
             # Special case for op execution: we have both a queue and the ledger. The queue takes higher precedence.
-            task = self._get_from_queue(ExecPriority.USER_OP_EXEC)
+            task = self._get_from_queue(ExecPriority.P5_USER_OP_EXECUTION)
             if task:
                 return task
 
@@ -222,7 +222,7 @@ class CentralExecutor(HasLifecycle):
                 self._pause_op_execution(sender=ID_CENTRAL_EXEC)
             if command:
                 logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
-                return Task(ExecPriority.USER_OP_EXEC, self._command_executor.execute_command, command, None, True)
+                return Task(ExecPriority.P5_USER_OP_EXECUTION, self._command_executor.execute_command, command, None, True)
 
         return None
 

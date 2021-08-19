@@ -249,8 +249,8 @@ class OpLedger(HasLifecycle):
             # Make sure all relevant caches are loaded. Do this via executor tasks:
             self.backend.cacheman.ensure_loaded(this_task, big_node_list)
 
-            # launch this with USER_OP_EXEC priority so that it executes after the cache load tasks:
-            self.backend.executor.submit_async_task(Task(ExecPriority.USER_OP_EXEC, self._append_batch, batch_uid, batch_op_list, False))
+            # launch this with P5_USER_OP_EXECUTION priority so that it executes after the cache load tasks:
+            self.backend.executor.submit_async_task(Task(ExecPriority.P5_USER_OP_EXECUTION, self._append_batch, batch_uid, batch_op_list, False))
 
     @staticmethod
     def _get_all_nodes(batch_op_list: List[UserOp]) -> List[Node]:
