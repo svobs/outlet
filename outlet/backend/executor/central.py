@@ -253,9 +253,13 @@ class CentralExecutor(HasLifecycle):
             child_deque_of_done_task: Deque[UUID] = self._parent_child_task_dict.get(done_task.task_uuid, None)
             if child_deque_of_done_task:
                 logger.debug(f'Task {done_task.task_uuid} has {len(child_deque_of_done_task)} children to run '
-                             f'({", ".join([ str(u) for u in child_deque_of_done_task])}): will run its next_task after they are done')
+                             f'({", ".join([ str(u) for u in child_deque_of_done_task])}): will enqueue its first child')
                 # add to _dependent_task_dict and do not remove it until ready to run its next_task
                 self._dependent_task_dict[done_task.task_uuid] = done_task
+                # Dereference the first child and add it to the next_task queue
+                first_child_uuid = child_deque_of_done_task[0]
+                first_child_task = self._dependent_task_dict[first_child_uuid]
+                self._next_task_queue_dict[first_child_task.priority].put_nowait(first_child_task)
                 self._running_task_cv.notify_all()
                 return
 

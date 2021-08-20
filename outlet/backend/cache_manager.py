@@ -622,6 +622,14 @@ class CacheManager(HasLifecycle):
             spid = tree_meta.root_sn.spid
             store = self._get_store_for_device_uid(spid.device_uid)
 
+            if tree_meta.tree_id == ID_GDRIVE_DIR_SELECT:
+                # special handling for dir select dialog: make sure we are fully synced first
+                assert isinstance(store, GDriveMasterStore)
+                store.load_and_sync_master_tree(this_task)
+            else:
+                # make sure cache is loaded for relevant subtree:
+                store.load_subtree(this_task, spid, tree_meta.tree_id)
+
             def _pre_post_load(_this_task):
                 if tree_meta.state.root_exists:
                     # get up-to-date root node:
@@ -630,14 +638,6 @@ class CacheManager(HasLifecycle):
                         raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_meta.tree_id})')
 
                     store.populate_filter(tree_meta.filter_state)
-
-            if tree_meta.tree_id == ID_GDRIVE_DIR_SELECT:
-                # special handling for dir select dialog: make sure we are fully synced first
-                assert isinstance(store, GDriveMasterStore)
-                store.load_and_sync_master_tree(this_task)
-            else:
-                # make sure cache is loaded for relevant subtree:
-                store.load_subtree(this_task, spid, tree_meta.tree_id)
 
             # Let _pre_post_load() be called when any subtasks are done
             this_task.add_next_task(_pre_post_load)
