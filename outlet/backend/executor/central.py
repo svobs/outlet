@@ -38,7 +38,7 @@ class ExecPriority(IntEnum):
     # Signature calculations: IO-dominant
     P4_SIGNATURE_CALC = 7
 
-    # This queue stores operations like "resume pending ops on startup", but we also consult the OpLedger.
+    # This queue stores operations like "resume pending ops on startup", but we also consult the OpManager.
     # Also used for TreeDiffTask presently
     P5_USER_OP_EXECUTION = 8
 
@@ -146,7 +146,7 @@ class CentralExecutor(HasLifecycle):
                             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV timeout!')
 
                     if len(self._running_task_dict) < TASK_RUNNER_MAX_WORKERS:
-                        task = self._get_next_task_to_run_nolock()
+                        task = self._get_next_task_to_run()
                         if task:
                             if TRACE_ENABLED:
                                 logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Popped task with priority {task.priority.name}: '
@@ -185,7 +185,7 @@ class CentralExecutor(HasLifecycle):
         except Empty:
             return None
 
-    def _get_next_task_to_run_nolock(self) -> Optional[Task]:
+    def _get_next_task_to_run(self) -> Optional[Task]:
         task = self._get_from_queue(ExecPriority.P0_USER_LOAD)
         if task:
             return task
@@ -244,8 +244,8 @@ class CentralExecutor(HasLifecycle):
             # Did this done_task spawn child tasks which need to be waited for?
             child_set_of_done_task = self._parent_child_task_dict.get(done_task.task_uuid, None)
             if child_set_of_done_task:
-                logger.debug(f'Task {done_task.task_uuid} has children to run ({",".join([ str(u) for u in child_set_of_done_task])}): '
-                             f'will run its next_task after they are done')
+                logger.debug(f'Task {done_task.task_uuid} has {len(child_set_of_done_task)} children to run '
+                             f'({", ".join([ str(u) for u in child_set_of_done_task])}): will run its next_task after they are done')
                 # add to _waiting_parent_task_dict and do not remove it until ready to run its next_task
                 self._waiting_parent_task_dict[done_task.task_uuid] = done_task
                 self._running_task_cv.notify_all()
@@ -264,13 +264,14 @@ class CentralExecutor(HasLifecycle):
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 
     def _find_next_task(self, done_task: Task) -> Optional[Task]:
-        logger.debug(f'Task {done_task.task_uuid} has no children {": will run its" if done_task.next_task else "and no"} next task')
+        logger.debug(f'Task {done_task.task_uuid} ({done_task.task_func}) has no children '
+                     f'{": will run its" if done_task.next_task else "and no"} next task')
         # just set this here - will call it outside of lock
         next_task = done_task.next_task
 
         # Was this task a child of some other parent task?
         if done_task.parent_task_uuid:
-            logger.debug(f'Task {done_task.task_uuid} was a child of parent task {done_task.parent_task_uuid}')
+            logger.debug(f'Task {done_task.task_uuid} ({done_task.task_func}) was a child of parent task {done_task.parent_task_uuid}')
             parent_child_set = self._parent_child_task_dict.get(done_task.parent_task_uuid, None)
             if parent_child_set is None:
                 raise RuntimeError(f'Serious internal error: state of parent & child tasks is inconsistent! '

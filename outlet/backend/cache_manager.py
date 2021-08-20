@@ -15,7 +15,7 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.row_state_tracking import RowStateTracking
 from backend.executor.central import ExecPriority
 from backend.executor.command.cmd_interface import Command
-from backend.executor.user_op.op_ledger import OpLedger
+from backend.executor.user_op.op_manager import OpManager
 from backend.sqlite.cache_registry_db import CacheRegistry
 from backend.tree_store.gdrive.master_gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
@@ -124,7 +124,7 @@ class CacheManager(HasLifecycle):
         """Same deal with GoogID mapper. We init it here, so that we can load in all the cached GoogIDs ASAP"""
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
-        self._op_ledger: OpLedger = OpLedger(self.backend, op_db_path)
+        self._op_ledger: OpManager = OpManager(self.backend, op_db_path)
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
 
         # Create Event objects to optionally wait for lifecycle events
@@ -1270,7 +1270,7 @@ class CacheManager(HasLifecycle):
 
     def enqueue_op_list(self, op_list: Iterable[UserOp]):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
-         the OpLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
+         the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
         self._op_ledger.append_new_pending_op_batch(op_list)
 
