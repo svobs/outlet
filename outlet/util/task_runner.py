@@ -23,6 +23,7 @@ class Task:
         self._args = args
 
         self.priority = priority
+        self.parent_task_uuid: Optional[uuid.UUID] = None
         self.next_task: Optional[Task] = None
         self.on_error: Optional[Callable[[Exception], None]] = None
         """Note: the executor has no way of knowing whether a task failed. It is up to the author of the task to ensure that on_error() does
@@ -31,6 +32,11 @@ class Task:
         # set internally:
         self.task_uuid: uuid.UUID = uuid.uuid4()
         self.task_start_time_ms: Optional[int] = None
+
+    def create_child_task(self, task_func: Callable, *args):
+        child_task = Task(self.priority, task_func, *args)
+        child_task.parent_task_uuid = self.task_uuid
+        return child_task
 
     def run(self):
         self.task_start_time_ms = time_util.now_ms()
@@ -76,7 +82,8 @@ class Task:
 
     def __repr__(self):
         next_task_uuid = self.next_task.task_uuid if self.next_task else 'None'
-        return f'Task(uuid={self.task_uuid} priority={self.priority} func={self.task_func.__name__} args={self._args}) next_task={next_task_uuid}'
+        return f'Task(uuid={self.task_uuid} priority={self.priority} func={self.task_func.__name__} args={self._args}) ' \
+               f'parent_task={self.parent_task_uuid} next_task={next_task_uuid}'
 
 
 class TaskRunner(HasLifecycle):

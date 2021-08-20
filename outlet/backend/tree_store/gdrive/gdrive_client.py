@@ -316,8 +316,8 @@ class GDriveClient(HasLifecycle):
             logger.debug(f'{request_state.stopwatch_retrieval} Done. Query returned {request_state.item_count} nodes')
         elif request_state.parent_task:
             # essentially loop, with each loop being scheduled through the Central Executor as a child task of the parent:
-            next_child_task = Task(request_state.parent_task.priority, self._exec_single_request, make_request_func, request_state)
-            self.backend.executor.submit_async_task(next_child_task, parent_task=request_state.parent_task)
+            next_child_task = request_state.parent_task.create_child_task(self._exec_single_request, make_request_func, request_state)
+            self.backend.executor.submit_async_task(next_child_task)
 
     def _execute_query(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver,
                        this_task: Optional[Task] = None):
@@ -347,8 +347,8 @@ class GDriveClient(HasLifecycle):
 
         if this_task:
             # Kick off first request as a child task:
-            next_child_task = Task(request_state.parent_task.priority, self._exec_single_request, make_request, request_state)
-            self.backend.executor.submit_async_task(next_child_task, parent_task=request_state.parent_task)
+            next_child_task = request_state.parent_task.create_child_task(self._exec_single_request, make_request, request_state)
+            self.backend.executor.submit_async_task(next_child_task)
         else:
             while True:
                 self._exec_single_request(make_request, request_state)

@@ -357,8 +357,8 @@ class GDriveMasterStore(TreeStore):
 
         refresh_task.folders_to_process.append(parent_node)
 
-        child_task = Task(this_task.priority, refresh_task.refresh_next_folder)
-        self.backend.executor.submit_async_task(child_task, parent_task=this_task)
+        child_task = this_task.create_child_task(refresh_task.refresh_next_folder)
+        self.backend.executor.submit_async_task(child_task)
 
     def fetch_and_merge_child_nodes_for_parent(self, folder: GDriveFolder) -> List[GDriveNode]:
         """Fetches all the children for the given GDriveFolder from the GDrive client, and merge the updated nodes into our cache"""

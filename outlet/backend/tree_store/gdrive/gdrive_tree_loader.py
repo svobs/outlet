@@ -100,18 +100,6 @@ class GDriveTreeLoader:
         # TODO: there must be a better way to do this...
         is_synchronous = this_task is None
 
-        def launch_step_5(this_task_4):
-            next_subtask = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
-            self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-
-            def _after_tree_loaded(this_task_5):
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Calling after_tree_loaded func ({after_tree_loaded}) async')
-                after_tree_loaded(tree)
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'The after_tree_loaded func returned')
-            next_subtask.add_next_task(_after_tree_loaded)
-
         if not initial_download.is_complete():
             state = 'Starting' if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
             logger.info(f'{state} download of all Google Drive tree (state={initial_download.current_state}, is_synchronous={is_synchronous})')
@@ -130,31 +118,31 @@ class GDriveTreeLoader:
                 # Each child's completion handler will call the next task in a chain.
 
                 # 1: download root meta first
-                subtask_1 = Task(this_task.priority, self._download_gdrive_root_meta, tree, initial_download, sync_ts)
-                self.backend.executor.submit_async_task(subtask_1, parent_task=this_task)
+                subtask_1 = this_task.create_child_task(self._download_gdrive_root_meta, tree, initial_download, sync_ts)
+                self.backend.executor.submit_async_task(subtask_1)
 
                 # 2: dir meta (will create child tasks for each request)
-                subtask_2 = Task(this_task.priority, self._download_all_gdrive_dir_meta, tree, initial_download)
-                self.backend.executor.submit_async_task(subtask_2, parent_task=this_task)
+                subtask_2 = this_task.create_child_task(self._download_all_gdrive_dir_meta, tree, initial_download)
+                self.backend.executor.submit_async_task(subtask_2)
 
                 # 3: non-dir object meta (will create child tasks for each request)
-                subtask_3 = Task(this_task.priority, self._download_all_gdrive_non_dir_meta, tree, initial_download)
-                self.backend.executor.submit_async_task(subtask_3, parent_task=this_task)
+                subtask_3 = this_task.create_child_task(self._download_all_gdrive_non_dir_meta, tree, initial_download)
+                self.backend.executor.submit_async_task(subtask_3)
 
                 # 4: compile all the downloaded data (may take a non-trivial amount of CPU cycles)
-                subtask_4 = Task(this_task.priority, self._compile_downloaded_meta, tree, initial_download)
-                self.backend.executor.submit_async_task(subtask_4, parent_task=this_task)
+                subtask_4 = this_task.create_child_task(self._compile_downloaded_meta, tree, initial_download)
+                self.backend.executor.submit_async_task(subtask_4)
 
         if is_synchronous:
             self._do_post_load_processing(None, tree, cache_info)
             self._call_after_tree_loaded(tree, cache_info, after_tree_loaded)
         else:
             # 5: post-processing (will need to do this even after loading):
-            subtask_5 = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
-            self.backend.executor.submit_async_task(subtask_5, parent_task=this_task)
+            subtask_5 = this_task.create_child_task(self._do_post_load_processing, tree, cache_info)
+            self.backend.executor.submit_async_task(subtask_5)
 
-            after_tree_loaded_subtask = Task(this_task.priority, self._call_after_tree_loaded, tree, cache_info, after_tree_loaded)
-            self.backend.executor.submit_async_task(after_tree_loaded_subtask, parent_task=this_task)
+            after_tree_loaded_subtask = this_task.create_child_task(self._call_after_tree_loaded, tree, cache_info, after_tree_loaded)
+            self.backend.executor.submit_async_task(after_tree_loaded_subtask)
 
     def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload, sync_ts: int):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:

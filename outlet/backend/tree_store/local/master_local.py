@@ -199,8 +199,8 @@ class LocalDiskMasterStore(TreeStore):
         scanner = LocalDiskScanner(backend=self.backend, master_local=self, root_node_identifer=subtree_root, tree_id=tree_id)
 
         # Create child task. It will create next_task instances as it goes along, thus delaying execution of this_task's next_task
-        child_task = Task(this_task.priority, scanner.start_recursive_scan)
-        self.backend.executor.submit_async_task(child_task, parent_task=this_task)
+        child_task = this_task.create_child_task(scanner.start_recursive_scan)
+        self.backend.executor.submit_async_task(child_task)
 
     # LocalSubtree-level methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -353,15 +353,15 @@ class LocalDiskMasterStore(TreeStore):
 
                 # 6. This will resync with file system and re-save
                 supertree_cache.needs_save = True
-                load_subtree_child_task = Task(this_task.priority, self._load_subtree_from_disk, supertree_cache, ID_GLOBAL_CACHE)
-                self.backend.executor.submit_async_task(load_subtree_child_task, parent_task=this_task)
+                load_subtree_child_task = this_task.create_child_task(self._load_subtree_from_disk, supertree_cache, ID_GLOBAL_CACHE)
+                self.backend.executor.submit_async_task(load_subtree_child_task)
 
                 # 7. Now it is safe to delete the subtree cache:
                 def _delete_cache_file():
                     file_util.delete_file(subtree_cache.cache_location)
 
-                delete_cache_file_child_task = Task(this_task.priority, _delete_cache_file)
-                self.backend.executor.submit_async_task(delete_cache_file_child_task, parent_task=this_task)
+                delete_cache_file_child_task = this_task.create_child_task(_delete_cache_file)
+                self.backend.executor.submit_async_task(delete_cache_file_child_task)
 
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
 
@@ -373,8 +373,8 @@ class LocalDiskMasterStore(TreeStore):
                     supertree_sets.append((cache, other_cache))
 
         for _supertree_cache, _subtree_cache in supertree_sets:
-            consolidate_child_task = Task(this_task.priority, _consolidate, _supertree_cache, _subtree_cache)
-            self.backend.executor.submit_async_task(consolidate_child_task, parent_task=this_task)
+            consolidate_child_task = this_task.create_child_task(_consolidate, _supertree_cache, _subtree_cache)
+            self.backend.executor.submit_async_task(consolidate_child_task)
 
         def _finally(_finally_task: Task):
             registry_needs_update = len(supertree_sets) > 0
@@ -383,8 +383,8 @@ class LocalDiskMasterStore(TreeStore):
 
             state.existing_cache_list += local_caches
 
-        finally_child_task = Task(this_task.priority, _finally)
-        self.backend.executor.submit_async_task(finally_child_task, parent_task=this_task)
+        finally_child_task = this_task.create_child_task(_finally)
+        self.backend.executor.submit_async_task(finally_child_task)
 
     def refresh_subtree(self, this_task: Task, node_identifier: LocalNodeIdentifier, tree_id: TreeID):
         assert isinstance(node_identifier, LocalNodeIdentifier)

@@ -450,16 +450,17 @@ class CacheManager(HasLifecycle):
                         assert isinstance(store, LocalDiskMasterStore)
 
                         # Add as child task, so that it executes prior to _update_registry()
-                        child_task_single_device = Task(this_task.priority, store.consolidate_local_caches, device_cache_list, state)
-                        self.backend.executor.submit_async_task(child_task_single_device, parent_task=_consolidate_all_device_caches_task)
+                        child_task_single_device = _consolidate_all_device_caches_task.create_child_task(
+                            store.consolidate_local_caches, device_cache_list, state)
+                        self.backend.executor.submit_async_task(child_task_single_device)
                     else:
                         # this is otherwise done by consolidate_local_caches()
                         state.existing_cache_list += device_cache_list  # do this for all devices
 
             # TODO: idea: detect bad shutdown, and if it's bad, check max UIDs of all caches
 
-        child_task_consolidate_all = Task(this_task.priority, _consolidate_local_caches_for_all_devices)
-        self.backend.executor.submit_async_task(child_task_consolidate_all, parent_task=this_task)
+        child_task_consolidate_all = this_task.create_child_task(_consolidate_local_caches_for_all_devices)
+        self.backend.executor.submit_async_task(child_task_consolidate_all)
 
         def _update_registry_and_launch_load_tasks(_this_task: Task):
             if state.registry_needs_update:
@@ -476,11 +477,11 @@ class CacheManager(HasLifecycle):
                 cache_count = len(state.existing_cache_list)
 
                 # Load each cache as a separate child task.
-                child_task_single_load = Task(_this_task.priority, self._init_existing_cache, existing_disk_cache, cache_num_plus_1, cache_count)
-                self.backend.executor.submit_async_task(child_task_single_load, parent_task=_this_task)
+                child_task_single_load = _this_task.create_child_task(self._init_existing_cache, existing_disk_cache, cache_num_plus_1, cache_count)
+                self.backend.executor.submit_async_task(child_task_single_load)
 
-        child_task = Task(this_task.priority, _update_registry_and_launch_load_tasks)
-        self.backend.executor.submit_async_task(child_task, parent_task=this_task)
+        child_task = this_task.create_child_task(_update_registry_and_launch_load_tasks)
+        self.backend.executor.submit_async_task(child_task)
 
     def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
@@ -793,7 +794,9 @@ class CacheManager(HasLifecycle):
         for gdrive_device_uid in needed_gdrive_device_uid_set:
             store = self._get_store_for_device_uid(gdrive_device_uid)
             assert isinstance(store, GDriveMasterStore)
-            self.backend.executor.submit_async_task(Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, store.load_and_sync_master_tree), parent_task=this_task)
+            cache_load_task = this_task.create_child_task(store.load_and_sync_master_tree)
+            cache_load_task.priority = ExecPriority.P1_BACKGROUND_CACHE_LOAD  # yes, override parent priority
+            self.backend.executor.submit_async_task(cache_load_task)
 
         # LocalDisk:
         for cache in needed_localdisk_cache_dict.values():
@@ -804,8 +807,9 @@ class CacheManager(HasLifecycle):
                 else:
                     assert isinstance(cache.subtree_root, LocalNodeIdentifier)
                     store = self._get_store_for_device_uid(cache.subtree_root.device_uid)
-                    load_subtree_task = Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, store.load_subtree, cache.subtree_root, ID_GLOBAL_CACHE)
-                    self.backend.executor.submit_async_task(load_subtree_task, parent_task=this_task)
+                    cache_load_task = this_task.create_child_task(store.load_subtree, cache.subtree_root, ID_GLOBAL_CACHE)
+                    cache_load_task.priority = ExecPriority.P1_BACKGROUND_CACHE_LOAD  # yes, override parent priority
+                    self.backend.executor.submit_async_task(cache_load_task)
 
     def _create_new_cache_info(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
         if not subtree_root.is_spid():
