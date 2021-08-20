@@ -322,7 +322,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def consolidate_local_caches(self, this_task: Task, local_caches: List[PersistedCacheInfo], state):
 
-        def _consolidate(supertree_cache, subtree_cache):
+        def _merge_two_caches(supertree_cache, subtree_cache):
             local_caches.remove(subtree_cache)
 
             if supertree_cache.sync_ts > subtree_cache.sync_ts:
@@ -373,17 +373,17 @@ class LocalDiskMasterStore(TreeStore):
                     supertree_sets.append((cache, other_cache))
 
         for _supertree_cache, _subtree_cache in supertree_sets:
-            consolidate_child_task = this_task.create_child_task(_consolidate, _supertree_cache, _subtree_cache)
-            self.backend.executor.submit_async_task(consolidate_child_task)
+            merge_two_caches_child_task = this_task.create_child_task(_merge_two_caches, _supertree_cache, _subtree_cache)
+            self.backend.executor.submit_async_task(merge_two_caches_child_task)
 
-        def _finally(_finally_task: Task):
+        def _finish_consolidation(_finally_task: Task):
             registry_needs_update = len(supertree_sets) > 0
             if registry_needs_update:
                 state.registry_needs_update = True
 
             state.existing_cache_list += local_caches
 
-        finally_child_task = this_task.create_child_task(_finally)
+        finally_child_task = this_task.create_child_task(_finish_consolidation)
         self.backend.executor.submit_async_task(finally_child_task)
 
     def refresh_subtree(self, this_task: Task, node_identifier: LocalNodeIdentifier, tree_id: TreeID):

@@ -134,11 +134,11 @@ class GDriveTreeLoader:
                 self.backend.executor.submit_async_task(subtask_4)
 
         if is_synchronous:
-            self._do_post_load_processing(None, tree, cache_info)
+            self._do_post_load_processing(None, tree, initial_download, cache_info)
             self._call_after_tree_loaded(tree, cache_info, after_tree_loaded)
         else:
             # 5: post-processing (will need to do this even after loading):
-            subtask_5 = this_task.create_child_task(self._do_post_load_processing, tree, cache_info)
+            subtask_5 = this_task.create_child_task(self._do_post_load_processing, tree, initial_download, cache_info)
             self.backend.executor.submit_async_task(subtask_5)
 
             after_tree_loaded_subtask = this_task.create_child_task(self._call_after_tree_loaded, tree, cache_info, after_tree_loaded)
@@ -170,11 +170,17 @@ class GDriveTreeLoader:
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
             observer = FolderMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer, this_task)
+        else:
+            logger.debug(f'_download_all_gdrive_dir_meta(): skipping because download state = {initial_download.current_state} '
+                         f'(was expecting {GDRIVE_DOWNLOAD_STATE_GETTING_DIRS})')
 
     def _download_all_gdrive_non_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
             observer = FileMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer, this_task)
+        else:
+            logger.debug(f'_download_all_gdrive_non_dir_meta(): skipping because download state = {initial_download.current_state} '
+                         f'(was expecting {GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS})')
 
     def _compile_downloaded_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
@@ -200,18 +206,27 @@ class GDriveTreeLoader:
             initial_download.current_state = GDRIVE_DOWNLOAD_STATE_COMPLETE
             self._diskstore.create_or_update_download(download=initial_download)
             logger.debug('GDrive data download complete.')
+        else:
+            logger.debug(f'_compile_downloaded_meta(): skipping because download state = {initial_download.current_state} '
+                         f'(was expecting {GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE})')
 
-    def _do_post_load_processing(self, this_task: Optional[Task], tree: GDriveWholeTree, cache_info):
-        # Still need to compute this in memory every time we load:
-        self._fix_orphans(tree)
-        self._compile_full_paths(tree)
+    def _do_post_load_processing(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download, cache_info):
+        if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_COMPLETE:
 
-        self._check_for_broken_nodes(tree)
+            # Still need to compute this in memory every time we load:
+            self._fix_orphans(tree)
+            self._compile_full_paths(tree)
 
-        # set cache_info.is_loaded=True:
-        cache_info.is_loaded = True
+            self._check_for_broken_nodes(tree)
 
-        logger.debug('GDrive: load_all() done')
+            # set cache_info.is_loaded=True:
+            cache_info.is_loaded = True
+
+            logger.debug('GDrive: load_all() done')
+
+        else:
+            logger.debug(f'_do_post_load_processing(): skipping because download state = {initial_download.current_state} '
+                         f'(was expecting {GDRIVE_DOWNLOAD_STATE_COMPLETE})')
 
     def _fix_orphans(self, tree: GDriveWholeTree):
         """Finds orphans (nodes with no parents) and sets them as children of root"""

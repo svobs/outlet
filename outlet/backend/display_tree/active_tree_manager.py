@@ -267,7 +267,7 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str, device_uid: UID):
         # If GDrive cache was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
-        logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED.name}" with device_uid={device_uid}')
+        logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED.name}" from {sender} with device_uid={device_uid}')
 
         tree_id_list: List[str] = []
         for tree_meta in self._display_tree_dict.values():
@@ -399,6 +399,7 @@ class ActiveTreeManager(HasLifecycle):
 
         # Try to retrieve the root node from the cache:
         try:
+            # FIXME: make more robust by adding read-through
             node: Optional[Node] = self.backend.cacheman.read_single_node(spid)
             if node:
                 logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
@@ -492,6 +493,8 @@ class ActiveTreeManager(HasLifecycle):
                 # Need to wait until all caches are loaded:
                 self.backend.cacheman.wait_for_startup_done()
                 # this will load the GDrive master tree if needed:
+                raise RuntimeError
+                # FIXME: we don't want to have to load the entire GDrive tree at startup!
                 identifier_list = self.backend.cacheman.get_gdrive_identifier_list_for_full_path_list(device_uid, [full_path],
                                                                                                       error_if_not_found=True)
             else:  # LocalNode

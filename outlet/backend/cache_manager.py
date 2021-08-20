@@ -442,9 +442,11 @@ class CacheManager(HasLifecycle):
 
         def _consolidate_local_caches_for_all_devices(_consolidate_all_device_caches_task: Task):
             for device_uid, second_dict in self._cache_info_dict.get_first_dict().items():
+
                 device_cache_list: List[PersistedCacheInfo] = list(second_dict.values())
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Examining device_uid={device_uid} for consolidation: it has {len(device_cache_list)} caches')
                 if device_cache_list:
-                    device_uid = device_cache_list[0].subtree_root.device_uid
                     store: TreeStore = self._store_dict[device_uid]
                     if store.device.tree_type == TreeType.LOCAL_DISK:
                         assert isinstance(store, LocalDiskMasterStore)
@@ -1323,3 +1325,5 @@ class CacheManager(HasLifecycle):
             return store.read_single_node_from_disk_for_uid(spid.node_uid)
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
+
+        # FIXME: read from network or scan disk

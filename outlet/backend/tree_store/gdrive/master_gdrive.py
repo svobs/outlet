@@ -208,6 +208,7 @@ class GDriveMasterStore(TreeStore):
 
     def _load_master_cache(self, this_task: Optional[Task], invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
+        # FIXME: make this_task NOT optional
 
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
                      f'sync_latest_changes={sync_latest_changes}')
@@ -226,25 +227,9 @@ class GDriveMasterStore(TreeStore):
 
             stopwatch_total = Stopwatch()
 
-            def _sync_if_specified_and_finish():
-                logger.debug('Entered _sync_if_specified_and_finish()')
-                try:
-                    if sync_latest_changes:
-                        try:
-                            # This may add a noticeable delay:
-                            # FIXME: break each page into a separate task, so there is no delay
-                            self._sync_latest_changes()
-                        finally:
-                            logger.debug(f'GDrive sync exiting')
-                            self._is_sync_in_progress = False
-
-                finally:
-                    self._load_master_cache_in_process = False
-                    logger.info(f'{stopwatch_total} GDrive master tree loaded')
-
             if self._memstore.master_tree and not invalidate_cache:
                 logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
-                _sync_if_specified_and_finish()
+                self._sync_if_specified_and_finish(sync_latest_changes, stopwatch_total)
             else:
                 logger.debug('Setting _load_master_cache_in_process = true')
                 self._load_master_cache_in_process = True
@@ -254,13 +239,35 @@ class GDriveMasterStore(TreeStore):
                     self._memstore.master_tree = tree
                     logger.debug(f'GDrive master tree completely loaded; device_uid={self._memstore.master_tree.device_uid}')
 
-                    _sync_if_specified_and_finish()
+                    self._sync_if_specified_and_finish(sync_latest_changes, stopwatch_total)
 
                 self.tree_loader.load_all(this_task=this_task, invalidate_cache=invalidate_cache, after_tree_loaded=_after_tree_loaded)
 
         except Exception:
+            # TODO: on_error for TreeLoader
+            self._load_master_cache_in_process = False
             self._is_sync_in_progress = False
             raise
+
+    def _sync_if_specified_and_finish(self, sync_latest_changes, stopwatch_total):
+        logger.debug('Entered _sync_if_specified_and_finish()')
+        try:
+            if not self._memstore.master_tree:
+                logger.warning(f'GDrive master tree is not loaded! Aborting sync.')
+                return
+
+            if sync_latest_changes:
+                try:
+                    # This may add a noticeable delay:
+                    # FIXME: break each page into a separate task, so there is no delay
+                    self._sync_latest_changes()
+                finally:
+                    logger.debug(f'GDrive sync exiting')
+                    self._is_sync_in_progress = False
+
+            logger.info(f'{stopwatch_total} GDrive master tree loaded')
+        finally:
+            self._load_master_cache_in_process = False
 
     @ensure_locked
     def _sync_latest_changes(self):
@@ -628,8 +635,8 @@ class GDriveMasterStore(TreeStore):
 
     def get_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         if not self._memstore.is_loaded():
-            # load it
-            self.load_and_sync_master_tree()
+            # Just fail for now:
+            raise RuntimeError(f'Cannot get path list ({path_list}): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
@@ -646,14 +653,14 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.get_gdrive_user_for_user_uid(uid)
 
     def create_gdrive_user(self, user: GDriveUser):
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered create_gdrive_user(): locked={self._struct_lock.locked()}')
         op = CreateUserOp(user)
         self._execute_write_op(op)
 
     def get_or_create_gdrive_mime_type(self, mime_type_string: str) -> MimeType:
         # Note: this operation must be synchronous, so that it can return the MIME type
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered get_or_create_gdrive_mime_type(): locked={self._struct_lock.locked()}')
 
         op = UpsertMimeTypeOp(mime_type_string)

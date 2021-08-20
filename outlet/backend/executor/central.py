@@ -323,7 +323,7 @@ class CentralExecutor(HasLifecycle):
             raise RuntimeError(f'Bad arg: {priority}')
 
         with self._running_task_cv:
-            
+
             logger.debug(f'Enqueuing task (priority: {priority.name}: func_name: "{task.task_func.__name__}" uuid: {task.task_uuid} '
                          f'parent: {task.parent_task_uuid})')
 

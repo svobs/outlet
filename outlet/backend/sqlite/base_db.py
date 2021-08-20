@@ -3,6 +3,7 @@ import sqlite3
 import logging
 from typing import Any, Callable, Iterable, List, Optional, OrderedDict, Tuple, Union
 
+from constants import TRACE_ENABLED
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -67,13 +68,17 @@ class LiveTable(Table):
         return f'LiveTable(name="{self.name}" cols={self.cols} obj_to_tuple_func={self.obj_to_tuple_func} ' \
                f'tuple_to_obj_func={self.tuple_to_obj_func}")'
 
+    def commit(self):
+        if TRACE_ENABLED:
+            logger.debug('Committing!')
+        self.conn.commit()
+
     def create_table(self, commit=True):
         sql = self.build_create_table()
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def create_table_if_not_exist(self, commit=True):
         if not self.is_table():
@@ -120,32 +125,28 @@ class LiveTable(Table):
             logger.debug('Executing SQL: ' + sql)
             cursor.execute(sql, stmt_vars)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def upsert_one(self, row: Tuple, commit=True):
         sql = self.build_upsert()
         logger.debug(f"Upserting one tuple into table {self.name}")
         self.conn.execute(sql, row)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def insert_one(self, row: Tuple, commit=True):
         sql = self.build_insert()
         logger.debug(f"Inserting one tuple into table {self.name}")
         self.conn.execute(sql, row)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def insert_many(self, tuple_list: List[Tuple], commit=True):
         sql = self.build_insert()
         logger.debug(f"Inserting {len(tuple_list)} tuples into table {self.name}")
         self.conn.executemany(sql, tuple_list)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def upsert_many(self, tuple_list: List[Tuple], commit=True):
         sql = self.build_upsert()
@@ -154,24 +155,21 @@ class LiveTable(Table):
             logger.debug(f"Upserting tuple: {tuple_list[0]}")
         self.conn.executemany(sql, tuple_list)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def truncate_table(self, commit=True):
         sql = f"DELETE FROM {self.name}"
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def drop_table_if_exists(self, commit=True):
         sql = f"DROP TABLE IF EXISTS {self.name}"
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def _to_tuple_list(self, entries: List, obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None) -> List[Tuple]:
         if obj_to_tuple_func_override:
@@ -293,8 +291,7 @@ class LiveTable(Table):
         logger.debug(f'Removed {count_deleted} rows (UID={uid}) from table "{self.name}"')
 
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def delete_for_uid_list(self, uid_tuple_list: List[Tuple[UID]], uid_col_name: str = 'uid', commit=True):
         """NOTE: uid_tuple_list must be a list of TUPLES, each containing one UID (this is needed for SQLite)"""
@@ -303,8 +300,7 @@ class LiveTable(Table):
         logger.debug(f'Removed {count_deleted} rows (expected {len(uid_tuple_list)}) from table "{self.name}"')
 
         if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+            self.commit()
 
     def select_max(self, row_name: str) -> int:
         cursor = self.conn.cursor()
@@ -354,7 +350,8 @@ class MetaDatabase:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def commit(self):
-        logger.debug('Committing!')
+        if TRACE_ENABLED:
+            logger.debug('Committing!')
         self.conn.commit()
 
     def close(self):

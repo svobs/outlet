@@ -278,7 +278,7 @@ class GDriveClient(HasLifecycle):
 
         return goog_node
 
-    def _exec_single_request(self, make_request_func: Callable[[QueryRequestState], None], request_state: QueryRequestState):
+    def _exec_single_request(self, this_task: Optional[Task], make_request_func: Callable[[QueryRequestState], None], request_state: QueryRequestState):
         binded_request = partial(make_request_func, request_state)
         results: dict = GDriveClient._try_repeatedly(binded_request)
 
@@ -328,7 +328,7 @@ class GDriveClient(HasLifecycle):
 
         def make_request(state: QueryRequestState):
             m = f'Sending request for GDrive items, page {state.page_count}...'
-            logger.debug(m)
+            logger.debug(f'{m} (q="{query}")')
             if self.tree_id:
                 dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
@@ -351,7 +351,7 @@ class GDriveClient(HasLifecycle):
             self.backend.executor.submit_async_task(next_child_task)
         else:
             while True:
-                self._exec_single_request(make_request, request_state)
+                self._exec_single_request(None, make_request, request_state)
                 if not request_state.page_token:
                     logger.debug('Done!')
                     break

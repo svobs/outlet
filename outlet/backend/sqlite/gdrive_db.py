@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID
 from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
+from error import GDriveError
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -327,6 +328,10 @@ class GDriveDatabase(MetaDatabase):
             row_list = self.id_parent_mapping.select(where_clause=f' WHERE item_uid = ?', where_tuple=(uid,))
             if row_list:
                 for row in row_list:
+                    if not row[1]:
+                        # this is invalid
+                        raise GDriveError(f'get_node_with_uid(): node {uid} has null parent! Possibly the GDrive tree is still being downloaded?')
+
                     node.add_parent(UID(row[1]))
 
         logger.debug(f'get_node_with_uid(): returning {node}')
