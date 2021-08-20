@@ -148,6 +148,9 @@ class CentralExecutor(HasLifecycle):
                     if len(self._running_task_dict) < TASK_RUNNER_MAX_WORKERS:
                         task = self._get_next_task_to_run_nolock()
                         if task:
+                            if TRACE_ENABLED:
+                                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Popped task with priority {task.priority.name}: '
+                                             f'"{task.task_func.__name__}" uuid={task.task_uuid}')
                             self._running_task_dict[task.task_uuid] = task
                         elif TRACE_ENABLED:
                             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks to run (currently running: {len(self._running_task_dict)})')
@@ -167,8 +170,7 @@ class CentralExecutor(HasLifecycle):
             sec, ms = divmod(time_util.now_ms() - task.task_start_time_ms, 1000)
             elapsed_time_str = f'Runtime={sec}.{ms}s'
             str_list.append(f'{elapsed_time_str}: {task}')
-        # TODO: better solution than newline...
-        return '\n'.join(str_list)
+        return '; '.join(str_list)
 
     def _enqueue_task(self, task: Task):
         future = self._be_task_runner.enqueue_task(task)
@@ -179,7 +181,6 @@ class CentralExecutor(HasLifecycle):
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
         try:
             task = self._exec_queue_dict[priority].get_nowait()
-            logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority {priority.name}: "{task.task_func.__name__}" uuid={task.task_uuid}')
             return task
         except Empty:
             return None
