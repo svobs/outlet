@@ -22,7 +22,7 @@ from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from backend.tree_store.local.master_local import LocalDiskMasterStore
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
-from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType, UID_GOOG_ID_FILE_NAME, \
     UID_PATH_FILE_NAME
