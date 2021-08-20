@@ -31,7 +31,7 @@ class OutletAgent(BackendIntegrated):
 
         self.use_zeroconf: bool = not ensure_bool(self.get_config('agent.grpc.use_fixed_address'))
         self.zeroconf = None
-        self.local_ip = None
+        self.local_ip_list: List[str] = []
         self.zc_info = None
 
     def start(self):
@@ -77,16 +77,21 @@ class OutletAgent(BackendIntegrated):
             if not address_list:
                 raise RuntimeError('Could not determine local IP address!')
             elif len(address_list) > 1:
-                raise RuntimeError(f'Found multiple local IP addresses and dunno which to use: {address_list}')
+                logger.info(f'Found multiple local IP addresses; will list all of them: {address_list}')
 
-            self.local_ip = address_list[0]
+            self.local_ip_list = address_list
+
+            packed_ip_list = []
+            for local_ip in self.local_ip_list:
+                packed_ip_list.append(socket.inet_aton(local_ip))
+
             fqdn = socket.gethostname()
             hostname = fqdn.split('.')[0]
 
             desc = {'service': ZEROCONF_SERVICE_NAME, 'version': ZEROCONF_SERVICE_VERSION}
             self.zc_info = ServiceInfo(ZEROCONF_SERVICE_TYPE,
                                        hostname + f' Service.{ZEROCONF_SERVICE_TYPE}',
-                                       addresses=[socket.inet_aton(self.local_ip)], port=port, properties=desc)
+                                       addresses=packed_ip_list, port=port, properties=desc)
             self.zeroconf = Zeroconf()
             self.zeroconf.register_service(self.zc_info)
             logger.debug(f'Discoverable service registered via Zeroconf: {self.zc_info}')

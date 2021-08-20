@@ -118,7 +118,6 @@ class OpGraph(HasLifecycle):
                 raise RuntimeError(f'Batch items are not in order! ({op.op_uid} < {last_op_uid})')
             last_op_uid = op.op_uid
 
-        # FIXME: need to support device_uid here!
         # Put all in dict as wrapped OpGraphNodes
         reentrant_tgt_node_dict: DefaultDict[DN_UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())
         non_reentrant_tgt_node_dict: Dict[DN_UID, OpGraphNode] = {}

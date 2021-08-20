@@ -20,7 +20,7 @@ class Task:
     """
     def __init__(self, priority, task_func: Callable, *args):
         self.task_func: Callable = task_func
-        self.args = args
+        self._args = args
 
         self.priority = priority
         self.next_task: Optional[Task] = None
@@ -34,13 +34,13 @@ class Task:
 
     def run(self):
         self.task_start_time_ms = time_util.now_ms()
-        logger.debug(f'Starting task: "{self.task_func.__name__}" with args={self.args}, start_time_ms={self.task_start_time_ms}')
-        task_time = Stopwatch()
+        logger.info(f'Starting task: "{self.task_func.__name__}" args={self._args} start_time_ms={self.task_start_time_ms}')
+        task_time = Stopwatch()  # TODO: maybe just use task_start_time_ms and get rid of this var
         try:
-            if not self.args or len(self.args) == 0:
+            if not self._args or len(self._args) == 0:
                 self.task_func(self)
             else:
-                self.task_func(self, *self.args)
+                self.task_func(self, *self._args)
         except Exception as err:
             msg = f'Task failed during execution: name="{self.task_func.__name__}" uuid={self.task_uuid}'
             logger.exception(msg)
@@ -76,7 +76,7 @@ class Task:
 
     def __repr__(self):
         next_task_uuid = self.next_task.task_uuid if self.next_task else 'None'
-        return f'Task(uuid={self.task_uuid} priority={self.priority} func={self.task_func.__name__} args={self.args}) next_task={next_task_uuid}'
+        return f'Task(uuid={self.task_uuid} priority={self.priority} func={self.task_func.__name__} args={self._args}) next_task={next_task_uuid}'
 
 
 class TaskRunner(HasLifecycle):
