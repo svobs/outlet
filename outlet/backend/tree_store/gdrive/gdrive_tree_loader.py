@@ -1,25 +1,24 @@
 import logging
 import os
 from collections import deque
-from functools import partial
 from typing import Callable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
+from backend.sqlite.gdrive_db import CurrentDownload
+from backend.tree_store.gdrive.gdrive_client import GDriveClient
+from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
+from backend.tree_store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from backend.tree_store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, \
     ROOT_PATH, SUPER_DEBUG_ENABLED, \
     TRACE_ENABLED, TreeID
-from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from backend.tree_store.gdrive.gdrive_client import GDriveClient
-from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
-from backend.tree_store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
-from backend.sqlite.gdrive_db import CurrentDownload
 from signal_constants import Signal
 from util import time_util
 from util.stopwatch_sec import Stopwatch
@@ -130,34 +129,32 @@ class GDriveTreeLoader:
                 # Create child task for each phase.
                 # Each child's completion handler will call the next task in a chain.
 
-                def launch_step_4(this_task_3):
-                    next_subtask = Task(this_task.priority, self._compile_downloaded_meta, tree, initial_download)
-                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.add_next_task(launch_step_5)
+                # 1: download root meta first
+                subtask_1 = Task(this_task.priority, self._download_gdrive_root_meta, tree, initial_download, sync_ts)
+                self.backend.executor.submit_async_task(subtask_1, parent_task=this_task)
 
-                def launch_step_3(this_task_2):
-                    next_subtask = Task(this_task.priority, self._download_all_gdrive_non_dir_meta, tree, initial_download)
-                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.add_next_task(launch_step_4)
+                # 2: dir meta (will create child tasks for each request)
+                subtask_2 = Task(this_task.priority, self._download_all_gdrive_dir_meta, tree, initial_download)
+                self.backend.executor.submit_async_task(subtask_2, parent_task=this_task)
 
-                def launch_step_2(this_task_1):
-                    next_subtask = Task(this_task.priority, self._download_all_gdrive_dir_meta, tree, initial_download)
-                    self.backend.executor.submit_async_task(next_subtask, parent_task=this_task)
-                    next_subtask.add_next_task(launch_step_3)
+                # 3: non-dir object meta (will create child tasks for each request)
+                subtask_3 = Task(this_task.priority, self._download_all_gdrive_non_dir_meta, tree, initial_download)
+                self.backend.executor.submit_async_task(subtask_3, parent_task=this_task)
 
-                first_subtask = Task(this_task.priority, self._download_gdrive_root_meta, tree, initial_download, sync_ts)
-                first_subtask.add_next_task(launch_step_2)
-
-                self.backend.executor.submit_async_task(first_subtask, parent_task=this_task)
-        else:
-            if not is_synchronous:
-                launch_step_5(None)
+                # 4: compile all the downloaded data (may take a non-trivial amount of CPU cycles)
+                subtask_4 = Task(this_task.priority, self._compile_downloaded_meta, tree, initial_download)
+                self.backend.executor.submit_async_task(subtask_4, parent_task=this_task)
 
         if is_synchronous:
-            # for async case, this is done in launch_step_5()
             self._do_post_load_processing(None, tree, cache_info)
-            logger.debug(f'Calling after_tree_loaded func ({after_tree_loaded})')
-            after_tree_loaded(tree)
+            self._call_after_tree_loaded(tree, cache_info, after_tree_loaded)
+        else:
+            # 5: post-processing (will need to do this even after loading):
+            subtask_5 = Task(this_task.priority, self._do_post_load_processing, tree, cache_info)
+            self.backend.executor.submit_async_task(subtask_5, parent_task=this_task)
+
+            after_tree_loaded_subtask = Task(this_task.priority, self._call_after_tree_loaded, tree, cache_info, after_tree_loaded)
+            self.backend.executor.submit_async_task(after_tree_loaded_subtask, parent_task=this_task)
 
     def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload, sync_ts: int):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
@@ -180,18 +177,20 @@ class GDriveTreeLoader:
             self._diskstore.create_or_update_download(download=initial_download)
 
     def _download_all_gdrive_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
+        # for all of these steps, make sure we are in the correct state, and do nothing if not.
+        # We do not know if the previous tasks have failed and we are here anyway
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
             observer = FolderMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
-            self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer)
+            self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer, this_task)
 
     def _download_all_gdrive_non_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
             observer = FileMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
-            self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer)
+            self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer, this_task)
 
     def _compile_downloaded_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
-            # Some post-processing needed...
+            # Some additional work needed after downloading...
 
             # (1) Update all_children_fetched state
             tuples: List[Tuple[int, bool]] = []
@@ -251,6 +250,17 @@ class GDriveTreeLoader:
         logger.debug(f'Found {count_found} GDrive orphans')
 
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
+
+    @staticmethod
+    def _call_after_tree_loaded(_this_task, tree: GDriveWholeTree, cache_info, after_tree_loaded_func):
+        if not cache_info.is_loaded:
+            logger.debug(f'Looks like tree did not finish loading; will not call after_tree_loaded func')
+            return
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Calling after_tree_loaded func ({after_tree_loaded_func}) async')
+        after_tree_loaded_func(tree)
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'The after_tree_loaded func returned')
 
     def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, Optional[UID], str, int]]) -> List[Tuple]:
         """Fills in the parent_uid field ([1]) based on the parent's goog_id ([2]) for each downloaded mapping"""

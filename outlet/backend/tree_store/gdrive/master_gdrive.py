@@ -373,8 +373,6 @@ class GDriveMasterStore(TreeStore):
 
         folder.all_children_fetched = True
 
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'fetch_and_merge_child_nodes_for_parent(): locked={self._struct_lock.locked()}')
         # This will write into the memory & disk caches, and notify FEs of updates
         self._execute_write_op(RefreshFolderOp(self.backend, folder, child_list))
 

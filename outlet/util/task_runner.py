@@ -34,7 +34,7 @@ class Task:
 
     def run(self):
         self.task_start_time_ms = time_util.now_ms()
-        logger.info(f'Task starting: "{self.task_func.__name__}" args={self._args}')
+        logger.info(f'Task starting ({self.priority.name}): {self.task_func.__name__}{self._args}')
         task_time = Stopwatch()  # TODO: maybe just use task_start_time_ms and get rid of this var
         try:
             if not self._args or len(self._args) == 0:
