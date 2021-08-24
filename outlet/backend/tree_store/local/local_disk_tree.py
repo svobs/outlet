@@ -74,7 +74,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                 assert isinstance(child, LocalNode)
                 child.set_is_live(node.is_live())
             else:
-                assert False, f'For old={child}, new={node}, path_segments={path_segments}'
+                raise RuntimeError(f'New node is not a dir node! old={child}, new={node}, path_segments={path_segments}')
         else:
             if not parent:
                 logger.error(f'Parent is None for node: {node}')

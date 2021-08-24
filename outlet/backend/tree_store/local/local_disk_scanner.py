@@ -93,7 +93,7 @@ class LocalDiskScanner:
         except OSError as error:
             if onerror is not None:
                 onerror(error)
-            return
+            return [], []
 
         with scandir_it:
             while True:
@@ -105,7 +105,7 @@ class LocalDiskScanner:
                 except OSError as error:
                     if onerror is not None:
                         onerror(error)
-                    return
+                    return [], []
 
                 try:
                     is_dir = entry.is_dir()
@@ -119,7 +119,8 @@ class LocalDiskScanner:
                 else:
                     nondirs.append(os.path.join(target_dir, entry.name))
 
-        yield dirs, nondirs
+        logger.debug(f'_list_dir_entries(): returning {len(dirs)} dirs, {len(nondirs)} nondirs')
+        return dirs, nondirs
 
     def start_recursive_scan(self, this_task: Task):
         if not os.path.exists(self.root_node_identifier.get_single_path()):
@@ -167,17 +168,22 @@ class LocalDiskScanner:
     def scan_single_dir(self, target_dir: str) -> List[LocalNode]:
         logger.debug(f'Scanning & building nodes for dir: "{target_dir}"')
 
-        on_error = None
-        dir_list, nondir_list = LocalDiskScanner._list_dir_entries(target_dir, on_error)
+        def on_error(error):
+            logger.error(f'An error occured listing dir entries: {error}')
+
+        (dir_list, nondir_list) = LocalDiskScanner._list_dir_entries(target_dir, onerror=on_error)
 
         child_node_list = []
 
         # DIRS
         self._dir_queue += dir_list
         for child_dir_path in dir_list:
+            logger.debug(f'[{self.tree_id}] Adding scanned dir: {child_dir_path}')
             dir_node: LocalDirNode = self.cacheman.get_node_for_local_path(child_dir_path)
             if dir_node:
-                # logger.debug(f'[{self.tree_id}] Found existing dir node: {dir_node.node_identifier}')
+                if not dir_node.is_dir():
+                    # FIXME: handle this
+                    raise RuntimeError(f'Expected dir node from cache but found: {dir_node}')
                 dir_node.set_is_live(True)
             else:
                 dir_node = self.cacheman.build_local_dir_node(child_dir_path, is_live=True, all_children_fetched=True)
@@ -188,6 +194,7 @@ class LocalDiskScanner:
         # FIXME: handle symlinks
         # FILES
         for child_file_path in nondir_list:
+            logger.debug(f'[{self.tree_id}] Adding scanned file: {child_file_path}')
             file_node = self.cacheman.build_local_file_node(full_path=child_file_path)
             if file_node:
                 child_node_list.append(file_node)

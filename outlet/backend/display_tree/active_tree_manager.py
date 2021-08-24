@@ -405,7 +405,7 @@ class ActiveTreeManager(HasLifecycle):
             else:
                 logger.debug(f'[{sender_tree_id}] DisplayTree root node not found in cache')
         except RuntimeError as e:
-            logger.error(f'[{sender_tree_id}] Could not retrieve DisplayTree root node (will try to recover): {spid} (error={e})')
+            logger.warning(f'[{sender_tree_id}] Could not retrieve DisplayTree root node (will try to recover): {spid} (error: {e})')
             node = None
 
         if spid.tree_type == TreeType.LOCAL_DISK:

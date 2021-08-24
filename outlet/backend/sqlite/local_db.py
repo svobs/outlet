@@ -92,6 +92,7 @@ class LocalDiskDatabase(MetaDatabase):
         self.table_local_file.upsert_object(node, commit=commit)
 
     def upsert_local_file_list(self, file_list: List[LocalFileNode], commit=True):
+        self.table_local_file.create_table_if_not_exist(commit=False)
         self.table_local_file.upsert_object_list(file_list, commit=commit)
 
     def delete_local_file_with_uid(self, uid: UID, commit=True):
@@ -132,6 +133,7 @@ class LocalDiskDatabase(MetaDatabase):
         self.table_local_dir.upsert_object(node, commit=commit)
 
     def upsert_local_dir_list(self, dir_list: List[LocalDirNode], commit=True):
+        self.table_local_dir.create_table_if_not_exist(commit=False)
         self.table_local_dir.upsert_object_list(dir_list, commit=commit)
 
     def delete_local_dir_with_uid(self, uid: UID, commit=True):
@@ -155,9 +157,11 @@ class LocalDiskDatabase(MetaDatabase):
     def upsert_single_node(self, node: LocalNode, commit=True):
         if node.is_dir():
             assert isinstance(node, LocalDirNode)
+            self.table_local_dir.create_table_if_not_exist(commit=False)
             self.upsert_local_dir(node, commit)
         else:
             assert isinstance(node, LocalFileNode)
+            self.table_local_file.create_table_if_not_exist(commit=False)
             self.upsert_local_file(node, commit)
 
     def delete_single_node(self, node: LocalNode, commit=True):

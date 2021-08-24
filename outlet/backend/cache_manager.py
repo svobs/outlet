@@ -1325,7 +1325,10 @@ class CacheManager(HasLifecycle):
             else:
                 if store.device.uid == self._this_disk_local_store.device_uid:
                     # Local disk? Scan and add to cache
-                    node = self.build_local_file_node(full_path)
+                    if os.path.isdir(full_path):
+                        node = self.build_local_dir_node(full_path)
+                    else:
+                        node = self.build_local_file_node(full_path)
                     self.upsert_single_node(node)
                     return node
                 else:

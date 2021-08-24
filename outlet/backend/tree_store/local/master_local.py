@@ -167,31 +167,30 @@ class LocalDiskMasterStore(TreeStore):
 
         # Get children of target parent, and sort into dirs and nondirs:
         # Files can be removed in the main RefreshDirEntriesOp op, but dirs represent tress so we will create a DeleteSubtreeOp for each.
-        existing_child_dict: Dict[UID, LocalNode] = {}
-        for existing_child_sn in self._get_child_list_from_cache_for_spid(parent_spid):
-            # don't need SPIDs; just unwrap the node from the pair:
-            existing_child_dict[existing_child_sn.node.uid] = existing_child_sn.node
-
-        for new_child in child_list:
-            existing_child_dict.pop(new_child.uid, None)
-
-        dir_node_remove_list = []
         file_node_remove_list = []
-        for node_to_remove in existing_child_dict.values():
-            if node_to_remove.is_live():  # ignore nodes which are not live (i.e. pending op nodes)
-                if node_to_remove.is_dir():
-                    dir_node_remove_list.append(node_to_remove)
-                else:
-                    file_node_remove_list.append(node_to_remove)
+        existing_child_list = self._get_child_list_from_cache_for_spid(parent_spid)
+        if existing_child_list:
+            existing_child_dict: Dict[UID, LocalNode] = {}
+            for existing_child_sn in existing_child_list:
+                # don't need SPIDs; just unwrap the node from the pair:
+                existing_child_dict[existing_child_sn.node.uid] = existing_child_sn.node
 
-        remove_op_list = []
-        for dir_node in dir_node_remove_list:
-            self.remove_subtree(dir_node, to_trash=False)
+            for new_child in child_list:
+                existing_child_dict.pop(new_child.uid, None)
+
+            dir_node_remove_list = []
+            for node_to_remove in existing_child_dict.values():
+                if node_to_remove.is_live():  # ignore nodes which are not live (i.e. pending op nodes)
+                    if node_to_remove.is_dir():
+                        dir_node_remove_list.append(node_to_remove)
+                    else:
+                        file_node_remove_list.append(node_to_remove)
+
+            for dir_node in dir_node_remove_list:
+                self.remove_subtree(dir_node, to_trash=False)
 
         with self._struct_lock:
             self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=file_node_remove_list))
-            for remove_op in remove_op_list:
-                self._execute_write_op(remove_op)
 
     def _resync_with_file_system(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
@@ -765,6 +764,9 @@ class LocalDiskMasterStore(TreeStore):
     def build_local_dir_node(self, full_path: str, is_live: bool, all_children_fetched: bool) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
 
+        if not os.path.isdir(full_path):
+            raise RuntimeError(f'build_local_dir_node(): path is not a dir: {full_path}')
+
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
         return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path), parent_uid=parent_uid,
@@ -775,6 +777,9 @@ class LocalDiskMasterStore(TreeStore):
 
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
+
+        if os.path.isdir(full_path):
+            raise RuntimeError(f'build_local_file_node(): path is actually a dir: {full_path}')
 
         # Check for broken links:
         if os.path.islink(full_path):
