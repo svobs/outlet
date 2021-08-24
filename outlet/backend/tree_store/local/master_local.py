@@ -629,33 +629,29 @@ class LocalDiskMasterStore(TreeStore):
     def _get_child_list_from_cache_for_spid(self, parent_spid: LocalNodeIdentifier) -> Optional[List[SPIDNodePair]]:
         """Searches in-memory cache, followed by disk cache, for children of the given SPID. Returns None if parent not found in either cache"""
 
-        # 1. Use in-memory cache if it exists:
-        parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
-        if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
-            try:
-                return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
-            except NodeNotPresentError as e:
-                # In-memory cache miss. Try seeing if the relevant cache is loaded:
-                logger.debug(f'Could not find node in in-memory cache: {parent_spid}')
-                pass
-        else:
-            # in-memory cache miss
-            logger.debug(f'In-memory cache miss (cache returned parent_node: {parent_node})')
-
-        # 2. Read from disk cache if it exists:
         cache_info: Optional[PersistedCacheInfo] = \
             self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
         if cache_info:
             if cache_info.is_loaded:
-                # something is probably wrong, or node truly doesn't exist
-                logger.warning(f'Could not find node in in-memory subtree but cache claims it is laoded: "{parent_spid}"')
+                # 1. Use in-memory cache if it exists:
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Using in-memory cache: {parent_spid}')
+                parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
+                if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
+                    try:
+                        return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
+                    except NodeNotPresentError as e:
+                        # In-memory cache miss. Try seeing if the relevant cache is loaded:
+                        logger.debug(f'Could not find node in in-memory cache: {parent_spid}')
+                        pass
+            else:
+                # 2. Read from disk cache if it exists:
+                logger.debug(f'In-memory cache miss; trying disk cache: {parent_spid}')
+                with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
+                    parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
+                    if parent_dir and parent_dir.is_dir() and parent_dir.all_children_fetched:
+                        return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
 
-            with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-                parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
-                if parent_dir and parent_dir.is_dir() and parent_dir.all_children_fetched:
-                    return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
-
-        # both caches miss
+        logger.debug(f'_get_child_list_from_cache_for_spid(): both in-memory and disk caches missed: {parent_spid}')
         return None
 
     def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
@@ -713,15 +709,7 @@ class LocalDiskMasterStore(TreeStore):
             logger.debug(f'Cannot retrieve node (UID={uid}): could not get full_path for node: {err}')
             return None
 
-        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
-        if not cache_info:
-            logger.debug(f'Could not find cache containing path: "{full_path}"')
-            return None
-        if cache_info.is_complete and not cache_info.is_loaded:
-            raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}): LocalDisk cache not loaded!')
-
-        # simply not found:
-        return None
+        return self.read_single_node_for_path(full_path)
 
     def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
         parent_node = self.get_single_parent_for_node(node)
