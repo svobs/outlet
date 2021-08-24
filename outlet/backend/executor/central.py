@@ -150,6 +150,18 @@ class CentralExecutor(HasLifecycle):
 
             return EngineSummaryState.GREEN
 
+    def is_task_or_descendent_running(self, task_uuid: UUID) -> bool:
+        with self._running_task_cv:
+            if self._running_task_dict.get(task_uuid, None):
+                logger.debug(f'is_task_or_descendent_running(): task is still running: {task_uuid}')
+                return True
+            if self._parent_child_task_dict.get(task_uuid, None):
+                logger.debug(f'is_task_or_descendent_running(): task is still waiting on descdendent to complete: {task_uuid}')
+                return True
+            else:
+                logger.debug(f'is_task_or_descendent_running(): task is NOT running: {task_uuid}')
+                return False
+
     # Central Executor Thread
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     def _run_central_exec_thread(self):
