@@ -3,6 +3,9 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from model.node.gdrive_node import GDriveNode
+from util import time_util
+from util.stopwatch_sec import Stopwatch
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +80,14 @@ class GDriveChangeObserver(ABC):
     Observer interface, to be implemented with various strategies for processing downloaded Google Drive query results.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, new_start_token):
+    def __init__(self, new_start_token, parent_task: Task):
         self.new_start_token: Optional[str] = new_start_token
         """This needs to be updated, so that our download will be updated!"""
+
+        self.item_count: int = 0
+        self.page_count: int = 0
+        self.sync_ts = time_util.now_sec()
+        self.parent_task: Task = parent_task
 
     @abstractmethod
     def change_received(self, change: GDriveChange, item):
@@ -99,17 +107,26 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
     See: GDriveMasterStore.sync_latest_changes()
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, gdrive_store, new_start_token):
-        super().__init__(new_start_token)
+    def __init__(self, gdrive_store, new_start_token, parent_task: Task):
+        super().__init__(new_start_token, parent_task)
         self.gdrive_store = gdrive_store
         self.change_list: List[GDriveChange] = []
-        self.total_change_count = 0
+
+        self.stopwatch_retrieval = Stopwatch()
 
     def change_received(self, change: GDriveChange, item):
+        self.item_count += 1
         self.change_list.append(change)
 
     def end_of_page(self):
-        self.total_change_count += len(self.change_list)
-        logger.debug(f'End of page: sending {len(self.change_list)} changes to cacheman (total count: {self.total_change_count})')
+        self.page_count += 1
+        logger.debug(f'End of page {self.page_count}: sending {len(self.change_list)} changes to cacheman (total count: {self.item_count})')
         self.gdrive_store.apply_gdrive_changes(self.change_list, self.new_start_token)
         self.change_list.clear()
+
+        if not self.new_start_token:
+            if self.item_count:
+                msg = f'Synced a total of {self.item_count} GDrive changes from server'
+            else:
+                msg = f'No GDrive changes on server: cache is up-to-date'
+            logger.info(f'{self.stopwatch_retrieval} {msg}')

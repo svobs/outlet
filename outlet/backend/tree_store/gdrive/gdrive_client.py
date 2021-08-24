@@ -73,6 +73,7 @@ class GDriveClient(HasLifecycle):
     CLASS GDriveClient
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, gdrive_store, device_uid: UID, tree_id=None):
         HasLifecycle.__init__(self)
         self.backend = backend
@@ -95,7 +96,7 @@ class GDriveClient(HasLifecycle):
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
-        
+
         if self.service:
             self.service = None
 
@@ -278,7 +279,8 @@ class GDriveClient(HasLifecycle):
 
         return goog_node
 
-    def _exec_single_request(self, this_task: Optional[Task], make_request_func: Callable[[QueryRequestState], None], request_state: QueryRequestState):
+    def _exec_single_page_request(self, this_task: Optional[Task], make_request_func: Callable[[QueryRequestState], None],
+                                  request_state: QueryRequestState):
         binded_request = partial(make_request_func, request_state)
         results: dict = GDriveClient._try_repeatedly(binded_request)
 
@@ -290,23 +292,24 @@ class GDriveClient(HasLifecycle):
             raise RuntimeError(f'Results are incomplete! (page {request_state.page_count}, token {request_state.page_token})')
 
         items: list = results.get('files', [])
-        if items:
-            msg = f'Received {len(items)} items'
-            logger.debug(msg)
-            if self.tree_id:
-                dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
-
-            for item in items:
-                mime_type = item['mimeType']
-                if mime_type == MIME_TYPE_FOLDER:
-                    goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=request_state.sync_ts)
-                else:
-                    goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=request_state.sync_ts)
-
-                request_state.observer.node_received(goog_node, item)
-                request_state.item_count += 1
-        else:
+        if not items:
             logger.debug('Request returned no files')
+            return
+
+        msg = f'Received {len(items)} items'
+        logger.debug(msg)
+        if self.tree_id:
+            dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
+        for item in items:
+            mime_type = item['mimeType']
+            if mime_type == MIME_TYPE_FOLDER:
+                goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=request_state.sync_ts)
+            else:
+                goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=request_state.sync_ts)
+
+            request_state.observer.node_received(goog_node, item)
+            request_state.item_count += 1
 
         request_state.page_token = results.get('nextPageToken')
 
@@ -316,11 +319,11 @@ class GDriveClient(HasLifecycle):
             logger.debug(f'{request_state.stopwatch_retrieval} Done. Query returned {request_state.item_count} nodes')
         elif request_state.parent_task:
             # essentially loop, with each loop being scheduled through the Central Executor as a child task of the parent:
-            next_child_task = request_state.parent_task.create_child_task(self._exec_single_request, make_request_func, request_state)
+            next_child_task = request_state.parent_task.create_child_task(self._exec_single_page_request, make_request_func, request_state)
             self.backend.executor.submit_async_task(next_child_task)
 
-    def _execute_query(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver,
-                       this_task: Optional[Task] = None):
+    def _execute_files_query(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: GDriveQueryObserver,
+                             this_task: Optional[Task] = None):
         """Gets a list of files and/or folders which match the query criteria."""
 
         # Google Drive only; not backend data or Google Photos:
@@ -347,11 +350,11 @@ class GDriveClient(HasLifecycle):
 
         if this_task:
             # Kick off first request as a child task:
-            next_child_task = request_state.parent_task.create_child_task(self._exec_single_request, make_request, request_state)
+            next_child_task = request_state.parent_task.create_child_task(self._exec_single_page_request, make_request, request_state)
             self.backend.executor.submit_async_task(next_child_task)
         else:
             while True:
-                self._exec_single_request(None, make_request, request_state)
+                self._exec_single_page_request(None, make_request, request_state)
                 if not request_state.page_token:
                     logger.debug('Done!')
                     break
@@ -415,7 +418,7 @@ class GDriveClient(HasLifecycle):
 
         sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
-        self._execute_query(query, fields, None, sync_ts, observer)
+        self._execute_files_query(query, fields, None, sync_ts, observer)
         return observer.nodes
 
     def get_all_children_for_parent(self, parent_goog_id: str) -> List[GDriveNode]:
@@ -430,7 +433,7 @@ class GDriveClient(HasLifecycle):
 
         sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
-        self._execute_query(query, fields, None, sync_ts, observer)
+        self._execute_files_query(query, fields, None, sync_ts, observer)
         return observer.nodes
 
     def get_single_node_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
@@ -460,7 +463,7 @@ class GDriveClient(HasLifecycle):
 
         sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
-        self._execute_query(query, fields, None, sync_ts, observer)
+        self._execute_files_query(query, fields, None, sync_ts, observer)
 
         return observer
 
@@ -533,7 +536,7 @@ class GDriveClient(HasLifecycle):
 
         sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
-        self._execute_query(query, fields, None, sync_ts, observer)
+        self._execute_files_query(query, fields, None, sync_ts, observer)
 
         return observer
 
@@ -544,7 +547,7 @@ class GDriveClient(HasLifecycle):
 
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
 
-        return self._execute_query(query, fields, initial_page_token, sync_ts, observer, this_task)
+        return self._execute_files_query(query, fields, initial_page_token, sync_ts, observer, this_task)
 
     def copy_existing_file(self, src_goog_id: str, new_name: str, new_parent_goog_ids: List[str]) -> Optional[GDriveNode]:
         if not src_goog_id:
@@ -588,7 +591,7 @@ class GDriveClient(HasLifecycle):
         """
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FOLDER_FIELDS}, parents)'
 
-        self._execute_query(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer, this_task)
+        self._execute_files_query(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer, this_task)
 
     def get_folders_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = f"{QUERY_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
@@ -596,7 +599,7 @@ class GDriveClient(HasLifecycle):
 
         sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
-        self._execute_query(query, fields, None, sync_ts, observer)
+        self._execute_files_query(query, fields, None, sync_ts, observer)
         return observer
 
     def create_folder(self, name: str, parent_goog_ids: List[str], uid: UID) -> GDriveFolder:
@@ -766,83 +769,78 @@ class GDriveClient(HasLifecycle):
         logger.debug(f'Got token: "{token}"')
         return token
 
-    def get_changes_list(self, sync_ts: int, observer: GDriveChangeObserver):
+    def _get_one_page_of_changes(self, this_task: Task, make_request_func: Callable[[GDriveChangeObserver], None], observer: GDriveChangeObserver):
+        binded_request = partial(make_request_func, observer)
+        response_dict: dict = GDriveClient._try_repeatedly(binded_request)
+
+        # TODO: how will we know if the token is invalid?
+
+        items: list = response_dict.get('changes', [])
+        if not items:
+            logger.debug('Request returned no changes')
+            observer.new_start_token = response_dict.get('newStartPageToken', None)
+            return
+
+        msg = f'Received {len(items)} changes'
+        logger.debug(msg)
+        if self.tree_id:
+            dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
+        for item in items:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'CHANGE: {item}')
+
+            goog_id = item['fileId']
+            change_ts = item['time']
+
+            is_removed = item['removed']
+            if is_removed:
+                # Fill in node for removal change;
+                node = self.gdrive_store.get_node_for_goog_id(goog_id)
+                change: GDriveRM = GDriveRM(change_ts, goog_id, node)
+            else:
+                if item['changeType'] == 'file':
+                    file = item['file']
+                    mime_type = file['mimeType']
+                    if mime_type == MIME_TYPE_FOLDER:
+                        goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(file, sync_ts=observer.sync_ts)
+                    else:
+                        goog_node: GDriveFile = self._convert_dict_to_gdrive_file(file, sync_ts=observer.sync_ts)
+                    change: GDriveNodeChange = GDriveNodeChange(change_ts, goog_id, goog_node)
+                else:
+                    logger.error(f'Strange item: {item}')
+                    raise RuntimeError(f'is_removed==true but changeType is not "file" (got "{item["changeType"]}" instead')
+
+            observer.change_received(change, item)
+
+        observer.new_start_token = response_dict.get('nextPageToken', None)
+
+        observer.end_of_page()
+
+        if observer.new_start_token:
+            next_child_task = observer.parent_task.create_child_task(self._get_one_page_of_changes, make_request_func, observer)
+            self.backend.executor.submit_async_task(next_child_task)
+
+    def get_changes_list(self, observer: GDriveChangeObserver):
         logger.debug(f'Sending request to get changes from start_page_token: "{observer.new_start_token}"')
 
         # Google Drive only; not backend data or Google Photos:
         spaces = 'drive'
 
-        def request():
-            m = f'Sending request for changes, page {request.page_count} (token: {observer.new_start_token})...'
+        def make_request_func(_observer: GDriveChangeObserver):
+            m = f'Sending request for changes, page {_observer.page_count} (token: {_observer.new_start_token})...'
             logger.debug(m)
             if self.tree_id:
                 dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
-            response = self.service.changes().list(pageToken=observer.new_start_token, fields=f'nextPageToken, newStartPageToken, '
-                                                                                        f'changes(changeType, time, removed, fileId, driveId, '
-                                                                                        f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
+            response = self.service.changes().list(pageToken=_observer.new_start_token, fields=f'nextPageToken, newStartPageToken, '
+                                                                                               f'changes(changeType, time, removed, fileId, driveId, '
+                                                                                               f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
                                                    # include changes from shared drives
                                                    includeItemsFromAllDrives=True, supportsAllDrives=True,
                                                    pageSize=self.page_size).execute()
-            request.page_count += 1
             return response
 
-        request.page_count = 0
-
-        stopwatch_retrieval = Stopwatch()
-
-        count: int = 0
-        while True:
-            response_dict: dict = GDriveClient._try_repeatedly(request)
-
-            # TODO: how will we know if the token is invalid?
-
-            items: list = response_dict.get('changes', [])
-            if not items:
-                logger.debug('Request returned no changes')
-                observer.new_start_token = response_dict.get('newStartPageToken', None)
-                break
-
-            count += len(items)
-            msg = f'Received {len(items)} changes'
-            logger.debug(msg)
-            if self.tree_id:
-                dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
-
-            for item in items:
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'CHANGE: {item}')
-
-                goog_id = item['fileId']
-                change_ts = item['time']
-
-                is_removed = item['removed']
-                if is_removed:
-                    # Fill in node for removal change;
-                    node = self.gdrive_store.get_node_for_goog_id(goog_id)
-                    change: GDriveRM = GDriveRM(change_ts, goog_id, node)
-                else:
-                    if item['changeType'] == 'file':
-                        file = item['file']
-                        mime_type = file['mimeType']
-                        if mime_type == MIME_TYPE_FOLDER:
-                            goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(file, sync_ts=sync_ts)
-                        else:
-                            goog_node: GDriveFile = self._convert_dict_to_gdrive_file(file, sync_ts=sync_ts)
-                        change: GDriveNodeChange = GDriveNodeChange(change_ts, goog_id, goog_node)
-                    else:
-                        logger.error(f'Strange item: {item}')
-                        raise RuntimeError(f'is_removed==true but changeType is not "file" (got "{item["changeType"]}" instead')
-
-                observer.change_received(change, item)
-
-            observer.new_start_token = response_dict.get('nextPageToken', None)
-
-            observer.end_of_page()
-
-            if not observer.new_start_token:
-                break
-
-        logger.debug(f'{stopwatch_retrieval} Requests returned {count} changes '
-                     f'(newStartPageToken="{observer.new_start_token}")')
+        next_child_task = observer.parent_task.create_child_task(self._get_one_page_of_changes, make_request_func, observer)
+        self.backend.executor.submit_async_task(next_child_task)

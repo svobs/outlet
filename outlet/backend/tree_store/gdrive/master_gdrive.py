@@ -276,27 +276,20 @@ class GDriveMasterStore(TreeStore):
         if not changes_download:
             raise RuntimeError(f'Download state not found for GDrive change log!')
 
-        sw = Stopwatch()
-
         if not changes_download.page_token:
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
-        # FIXME: break each page into a separate task, so there is no delay
-        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self, changes_download.page_token)
-        sync_ts = time_util.now_sec()
-        self.gdrive_client.get_changes_list(sync_ts, observer)
+        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self, changes_download.page_token, parent_task=this_task)
+        self.gdrive_client.get_changes_list(observer)
 
-        if observer.total_change_count:
-            msg = f'Synced a total of {observer.total_change_count} GDrive changes from server'
-        else:
-            msg = f'No GDrive changes on server: cache is up-to-date'
-        logger.info(f'{sw} {msg}')
+        def do_another_sync_if_requested(_this_task: Task):
+            if self._another_sync_requested:
+                logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
+                self._another_sync_requested = False
+                self._sync_latest_changes(_this_task)
 
-        if self._another_sync_requested:
-            logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
-            self._another_sync_requested = False
-            self._sync_latest_changes(this_task)
+        this_task.add_next_task(do_another_sync_if_requested)
 
     # Action listener callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

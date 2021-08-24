@@ -61,7 +61,7 @@ class LocalDirNode(LocalNode):
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool, all_children_fetched: bool):
         LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
         self.dir_stats: Optional[DirectoryStats] = None
-        self.all_children_fetched: bool = all_children_fetched
+        self.all_children_fetched: bool = ensure_bool(all_children_fetched)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
