@@ -157,10 +157,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                         if signal_queue is None:
                             logger.debug(f'Looks like  ThreadID {thread_id} signal subscription ended (queue is not there). Cleaning up our end.')
                             return
+
                         if len(signal_queue) > 0:
                             signal: Optional[SignalMsg] = signal_queue.popleft()
                         else:
                             logger.debug(f'Signal queue for ThreadID {thread_id} emptied. Will wait for more signals')
+                            signal = None
                             self._cv_has_signal.wait()
 
                     if signal:
