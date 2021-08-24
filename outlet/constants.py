@@ -254,6 +254,8 @@ BTN_LOCAL_DISK_MACOS = 'localdisk-macos-btn'
 BTN_LOCAL_DISK_WINDOWS = 'localdisk-win-btn'
 BTN_GDRIVE = 'gdrive-btn'
 
+ICON_LOADING = 'loading'
+
 
 class IconId(IntEnum):
     """Used for identifying icons in a more compact way, mainly for serialization for RPC"""
@@ -302,6 +304,8 @@ class IconId(IntEnum):
     BTN_LOCAL_DISK_MACOS = 42
     BTN_LOCAL_DISK_WINDOWS = 43
     BTN_GDRIVE = 44
+
+    ICON_LOADING = 50
 
     BADGE_RM = 100
     BADGE_MV_SRC = 101
