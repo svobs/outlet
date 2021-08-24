@@ -1302,7 +1302,7 @@ class CacheManager(HasLifecycle):
     def read_single_node(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
         store = self._get_store_for_device_uid(spid.device_uid)
 
-        # Use memory cache instead if available
+        # Use in-memory cache if available:
         try:
             node: Node = store.get_node_for_uid(spid.node_uid)
             if node:
@@ -1318,12 +1318,31 @@ class CacheManager(HasLifecycle):
                 logger.debug(f'Normalized path: {full_path}')
 
             assert isinstance(store, LocalDiskMasterStore)
-            return store.read_single_node_for_path(full_path)
+            node = store.read_single_node_for_path(full_path)
+            if node:
+                return node
+            else:
+                if store.device.uid == self._this_disk_local_store.device_uid:
+                    # Local disk? Scan and add to cache
+                    node = self.build_local_file_node(full_path)
+                    self.upsert_single_node(node)
+                    return node
+                else:
+                    # out of luck
+                    return None
 
         elif spid.tree_type == TreeType.GDRIVE:
             assert isinstance(store, GDriveMasterStore)
-            return store.read_single_node_from_disk_for_uid(spid.node_uid)
+            node = store.read_single_node_from_disk_for_uid(spid.node_uid)
+            if node:
+                return node
+            else:
+                # try to recover the goog_id from the UID database
+                goog_id = store.get_goog_id_for_uid(spid.node_uid)
+                node: Optional[GDriveNode] = store.gdrive_client.get_existing_node_by_id(goog_id)
+                if node:
+                    return node
+                else:
+                    return None
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
-
-        # FIXME: read from network or scan disk

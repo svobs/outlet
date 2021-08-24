@@ -399,14 +399,13 @@ class ActiveTreeManager(HasLifecycle):
 
         # Try to retrieve the root node from the cache:
         try:
-            # FIXME: make more robust by adding read-through
             node: Optional[Node] = self.backend.cacheman.read_single_node(spid)
             if node:
                 logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
             else:
                 logger.debug(f'[{sender_tree_id}] DisplayTree root node not found in cache')
-        except RuntimeError:
-            logger.error(f'[{sender_tree_id}] Could not retrieve DisplayTree root node (will try to recover): {spid}')
+        except RuntimeError as e:
+            logger.error(f'[{sender_tree_id}] Could not retrieve DisplayTree root node (will try to recover): {spid} (error={e})')
             node = None
 
         if spid.tree_type == TreeType.LOCAL_DISK:
@@ -491,7 +490,7 @@ class ActiveTreeManager(HasLifecycle):
             full_path = file_util.normalize_path(full_path)
             if tree_type == TreeType.GDRIVE:
                 # Need to wait until all caches are loaded:
-                self.backend.cacheman.wait_for_startup_done()
+                # self.backend.cacheman.wait_for_startup_done()
                 # this will load the GDrive master tree if needed:
                 raise RuntimeError
                 # FIXME: we don't want to have to load the entire GDrive tree at startup!

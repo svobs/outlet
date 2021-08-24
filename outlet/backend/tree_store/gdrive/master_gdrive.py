@@ -520,10 +520,11 @@ class GDriveMasterStore(TreeStore):
                             GDRIVE_ME_USER_UID, None, False, None, sync_ts=sync_ts, all_children_fetched=False)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
-        node = self.get_node_for_uid(uid)
-        if node:
-            return node.goog_id
-        return None
+        try:
+            return self._uid_mapper.get_goog_id_for_uid(uid)
+        except RuntimeError as e:
+            logger.debug(f'get_goog_id_for_uid(): error getting value for UID {uid}: {e}')
+            return None
 
     def to_sn(self, node: GDriveNode, single_path: str) -> SPIDNodePair:
         spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid, tree_type=node.tree_type,

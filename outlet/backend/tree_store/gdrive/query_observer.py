@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 import logging
@@ -130,6 +131,9 @@ class FolderMetaPersister(GDriveQueryObserver):
             self.folder_list = []
             self.id_parent_mappings = []
 
+        # yield to other threads
+        time.sleep(0)
+
 
 class FileMetaPersister(GDriveQueryObserver):
     """
@@ -174,6 +178,9 @@ class FileMetaPersister(GDriveQueryObserver):
             # Clear the buffers for reuse:
             self.file_list = []
             self.id_parent_mappings = []
+
+        # yield to other threads
+        time.sleep(0)
 
 
 def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: int) -> List[Tuple[UID, Optional[UID], str, int]]:

@@ -1,4 +1,5 @@
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -130,3 +131,6 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
             else:
                 msg = f'No GDrive changes on server: cache is up-to-date'
             logger.info(f'{self.stopwatch_retrieval} {msg}')
+
+        # yield to other threads
+        time.sleep(0)
