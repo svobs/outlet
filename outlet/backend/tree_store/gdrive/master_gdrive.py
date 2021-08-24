@@ -207,6 +207,10 @@ class GDriveMasterStore(TreeStore):
             logger.exception(err)
             GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
 
+    def load_and_sync_master_tree(self, this_task: Task, invalidate_cache: bool = False):
+        """This will sync the latest changes as child tasks."""
+        self._load_master_cache(this_task=this_task, sync_latest_changes=True, invalidate_cache=invalidate_cache)
+
     def _load_master_cache(self, this_task: Task, invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
 
@@ -246,12 +250,14 @@ class GDriveMasterStore(TreeStore):
 
                     logger.info(f'{stopwatch_total} GDrive master tree loaded')
 
-                this_task.create_child_task(self.tree_loader.load_all, invalidate_cache, _after_tree_loaded)
+                load_all_task = this_task.create_child_task(self.tree_loader.load_all, invalidate_cache, _after_tree_loaded)
+                self.backend.executor.submit_async_task(load_all_task)
             else:
                 logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
 
             if sync_latest_changes:
-                this_task.create_child_task(self._sync_latest_changes)
+                sync_changes_task = this_task.create_child_task(self._sync_latest_changes)
+                self.backend.executor.submit_async_task(sync_changes_task)
 
         except Exception:
             self._load_master_cache_in_process_task_uuid = None
@@ -259,7 +265,7 @@ class GDriveMasterStore(TreeStore):
             raise
 
     @ensure_locked
-    def _sync_latest_changes(self):
+    def _sync_latest_changes(self, this_task: Task):
         logger.debug(f'Entered sync_latest_changes(): locked={self._struct_lock.locked()}')
 
         if not self._memstore.master_tree:
@@ -290,7 +296,7 @@ class GDriveMasterStore(TreeStore):
         if self._another_sync_requested:
             logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
             self._another_sync_requested = False
-            self._sync_latest_changes()
+            self._sync_latest_changes(this_task)
 
     # Action listener callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -317,10 +323,6 @@ class GDriveMasterStore(TreeStore):
     def is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
         # very easy: either our whole cache is loaded or it is not
         return self._memstore.master_tree is not None
-
-    def load_and_sync_master_tree(self, this_task: Task, invalidate_cache: bool = False):
-        """This will sync the latest changes as child tasks."""
-        self._load_master_cache(this_task=this_task, sync_latest_changes=True, invalidate_cache=invalidate_cache)
 
     @ensure_locked
     def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:

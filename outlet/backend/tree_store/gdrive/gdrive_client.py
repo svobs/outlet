@@ -287,7 +287,7 @@ class GDriveClient(HasLifecycle):
         if results.get('incompleteSearch', False):
             # Not clear when this would happen, but fail fast if so.
             # If executing via the Central Executor, this will be caught and reported (and task.on_error() called if it exists)
-            raise RuntimeError(f'Results are incomplete! (page {request_state.page_count})')
+            raise RuntimeError(f'Results are incomplete! (page {request_state.page_count}, token {request_state.page_token})')
 
         items: list = results.get('files', [])
         if items:

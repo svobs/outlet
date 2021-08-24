@@ -142,13 +142,13 @@ class GDriveFolder(GDriveNode):
                             shared_by_user_uid, sync_ts)
         self.dir_stats: Optional[DirectoryStats] = None
 
-        self.all_children_fetched: bool = all_children_fetched
+        self.all_children_fetched: bool = ensure_bool(all_children_fetched)
         """If true, all its children have been fetched from Google"""
 
     def __repr__(self):
         return f'GDriveFolder(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} ' \
                f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self._is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
-               f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched}]'
+               f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} all_children_fetched={self.all_children_fetched}]'
 
     def update_from(self, other_node):
         if not isinstance(other_node, GDriveFolder):
