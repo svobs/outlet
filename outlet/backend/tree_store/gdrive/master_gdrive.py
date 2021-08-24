@@ -429,7 +429,7 @@ class GDriveMasterStore(TreeStore):
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
+    def download_file_from_gdrive(self, this_task: Task, node_uid: UID, requestor_id: str):
         node: GDriveNode = self.get_node_for_uid(node_uid)
         if not node:
             raise RuntimeError(f'Could not download file from GDrive: node with UID not found: {node_uid}')
