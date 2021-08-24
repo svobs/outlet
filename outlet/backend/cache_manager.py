@@ -566,7 +566,7 @@ class CacheManager(HasLifecycle):
         self.wait_for_startup_done()
 
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self.backend.executor.submit_async_task(Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, self.load_data_for_display_tree, tree_id, send_signals))
+        self.backend.executor.submit_async_task(Task(ExecPriority.P0_USER_LOAD, self.load_data_for_display_tree, tree_id, send_signals))
 
     def load_data_for_display_tree(self, this_task: Task, tree_id: TreeID, send_signals: bool):
         """
@@ -589,13 +589,6 @@ class CacheManager(HasLifecycle):
             logger.info(f'[{tree_id}] Display tree is no longer tracked; discarding data load')
             return
 
-        # Transition: Load State = LOAD_STARTED
-        tree_meta.load_state = TreeLoadState.LOAD_STARTED
-        if send_signals:
-            # This will be carried across gRPC if needed
-            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.LOAD_STARTED, status_msg='Loading...')
-
         # Load and bring up-to-date expanded & selected rows:
         self._row_state_tracking.load_rows_of_interest(tree_id)
 
@@ -607,8 +600,16 @@ class CacheManager(HasLifecycle):
 
             # fall through
 
+        # Transition: Load State = LOAD_STARTED
+        tree_meta.load_state = TreeLoadState.LOAD_STARTED
+        if send_signals:
+            # This will be carried across gRPC if needed
+            # Clients will immediately begin to request rows of interest & populating their trees via get_child_list()
+            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.LOAD_STARTED, status_msg='Loading...')
+
         # Full cache load. Both first-order & higher-order trees do this:
-        self.backend.executor.submit_async_task(Task(this_task.priority, self._load_cache_for_subtree, tree_meta, send_signals))
+        self.backend.executor.submit_async_task(Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, self._load_cache_for_subtree, tree_meta, send_signals))
 
     def is_cache_loaded_for(self, spid: SinglePathNodeIdentifier) -> bool:
         # this will return False if either a cache exists but is not loaded, or no cache yet exists:
@@ -630,7 +631,7 @@ class CacheManager(HasLifecycle):
                 # make sure cache is loaded for relevant subtree:
                 store.load_subtree(this_task, spid, tree_meta.tree_id)
 
-            def _pre_post_load(_this_task):
+            def _populate_filter_for_subtree(_this_task):
                 if tree_meta.state.root_exists:
                     # get up-to-date root node:
                     subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
@@ -640,7 +641,7 @@ class CacheManager(HasLifecycle):
                     store.populate_filter(tree_meta.filter_state)
 
             # Let _pre_post_load() be called when any subtasks are done
-            this_task.add_next_task(_pre_post_load)
+            this_task.add_next_task(_populate_filter_for_subtree)
 
         else:
             # ChangeTree: should already be loaded into memory, except for FilterState
@@ -648,7 +649,7 @@ class CacheManager(HasLifecycle):
             if tree_meta.filter_state.has_criteria():
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
-        def _post_load(_this_task):
+        def _repopulate_dir_stats_and_finish(_this_task):
             self.repopulate_dir_stats_for_tree(tree_meta)
 
             tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
@@ -660,7 +661,7 @@ class CacheManager(HasLifecycle):
                 dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
                                 status_msg=tree_meta.summary_msg)
 
-        this_task.add_next_task(_post_load)
+        this_task.add_next_task(_repopulate_dir_stats_and_finish)
 
     def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta):
         """

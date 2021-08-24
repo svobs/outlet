@@ -422,7 +422,7 @@ class ActiveTreeManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
         root_path_meta.offending_path = None
-        
+
         if not node:
             logger.debug(f'[{sender_tree_id}] Creating NonexistentDirNode because node was null')
             node = NonexistentDirNode(node_identifier=spid, name=os.path.basename(spid.get_single_path()))
@@ -479,7 +479,8 @@ class ActiveTreeManager(HasLifecycle):
     def _resolve_root_meta_from_path(self, full_path: str, device_uid: UID) -> RootPathMeta:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
         and returns a tuple of both"""
-        logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
+        logger.debug(f'resolve_root_from_path() called with device_uid={device_uid}, path="{full_path}"')
+
         if not device_uid:
             raise RuntimeError('No device_uid provided!')
 
@@ -492,8 +493,7 @@ class ActiveTreeManager(HasLifecycle):
                 # Need to wait until all caches are loaded:
                 # self.backend.cacheman.wait_for_startup_done()
                 # this will load the GDrive master tree if needed:
-                raise RuntimeError
-                # FIXME: we don't want to have to load the entire GDrive tree at startup!
+                # TODO: we don't want to have to load the entire GDrive tree!
                 identifier_list = self.backend.cacheman.get_gdrive_identifier_list_for_full_path_list(device_uid, [full_path],
                                                                                                       error_if_not_found=True)
             else:  # LocalNode
