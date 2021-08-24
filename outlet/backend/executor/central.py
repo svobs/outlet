@@ -292,8 +292,8 @@ class CentralExecutor(HasLifecycle):
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 
     def _find_next_task(self, done_task: Task) -> Optional[Task]:
-        logger.debug(f'Task {done_task.task_uuid} ({done_task.task_func}) has no children '
-                     f'{": will run its" if done_task.next_task else "and no"} next task')
+        logger.debug(f'Task {done_task.task_uuid} ({done_task.task_func}) has no children'
+                     f'{": will run its" if done_task.next_task else " and no"} next task')
         # just set this here - will call it outside of lock
         next_task = done_task.next_task
 

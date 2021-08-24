@@ -1,4 +1,5 @@
 import copy
+import functools
 import logging
 import math
 import os
@@ -33,6 +34,25 @@ from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
+
+
+# TODO: seriously need to rethink the whole locking solution.
+def ensure_locked(func):
+    """DECORATOR: make sure _struct_lock is locked when executing func. If it is not currently locked,
+    then lock it around the function.
+
+    Although this is outside the LocalDiskMasterStore, it is actually part of it! Kind of a fudge to make "self" work
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._struct_lock.locked():
+            return func(self, *args, **kwargs)
+        else:
+            with self._struct_lock:
+                return func(self, *args, **kwargs)
+
+    return wrapper
 
 
 class LocalDiskMasterStore(TreeStore):
@@ -75,6 +95,7 @@ class LocalDiskMasterStore(TreeStore):
     def is_gdrive(self) -> bool:
         return False
 
+    @ensure_locked
     def _execute_write_op(self, operation: LocalWriteThroughOp):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Executing operation: {operation}')
@@ -189,8 +210,7 @@ class LocalDiskMasterStore(TreeStore):
             for dir_node in dir_node_remove_list:
                 self.remove_subtree(dir_node, to_trash=False)
 
-        with self._struct_lock:
-            self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=file_node_remove_list))
+        self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=file_node_remove_list))
 
     def _resync_with_file_system(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
@@ -205,10 +225,7 @@ class LocalDiskMasterStore(TreeStore):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def show_tree(self, subtree_root: LocalNodeIdentifier) -> str:
-        # logger.warning('LOCK ON!')
-        with self._struct_lock:
-            result = self._memstore.master_tree.show(nid=subtree_root.node_uid)
-        # logger.warning('LOCK off')
+        result = self._memstore.master_tree.show(nid=subtree_root.node_uid)
         return result
 
     def load_subtree(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
@@ -258,15 +275,13 @@ class LocalDiskMasterStore(TreeStore):
         # LOAD into master tree. Only for first load!
         if not cache_info.is_loaded:
             was_loaded = False
-            tree = self._diskstore.load_subtree(cache_info, tree_id)
-            if tree:
-                if TRACE_ENABLED:
-                    logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
-                # logger.warning('LOCK ON!')
-                with self._struct_lock:
-                    self._memstore.master_tree.replace_subtree(tree)
-                    logger.debug(f'[{tree_id}] Updated in-memory cache: tree_size={len(self._memstore.master_tree):n}')
-                # logger.warning('LOCK off')
+            with self._struct_lock:
+                tree = self._diskstore.load_subtree(cache_info, tree_id)
+                if tree:
+                    if TRACE_ENABLED:
+                        logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
+                        self._memstore.master_tree.replace_subtree(tree)
+                        logger.debug(f'[{tree_id}] Updated in-memory cache: tree_size={len(self._memstore.master_tree):n}')
 
         # FS SYNC
         if force_rescan_disk or cache_info.needs_refresh or (not was_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
@@ -425,11 +440,7 @@ class LocalDiskMasterStore(TreeStore):
             f'({self.uid_path_mapper.get_uid_for_path(node.get_single_path(), node.uid)}); node={node}'
 
         write_op = UpsertSingleNodeOp(node)
-
-        # logger.warning('LOCK ON!')
-        with self._struct_lock:
-            self._execute_write_op(write_op)
-        # logger.warning('LOCK off')
+        self._execute_write_op(write_op)
 
         return write_op.node
 
@@ -438,12 +449,7 @@ class LocalDiskMasterStore(TreeStore):
             raise RuntimeError(f'Cannot update node: invalid node provided: {node}')
 
         write_op = UpsertSingleNodeOp(node, update_only=True)
-
-        # logger.warning('LOCK ON!')
-        with self._struct_lock:
-            self._execute_write_op(write_op)
-
-        # logger.warning('LOCK off')
+        self._execute_write_op(write_op)
 
         return write_op.node
 
@@ -452,12 +458,7 @@ class LocalDiskMasterStore(TreeStore):
             raise RuntimeError(f'Cannot remove node: invalid node provided: {node}')
 
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
-
-        # logger.warning('LOCK ON!')
-        with self._struct_lock:
-            self._execute_write_op(DeleteSingleNodeOp(node, to_trash=to_trash))
-
-        # logger.warning('LOCK off')
+        self._execute_write_op(DeleteSingleNodeOp(node, to_trash=to_trash))
 
     def _migrate_node(self, node: LocalNode, src_full_path: str, dst_full_path: str) -> LocalNode:
         new_node_full_path: str = file_util.change_path_to_new_root(node.get_single_path(), src_full_path, dst_full_path)
@@ -510,11 +511,8 @@ class LocalDiskMasterStore(TreeStore):
 
             subtree_list: List[LocalSubtree] = [src_subtree, dst_subtree]
 
-            # logger.warning('LOCK ON!')
-            with self._struct_lock:
-                operation = BatchChangesOp(subtree_list=subtree_list)
-                self._execute_write_op(operation)
-            # logger.warning('LOCK off')
+            operation = BatchChangesOp(subtree_list=subtree_list)
+            self._execute_write_op(operation)
 
             return existing_src_node_list, dst_subtree.upsert_node_list
         else:
@@ -554,13 +552,12 @@ class LocalDiskMasterStore(TreeStore):
     # Various public getters
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    @ensure_locked
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_all_files_and_dirs_for_subtree(): locked={self._struct_lock.locked()}')
-        # logger.warning('LOCK ON!')
-        with self._struct_lock:
-            result = self._memstore.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
-        # logger.warning('LOCK off')
+
+        result = self._memstore.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
         return result
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalNode]:
@@ -628,35 +625,35 @@ class LocalDiskMasterStore(TreeStore):
         # both caches miss
         return None
 
+    @ensure_locked
     def _get_child_list_from_cache_for_spid(self, parent_spid: LocalNodeIdentifier) -> Optional[List[SPIDNodePair]]:
         """Searches in-memory cache, followed by disk cache, for children of the given SPID. Returns None if parent not found in either cache"""
-        with self._struct_lock:
 
-            # 1. Use in-memory cache if it exists:
-            parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
-            if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
-                try:
-                    return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
-                except NodeNotPresentError as e:
-                    # In-memory cache miss. Try seeing if the relevant cache is loaded:
-                    logger.debug(f'Could not find node in in-memory cache: {parent_spid}')
-                    pass
-            else:
-                # in-memory cache miss
-                logger.debug(f'In-memory cache miss (cache returned parent_node: {parent_node})')
+        # 1. Use in-memory cache if it exists:
+        parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
+        if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
+            try:
+                return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
+            except NodeNotPresentError as e:
+                # In-memory cache miss. Try seeing if the relevant cache is loaded:
+                logger.debug(f'Could not find node in in-memory cache: {parent_spid}')
+                pass
+        else:
+            # in-memory cache miss
+            logger.debug(f'In-memory cache miss (cache returned parent_node: {parent_node})')
 
-            # 2. Read from disk cache if it exists:
-            cache_info: Optional[PersistedCacheInfo] = \
-                self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
-            if cache_info:
-                if cache_info.is_loaded:
-                    # something is probably wrong, or node truly doesn't exist
-                    logger.warning(f'Could not find node in in-memory subtree but cache claims it is laoded: "{parent_spid}"')
+        # 2. Read from disk cache if it exists:
+        cache_info: Optional[PersistedCacheInfo] = \
+            self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
+        if cache_info:
+            if cache_info.is_loaded:
+                # something is probably wrong, or node truly doesn't exist
+                logger.warning(f'Could not find node in in-memory subtree but cache claims it is laoded: "{parent_spid}"')
 
-                with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-                    parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
-                    if parent_dir and parent_dir.is_dir() and parent_dir.all_children_fetched:
-                        return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
+            with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
+                parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
+                if parent_dir and parent_dir.is_dir() and parent_dir.all_children_fetched:
+                    return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
 
         # both caches miss
         return None

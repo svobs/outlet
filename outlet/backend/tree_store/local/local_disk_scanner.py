@@ -6,7 +6,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import DISK_SCAN_MIN_ITEMS_PER_TASK
+from constants import DISK_SCAN_MAX_DIRS_PER_TASK, TRACE_ENABLED
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode, LocalNode
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
@@ -155,11 +155,14 @@ class LocalDiskScanner:
 
             items_scanned_this_task += len(self.scan_single_dir(target_dir))
 
+            logger.debug(f'Scanned dir #{items_scanned_this_task}: "{target_dir}" (dir_queue size: {len(self._dir_queue)})')
+
             if self.tree_id:
                 logger.debug(f'[{self.tree_id}] Progress: {self.progress} of {self.total} files (dir_queue size: {len(self._dir_queue)})')
 
             # small or empty dirs will cause excessive overhead, so try to optimize by reusing tasks for these:
-            if items_scanned_this_task >= DISK_SCAN_MIN_ITEMS_PER_TASK:
+            if items_scanned_this_task >= DISK_SCAN_MAX_DIRS_PER_TASK:
+                logger.debug(f'Scanned max number of dirs per task ({DISK_SCAN_MAX_DIRS_PER_TASK}); launching new task for remainder')
                 break
 
         # Run next iteration next:
@@ -178,7 +181,8 @@ class LocalDiskScanner:
         # DIRS
         self._dir_queue += dir_list
         for child_dir_path in dir_list:
-            logger.debug(f'[{self.tree_id}] Adding scanned dir: {child_dir_path}')
+            if TRACE_ENABLED:
+                logger.debug(f'[{self.tree_id}] Adding scanned dir: {child_dir_path}')
             dir_node: LocalDirNode = self.cacheman.get_node_for_local_path(child_dir_path)
             if dir_node:
                 if not dir_node.is_dir():
@@ -194,7 +198,8 @@ class LocalDiskScanner:
         # FIXME: handle symlinks
         # FILES
         for child_file_path in nondir_list:
-            logger.debug(f'[{self.tree_id}] Adding scanned file: {child_file_path}')
+            if TRACE_ENABLED:
+                logger.debug(f'[{self.tree_id}] Adding scanned file: {child_file_path}')
             file_node = self.cacheman.build_local_file_node(full_path=child_file_path)
             if file_node:
                 child_node_list.append(file_node)
