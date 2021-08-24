@@ -215,7 +215,7 @@ class CacheManager(HasLifecycle):
                     self._load_all_caches_done.set()
                     logger.info(f'Done loading all caches.')
 
-                load_all_caches_task = Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, self._load_all_caches_start)
+                load_all_caches_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._load_all_caches_start)
                 load_all_caches_task.add_next_task(notify_load_all_done)
                 self.backend.executor.submit_async_task(load_all_caches_task)
             else:
@@ -228,7 +228,7 @@ class CacheManager(HasLifecycle):
             else:
                 pending_ops_task = self._op_ledger.resume_pending_ops_from_disk
             # This is a lower priority, so will not execute until after caches are all loaded
-            self.backend.executor.submit_async_task(Task(ExecPriority.P5_USER_OP_EXECUTION, pending_ops_task))
+            self.backend.executor.submit_async_task(Task(ExecPriority.P7_USER_OP_EXECUTION, pending_ops_task))
 
         finally:
             dispatcher.send(Signal.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -566,7 +566,7 @@ class CacheManager(HasLifecycle):
         self.wait_for_startup_done()
 
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self.backend.executor.submit_async_task(Task(ExecPriority.P0_USER_LOAD, self.load_data_for_display_tree, tree_id, send_signals))
+        self.backend.executor.submit_async_task(Task(ExecPriority.P1_USER_LOAD, self.load_data_for_display_tree, tree_id, send_signals))
 
     def load_data_for_display_tree(self, this_task: Task, tree_id: TreeID, send_signals: bool):
         """
@@ -609,7 +609,7 @@ class CacheManager(HasLifecycle):
             dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.LOAD_STARTED, status_msg='Loading...')
 
         # Full cache load. Both first-order & higher-order trees do this:
-        self.backend.executor.submit_async_task(Task(ExecPriority.P1_BACKGROUND_CACHE_LOAD, self._load_cache_for_subtree, tree_meta, send_signals))
+        self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._load_cache_for_subtree, tree_meta, send_signals))
 
     def is_cache_loaded_for(self, spid: SinglePathNodeIdentifier) -> bool:
         # this will return False if either a cache exists but is not loaded, or no cache yet exists:
@@ -731,8 +731,8 @@ class CacheManager(HasLifecycle):
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
-        # TODO: split this in P0_USER_LOAD and LOAD_1 tasks. Need to cross-reference each dir with the visible dirs indicated by tree_id's metadata
-        self.backend.executor.submit_async_task(Task(ExecPriority.P0_USER_LOAD, self._refresh_subtree, node_identifier, tree_id))
+        # TODO: split this in P1_USER_LOAD and LOAD_1 tasks. Need to cross-reference each dir with the visible dirs indicated by tree_id's metadata
+        self.backend.executor.submit_async_task(Task(ExecPriority.P1_USER_LOAD, self._refresh_subtree, node_identifier, tree_id))
 
     # PersistedCacheInfo stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -798,7 +798,7 @@ class CacheManager(HasLifecycle):
             store = self._get_store_for_device_uid(gdrive_device_uid)
             assert isinstance(store, GDriveMasterStore)
             cache_load_task = this_task.create_child_task(store.load_and_sync_master_tree)
-            cache_load_task.priority = ExecPriority.P1_BACKGROUND_CACHE_LOAD  # yes, override parent priority
+            cache_load_task.priority = ExecPriority.P3_BACKGROUND_CACHE_LOAD  # yes, override parent priority
             self.backend.executor.submit_async_task(cache_load_task)
 
         # LocalDisk:
@@ -811,7 +811,7 @@ class CacheManager(HasLifecycle):
                     assert isinstance(cache.subtree_root, LocalNodeIdentifier)
                     store = self._get_store_for_device_uid(cache.subtree_root.device_uid)
                     cache_load_task = this_task.create_child_task(store.load_subtree, cache.subtree_root, ID_GLOBAL_CACHE)
-                    cache_load_task.priority = ExecPriority.P1_BACKGROUND_CACHE_LOAD  # yes, override parent priority
+                    cache_load_task.priority = ExecPriority.P3_BACKGROUND_CACHE_LOAD  # yes, override parent priority
                     self.backend.executor.submit_async_task(cache_load_task)
 
     def _create_new_cache_info(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
@@ -1148,7 +1148,7 @@ class CacheManager(HasLifecycle):
         gdrive_store = self._get_gdrive_store_for_device_uid(device_uid)
 
         # Launch as task with high priority:
-        download_file_from_gdrive_task = Task(ExecPriority.P0_USER_LOAD, gdrive_store.download_file_from_gdrive, node_uid, requestor_id)
+        download_file_from_gdrive_task = Task(ExecPriority.P1_USER_LOAD, gdrive_store.download_file_from_gdrive, node_uid, requestor_id)
         self.backend.executor.submit_async_task(download_file_from_gdrive_task)
 
     # This local disk-specific
