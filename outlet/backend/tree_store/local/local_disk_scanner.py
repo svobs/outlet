@@ -170,7 +170,7 @@ class LocalDiskScanner:
                 break
 
         # Run next iteration next:
-        this_task.add_next_task(self.scan_next_dir)
+        this_task.add_next_task(self.scan_next_batch)
 
     def scan_single_dir(self, target_dir: str) -> List[LocalNode]:
         if SUPER_DEBUG_ENABLED:

@@ -5,6 +5,7 @@ from typing import Callable, List, Optional
 
 from constants import SUPER_DEBUG_ENABLED, TASK_RUNNER_MAX_WORKERS
 from global_actions import GlobalActions
+from signal_constants import ID_CENTRAL_EXEC
 from util import time_util
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
@@ -48,7 +49,7 @@ class Task:
             else:
                 self.task_func(self, *self._args)
         except Exception as err:
-            msg = f'Task failed during execution: name="{self.task_func.__name__}" uuid={self.task_uuid}'
+            msg = f'Task failed during execution: "{self.task_func.__name__}" uuid={self.task_uuid}'
             logger.exception(msg)
 
             if self.on_error:
@@ -56,7 +57,7 @@ class Task:
                 self.on_error(err)
                 return
 
-            GlobalActions.display_error_in_ui(msg, repr(err))
+            GlobalActions.display_error_in_ui(ID_CENTRAL_EXEC, msg, repr(err))
             raise
         finally:
             logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" uuid={self.task_uuid}')

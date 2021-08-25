@@ -205,7 +205,7 @@ class GDriveMasterStore(TreeStore):
             self.load_and_sync_master_tree(this_task, invalidate_cache=True)
         except Exception as err:
             logger.exception(err)
-            GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
+            GlobalActions.display_error_in_ui(ID_GLOBAL_CACHE, 'Download from GDrive failed due to unexpected error', repr(err))
 
     def load_and_sync_master_tree(self, this_task: Task, invalidate_cache: bool = False):
         """This will sync the latest changes as child tasks."""

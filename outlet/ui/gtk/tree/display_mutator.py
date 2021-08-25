@@ -113,7 +113,7 @@ class DisplayMutator(HasLifecycle):
         except RuntimeError as err:
             msg = f'[{self.con.tree_id}] Failed to repopulate the tree using filter_criteria {filter_criteria}'
             logger.exception(msg)
-            GlobalActions.display_error_in_ui(msg, repr(err))
+            GlobalActions.display_error_in_ui(sender, msg, repr(err))
 
     def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str):
         if sender != self.con.tree_id:
