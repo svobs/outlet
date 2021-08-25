@@ -283,13 +283,10 @@ class GDriveMasterStore(TreeStore):
         observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self, changes_download.page_token, parent_task=this_task)
         self.gdrive_client.get_changes_list(observer)
 
-        def do_another_sync_if_requested(_this_task: Task):
-            if self._another_sync_requested:
-                logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
-                self._another_sync_requested = False
-                self._sync_latest_changes(_this_task)
-
-        this_task.add_next_task(do_another_sync_if_requested)
+        if self._another_sync_requested:
+            logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
+            self._another_sync_requested = False
+            this_task.add_next_task(self._sync_latest_changes)
 
     # Action listener callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

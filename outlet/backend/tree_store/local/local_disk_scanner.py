@@ -165,8 +165,9 @@ class LocalDiskScanner:
 
             # small or empty dirs will cause excessive overhead, so try to optimize by reusing tasks for these:
             if items_scanned_this_task >= DISK_SCAN_MAX_ITEMS_PER_TASK:
-                logger.debug(f'Scanned {items_scanned_this_task} (>= {DISK_SCAN_MAX_ITEMS_PER_TASK}) items from {dirs_scanned_this_task} dirs '
-                             f'dir_queue size: {len(self._dir_queue)}, progress: {self.progress} / {self.total})')
+                logger.debug(f'Scanned {items_scanned_this_task} items from {dirs_scanned_this_task} dirs '
+                             f'(dir_queue size: {len(self._dir_queue)} batch_size: {DISK_SCAN_MAX_ITEMS_PER_TASK} '
+                             f'progress: {self.progress} / {self.total})')
                 break
 
         # Run next iteration next:

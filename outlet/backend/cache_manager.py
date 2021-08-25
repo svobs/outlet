@@ -228,10 +228,12 @@ class CacheManager(HasLifecycle):
 
             # Now load all caches (if configured):
             if self.load_all_caches_on_startup:
+                load_all_caches_sw = Stopwatch()
+
                 def notify_load_all_done(this_task):
                     self._load_all_caches_in_process = False
                     self._load_all_caches_done.set()
-                    logger.info(f'Done loading all caches.')
+                    logger.info(f'{load_all_caches_sw} Done loading all caches.')
 
                 load_all_caches_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._load_all_caches_start)
                 load_all_caches_task.add_next_task(notify_load_all_done)

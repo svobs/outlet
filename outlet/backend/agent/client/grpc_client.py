@@ -135,6 +135,7 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=signal, receiver=_forward_signal, weak=False)
 
     def _on_ui_task_requested(self, sender, task_func, *args):
+        raise RuntimeError("FIXME! This is broken")  # personal note
         task = Task(None, task_func, args)
         self._fe_task_runner.enqueue_task(task)
 

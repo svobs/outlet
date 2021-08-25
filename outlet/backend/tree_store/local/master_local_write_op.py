@@ -23,6 +23,7 @@ class LocalSubtree(ABC):
     Just a collection of nodes to be upserted and removed, all descendants of the same subtree
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, subtree_root: NodeIdentifier, remove_node_list: List[LocalNode], upsert_node_list: List[LocalNode]):
         self.subtree_root: NodeIdentifier = subtree_root
         self.remove_node_list: List[LocalNode] = remove_node_list
@@ -38,6 +39,7 @@ class LocalWriteThroughOp(ABC):
     ABSTRACT CLASS LocalWriteThroughOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     @abstractmethod
     def update_memstore(self, data: LocalDiskMemoryStore):
         pass
@@ -60,6 +62,7 @@ class LocalDiskSingleNodeOp(LocalWriteThroughOp, ABC):
     ABSTRACT CLASS LocalDiskSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, node: LocalNode):
         assert node, f'No node for operation: {type(self)}'
         self.node: LocalNode = node
@@ -79,6 +82,7 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
     CLASS UpsertSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, node: LocalNode, update_only: bool = False):
         super().__init__(node)
         self.was_updated: bool = True
@@ -114,6 +118,7 @@ class DeleteSingleNodeOp(UpsertSingleNodeOp):
     CLASS DeleteSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, node: LocalNode, to_trash: bool = False):
         super().__init__(node)
         self.to_trash: bool = to_trash
@@ -148,6 +153,7 @@ class LocalDiskMultiNodeOp(LocalWriteThroughOp, ABC):
     ABSTRACT CLASS LocalDiskMultiNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     @abstractmethod
     def get_subtree_list(self) -> List[LocalSubtree]:
         pass
@@ -165,6 +171,7 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
     REMEMBER: ALWAYS REMOVE BEFORE ADDING!
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, subtree_list: List[LocalSubtree] = None,
                  subtree_root: LocalNodeIdentifier = None, upsert_node_list: List[LocalNode] = None, remove_node_list: List[LocalNode] = None):
         if subtree_list:
@@ -177,8 +184,9 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
 
     def update_memstore(self, memstore: LocalDiskMemoryStore):
         for subtree in self.subtree_list:
-            logger.debug(f'Upserting {len(subtree.upsert_node_list)} and removing {len(subtree.remove_node_list)} nodes at memstore subroot '
-                         f'"{subtree.subtree_root}"')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Upserting {len(subtree.upsert_node_list)} & removing {len(subtree.remove_node_list)} nodes at memstore subroot '
+                             f'"{subtree.subtree_root}"')
             # Deletes must occur from bottom up:
             if subtree.remove_node_list:
                 for node in reversed(subtree.remove_node_list):
@@ -201,6 +209,8 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
                 subtree.upsert_node_list = new_upsert_list
 
     def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
+        logger.debug(f'Removing {len(subtree.remove_node_list)} & upserting {len(subtree.upsert_node_list)} nodes in diskstore"')
+
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
         else:
@@ -228,6 +238,7 @@ class DeleteSubtreeOp(BatchChangesOp):
     CLASS DeleteSubtreeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, subtree_root: LocalNodeIdentifier, node_list: List[LocalNode]):
         super().__init__(subtree_root=subtree_root, upsert_node_list=[], remove_node_list=node_list)
 
@@ -238,5 +249,6 @@ class RefreshDirEntriesOp(BatchChangesOp):
     CLASS RefreshDirEntriesOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, subtree_root: LocalNodeIdentifier, upsert_node_list: List[LocalNode], remove_node_list: List[LocalNode]):
         super().__init__(subtree_root=subtree_root, upsert_node_list=upsert_node_list, remove_node_list=remove_node_list)

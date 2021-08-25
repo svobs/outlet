@@ -1,8 +1,10 @@
 import copy
 import logging
 import threading
+import time
 from collections import deque
-from typing import Deque, List
+from typing import Deque, List, Set
+from uuid import UUID
 
 from backend.executor.central import ExecPriority
 from backend.tree_store.local import content_hasher
@@ -34,7 +36,9 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         self._cv_can_get = threading.Condition()
         self.batch_interval_ms: int = ensure_int(self.backend.get_config('cache.local_disk.signatures.batch_interval_ms'))
         self.bytes_per_batch_high_watermark: int = ensure_int(self.backend.get_config('cache.local_disk.signatures.bytes_per_batch_high_watermark'))
+        logger.debug(f'[{self.name}] Bytes per batch high watermark = {self.bytes_per_batch_high_watermark}')
         self._node_queue: Deque[LocalFileNode] = deque()
+        self._running_task_set: Set[UUID] = set()
 
     def _enqueue_node(self, node: LocalFileNode):
         with self._cv_can_get:
@@ -61,19 +65,20 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         logger.info(f'Starting {self.name}...')
 
         while not self.was_shutdown:
+            time.sleep(self.batch_interval_ms / 1000.0)  # allow some nodes to collect
+
             nodes_to_scan = []
             bytes_to_scan = 0
-
-            # if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Waiting for {ExecPriority.P6_SIGNATURE_CALC.name} task queue to be depleted...')
-            self.backend.executor.wait_until_queue_depleted(ExecPriority.P6_SIGNATURE_CALC)
-            # if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Task queue is empty. Examining node queue')
 
             with self._cv_can_get:
                 if not self._node_queue:
                     logger.debug(f'[{self.name}] No nodes in queue. Will wait until notified')
                     self._cv_can_get.wait()
+                    continue
+                elif len(self._running_task_set) > 0:
+                    logger.debug(f'[{self.name}] Prev batch still running. Will wait until notified')
+                    self._cv_can_get.wait()
+                    continue
 
                 while len(self._node_queue) > 0 and bytes_to_scan <= self.bytes_per_batch_high_watermark:
                     node = self._node_queue.popleft()
@@ -82,19 +87,28 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                     if size_bytes:
                         bytes_to_scan += size_bytes
 
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.name}] Submitting batch task to Central Exec with {len(nodes_to_scan)} nodes and {bytes_to_scan} bytes total')
-            calc_task = Task(ExecPriority.P6_SIGNATURE_CALC, self.calculate_signature_for_batch, nodes_to_scan)
+                logger.debug(f'[{self.name}] Submitting batch task with {len(nodes_to_scan)} nodes and {bytes_to_scan} bytes total '
+                             f'({len(self._node_queue)} still in queue)')
+                calc_task = Task(ExecPriority.P6_SIGNATURE_CALC, self.calculate_signature_for_batch, nodes_to_scan)
+                self._running_task_set.add(calc_task.task_uuid)
             self.backend.executor.submit_async_task(calc_task)
 
     def calculate_signature_for_batch(self, this_task: Task, nodes_to_scan: List[LocalFileNode]):
         """One task is created for each execution of this method."""
         assert this_task.priority == ExecPriority.P6_SIGNATURE_CALC
 
-        if len(nodes_to_scan) > 0:
-            logger.debug(f'[{self.name}] Calculating signatures for batch of {len(nodes_to_scan)} nodes')
-            for node in nodes_to_scan:
-                self.calculate_signature_for_local_node(node)
+        if len(nodes_to_scan) == 0:
+            # indicates a bug in this file
+            logger.warning(f'[{self.name}] Task launched with empty batch of zero nodes!')
+            return
+
+        logger.debug(f'[{self.name}] Calculating signatures for batch of {len(nodes_to_scan)} nodes')
+        for node in nodes_to_scan:
+            self.calculate_signature_for_local_node(node)
+
+        with self._cv_can_get:
+            self._running_task_set.remove(this_task.task_uuid)
+            self._cv_can_get.notifyAll()
 
     def _on_node_upserted_in_cache(self, sender: str, node: LocalNode):
         if node.device_uid == self.device_uid and node.is_file() and not node.md5 and not node.sha256:

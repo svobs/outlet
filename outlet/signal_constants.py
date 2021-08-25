@@ -4,12 +4,16 @@ from enum import IntEnum
 
 
 class Signal(IntEnum):
-    # Tasks
-    ENQUEUE_UI_TASK = 1
-    # START_CACHEMAN = 2
-    # START_OP_EXEC_THREAD = 3
-    # LOAD_REGISTRY_DONE = 4
-    # START_CACHEMAN_DONE = 5
+    NODE_UPSERTED = 1
+    """Sent from BE and received by FE: a Node was upserted into the DisplayTree"""
+    NODE_REMOVED = 2
+    """Sent from BE and received by FE: a Node was removed from the DisplayTree"""
+    STATS_UPDATED = 3
+    """Sent from BE and received by FE: stats were updated for nodes in the DisplayTree, and also possibly the StatusMsg"""
+    SUBTREE_NODES_CHANGED = 4
+    """Sent from BE and received by FE: a whole subtree of nodes was upserted and/or removed"""
+
+    ENQUEUE_UI_TASK = 6
     DIFF_TREES_DONE = 7
     DIFF_TREES_FAILED = 8
     DIFF_TREES_CANCELLED = 9
@@ -52,14 +56,6 @@ class Signal(IntEnum):
     NODE_EXPANSION_DONE = 43
     DISPLAY_TREE_CHANGED = 44
     GDRIVE_RELOADED = 45
-    NODE_UPSERTED = 46
-    """Sent from BE and received by FE: a Node was upserted into the DisplayTree"""
-    NODE_REMOVED = 47
-    """Sent from BE and received by FE: a Node was removed from the DisplayTree"""
-
-    STATS_UPDATED = 48
-    """Sent from BE and received by FE: stats were updated for nodes in the DisplayTree, and also possibly the StatusMsg"""
-
     EXIT_DIFF_MODE = 49
     """Sent from FE and received by BE"""
 

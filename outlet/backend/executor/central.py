@@ -377,7 +377,6 @@ class CentralExecutor(HasLifecycle):
             raise RuntimeError(f'Bad arg: {priority}')
 
         with self._running_task_cv:
-
             logger.debug(f'Enqueuing task (priority: {priority.name}: func_name: "{task.task_func.__name__}" uuid: {task.task_uuid} '
                          f'parent: {task.parent_task_uuid})')
 
@@ -400,13 +399,13 @@ class CentralExecutor(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _start_op_execution(self, sender):
-        logger.debug(f'Received signal "{Signal.RESUME_OP_EXECUTION.name}" from {sender}')
+        logger.info(f'Received signal "{Signal.RESUME_OP_EXECUTION.name}" from {sender}')
         self.enable_op_execution = True
         logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution})')
         dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution)
 
     def _pause_op_execution(self, sender):
-        logger.debug(f'Received signal "{Signal.PAUSE_OP_EXECUTION.name}" from {sender}')
+        logger.info(f'Received signal "{Signal.PAUSE_OP_EXECUTION.name}" from {sender}')
         self.enable_op_execution = False
         logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution})')
         dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution)
