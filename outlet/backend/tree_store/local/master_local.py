@@ -19,7 +19,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
+from constants import IS_MACOS, LARGE_FILE_SIZE_THRESHOLD_BYTES, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
 from error import CacheNotLoadedError, NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
@@ -30,6 +30,7 @@ from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
+from util.format import humanfriendlier_size
 from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
@@ -134,7 +135,13 @@ class LocalDiskMasterStore(TreeStore):
             logger.debug(f'Node already has signature; skipping; {node}')
             return
 
-        logger.debug(f'[SigCalc] Calculating signature for node: {node.node_identifier}')
+        size_bytes = node.get_size_bytes()
+        if size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES:
+            logger.info(f'[SigCalc] Calculating signature for node (note: this file is very large ({humanfriendlier_size(size_bytes)}) '
+                        f'and may take a while: {node.node_identifier}')
+        else:
+            logger.debug(f'[SigCalc] Calculating signature for node: {node.node_identifier}')
+
         md5, sha256 = content_hasher.calculate_signatures(full_path=node.get_single_path())
         if not md5 and not sha256:
             logger.debug(f'[SigCalc] Failed to calculate signature for node {node.uid}: assuming it was deleted')

@@ -186,12 +186,7 @@ class CentralExecutor(HasLifecycle):
                         elif TRACE_ENABLED:
                             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks to run (currently running: {len(self._running_task_dict)})')
                     else:
-                        running_tasks_str, problem_tasks_str_list = self._print_running_task_dict()
-                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS}): '
-                                     f'{running_tasks_str}. '
-                                     f'DependentTasks count={len(self._dependent_task_dict)}: {self._dependent_task_dict.values()})')
-                        for problem_task_str in problem_tasks_str_list:
-                            logger.warning(problem_task_str)
+                        self._print_current_state_of_pipeline()
 
                 # Do this outside the CV:
                 if task:
@@ -199,7 +194,16 @@ class CentralExecutor(HasLifecycle):
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
 
-    def _print_running_task_dict(self) -> Tuple[str, List[str]]:
+    def _print_current_state_of_pipeline(self):
+        running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()
+
+        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] STATE: RunningTaskQueue count={len(self._running_task_dict)}/{TASK_RUNNER_MAX_WORKERS} tasks='
+                     f'[{running_tasks_str}] ParentChildDict count={len(self._parent_child_task_dict)} '
+                     f'DependentTasks count={len(self._dependent_task_dict)} tasks={self._dependent_task_dict.values()})')
+        for problem_task_str in problem_tasks_str_list:
+            logger.warning(problem_task_str)
+
+    def _get_running_task_dict_debug_info(self) -> Tuple[str, List[str]]:
         running_tasks_str_list = []
         problem_tasks_str_list = []
         for task in self._running_task_dict.values():
@@ -207,7 +211,7 @@ class CentralExecutor(HasLifecycle):
             elapsed_time_str = f'{sec}.{ms}s'
             if sec > TASK_TIME_WARNING_THRESHOLD_SEC:
                 problem_tasks_str_list.append(f'Task is taking a long time ({elapsed_time_str} so far): {task}')
-            running_tasks_str_list.append(f'Task {task.task_uuid}: {elapsed_time_str} elapsed')
+            running_tasks_str_list.append(f'Task {task.task_uuid}: {elapsed_time_str}')
         running_tasks_str = '; '.join(running_tasks_str_list)
 
         return running_tasks_str, problem_tasks_str_list
@@ -242,21 +246,21 @@ class CentralExecutor(HasLifecycle):
             if task:
                 return task
 
-            command = None
             try:
                 command = self.backend.cacheman.get_next_command_nowait()
+                if command:
+                    if TRACE_ENABLED:
+                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
+                    return Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command, None, True)
             except RuntimeError as e:
-                logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] BAD: caught exception while retreiving command: halting execution')
+                logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving command: halting execution pipeline')
                 self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error reteiving command', secondary_msg=f'{e}')
                 self._pause_op_execution(sender=ID_CENTRAL_EXEC)
-            if command:
-                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
-                return Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command, None, True)
 
         return None
 
     def _on_task_done(self, done_task: Task, future: Future):
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             # whether it succeeded, failed or was cancelled is of little difference from our standpoint; just make a note
             if future.cancelled():
                 logger.debug(f'Task cancelled: func="{done_task.task_func.__name__}" uuid={done_task.task_uuid}, priority={done_task.priority.name}')
@@ -268,12 +272,11 @@ class CentralExecutor(HasLifecycle):
             # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
             self._running_task_dict.pop(done_task.task_uuid)
-            logger.debug(f'RunningTaskDict now has {len(self._running_task_dict)} tasks')
 
             # Did this done_task spawn child tasks which need to be waited for?
             child_deque_of_done_task: Deque[UUID] = self._parent_child_task_dict.get(done_task.task_uuid, None)
             if child_deque_of_done_task:
-                logger.debug(f'Task {done_task.task_uuid} has {len(child_deque_of_done_task)} children to run '
+                logger.debug(f'Task {done_task.task_uuid} has {len(child_deque_of_done_task)} children remaining '
                              f'({", ".join([ str(u) for u in child_deque_of_done_task])}): will enqueue its first child')
                 # add to _dependent_task_dict and do not remove it until ready to run its next_task
                 self._dependent_task_dict[done_task.task_uuid] = done_task
