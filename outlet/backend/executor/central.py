@@ -183,8 +183,8 @@ class CentralExecutor(HasLifecycle):
                                 logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority {task.priority.name}: '
                                              f'"{task.task_func.__name__}" uuid={task.task_uuid}')
                             self._running_task_dict[task.task_uuid] = task
-                        elif TRACE_ENABLED:
-                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks to run (currently running: {len(self._running_task_dict)})')
+                        elif SUPER_DEBUG_ENABLED:
+                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No tasks in queue ({len(self._running_task_dict)} currently running)')
                     else:
                         self._print_current_state_of_pipeline()
 

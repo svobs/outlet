@@ -20,6 +20,7 @@ from backend.sqlite.cache_registry_db import CacheRegistry
 from backend.tree_store.gdrive.master_gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from backend.tree_store.local.master_local import LocalDiskMasterStore
+from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
@@ -105,6 +106,8 @@ class CacheManager(HasLifecycle):
         self.sync_from_gdrive_on_cache_load = backend.get_config('cache.sync_from_gdrive_on_cache_load')
         self.reload_tree_on_root_path_update = backend.get_config('cache.load_cache_when_tree_root_selected')
         self.cancel_all_pending_ops_on_startup = backend.get_config('cache.cancel_all_pending_ops_on_startup')
+        self.lazy_load_local_file_signatures: bool = backend.get_config('cache.lazy_load_local_file_signatures')
+        logger.debug(f'lazy_load_local_file_signatures = {self.lazy_load_local_file_signatures}')
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
@@ -126,6 +129,8 @@ class CacheManager(HasLifecycle):
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
         self._op_ledger: OpManager = OpManager(self.backend, op_db_path)
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
+
+        self._local_disk_sig_calc_thread: Optional[SigCalcBatchingThread] = None
 
         # Create Event objects to optionally wait for lifecycle events
         self._load_registry_done: threading.Event = threading.Event()
@@ -154,6 +159,12 @@ class CacheManager(HasLifecycle):
         try:
             if self._uid_goog_id_mapper:
                 self._uid_goog_id_mapper.shutdown()
+        except (AttributeError, NameError):
+            pass
+
+        try:
+            if self._local_disk_sig_calc_thread:
+                self._local_disk_sig_calc_thread.shutdown()
         except (AttributeError, NameError):
             pass
 
@@ -207,6 +218,10 @@ class CacheManager(HasLifecycle):
             for store in self._store_dict.values():
                 store.start()
             self._op_ledger.start()
+
+            if self._this_disk_local_store and self.lazy_load_local_file_signatures:
+                self._local_disk_sig_calc_thread = SigCalcBatchingThread(self.backend, self._this_disk_local_store.device_uid)
+                self._local_disk_sig_calc_thread.start()
 
             # Now load all caches (if configured):
             if self.load_all_caches_on_startup:
@@ -347,7 +362,6 @@ class CacheManager(HasLifecycle):
             self._write_new_device(device)
             store = GDriveMasterStore(self.backend, device)
             self._store_dict[device.uid] = store
-            master_gdrive = store
 
     def _load_registry(self):
         stopwatch = Stopwatch()
