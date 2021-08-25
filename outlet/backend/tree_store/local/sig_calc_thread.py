@@ -10,6 +10,7 @@ from backend.executor.central import ExecPriority
 from backend.tree_store.local import content_hasher
 from constants import LARGE_FILE_SIZE_THRESHOLD_BYTES, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
+from model.node_identifier import NodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
 from util.ensure import ensure_int
@@ -51,6 +52,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
     def start(self):
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted_in_cache)
+        self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, receiver=self._on_subtree_nodes_changed_in_cache)
         threading.Thread.start(self)
 
     def shutdown(self):
@@ -116,6 +118,18 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
             self._enqueue_node(node)
+
+    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root: NodeIdentifier,
+                                           upserted_node_list: List[LocalNode], removed_node_list: List[LocalNode]):
+        if subtree_root.device_uid != self.device_uid:
+            return
+
+        for node in upserted_node_list:
+            if node.is_file() and not node.md5 and not node.sha256:
+                assert isinstance(node, LocalFileNode)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.name}] Enqueuing node (from batch): {node.node_identifier}')
+                self._enqueue_node(node)
 
     # Signature calculation
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

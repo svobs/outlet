@@ -160,14 +160,14 @@ class LocalDiskScanner:
             dirs_scanned_this_task += 1
             items_scanned_in_dir = len(self.scan_single_dir(target_dir))
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Scanned {items_scanned_in_dir} items from dir "{target_dir}" (dir_queue size: {len(self._dir_queue)})')
+                logger.debug(f'Scanned {items_scanned_in_dir} items from dir "{target_dir}". DirQueue size: {len(self._dir_queue)}')
             items_scanned_this_task += items_scanned_in_dir
 
             # small or empty dirs will cause excessive overhead, so try to optimize by reusing tasks for these:
             if items_scanned_this_task >= DISK_SCAN_MAX_ITEMS_PER_TASK:
-                logger.debug(f'Scanned {items_scanned_this_task} items from {dirs_scanned_this_task} dirs '
-                             f'(dir_queue size: {len(self._dir_queue)} batch_size: {DISK_SCAN_MAX_ITEMS_PER_TASK} '
-                             f'progress: {self.progress} / {self.total})')
+                logger.debug(f'Scanned {items_scanned_this_task} items from {dirs_scanned_this_task} dirs. '
+                             f'DirQueue size: {len(self._dir_queue)} BatchSize: {DISK_SCAN_MAX_ITEMS_PER_TASK} '
+                             f'Progress: {self.progress} / {self.total})')
                 break
 
         # Run next iteration next:

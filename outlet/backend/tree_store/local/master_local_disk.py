@@ -170,7 +170,6 @@ class LocalDiskDiskStore(HasLifecycle):
                 for node_index, node in enumerate(missing_nodes):
                     logger.info(f'Nonexistant node #{node_index}: {node}')
 
-            cache_info.is_loaded = True
             return tree
 
     def save_subtree(self, cache_info: PersistedCacheInfo, file_list, dir_list, tree_id):

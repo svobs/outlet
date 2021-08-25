@@ -172,7 +172,7 @@ class LiveMonitor(HasLifecycle):
                     self._stop_local_disk_capture(prev_identifier.get_single_path(), tree_id)
 
             else:
-                logger.debug(f'[{tree_id}] Starting capture of new tree ({node_identifier})')
+                logger.debug(f'[{tree_id}] Starting live capture of tree ({node_identifier})')
 
             self._active_tree_dict[tree_id] = node_identifier
 

@@ -20,7 +20,7 @@ from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node, NonexistentDirNode, SPIDNodePair
-from model.node_identifier import GUID, LocalNodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE, ID_LEFT_DIFF_TREE, ID_LEFT_TREE, ID_RIGHT_DIFF_TREE, ID_RIGHT_TREE, Signal
@@ -79,6 +79,7 @@ class ActiveTreeManager(HasLifecycle):
         # These take the signal from the cache and route it to the relevant display trees (if any) based on each node's location:
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED_IN_CACHE, receiver=self._on_node_removed)
+        self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, receiver=self._on_subtree_nodes_changed_in_cache)
 
         self._live_monitor.start()
 
@@ -225,6 +226,12 @@ class ActiveTreeManager(HasLifecycle):
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{tree_id}] Notifying tree of removed node: {snp.sn.spid}')
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=snp.sn, parent_guid=snp.parent_guid)
+
+    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root: NodeIdentifier, upserted_node_list: List[Node],
+                                           removed_node_list: List[Node]):
+        for tree_id, tree_meta in self._display_tree_dict.items():
+            # FIXME!
+            pass
 
     def _on_merge_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')
