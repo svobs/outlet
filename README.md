@@ -40,11 +40,9 @@ Create a virtual environment within this directory (`{project_name}`)  following
 ### Future Major Features (TODO)
 
 #### ESSENTIAL FOR FIRST RELEASE
-* [3] BFS loading of tree, instead of all-at-once. Calc MD5s only after tree loaded [IN PROGRESS]
-
 * [3] Google Drive connect flow
-* [3] Mac installer
-* [1] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)
+* [5] Mac installer
+* [3] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)
 * [1] Better tracking of BE readiness states: see CentralExecutor.get_engine_summary_state()
 * [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
 * [3] Disable UI elements for trees until cache loaded
