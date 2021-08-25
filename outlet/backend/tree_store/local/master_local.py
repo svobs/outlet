@@ -589,7 +589,8 @@ class LocalDiskMasterStore(TreeStore):
         if cache_info:
             if cache_info.is_loaded:
                 # 1. Use in-memory cache if it exists:
-                logger.debug(f'_get_child_list_from_cache_for_spid(): Querying in-memory cache ({cache_info}) for: {parent_spid}')
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'_get_child_list_from_cache_for_spid(): Querying in-memory cache ({cache_info}) for: {parent_spid}')
                 parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
                 if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
                     try:

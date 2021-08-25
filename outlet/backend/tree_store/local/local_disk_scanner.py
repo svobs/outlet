@@ -25,6 +25,7 @@ class FileCounter(LocalTreeRecurser):
     Does a quick walk of the filesystem and counts the files which are of interest
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, root_path):
         LocalTreeRecurser.__init__(self, root_path, valid_suffixes=None)
         self.files_to_scan = 0
@@ -49,6 +50,7 @@ class LocalDiskScanner:
     to generate an up-to-date list of FMetas.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, master_local, root_node_identifer: LocalNodeIdentifier, tree_id=None):
         assert root_node_identifer.is_spid(), f'type={type(root_node_identifer)}, for {root_node_identifer}'
         self.backend = backend
@@ -155,18 +157,16 @@ class LocalDiskScanner:
 
             target_dir: str = self._dir_queue.popleft()
 
+            dirs_scanned_this_task += 1
             items_scanned_in_dir = len(self.scan_single_dir(target_dir))
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Scanned {items_scanned_in_dir} items from dir "{target_dir}" (dir_queue size: {len(self._dir_queue)})')
             items_scanned_this_task += items_scanned_in_dir
 
-            if self.tree_id:
-                logger.debug(f'[{self.tree_id}] Progress: {self.progress} of {self.total} files (dir_queue size: {len(self._dir_queue)})')
-
             # small or empty dirs will cause excessive overhead, so try to optimize by reusing tasks for these:
             if items_scanned_this_task >= DISK_SCAN_MAX_ITEMS_PER_TASK:
-                logger.debug(f'Scanned item count ({items_scanned_this_task} from {dirs_scanned_this_task} dirs)'
-                             f' met/exceeeded max number per task ({DISK_SCAN_MAX_ITEMS_PER_TASK}); will launch new task for remainder')
+                logger.debug(f'Scanned {items_scanned_this_task} (>= {DISK_SCAN_MAX_ITEMS_PER_TASK}) items from {dirs_scanned_this_task} dirs '
+                             f'dir_queue size: {len(self._dir_queue)}, progress: {self.progress} / {self.total})')
                 break
 
         # Run next iteration next:
