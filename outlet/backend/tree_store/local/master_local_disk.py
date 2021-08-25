@@ -162,7 +162,7 @@ class LocalDiskDiskStore(HasLifecycle):
                     missing_nodes.append(file_node)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-            logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {len(file_list)} files and {len(dir_list)} dirs from disk')
+            logger.debug(f'{stopwatch_load} [{tree_id}] Loaded {len(file_list)} files and {len(dir_list)} dirs from disk')
 
             if len(missing_nodes) > 0:
                 # TODO: add code for adjudicator

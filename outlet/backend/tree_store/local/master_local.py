@@ -179,6 +179,7 @@ class LocalDiskMasterStore(TreeStore):
                         file_node_remove_list.append(node_to_remove)
 
             for dir_node in dir_node_remove_list:
+                logger.debug(f'overwrite_dir_entries_list(): removing subtree: {dir_node.node_identifier}')
                 self.remove_subtree(dir_node, to_trash=False)
 
         self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=file_node_remove_list))
@@ -251,11 +252,12 @@ class LocalDiskMasterStore(TreeStore):
                 if tree:
                     if TRACE_ENABLED:
                         logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
-                        self._memstore.master_tree.replace_subtree(tree)
-                        # Only set this once we are completely finished bringing the memstore up to date. Other tasks will depend on it
-                        # to choose whether to query memory or disk
-                        cache_info.is_loaded = True
-                        logger.debug(f'[{tree_id}] Updated in-memory cache: tree_size={len(self._memstore.master_tree):n}')
+
+                    self._memstore.master_tree.replace_subtree(tree)
+                    # Only set this once we are completely finished bringing the memstore up to date. Other tasks will depend on it
+                    # to choose whether to query memory or disk
+                    cache_info.is_loaded = True
+                    logger.debug(f'[{tree_id}] Updated in-memory cache from disk: tree_size={len(self._memstore.master_tree):n}')
 
         # FS SYNC
         if force_rescan_disk or cache_info.needs_refresh or (not was_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
