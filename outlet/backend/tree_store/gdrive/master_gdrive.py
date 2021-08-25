@@ -239,7 +239,7 @@ class GDriveMasterStore(TreeStore):
                 if self._memstore.master_tree:
                     logger.debug(f'Master tree not loaded: will load tree into memory')
                 else:
-                    logger.debug(f'invalidate_cache = {invalidate_cache}')
+                    logger.debug(f'Master tree is loaded but invalidate_cache={invalidate_cache}')
 
                 stopwatch_total = Stopwatch()
 
@@ -256,7 +256,7 @@ class GDriveMasterStore(TreeStore):
                 logger.debug(f'Master tree already loaded, and invalidate_cache={invalidate_cache}')
 
             if sync_latest_changes:
-                sync_changes_task = this_task.create_child_task(self._sync_latest_changes)
+                sync_changes_task = this_task.create_child_task(self._sync_latest_gdrive_changes)
                 self.backend.executor.submit_async_task(sync_changes_task)
 
         except Exception:
@@ -265,7 +265,7 @@ class GDriveMasterStore(TreeStore):
             raise
 
     @ensure_locked
-    def _sync_latest_changes(self, this_task: Task):
+    def _sync_latest_gdrive_changes(self, this_task: Task):
         logger.debug(f'Entered sync_latest_changes(): locked={self._struct_lock.locked()}')
 
         if not self._memstore.master_tree:
@@ -286,7 +286,7 @@ class GDriveMasterStore(TreeStore):
         if self._another_sync_requested:
             logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
             self._another_sync_requested = False
-            this_task.add_next_task(self._sync_latest_changes)
+            this_task.add_next_task(self._sync_latest_gdrive_changes)
 
     # Action listener callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

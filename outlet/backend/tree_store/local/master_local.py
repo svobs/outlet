@@ -257,7 +257,7 @@ class LocalDiskMasterStore(TreeStore):
                     # Only set this once we are completely finished bringing the memstore up to date. Other tasks will depend on it
                     # to choose whether to query memory or disk
                     cache_info.is_loaded = True
-                    logger.debug(f'[{tree_id}] Updated in-memory cache from disk: tree_size={len(self._memstore.master_tree):n}')
+                    logger.debug(f'[{tree_id}] Updated memstore from disk: Master tree {self.device_uid} size: {len(self._memstore.master_tree):n}')
 
         # FS SYNC
         if force_rescan_disk or cache_info.needs_refresh or (not was_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
