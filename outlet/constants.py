@@ -71,7 +71,8 @@ CFG_ENABLE_LOAD_FROM_DISK = 'cache.enable_cache_load'
 
 FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
 
-DISK_SCAN_MAX_DIRS_PER_TASK = 10
+DISK_SCAN_MAX_ITEMS_PER_TASK = 10
+TASK_TIME_WARNING_THRESHOLD_SEC = 60
 
 # ---- Google Drive: ----
 
@@ -183,10 +184,6 @@ class TreeLoadState(IntEnum):
     UNKNOWN = 0  # should never be returned
     NOT_LOADED = 1
     LOAD_STARTED = 2
-    VISIBLE_UNFILTERED_NODES_LOADED = 3  # if no filter currently applied
-    # VISIBLE_FILTERED_NODES_LOADED = 4  # if a filter is currently applied, the currently filtered nodes are loaded first
-    # VISIBLE_UNFILTERED_AND_FILTERED_NODES_LOADED = 5  # combination of the previous 2 states
-    ADDITIONAL_NODES_LOADED = 6  # this exists to send status updates
     COMPLETELY_LOADED = 10  # final state: all unflitered + filtered nodes loaded
 
 

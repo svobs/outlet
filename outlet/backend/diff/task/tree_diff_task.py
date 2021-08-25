@@ -4,7 +4,8 @@ import os
 from pydispatch import dispatcher
 
 from backend.diff.diff_content_first import ContentFirstDiffer
-from constants import TreeType
+from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
+from constants import TreeLoadState, TreeType
 from global_actions import GlobalActions
 from model.display_tree.build_struct import DiffResultTreeIds
 from model.display_tree.display_tree import DisplayTree
@@ -28,22 +29,25 @@ class TreeDiffTask:
     def do_tree_diff(this_task: Task, backend, sender, tree_id_left: str, tree_id_right: str, new_tree_ids: DiffResultTreeIds):
         stopwatch_diff_total = Stopwatch()
         try:
-            meta_left = backend.cacheman.get_active_display_tree_meta(tree_id_left)
-            meta_right = backend.cacheman.get_active_display_tree_meta(tree_id_right)
-            assert meta_left and meta_right, f'Missing tree meta! Left={meta_left}, Right={meta_right}'
+            meta_left: ActiveDisplayTreeMeta = backend.cacheman.get_active_display_tree_meta(tree_id_left)
+            if not meta_left:
+                raise RuntimeError(f'Cannot start tree diff: failed to find meta for display tree "{tree_id_left}"')
+            if meta_left.load_state != TreeLoadState.COMPLETELY_LOADED:
+                raise RuntimeError(f'Cannot start tree diff: display tree "{tree_id_left}" is not finished loading '
+                                   f'(current load state: {meta_left.load_state.name})')
+
+            meta_right: ActiveDisplayTreeMeta = backend.cacheman.get_active_display_tree_meta(tree_id_right)
+            if not meta_left:
+                raise RuntimeError(f'Cannot start tree diff: failed to find meta for display tree "{tree_id_right}"')
+            if meta_right.load_state != TreeLoadState.COMPLETELY_LOADED:
+                raise RuntimeError(f'Cannot start tree diff: display tree "{tree_id_right}" is not finished loading '
+                                   f'(current load state: {meta_right.load_state.name})')
+
             left_root_sn: SPIDNodePair = meta_left.root_sn
             right_root_sn: SPIDNodePair = meta_right.root_sn
 
             logger.debug(f'Source tree {tree_id_left} has root: {left_root_sn}')
             logger.debug(f'Source tree {tree_id_right} has root: {right_root_sn}')
-            if left_root_sn.spid.tree_type == TreeType.LOCAL_DISK and not TreeDiffTask._tree_exists_on_disk(left_root_sn.spid):
-                logger.info(f'Skipping diff because the left path does not exist: "{left_root_sn.spid.get_single_path()}"')
-                dispatcher.send(signal=Signal.DIFF_TREES_FAILED, sender=sender)
-                return
-            elif right_root_sn.spid.tree_type == TreeType.LOCAL_DISK and not TreeDiffTask._tree_exists_on_disk(right_root_sn.spid):
-                logger.info(f'Skipping diff because the right path does not exist: "{right_root_sn.spid.get_single_path()}"')
-                dispatcher.send(signal=Signal.DIFF_TREES_FAILED, sender=sender)
-                return
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {sender}')
             dispatcher.send(Signal.START_PROGRESS_INDETERMINATE, sender=sender)

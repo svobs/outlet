@@ -5,14 +5,14 @@ from concurrent.futures import Future
 from enum import IntEnum
 from functools import partial
 from queue import Empty, Queue
-from typing import Deque, Dict, Optional, Set, Tuple
+from typing import Deque, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
 from pydispatch import dispatcher
 
 from backend.executor.command.cmd_executor import CommandExecutor
 from constants import CENTRAL_EXEC_THREAD_NAME, EngineSummaryState, OP_EXECUTION_THREAD_NAME, SUPER_DEBUG_ENABLED, \
-    TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_WORKERS, TRACE_ENABLED
+    TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_WORKERS, TASK_TIME_WARNING_THRESHOLD_SEC, TRACE_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util import time_util
@@ -186,9 +186,12 @@ class CentralExecutor(HasLifecycle):
                         elif TRACE_ENABLED:
                             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks to run (currently running: {len(self._running_task_dict)})')
                     else:
+                        running_tasks_str, problem_tasks_str_list = self._print_running_task_dict()
                         logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task queue is at max capacity ({TASK_RUNNER_MAX_WORKERS}): '
-                                     f'{self._print_running_task_dict()}. '
-                                     f'DependentTasks: (len={len(self._dependent_task_dict)}, vals={self._dependent_task_dict.values()})')
+                                     f'{running_tasks_str}. '
+                                     f'DependentTasks count={len(self._dependent_task_dict)}: {self._dependent_task_dict.values()})')
+                        for problem_task_str in problem_tasks_str_list:
+                            logger.warning(problem_task_str)
 
                 # Do this outside the CV:
                 if task:
@@ -196,13 +199,18 @@ class CentralExecutor(HasLifecycle):
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
 
-    def _print_running_task_dict(self) -> str:
-        str_list = []
+    def _print_running_task_dict(self) -> Tuple[str, List[str]]:
+        running_tasks_str_list = []
+        problem_tasks_str_list = []
         for task in self._running_task_dict.values():
             sec, ms = divmod(time_util.now_ms() - task.task_start_time_ms, 1000)
-            elapsed_time_str = f'Runtime={sec}.{ms}s'
-            str_list.append(f'{elapsed_time_str}: {task}')
-        return '; '.join(str_list)
+            elapsed_time_str = f'{sec}.{ms}s'
+            if sec > TASK_TIME_WARNING_THRESHOLD_SEC:
+                problem_tasks_str_list.append(f'Task is taking a long time ({elapsed_time_str} so far): {task}')
+            running_tasks_str_list.append(f'Task {task.task_uuid}: {elapsed_time_str} elapsed')
+        running_tasks_str = '; '.join(running_tasks_str_list)
+
+        return running_tasks_str, problem_tasks_str_list
 
     def _enqueue_task(self, task: Task):
         future = self._be_task_runner.enqueue_task(task)

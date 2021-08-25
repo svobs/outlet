@@ -406,11 +406,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         """Generate DirStatsDict for the given subtree, with no filter applied"""
-        # logger.warning('LOCK ON!')
-        with self._struct_lock:
-            result = self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
-        # logger.warning('LOCK off')
-        return result
+        return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
 
     def populate_filter(self, filter_state: FilterState):
         filter_state.ensure_cache_populated(self._memstore.master_tree)
@@ -479,7 +475,8 @@ class LocalDiskMasterStore(TreeStore):
         if src_full_path == dst_full_path:
             raise RuntimeError(f'src_full_path and dst_full_path are identical: "{dst_full_path}"')
 
-        # logger.warning('LOCK ON!')
+        if self._struct_lock.locked():
+            logger.warning(f'move_local_subtree(): already locked!')
         with self._struct_lock:
             src_uid: UID = self.get_uid_for_path(src_full_path)
             src_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
@@ -499,7 +496,6 @@ class LocalDiskMasterStore(TreeStore):
                 dst_subtree.remove_node_list = existing_dst_node_list
 
             existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(src_subroot_node.uid)
-        # logger.warning('LOCK off')
 
         if existing_src_node_list:
             # Use cached list of existing nodes in the old location to infer the nodes in the new location:
@@ -539,7 +535,8 @@ class LocalDiskMasterStore(TreeStore):
             raise RuntimeError(f'Internal error while trying to remove subtree_root ({subtree_root_node}): UID did not match expected '
                                f'({self.get_uid_for_path(subtree_root_node.get_single_path())})')
 
-        # logger.warning('LOCK ON!')
+        if self._struct_lock.locked():
+            logger.warning(f'remove_subtree(): already locked!')
         with self._struct_lock:
             assert isinstance(subtree_root_node.node_identifier, LocalNodeIdentifier)
             subtree_node_list: List[LocalNode] = self._get_subtree_bfs_from_cache(subtree_root_node.node_identifier)
@@ -547,7 +544,6 @@ class LocalDiskMasterStore(TreeStore):
                 raise RuntimeError(f'Unexpected error: no nodes returned from BFS search for subroot: {subtree_root_node.node_identifier}')
             operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_node_list)
             self._execute_write_op(operation)
-        # logger.warning('LOCK off')
 
     # Various public getters
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -634,7 +630,7 @@ class LocalDiskMasterStore(TreeStore):
         if cache_info:
             if cache_info.is_loaded:
                 # 1. Use in-memory cache if it exists:
-                logger.debug(f'_get_child_list_from_cache_for_spid(): Using in-memory cache: {parent_spid}')
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Querying in-memory cache for: {parent_spid}')
                 parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
                 if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
                     try:
@@ -645,7 +641,7 @@ class LocalDiskMasterStore(TreeStore):
                         pass
             else:
                 # 2. Read from disk cache if it exists:
-                logger.debug(f'In-memory cache miss; trying disk cache: {parent_spid}')
+                logger.debug(f'_get_child_list_from_cache_for_spid(): In-memory cache miss; trying disk cache for: {parent_spid}')
                 with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
                     parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
                     if parent_dir and parent_dir.is_dir() and parent_dir.all_children_fetched:
@@ -709,7 +705,7 @@ class LocalDiskMasterStore(TreeStore):
             logger.debug(f'Cannot retrieve node (UID={uid}): could not get full_path for node: {err}')
             return None
 
-        return self.read_single_node_for_path(full_path)
+        return None
 
     def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
         parent_node = self.get_single_parent_for_node(node)

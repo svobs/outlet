@@ -6,7 +6,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import DISK_SCAN_MAX_DIRS_PER_TASK, TRACE_ENABLED
+from constants import DISK_SCAN_MAX_ITEMS_PER_TASK, TRACE_ENABLED
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode, LocalNode
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
@@ -153,16 +153,17 @@ class LocalDiskScanner:
 
             target_dir: str = self._dir_queue.popleft()
 
-            items_scanned_this_task += len(self.scan_single_dir(target_dir))
-
-            logger.debug(f'Scanned dir #{items_scanned_this_task}: "{target_dir}" (dir_queue size: {len(self._dir_queue)})')
+            items_scanned_in_dir = len(self.scan_single_dir(target_dir))
+            logger.debug(f'Scanned {items_scanned_in_dir} items from dir "{target_dir}" (dir_queue size: {len(self._dir_queue)})')
+            items_scanned_this_task += items_scanned_in_dir
 
             if self.tree_id:
                 logger.debug(f'[{self.tree_id}] Progress: {self.progress} of {self.total} files (dir_queue size: {len(self._dir_queue)})')
 
             # small or empty dirs will cause excessive overhead, so try to optimize by reusing tasks for these:
-            if items_scanned_this_task >= DISK_SCAN_MAX_DIRS_PER_TASK:
-                logger.debug(f'Scanned max number of dirs per task ({DISK_SCAN_MAX_DIRS_PER_TASK}); launching new task for remainder')
+            if items_scanned_this_task >= DISK_SCAN_MAX_ITEMS_PER_TASK:
+                logger.debug(f'Scanned more dirs ({items_scanned_this_task}) than max number per task ({DISK_SCAN_MAX_ITEMS_PER_TASK});'
+                             f' launching new task for remainder')
                 break
 
         # Run next iteration next:
