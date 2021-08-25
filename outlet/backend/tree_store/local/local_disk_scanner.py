@@ -6,7 +6,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import DISK_SCAN_MAX_ITEMS_PER_TASK, TRACE_ENABLED
+from constants import DISK_SCAN_MAX_ITEMS_PER_TASK, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode, LocalNode
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
@@ -119,7 +119,8 @@ class LocalDiskScanner:
                 else:
                     nondirs.append(os.path.join(target_dir, entry.name))
 
-        logger.debug(f'_list_dir_entries(): returning {len(dirs)} dirs, {len(nondirs)} nondirs')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'_list_dir_entries(): returning {len(dirs)} dirs, {len(nondirs)} nondirs')
         return dirs, nondirs
 
     def start_recursive_scan(self, this_task: Task):
@@ -137,10 +138,11 @@ class LocalDiskScanner:
             logger.debug(f'[{self.tree_id}] Sending START_PROGRESS with total={self.total}')
             dispatcher.send(signal=Signal.START_PROGRESS, sender=self.tree_id, total=self.total)
 
-        this_task.add_next_task(self.scan_next_dir)
+        this_task.add_next_task(self.scan_next_batch)
 
-    def scan_next_dir(self, this_task: Task):
+    def scan_next_batch(self, this_task: Task):
         items_scanned_this_task = 0
+        dirs_scanned_this_task = 0
 
         while True:
             if len(self._dir_queue) == 0:
@@ -154,7 +156,8 @@ class LocalDiskScanner:
             target_dir: str = self._dir_queue.popleft()
 
             items_scanned_in_dir = len(self.scan_single_dir(target_dir))
-            logger.debug(f'Scanned {items_scanned_in_dir} items from dir "{target_dir}" (dir_queue size: {len(self._dir_queue)})')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Scanned {items_scanned_in_dir} items from dir "{target_dir}" (dir_queue size: {len(self._dir_queue)})')
             items_scanned_this_task += items_scanned_in_dir
 
             if self.tree_id:
@@ -162,15 +165,16 @@ class LocalDiskScanner:
 
             # small or empty dirs will cause excessive overhead, so try to optimize by reusing tasks for these:
             if items_scanned_this_task >= DISK_SCAN_MAX_ITEMS_PER_TASK:
-                logger.debug(f'Scanned more dirs ({items_scanned_this_task}) than max number per task ({DISK_SCAN_MAX_ITEMS_PER_TASK});'
-                             f' launching new task for remainder')
+                logger.debug(f'Scanned item count ({items_scanned_this_task} from {dirs_scanned_this_task} dirs)'
+                             f' met/exceeeded max number per task ({DISK_SCAN_MAX_ITEMS_PER_TASK}); will launch new task for remainder')
                 break
 
         # Run next iteration next:
         this_task.add_next_task(self.scan_next_dir)
 
     def scan_single_dir(self, target_dir: str) -> List[LocalNode]:
-        logger.debug(f'Scanning & building nodes for dir: "{target_dir}"')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Scanning & building nodes for dir: "{target_dir}"')
 
         def on_error(error):
             logger.error(f'An error occured listing dir entries: {error}')

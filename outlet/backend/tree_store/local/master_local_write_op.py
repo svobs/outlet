@@ -204,12 +204,14 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
         else:
-            logger.debug(f'No nodes to remove from diskstore')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'No nodes to remove from diskstore')
 
         if subtree.upsert_node_list:
             cache.upsert_files_and_dirs(subtree.upsert_node_list, commit=False)
         else:
-            logger.debug(f'No nodes to upsert to diskstore')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'No nodes to upsert to diskstore')
 
     def send_signals(self):
         for subtree in self.subtree_list:

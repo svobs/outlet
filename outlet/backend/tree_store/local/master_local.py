@@ -373,13 +373,15 @@ class LocalDiskMasterStore(TreeStore):
 
     def read_single_node_for_path(self, full_path: str) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache"""
-        logger.debug(f'Loading single node for path: "{full_path}"')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Loading single node for path: "{full_path}"')
         cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
         if not cache_info:
             logger.debug(f'Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
-            logger.debug(f'Cache is already loaded for subtree (will return node from memory): "{cache_info.subtree_root}"')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Cache is already loaded for subtree (will return node from memory): "{cache_info.subtree_root}"')
             return self.get_node_for_domain_id(full_path)
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             return cache.get_file_or_dir_for_path(full_path)
