@@ -3,7 +3,7 @@ from model.uid import UID
 import platform
 
 TRACE_ENABLED = False
-SUPER_DEBUG_ENABLED = True
+SUPER_DEBUG_ENABLED = False
 
 # do not modify this behavior
 if TRACE_ENABLED:
@@ -75,7 +75,6 @@ DISK_SCAN_MAX_ITEMS_PER_TASK = 10
 TASK_TIME_WARNING_THRESHOLD_SEC = 60
 
 LARGE_FILE_SIZE_THRESHOLD_BYTES = 1000000000
-MAX_SIG_CALC_BYTES_PER_BATCH = 50000000
 
 # ---- Google Drive: ----
 

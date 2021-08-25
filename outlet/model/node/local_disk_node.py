@@ -230,13 +230,29 @@ class LocalFileNode(LocalNode):
         return self.uid, self.get_single_parent_uid(), self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, \
                self.get_single_path(), self._trashed, self._is_live
 
+    def equals_ignoring_missing_sig(self, other):
+        """Same as __eq__, but allows missing MD5s and SHA256s, as long as they are not both present and not equal"""
+        if isinstance(other, LocalFileNode) and \
+                (((other._md5 is None or self._md5 is None) and (other._sha256 is None or self._sha256 is None))
+                    or ((other._md5 == self._md5) and (other._sha256 == self._sha256))) and \
+                other.node_identifier.node_uid == self.node_identifier.node_uid and \
+                other.node_identifier.device_uid == self.node_identifier.device_uid and \
+                other._modify_ts == self._modify_ts and \
+                other._change_ts == self._change_ts and \
+                other.get_trashed_status() == self.get_trashed_status() and \
+                other._is_live == self._is_live and \
+                other.get_icon() == self.get_icon():
+            return True
+
+        return False
+
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
         if isinstance(other, LocalFileNode) and \
-                other.node_identifier.node_uid == self.node_identifier.node_uid and \
-                other.node_identifier.device_uid == self.node_identifier.device_uid and \
                 other._md5 == self._md5 and \
                 other._sha256 == self._sha256 and \
+                other.node_identifier.node_uid == self.node_identifier.node_uid and \
+                other.node_identifier.device_uid == self.node_identifier.device_uid and \
                 other._modify_ts == self._modify_ts and \
                 other._change_ts == self._change_ts and \
                 other.get_trashed_status() == self.get_trashed_status() and \

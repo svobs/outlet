@@ -102,11 +102,11 @@ class CacheManager(HasLifecycle):
 
         self.load_all_caches_on_startup = backend.get_config('cache.load_all_caches_on_startup')
         self.load_caches_for_displayed_trees_at_startup = backend.get_config('cache.load_caches_for_displayed_trees_on_startup')
-        self.sync_from_local_disk_on_cache_load = backend.get_config('cache.sync_from_local_disk_on_cache_load')
+        self.sync_from_local_disk_on_cache_load = backend.get_config('cache.local_disk.sync_from_local_disk_on_cache_load')
         self.sync_from_gdrive_on_cache_load = backend.get_config('cache.sync_from_gdrive_on_cache_load')
         self.reload_tree_on_root_path_update = backend.get_config('cache.load_cache_when_tree_root_selected')
         self.cancel_all_pending_ops_on_startup = backend.get_config('cache.cancel_all_pending_ops_on_startup')
-        self.lazy_load_local_file_signatures: bool = backend.get_config('cache.lazy_load_local_file_signatures')
+        self.lazy_load_local_file_signatures: bool = backend.get_config('cache.local_disk.signatures.lazy_load')
         logger.debug(f'lazy_load_local_file_signatures = {self.lazy_load_local_file_signatures}')
 
         if not self.load_all_caches_on_startup:
@@ -143,7 +143,6 @@ class CacheManager(HasLifecycle):
 
         self._cached_device_list: List[Device] = []
 
-        self.connect_dispatch_listener(signal=Signal.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
     def shutdown(self):
@@ -196,6 +195,10 @@ class CacheManager(HasLifecycle):
     def start(self):
         """Should be called during startup. Loop over all caches and load/merge them into a
         single large in-memory cache"""
+        if self._startup_done.is_set():
+            logger.info(f'Caches already loaded. Ignoring start request.')
+            return
+
         logger.debug(f'Starting CacheManager')
         HasLifecycle.start(self)
 
@@ -249,15 +252,6 @@ class CacheManager(HasLifecycle):
             dispatcher.send(Signal.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
             self._startup_done.set()
             logger.info('CacheManager startup done')
-            dispatcher.send(signal=Signal.START_CACHEMAN_DONE, sender=ID_GLOBAL_CACHE)
-
-    def _on_start_cacheman_requested(self, sender):
-        if self._startup_done.is_set():
-            logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
-            return
-
-        logger.debug(f'CacheManager.start() initiated by {sender}')
-        self.start()
 
     def get_or_set_local_device_uuid(self) -> str:
         file_path: str = file_util.get_resource_path(self.backend.get_config('agent.local_disk.device_id_file_path'))
@@ -397,8 +391,6 @@ class CacheManager(HasLifecycle):
             self._overwrite_all_caches_in_registry(caches)
 
         self._load_registry_done.set()
-        dispatcher.send(signal=Signal.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
-
         logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
 
     def write_cache_registry_updates_to_disk(self):
@@ -664,9 +656,8 @@ class CacheManager(HasLifecycle):
                 tree_meta.filter_state.ensure_cache_populated(tree_meta.change_tree)
 
         def _repopulate_dir_stats_and_finish(_this_task):
+            tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED  # do this first to avoid race condition in ActiveTreeManager
             self.repopulate_dir_stats_for_tree(tree_meta)
-
-            tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED
             if send_signals:
                 # Transition: Load State = COMPLETELY_LOADED
                 # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:

@@ -23,9 +23,9 @@ class ActiveDisplayTreeMeta:
     """
 
     def __init__(self, backend, state: DisplayTreeUiState, filter_state: FilterState):
-        self.load_state: TreeLoadState = TreeLoadState.NOT_LOADED
-
         self.state: DisplayTreeUiState = state
+
+        self.load_state: TreeLoadState = TreeLoadState.NOT_LOADED
         self.filter_state: FilterState = filter_state
 
         self.change_tree: Optional[ChangeTree] = None

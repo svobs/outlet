@@ -1,13 +1,12 @@
 import copy
 import logging
 import threading
-import time
 from collections import deque
 from typing import Deque, List
 
 from backend.executor.central import ExecPriority
 from backend.tree_store.local import content_hasher
-from constants import LARGE_FILE_SIZE_THRESHOLD_BYTES, MAX_SIG_CALC_BYTES_PER_BATCH, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import LARGE_FILE_SIZE_THRESHOLD_BYTES, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.uid import UID
 from signal_constants import Signal
@@ -33,7 +32,8 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         self.backend = backend
         self.device_uid = device_uid
         self._cv_can_get = threading.Condition()
-        self.batch_interval_ms: int = ensure_int(self.backend.get_config('cache.sig_calc_batch_interval_ms'))
+        self.batch_interval_ms: int = ensure_int(self.backend.get_config('cache.local_disk.signatures.batch_interval_ms'))
+        self.bytes_per_batch_high_watermark: int = ensure_int(self.backend.get_config('cache.local_disk.signatures.bytes_per_batch_high_watermark'))
         self._node_queue: Deque[LocalFileNode] = deque()
 
     def _enqueue_node(self, node: LocalFileNode):
@@ -59,23 +59,23 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
 
     def _run(self):
         logger.info(f'Starting {self.name}...')
-        calc_task = None
 
         while not self.was_shutdown:
             nodes_to_scan = []
             bytes_to_scan = 0
 
+            # if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Waiting for {ExecPriority.P6_SIGNATURE_CALC.name} task queue to be depleted...')
+            self.backend.executor.wait_until_queue_depleted(ExecPriority.P6_SIGNATURE_CALC)
+            # if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Task queue is empty. Examining node queue')
+
             with self._cv_can_get:
                 if not self._node_queue:
-                    logger.debug(f'{self.name}: No nodes in queue. Will wait until notified')
+                    logger.debug(f'[{self.name}] No nodes in queue. Will wait until notified')
                     self._cv_can_get.wait()
 
-                if calc_task and self.backend.executor.is_task_or_descendent_running(calc_task.task_uuid):
-                    logger.debug(f'{self.name}: task {calc_task.task_uuid} is still running: sleeping for {self.batch_interval_ms} ms')
-                    time.sleep(self.batch_interval_ms / 1000.0)
-                    continue
-
-                while len(self._node_queue) > 0 and bytes_to_scan <= MAX_SIG_CALC_BYTES_PER_BATCH:
+                while len(self._node_queue) > 0 and bytes_to_scan <= self.bytes_per_batch_high_watermark:
                     node = self._node_queue.popleft()
                     nodes_to_scan.append(node)
                     size_bytes = node.get_size_bytes()
@@ -83,7 +83,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                         bytes_to_scan += size_bytes
 
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'{self.name}: Submitting batch task to Central Exec with {len(nodes_to_scan)} nodes and {bytes_to_scan} bytes total')
+                logger.debug(f'[{self.name}] Submitting batch task to Central Exec with {len(nodes_to_scan)} nodes and {bytes_to_scan} bytes total')
             calc_task = Task(ExecPriority.P6_SIGNATURE_CALC, self.calculate_signature_for_batch, nodes_to_scan)
             self.backend.executor.submit_async_task(calc_task)
 
@@ -92,8 +92,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         assert this_task.priority == ExecPriority.P6_SIGNATURE_CALC
 
         if len(nodes_to_scan) > 0:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.name}] Calculating signatures for batch of {len(nodes_to_scan)} nodes')
+            logger.debug(f'[{self.name}] Calculating signatures for batch of {len(nodes_to_scan)} nodes')
             for node in nodes_to_scan:
                 self.calculate_signature_for_local_node(node)
 
@@ -120,12 +119,12 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         if size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES:
             logger.info(f'[{self.name}] Calculating signature for node (note: this file is very large ({humanfriendlier_size(size_bytes)}) '
                         f'and may take a while: {node.node_identifier}')
-        else:
+        elif SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
 
         md5, sha256 = content_hasher.calculate_signatures(full_path=node.get_single_path())
         if not md5 and not sha256:
-            logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted')
+            logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted from disk')
             return
 
         # Do not modify the original node, or cacheman will not detect that it has changed. Edit and submit a copy instead
@@ -133,7 +132,8 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         node_with_signature.md5 = md5
         node_with_signature.sha256 = sha256
 
-        logger.debug(f'[{self.name}] Node {node_with_signature.node_identifier.guid} has MD5: {node_with_signature.md5}')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Node {node_with_signature.node_identifier.guid} has MD5: {node_with_signature.md5}')
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:

@@ -57,17 +57,12 @@ class LocalDiskMemoryStore:
         else:
             logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
 
-        if self.use_md5 and node.md5:
-            self.md5_dict.remove(node.md5, node.uid)
-        if self.use_sha256 and node.sha256:
-            self.sha256_dict.remove(node.sha256, node.uid)
-
     def upsert_single_node(self, node: LocalNode, update_only: bool = False) -> Tuple[Optional[LocalNode], bool]:
         """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
         Second item in the tuple is True if update contained changes which should be saved to disk; False if otherwise"""
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Upserting LocalNode to memory cache: {node}')
+            logger.debug(f'Upserting to memstore: {node}')
 
         # 1. Validate UID:
         if not node.uid:
@@ -77,49 +72,41 @@ class LocalDiskMemoryStore:
         if existing_node:
             if existing_node.is_live() and not node.is_live():
                 # In the future, let's close this hole with more elegant logic
-                logger.debug(f'Cannot replace a node which exists with one which does not exist; skipping cache update for {node.node_identifier}')
+                logger.debug(f'Cannot replace a node which exists with one which does not exist; skipping memstore update for {node.node_identifier}')
                 return None, False
 
             if existing_node.is_dir() and not node.is_dir():
-                # need to replace all descendants...not ready to do this yet
+                # Not allowed. Need to first delete all descendants via other ops.
                 raise RuntimeError(f'Cannot replace a directory with a file: "{node.node_identifier}"')
-
-            if existing_node == node:
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Node being upserted is identical to node already in the cache; skipping cache update '
-                                 f'(CachedNode={existing_node}; NewNode={node}')
-                return existing_node, False
-            else:
-                # Signature may have changed. Simplify things by just removing prev node before worrying about updated node
-                if existing_node.md5 and self.use_md5:
-                    self.md5_dict.remove(node.md5, node.uid)
-                if existing_node.sha256 and self.use_sha256:
-                    self.sha256_dict.remove(node.sha256, node.uid)
-
-            # just update the existing - much easier
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
-            if node.is_file() and existing_node.is_file():
+            elif node.is_file() and existing_node.is_file():
+                # Check for freshly scanned files which are missing signatures. If their other meta checks out, copy from the cache before doing
+                # equals comparison
                 assert isinstance(node, LocalFileNode) and isinstance(existing_node, LocalFileNode)
                 _merge_signature_if_appropriate(existing_node, node)
                 if SUPER_DEBUG_ENABLED:
                     _check_update_sanity(existing_node, node)
+
+            if existing_node == node:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Node being upserted is identical to node already in the cache; skipping memstore update '
+                                 f'(CachedNode={existing_node}; NewNode={node}')
+                return existing_node, False
+
+            # just update the existing - much easier
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
             existing_node.update_from(node)
             node = existing_node
         elif update_only:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Skipping update of node {node.uid} because it is not in the cache')
+                logger.debug(f'Skipping update of node {node.uid} because it is not in memstore')
             return node, False
         else:
             # new file or directory insert
             self.master_tree.add_to_tree(node)
 
-        # do this after the above, to avoid cache corruption in case of failure
-        if node.md5 and self.use_md5:
-            self.md5_dict.put_item(node)
-        if node.sha256 and self.use_sha256:
-            self.sha256_dict.put_item(node)
-
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Node {node.uid} was upserted into memstore')
         return node, True
 
 
@@ -130,10 +117,10 @@ def _merge_signature_if_appropriate(cached: LocalFileNode, fresh: LocalFileNode)
         if fresh.md5 and cached.md5:
             if fresh.md5 != cached.md5:
                 logger.error(f'Fresh node already has MD5 but it is unexpected: {fresh} (expected {cached}')
-        elif fresh.md5:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Copying MD5 to cached node: {cached.node_identifier}')
-            cached.md5 = fresh.md5
+        # elif fresh.md5:
+        #     if SUPER_DEBUG_ENABLED:
+        #         logger.debug(f'Copying MD5 to cached node: {cached.node_identifier}')
+        #     cached.md5 = fresh.md5
         elif cached.md5:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Copying MD5 to fresh node: {fresh.node_identifier}')
@@ -142,10 +129,10 @@ def _merge_signature_if_appropriate(cached: LocalFileNode, fresh: LocalFileNode)
         if fresh.sha256 and cached.sha256:
             if fresh.sha256 != cached.sha256:
                 logger.error(f'Dst node already has SHA256 but it is unexpected: {fresh} (expected {cached}')
-        elif fresh.sha256:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Copying SHA256 to cached node: {cached.node_identifier}')
-            cached.md5 = fresh.md5
+        # elif fresh.sha256:
+        #     if SUPER_DEBUG_ENABLED:
+        #         logger.debug(f'Copying SHA256 to cached node: {cached.node_identifier}')
+        #     cached.md5 = fresh.md5
         elif cached.sha256:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Copying SHA256 to fresh node: {fresh.node_identifier}')

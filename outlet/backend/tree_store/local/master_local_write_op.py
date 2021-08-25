@@ -4,7 +4,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import SUPER_DEBUG_ENABLED
+from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from backend.tree_store.local.master_local_memory import LocalDiskMemoryStore
@@ -189,11 +189,13 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
 
                 for node_index, node in enumerate(subtree.upsert_node_list):
                     master_node, was_updated = memstore.upsert_single_node(node)
+                    if TRACE_ENABLED:
+                        logger.debug(f'Node {node.uid} was updated: {was_updated}')
                     if was_updated and node.is_live():
                         if master_node:
                             node = master_node
                         new_upsert_list.append(node)
-                    elif SUPER_DEBUG_ENABLED:
+                    elif TRACE_ENABLED:
                         logger.debug(f'Node was not updated in memcache and will be omitted from disk save: {node}')
 
                 subtree.upsert_node_list = new_upsert_list
@@ -212,11 +214,7 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
     def send_signals(self):
         for subtree in self.subtree_list:
             dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root=subtree.subtree_root,
-                            upserted_node_list=subtree.upsert_node_list, removed_node_list= reversed(subtree.remove_node_list))
-            for node in reversed(subtree.remove_node_list):
-                dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
-            for node in subtree.upsert_node_list:
-                dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
+                            upserted_node_list=subtree.upsert_node_list, removed_node_list=reversed(subtree.remove_node_list))
 
     def __repr__(self):
         return f'BatchChangesOp({self.subtree_list})'

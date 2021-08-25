@@ -587,7 +587,7 @@ class LocalDiskMasterStore(TreeStore):
         if cache_info:
             if cache_info.is_loaded:
                 # 1. Use in-memory cache if it exists:
-                logger.debug(f'_get_child_list_from_cache_for_spid(): Querying in-memory cache for: {parent_spid}')
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Querying in-memory cache ({cache_info}) for: {parent_spid}')
                 parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
                 if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
                     try:
@@ -738,7 +738,7 @@ class LocalDiskMasterStore(TreeStore):
                     return None
                 pointer = target
 
-        if self.lazy_load_signatures and not must_scan_signature:
+        if self.backend.cacheman.lazy_load_local_file_signatures and not must_scan_signature:
             # Skip MD5 and set it NULL for now. Node will be added to content scanning queue when it is upserted into cache (above)
             md5 = None
             sha256 = None

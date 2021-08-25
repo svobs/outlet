@@ -162,6 +162,9 @@ class CentralExecutor(HasLifecycle):
                 logger.debug(f'is_task_or_descendent_running(): task is NOT running: {task_uuid}')
                 return False
 
+    def wait_until_queue_depleted(self, priority: ExecPriority):
+        self._submitted_task_queue_dict.get(priority).join()
+
     # Central Executor Thread
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     def _run_central_exec_thread(self):

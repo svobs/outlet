@@ -48,8 +48,7 @@ class BackendIntegrated(OutletBackend):
 
         self.executor.start()
 
-        # Kick off cache load now that we have a progress bar
-        dispatcher.send(Signal.START_CACHEMAN, sender=ID_CENTRAL_EXEC)
+        self.cacheman.start()
 
     def shutdown(self):
         logger.debug('Shutting down backend')

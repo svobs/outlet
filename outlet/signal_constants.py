@@ -6,10 +6,10 @@ from enum import IntEnum
 class Signal(IntEnum):
     # Tasks
     ENQUEUE_UI_TASK = 1
-    START_CACHEMAN = 2
-    START_OP_EXEC_THREAD = 3
-    LOAD_REGISTRY_DONE = 4
-    START_CACHEMAN_DONE = 5
+    # START_CACHEMAN = 2
+    # START_OP_EXEC_THREAD = 3
+    # LOAD_REGISTRY_DONE = 4
+    # START_CACHEMAN_DONE = 5
     DIFF_TREES_DONE = 7
     DIFF_TREES_FAILED = 8
     DIFF_TREES_CANCELLED = 9
@@ -18,7 +18,6 @@ class Signal(IntEnum):
     COMMAND_COMPLETE = 12
     GENERATE_MERGE_TREE_DONE = 13
     GENERATE_MERGE_TREE_FAILED = 14
-
     COMPLETE_MERGE = 15
     """Request from FE to BE"""
 
