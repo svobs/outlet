@@ -314,10 +314,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._converter.sn_to_grpc(sn, signal.sn)
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_subtree_nodes_changed(self, sender: str, subtree_root: NodeIdentifier, upserted_sn_list: List[SPIDNodePair],
+    def _on_subtree_nodes_changed(self, sender: str, subtree_root_spid: NodeIdentifier, upserted_sn_list: List[SPIDNodePair],
                                   removed_sn_list: List[SPIDNodePair]):
         signal = SignalMsg(sig_int=Signal.SUBTREE_NODES_CHANGED, sender=sender)
-        self._converter.node_identifier_to_grpc(subtree_root, signal.subtree.subtree_root_spid)
+        self._converter.node_identifier_to_grpc(subtree_root_spid, signal.subtree.subtree_root_spid)
         self._converter.sn_list_to_grpc(upserted_sn_list, signal.subtree.upserted_sn_list)
         self._converter.sn_list_to_grpc(removed_sn_list, signal.subtree.removed_sn_list)
         self._send_grpc_signal_to_all_clients(signal)

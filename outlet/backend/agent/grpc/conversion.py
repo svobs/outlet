@@ -245,7 +245,8 @@ class GRPCConverter:
         if node_identifier.is_spid():
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             grpc_node_identifier.path_uid = node_identifier.path_uid
-            grpc_node_identifier.parent_guid = node_identifier.parent_guid
+            if node_identifier.parent_guid:
+                grpc_node_identifier.parent_guid = node_identifier.parent_guid
         assert grpc_node_identifier.path_uid == 0 or len(list(grpc_node_identifier.path_list)) <= 1, f'Wrong: {node_identifier}'
 
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
