@@ -119,9 +119,9 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                 logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
             self._enqueue_node(node)
 
-    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root: NodeIdentifier,
+    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root_spid: NodeIdentifier,
                                            upserted_node_list: List[LocalNode], removed_node_list: List[LocalNode]):
-        if subtree_root.device_uid != self.device_uid:
+        if subtree_root_spid.device_uid != self.device_uid:
             return
 
         for node in upserted_node_list:

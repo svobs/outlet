@@ -245,13 +245,15 @@ class GRPCConverter:
         if node_identifier.is_spid():
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             grpc_node_identifier.path_uid = node_identifier.path_uid
+            grpc_node_identifier.parent_guid = node_identifier.parent_guid
         assert grpc_node_identifier.path_uid == 0 or len(list(grpc_node_identifier.path_list)) <= 1, f'Wrong: {node_identifier}'
 
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         return self.backend.node_identifier_factory.for_values(uid=grpc_node_identifier.uid, device_uid=grpc_node_identifier.device_uid,
                                                                path_list=list(grpc_node_identifier.path_list), path_uid=grpc_node_identifier.path_uid,
                                                                op_type=grpc_node_identifier.op_type,
-                                                               must_be_single_path=grpc_node_identifier.path_uid > 0)
+                                                               must_be_single_path=grpc_node_identifier.path_uid > 0,
+                                                               parent_guid=grpc_node_identifier.parent_guid)
 
     # SPIDNodePair
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

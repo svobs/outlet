@@ -2,7 +2,7 @@ import io
 import logging
 import threading
 from collections import deque
-from typing import Deque, Dict, Optional, Set
+from typing import Deque, Dict, List, Optional, Set
 
 from pydispatch import dispatcher
 
@@ -26,7 +26,7 @@ from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import SPIDNodePair
-from model.node_identifier import GUID
+from model.node_identifier import GUID, NodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp
 from signal_constants import ID_GLOBAL_CACHE, Signal
@@ -76,6 +76,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
+        self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED, receiver=self._on_subtree_nodes_changed)
 
         self.connect_dispatch_listener(signal=Signal.DEVICE_UPSERTED, receiver=self._on_device_upserted)
         self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_stats_updated)
@@ -303,16 +304,22 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.download_msg.filename = filename
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_node_upserted(self, sender: str, sn: SPIDNodePair, parent_guid: GUID):
+    def _on_node_upserted(self, sender: str, sn: SPIDNodePair):
         signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)
         self._converter.sn_to_grpc(sn, signal.sn)
-        signal.parent_guid = parent_guid
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_node_removed(self, sender: str, sn: SPIDNodePair, parent_guid: GUID):
+    def _on_node_removed(self, sender: str, sn: SPIDNodePair):
         signal = SignalMsg(sig_int=Signal.NODE_REMOVED, sender=sender)
         self._converter.sn_to_grpc(sn, signal.sn)
-        signal.parent_guid = parent_guid
+        self._send_grpc_signal_to_all_clients(signal)
+
+    def _on_subtree_nodes_changed(self, sender: str, subtree_root: NodeIdentifier, upserted_sn_list: List[SPIDNodePair],
+                                  removed_sn_list: List[SPIDNodePair]):
+        signal = SignalMsg(sig_int=Signal.SUBTREE_NODES_CHANGED, sender=sender)
+        self._converter.node_identifier_to_grpc(subtree_root, signal.subtree.subtree_root_spid)
+        self._converter.sn_list_to_grpc(upserted_sn_list, signal.subtree.upserted_sn_list)
+        self._converter.sn_list_to_grpc(removed_sn_list, signal.subtree.removed_sn_list)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_device_upserted(self, sender: str, device: Device):

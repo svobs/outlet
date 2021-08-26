@@ -205,11 +205,15 @@ message TreeLoadUpdate {
 	string status_msg = 2;
 }
 
+message SubtreeChangeData {
+	NodeIdentifier subtree_root_spid = 1;
+	repeated SPIDNodePair upserted_sn_list = 2;
+	repeated SPIDNodePair removed_sn_list = 3;
+}
+
 message SignalMsg {
 	uint32 sig_int = 1;
 	string sender = 2;
-
-	string parent_guid = 3; // for NODE_UPSERTED, NODE_REMOVED
 
 	oneof signal_data {
 		Empty empty = 10;
@@ -223,6 +227,7 @@ message SignalMsg {
 		StatsUpdate stats_update = 19;
 		Device device = 20;
 		DualDisplayTree dual_display_tree = 21;
+		SubtreeChangeData subtree = 22;  // for SUBTREE_NODES_CHANGED
 	}
 }
 

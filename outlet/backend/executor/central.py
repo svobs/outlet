@@ -192,7 +192,7 @@ class CentralExecutor(HasLifecycle):
                         self._print_current_state_of_pipeline()
 
                 # Do this outside the CV:
-                if task:
+                if task and not self.was_shutdown:
                     self._enqueue_task(task)
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')

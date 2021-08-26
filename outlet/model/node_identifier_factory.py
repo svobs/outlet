@@ -94,12 +94,17 @@ class NodeIdentifierFactory:
                    uid: Optional[UID] = None,
                    path_uid: Optional[UID] = None,
                    op_type: Optional[int] = None,
-                   must_be_single_path: bool = False) -> NodeIdentifier:
+                   must_be_single_path: bool = False,
+                   parent_guid: Optional[GUID] = None) -> NodeIdentifier:
         """Big factory method for creating a new identifier (for example when you intend to create a new node.
         May be called either from FE or BE. For FE, it may be quite slow due to network overhead."""
+
         uid = ensure_uid(uid)
         device_uid = ensure_uid(device_uid)
         full_path_list = ensure_list(path_list)
+
+        # we may be coming from gRPC
+        parent_guid = None if parent_guid == "" else parent_guid
 
         if not device_uid:
             raise RuntimeError('No device_uid provided!')
@@ -112,23 +117,24 @@ class NodeIdentifierFactory:
                 op_type = None
             else:
                 op_type = UserOpType(op_type)
-            return ChangeTreeSPID(path_uid=path_uid, device_uid=device_uid, full_path=path_list, op_type=op_type)
+            return ChangeTreeSPID(path_uid=path_uid, device_uid=device_uid, full_path=path_list, op_type=op_type, parent_guid=parent_guid)
 
         if tree_type == TreeType.LOCAL_DISK:
-            return self._for_tree_type_local(device_uid, full_path_list, uid)
+            return self._for_tree_type_local(device_uid, full_path_list, uid, parent_guid)
 
         elif tree_type == TreeType.GDRIVE:
-            return self._for_tree_type_gdrive(device_uid, full_path_list, uid, path_uid, must_be_single_path)
+            return self._for_tree_type_gdrive(device_uid, full_path_list, uid, path_uid, must_be_single_path, parent_guid)
 
         elif tree_type == TreeType.MIXED:
-            logger.debug(f'Creating a node identifier of type MIXED for uid={uid}, device_uid={device_uid}, path={full_path_list}')
+            logger.debug(f'Creating a node identifier of type MIXED for uid={uid}, device_uid={device_uid}, path={full_path_list}, '
+                         f'parent_guid={parent_guid}')
             if len(full_path_list) > 1:
                 raise RuntimeError(f'Too many paths for tree_type MIXED: {full_path_list}')
             if not path_uid:
                 path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
             if device_uid != SUPER_ROOT_DEVICE_UID:
                 raise RuntimeError(f'Invalid device_uid for TreeType MIXED: expected {SUPER_ROOT_DEVICE_UID} but found: {device_uid}')
-            return MixedTreeSPID(node_uid=uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
+            return MixedTreeSPID(node_uid=uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0], parent_guid=parent_guid)
         else:
             raise RuntimeError('bad')
 
@@ -142,22 +148,23 @@ class NodeIdentifierFactory:
 
         raise RuntimeError(f'Could not find device with UID: {device_uid}')
 
-    def _for_tree_type_local(self, device_uid: UID, full_path_list: Optional[List[str]] = None, node_uid: UID = None) -> LocalNodeIdentifier:
+    def _for_tree_type_local(self, device_uid: UID, full_path_list: Optional[List[str]] = None, node_uid: Optional[UID] = None,
+                             parent_guid: Optional[GUID] = None) -> LocalNodeIdentifier:
         if full_path_list:
             if not node_uid:
                 node_uid = self.backend.get_uid_for_local_path(full_path_list[0])
 
-            return LocalNodeIdentifier(uid=node_uid, device_uid=device_uid, full_path=full_path_list[0])
+            return LocalNodeIdentifier(uid=node_uid, device_uid=device_uid, full_path=full_path_list[0], parent_guid=parent_guid)
         elif node_uid:
             node = self.backend.get_node_for_uid(node_uid, device_uid)
             if node:
                 full_path_list = node.get_path_list()
-                return LocalNodeIdentifier(uid=node_uid, device_uid=device_uid, full_path=full_path_list[0])
+                return LocalNodeIdentifier(uid=node_uid, device_uid=device_uid, full_path=full_path_list[0], parent_guid=parent_guid)
         else:
             raise RuntimeError('Neither "uid" nor "full_path" supplied for LocalNodeIdentifier!')
 
     def _for_tree_type_gdrive(self, device_uid: UID, full_path_list: Optional[List[str]] = None, node_uid: UID = None, path_uid: Optional[UID] = None,
-                              must_be_single_path: bool = False) \
+                              must_be_single_path: bool = False, parent_guid: Optional[GUID] = None) \
             -> Union[GDriveIdentifier, SinglePathNodeIdentifier]:
         if not node_uid:
             if full_path_list and full_path_list[0] == ROOT_PATH:
@@ -175,5 +182,5 @@ class NodeIdentifierFactory:
                 raise RuntimeError(f'Could not make identifier: must_be_single_path=True but full_path is empty ({full_path})')
             if not path_uid:
                 path_uid = self.backend.get_uid_for_local_path(full_path_list[0])
-            return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0])
+            return GDriveSPID(node_uid=node_uid, device_uid=device_uid, path_uid=path_uid, full_path=full_path_list[0], parent_guid=parent_guid)
         return GDriveIdentifier(uid=node_uid, device_uid=device_uid, path_list=full_path_list)

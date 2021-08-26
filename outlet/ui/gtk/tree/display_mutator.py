@@ -17,7 +17,7 @@ from model.node.container_node import CategoryNode
 from model.node.directory_stats import DirectoryStats
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import SPIDNodePair
-from model.node_identifier import GUID, SinglePathNodeIdentifier
+from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
@@ -78,6 +78,7 @@ class DisplayMutator(HasLifecycle):
         if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
             self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
+            self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED, receiver=self._on_subtree_nodes_changed)
 
         # TODO: The 'sender' arg fails when relayed from gRPC! Dump PyDispatcher and replace with homegrown code
         self.connect_dispatch_listener(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
@@ -459,7 +460,7 @@ class DisplayMutator(HasLifecycle):
             else:
                 self._append_file_node(parent_iter, sn)
 
-    def _on_node_upserted(self, sender: str, sn: SPIDNodePair, parent_guid: GUID) -> None:
+    def _on_node_upserted(self, sender: str, sn: SPIDNodePair) -> None:
         if sender != self.con.tree_id:
             return
 
@@ -469,17 +470,15 @@ class DisplayMutator(HasLifecycle):
             return
 
         guid = sn.spid.guid
+        parent_guid = sn.spid.parent_guid
 
         def update_ui():
             with self._lock:
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for {sn.spid}, parent={parent_guid}')
 
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{self.con.tree_id}] Examining parent {parent_guid} for displayed node {sn.node.node_identifier}')
-
                 if self.con.get_tree().get_root_spid().guid == parent_guid:
-                    logger.debug(f'[{self.con.tree_id}] Node is topmost level: {sn.node.node_identifier}')
+                    logger.debug(f'[{self.con.tree_id}] Node is topmost level: {sn.spid}')
                     child_iter = self.con.display_store.find_guid_in_children(sn.spid.guid, None)
                     self._update_or_append(sn, None, child_iter)
                 else:
@@ -514,8 +513,7 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(update_ui)
 
-    def _on_node_removed(self, sender: str, sn: SPIDNodePair, parent_guid: GUID):
-        # Note: parent_guid is not used for Linux version but is needed for Mac
+    def _on_node_removed(self, sender: str, sn: SPIDNodePair):
         if sender != self.con.tree_id:
             return
 
@@ -532,12 +530,11 @@ class DisplayMutator(HasLifecycle):
                     displayed_item = self.con.display_store.displayed_guid_dict.get(guid, None)
 
                     if displayed_item:
-                        if logger.isEnabledFor(logging.DEBUG):
+                        if SUPER_DEBUG_ENABLED:
                             logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for displayed node {sn.spid}')
 
                         logger.debug(f'[{self.con.tree_id}] Removing node from display store: {guid}')
                         self.con.display_store.remove_node(guid)
-                        logger.debug(f'[{self.con.tree_id}] Node removed: {guid}')
                     elif self.con.get_tree().is_path_in_subtree(sn.spid.get_single_path()):
                         # not visible, but stats still need refresh
                         if logger.isEnabledFor(logging.DEBUG):
@@ -551,6 +548,18 @@ class DisplayMutator(HasLifecycle):
                 logger.exception(f'While removing node {guid} ("{sn.node.name}") from UI')
 
         GLib.idle_add(update_ui)
+
+    def _on_subtree_nodes_changed(self, sender: str, subtree_root_spid: NodeIdentifier, upserted_sn_list: List[SPIDNodePair],
+                                  removed_sn_list: List[SPIDNodePair]):
+        if sender != self.con.tree_id:
+            return
+
+        if not self._enable_node_signals:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.SUBTREE_NODES_CHANGED.name}": node listeners disabled')
+            return
+
+        raise NotImplementedError  # FIXME
 
     def _on_stats_updated(self, sender: str, status_msg: str,
                           dir_stats_dict_by_guid: Dict[GUID, DirectoryStats], dir_stats_dict_by_uid: Dict[UID, DirectoryStats]):

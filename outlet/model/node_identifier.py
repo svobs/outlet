@@ -125,9 +125,12 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
     AKA "SPID"
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, node_uid: UID, device_uid: UID, full_path: str):
+    def __init__(self, node_uid: UID, device_uid: UID, full_path: str, parent_guid: Optional[GUID] = None):
         """Has only one path. We still name the variable 'path_list' for consistency with the class hierarchy."""
         super().__init__(node_uid, device_uid, full_path)
+
+        self.parent_guid: Optional[GUID] = parent_guid
+        """This is only guaranteed to be present for certain operations"""
 
         if len(self.get_path_list()) != 1:
             raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {self.get_path_list()}')
@@ -221,10 +224,10 @@ class GDriveSPID(SinglePathNodeIdentifier):
         CLASS GDriveSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, node_uid: UID, device_uid: UID, path_uid: UID, full_path: str):
+    def __init__(self, node_uid: UID, device_uid: UID, path_uid: UID, full_path: str, parent_guid: Optional[GUID] = None):
         assert node_uid != path_uid, f'Invalid: node_uid ({node_uid}) cannot be the same as path_uid ({path_uid}) for GDriveSPID! ' \
                                      f'(full_path={full_path})'
-        super().__init__(node_uid, device_uid, full_path)
+        super().__init__(node_uid, device_uid, full_path, parent_guid)
         self._path_uid: UID = path_uid
 
     # Need to expose this property so that we can transmit to FE via gRPC, so it can generate GUIDs also
@@ -251,8 +254,8 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
         CLASS MixedTreeSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, node_uid: UID, device_uid: UID, path_uid: UID, full_path: str):
-        super().__init__(node_uid, device_uid, full_path)
+    def __init__(self, node_uid: UID, device_uid: UID, path_uid: UID, full_path: str, parent_guid: Optional[GUID] = None):
+        super().__init__(node_uid, device_uid, full_path, parent_guid)
         self._path_uid: UID = path_uid
 
     # Need to expose this property so that we can transmit to FE via gRPC, so it can generate GUIDs also
@@ -279,8 +282,8 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
         CLASS LocalNodeIdentifier
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-    def __init__(self, uid: UID, device_uid: UID, full_path: str):
-        super().__init__(uid, device_uid, full_path)
+    def __init__(self, uid: UID, device_uid: UID, full_path: str, parent_guid: Optional[GUID] = None):
+        super().__init__(uid, device_uid, full_path, parent_guid)
 
     @property
     def tree_type(self) -> TreeType:
@@ -292,8 +295,8 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
     NOTE: path_uid is stored as node_uid for ChangeTreeSPIDs, but node_uid is not used and should not be assumed to be the same value as
     the underlying Node. ChangeTreeSPIDs do not correspond to actual node_uids
     """
-    def __init__(self, path_uid: UID, device_uid: UID, full_path: str, op_type: Optional):
-        super().__init__(path_uid, device_uid, full_path)
+    def __init__(self, path_uid: UID, device_uid: UID, full_path: str, op_type: Optional, parent_guid: Optional[GUID] = None):
+        super().__init__(path_uid, device_uid, full_path, parent_guid)
         self.op_type: Optional = op_type
 
     @property

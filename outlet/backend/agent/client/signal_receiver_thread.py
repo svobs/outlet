@@ -112,6 +112,10 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         elif signal == Signal.NODE_UPSERTED or signal == Signal.NODE_REMOVED:
             kwargs['sn'] = self._converter.sn_from_grpc(signal_msg.sn)
             kwargs['parent_guid'] = signal_msg.parent_guid
+        elif signal == Signal.SUBTREE_NODES_CHANGED:
+            kwargs['subtree_root_spid'] = self._converter.node_identifier_from_grpc(signal_msg.subtree.subtree_root_spid)
+            kwargs['upserted_sn_list'] = self._converter.sn_list_from_grpc(signal_msg.subtree.upserted_sn_list)
+            kwargs['removed_sn_list'] = self._converter.sn_list_from_grpc(signal_msg.subtree.removed_sn_list)
         elif signal == Signal.STATS_UPDATED:
             kwargs['status_msg'] = signal_msg.stats_update.status_msg
             dir_stats_dict_by_guid: Dict[GUID, DirectoryStats] = {}

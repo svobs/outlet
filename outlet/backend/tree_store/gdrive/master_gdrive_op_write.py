@@ -332,7 +332,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
     def send_signals(self):
         logger.debug(f'RefreshFolderOp: sending "{Signal.SUBTREE_NODES_CHANGED_IN_CACHE.name}" signal for {len(self._upserted_node_list)} nodes')
         # no need for removed_node list with GDrive
-        dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root=self.parent_folder.node_identifier,
+        dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root_spid=self.parent_folder.node_identifier,
                         upserted_node_list=self._upserted_node_list, removed_node_list=[])
 
 
