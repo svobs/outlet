@@ -330,10 +330,13 @@ class RefreshFolderOp(GDriveWriteThroughOp):
         logger.debug(f'RefreshFolderOp: done with disk cache')
 
     def send_signals(self):
-        logger.debug(f'RefreshFolderOp: sending "{Signal.SUBTREE_NODES_CHANGED_IN_CACHE.name}" signal for {len(self._upserted_node_list)} nodes')
-        # no need for removed_node list with GDrive
-        dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root_spid=self.parent_folder.node_identifier,
-                        upserted_node_list=self._upserted_node_list, removed_node_list=[])
+        if self._upserted_node_list:
+            logger.debug(f'RefreshFolderOp: sending "{Signal.SUBTREE_NODES_CHANGED_IN_CACHE.name}" signal for {len(self._upserted_node_list)} nodes')
+            # no need for removed_node list with GDrive
+            dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root_spid=self.parent_folder.node_identifier,
+                            upserted_node_list=self._upserted_node_list, removed_node_list=[])
+        elif SUPER_DEBUG_ENABLED:
+            logger.debug(f'RefreshFolderOp: no need to send signal: no upserted nodes')
 
 
 class CreateUserOp(GDriveWriteThroughOp):

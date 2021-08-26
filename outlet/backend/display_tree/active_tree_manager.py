@@ -236,20 +236,27 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root_spid: NodeIdentifier, upserted_node_list: List[Node],
                                            removed_node_list: List[Node]):
+        if not upserted_node_list and not removed_node_list:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Ignoring batch update at {subtree_root_spid}: batch contains no nodes')
+            return
+
         for tree_id, tree_meta in self._display_tree_dict.items():
             if tree_meta.root_sn.spid.device_uid == subtree_root_spid.device_uid:
                 upserted_sn_list = []
                 removed_sn_list = []
 
+                logger.debug(f'[{tree_id}] Converting {len(upserted_node_list)} upserts and {len(removed_node_list)} removes at  {subtree_root_spid}')
+
                 # Just do the easiest and least-error prone thing for now:
                 for node in upserted_node_list:
-                    upserted_sn_list += self._to_subtree_sn_list(node, tree_meta)
+                    upserted_sn_list = upserted_sn_list + self._to_subtree_sn_list(node, tree_meta)
 
                 for node in removed_node_list:
-                    removed_sn_list += self._to_subtree_sn_list(node, tree_meta)
+                    removed_sn_list = removed_sn_list + self._to_subtree_sn_list(node, tree_meta)
 
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Notifying tree of subtree node batch update at: {subtree_root_spid}')
+                logger.debug(f'[{tree_id}] Notifying tree of batch update at {subtree_root_spid} '
+                             f'with {len(upserted_sn_list)} upserts & {len(removed_sn_list)} removes')
                 dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED, sender=tree_id, subtree_root_spid=subtree_root_spid,
                                 upserted_sn_list=upserted_sn_list, removed_sn_list=removed_sn_list)
 

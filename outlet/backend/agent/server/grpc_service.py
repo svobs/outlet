@@ -167,8 +167,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                             self._cv_has_signal.wait()
 
                     if signal:
-                        if SUPER_DEBUG_ENABLED:
-                            logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
+                        logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
                         yield signal
 
             with self._queue_lock:
