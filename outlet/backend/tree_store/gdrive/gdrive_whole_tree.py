@@ -97,7 +97,7 @@ class GDriveWholeTree(BaseTree):
         existing_node = self.uid_dict.get(node.uid, None)
         if existing_node:
             if node == existing_node:
-                logger.debug(f'upsert_node(): identical to existing; updating node {node.uid} sync_ts={node.sync_ts}')
+                logger.debug(f'upsert_node(): identical to existing; updating node {node.uid} sync_ts to {node.sync_ts}')
                 existing_node.set_sync_ts(node.sync_ts)
                 return existing_node
 

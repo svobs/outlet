@@ -1328,6 +1328,7 @@ class CacheManager(HasLifecycle):
             assert isinstance(store, LocalDiskMasterStore)
             node = store.read_single_node_for_path(full_path)
             if node:
+                logger.debug(f'read_single_node(): read node from disk cache: {node}')
                 return node
             else:
                 if store.device.uid == self._this_disk_local_store.device_uid:
@@ -1336,6 +1337,7 @@ class CacheManager(HasLifecycle):
                         node = self.build_local_dir_node(full_path)
                     else:
                         node = self.build_local_file_node(full_path)
+                    logger.debug(f'read_single_node(): scanned node from disk: {node}')
                     self.upsert_single_node(node)
                     return node
                 else:

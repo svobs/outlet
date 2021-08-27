@@ -201,13 +201,17 @@ class ActiveTreeManager(HasLifecycle):
             # OK, yes: we are in subtree. Now just create SN:
             subtree_root_path = subtree_root_spid.get_single_path()
             return_list = []
+            found = False  # use boolean for sanity check
+            assert node.get_path_list(), f'Node has no paths: {node}'
             for path in node.get_path_list():
                 if path.startswith(subtree_root_path):
+                    found = True
                     sn = self._get_filtered_sn(node, path, tree_meta)
                     if sn:
                         return_list.append(sn)
 
-            assert return_list
+            if not found:
+                raise RuntimeError(f'Internal error: we should have found node {node} in subtree {subtree_root_spid}')
             return return_list
 
         return []
@@ -234,15 +238,36 @@ class ActiveTreeManager(HasLifecycle):
                     logger.debug(f'[{tree_id}] Notifying tree of removed node: {sn.spid}, parent_guid={sn.spid.parent_guid}')
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=sn)
 
-    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root_spid: NodeIdentifier, upserted_node_list: List[Node],
+    def _get_intersecting_spid_for_subtree_root(self, tree_meta, subtree_root: NodeIdentifier) -> Optional[SinglePathNodeIdentifier]:
+        if subtree_root.is_spid():
+            assert isinstance(subtree_root, SinglePathNodeIdentifier)
+            return subtree_root
+        else:
+            tree_root_path: str = tree_meta.root_sn.spid.get_single_path()
+            for path in subtree_root.get_path_list():
+                if path.startswith(tree_root_path) or tree_root_path.startswith(path):
+                    logger.debug(f'Looks like paths intersect: tree_subroot="{tree_root_path}", update_subroot="{path}"')
+
+                    return self.backend.cacheman.make_spid_for(node_uid=subtree_root.node_uid, device_uid=subtree_root.device_uid, full_path=path)
+
+        logger.debug(f'Looks like tree_root ("{tree_root_path}") does not intersect with update_subroot ("{subtree_root.get_path_list()}")')
+        return None
+
+    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root: NodeIdentifier, upserted_node_list: List[Node],
                                            removed_node_list: List[Node]):
+
         if not upserted_node_list and not removed_node_list:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Ignoring batch update at {subtree_root_spid}: batch contains no nodes')
+                logger.debug(f'Ignoring batch update at {subtree_root}: batch contains no nodes')
             return
 
         for tree_id, tree_meta in self._display_tree_dict.items():
-            if tree_meta.root_sn.spid.device_uid == subtree_root_spid.device_uid:
+            if tree_meta.root_sn.spid.device_uid == subtree_root.device_uid:
+                subtree_root_spid = self._get_intersecting_spid_for_subtree_root(tree_meta, subtree_root)
+                if not subtree_root_spid:
+                    continue
+                assert isinstance(subtree_root_spid, SinglePathNodeIdentifier), f'Not a SPID: {subtree_root_spid}'
+
                 upserted_sn_list = []
                 removed_sn_list = []
 

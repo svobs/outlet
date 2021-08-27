@@ -226,7 +226,7 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
 
     def send_signals(self):
         for subtree in self.subtree_list:
-            dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root_spid=subtree.subtree_root,
+            dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root=subtree.subtree_root,
                             upserted_node_list=subtree.upsert_node_list, removed_node_list=list(reversed(subtree.remove_node_list)))
 
     def __repr__(self):

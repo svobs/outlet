@@ -243,7 +243,8 @@ class GRPCConverter:
             grpc_node_identifier.path_list.append(full_path)
 
         if node_identifier.is_spid():
-            assert isinstance(node_identifier, SinglePathNodeIdentifier)
+            assert isinstance(node_identifier, SinglePathNodeIdentifier), f'Not a SPID: {node_identifier}'
+            assert node_identifier.path_uid > 0, f'SPID path_uid must positive number: {node_identifier}'
             grpc_node_identifier.path_uid = node_identifier.path_uid
             if node_identifier.parent_guid:
                 grpc_node_identifier.parent_guid = node_identifier.parent_guid

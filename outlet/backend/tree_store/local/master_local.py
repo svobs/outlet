@@ -257,13 +257,13 @@ class LocalDiskMasterStore(TreeStore):
                     # Only set this once we are completely finished bringing the memstore up to date. Other tasks will depend on it
                     # to choose whether to query memory or disk
                     cache_info.is_loaded = True
-                    logger.debug(f'[{tree_id}] Updated memstore from disk: Master tree {self.device_uid} size: {len(self._memstore.master_tree):n}')
+                    logger.debug(f'[{tree_id}] Updated memstore (device_uid={self.device_uid}) from disk. Tree size is now: {len(self._memstore.master_tree):n}')
 
         # FS SYNC
         if force_rescan_disk or cache_info.needs_refresh or (not was_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
-            logger.debug(f'[{tree_id}] Will resync with file system (is_loaded={cache_info.is_loaded}, sync_on_cache_load='
+            logger.debug(f'[{tree_id}] Will resync with file system: is_loaded={cache_info.is_loaded}, sync_on_cache_load='
                          f'{self.backend.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh}, '
-                         f'force_rescan_disk={force_rescan_disk})')
+                         f'force_rescan_disk={force_rescan_disk}')
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(this_task, requested_subtree_root, tree_id)
 
@@ -674,20 +674,7 @@ class LocalDiskMasterStore(TreeStore):
         if TRACE_ENABLED:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
 
-        node = self._memstore.master_tree.get_node_for_uid(uid)
-        if node:
-            return node
-
-        # if node not found, let's try to find the cache it belongs to:
-
-        # throws exception if path not found:
-        try:
-            full_path = self.uid_path_mapper.get_path_for_uid(uid)
-        except RuntimeError as err:
-            logger.debug(f'Cannot retrieve node (UID={uid}): could not get full_path for node: {err}')
-            return None
-
-        return None
+        return self._memstore.master_tree.get_node_for_uid(uid)
 
     def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
         parent_node = self.get_single_parent_for_node(node)
