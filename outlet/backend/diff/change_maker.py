@@ -87,14 +87,14 @@ class OneSide:
             elif len(existing_dst_node_list) > 1:
                 if self._all_same(existing_dst_node_list):
                     logger.warning(f'Found {len(existing_dst_node_list)} identical nodes already present at at GDrive dst path '
-                                   f'("{dst_path}"). Will overwrite all starting with UID {existing_dst_node_list[0].uid}')
+                                   f'("{repr(dst_path)}"). Will overwrite all starting with UID {existing_dst_node_list[0].uid}')
                     dst_node_uid = existing_dst_node_list[0].uid
                     dst_node_goog_id = existing_dst_node_list[0].goog_id
                 else:
                     # FIXME: what to do in this case? Perhaps collect these errors and display them all to the user.
                     # TODO: Also do an audit for this issue as soon as all the user's GDrive metadata is downloaded
                     raise RuntimeError(f'Found multiple non-identical nodes ({len(existing_dst_node_list)}) already present at '
-                                       f'GDrive dst path ("{dst_path}"). Cannot proceed')
+                                       f'GDrive dst path ("{repr(dst_path)}"). Cannot proceed')
             else:
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
                 dst_node_uid = self.backend.uid_generator.next_uid()
@@ -127,7 +127,7 @@ class OneSide:
         # ANCESTORS:
         self._add_needed_ancestors(dst_sn)
 
-        logger.debug(f'[{self.change_tree.tree_id}] Migrated single node (UID={dst_node.uid} path="{dst_path}")')
+        logger.debug(f'[{self.change_tree.tree_id}] Migrated single node: {spid}')
         return dst_sn
 
     @staticmethod

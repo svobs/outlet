@@ -102,17 +102,16 @@ class ChangeTree(DisplayTree):
 
     def _append_op(self, sn: SPIDNodePair, op: UserOp):
         guid = sn.spid.guid
-        logger.debug(f'[{self.tree_id}] Appending op: {op} for GUID {guid}')
+        logger.debug(f'[{self.tree_id}] Inserting op for GUID "{guid}": {op}')
 
         # Validation:
-        if op.dst_node and sn.node.node_identifier == op.dst_node.node_identifier:
-            pass
-        else:
-            assert sn.node.node_identifier == op.src_node.node_identifier, \
-                f'Src node ({op.src_node.node_identifier}) does not match SN node ({sn.node.node_identifier})'
+        assert sn.node.node_identifier == op.src_node.node_identifier, \
+            f'Src node ({op.src_node.node_identifier}) does not match SN node ({sn.node.node_identifier})'
+        assert not op.dst_node or sn.node.node_identifier == op.dst_node.node_identifier, \
+            f'Dst node ({op.dst_node.node_identifier}) does not match SN node ({sn.node.node_identifier})'
 
         if self._op_dict.get(guid, None):
-            raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self._op_dict.get(guid)}')
+            raise RuntimeError(f'Duplicate UserOp for GUID "{guid}": 1st={op}; 2nd={self._op_dict.get(guid)}')
 
         # Insertion:
         self._op_dict[guid] = op

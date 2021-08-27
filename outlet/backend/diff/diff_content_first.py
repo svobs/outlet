@@ -48,7 +48,7 @@ class ContentFirstDiffer(ChangeMaker):
                 meta.md5_dict[sn.node.md5].append(sn)
                 path = sn.spid.get_single_path()
                 if path in meta.path_dict:
-                    logger.warning(f'Found additional node at path: "{sn.spid.get_single_path()}" (tree={side.root_sn.spid}).')
+                    logger.warning(f'Found additional node at path: "{repr(sn.spid.get_single_path())}" (tree={side.root_sn.spid}).')
                     on_file_found.count_duplicate_paths += 1
                 meta.path_dict[path].append(sn)
                 on_file_found.count_nodes += 1
@@ -131,7 +131,7 @@ class ContentFirstDiffer(ChangeMaker):
            3b. File's signature and path are unique to target side --> DELETED
            3c. File's signature and path are unique to opposite side --> ADDED
            """
-        logger.info('Diffing files by MD5...')
+        logger.info(f'Diffing files by MD5. (compare_paths_also={compare_paths_also})')
         count_add_delete_pairs = 0
         count_moved_pairs = 0
         count_updated_pairs = 0
@@ -158,9 +158,8 @@ class ContentFirstDiffer(ChangeMaker):
 
         sw = Stopwatch()
         for md5 in md5_union_set:
-            # Grant just a tiny bit of time to other tasks in the CPython thread (e.g. progress bar):
-            # TODO: investigate coroutines
-            time.sleep(0.00001)
+            # Yield to other tasks in the CPython thread (e.g. progress bar):
+            time.sleep(0)
 
             # Set of items on S with same MD5:
             single_md5_sn_list_s: List[SPIDNodePair] = meta_s.md5_dict[md5]
@@ -168,10 +167,12 @@ class ContentFirstDiffer(ChangeMaker):
 
             if not single_md5_sn_list_s:
                 # Content is only present on RIGHT side
-                sn_list_only_r += single_md5_sn_list_r
+                logger.debug(f'[MD5={md5}] count on R only: {len(single_md5_sn_list_r)}')
+                sn_list_only_r = sn_list_only_r + single_md5_sn_list_r
             elif not single_md5_sn_list_r:
                 # Content is only present on LEFT side
-                sn_list_only_s += single_md5_sn_list_s
+                logger.debug(f'[MD5={md5}] count on S only: {len(single_md5_sn_list_s)}')
+                sn_list_only_s = sn_list_only_s + single_md5_sn_list_s
             elif compare_paths_also:
                 # Content is present on BOTH sides but paths may be different
                 """If we do this, we care about what the files are named, where they are located, and how many
@@ -185,6 +186,7 @@ class ContentFirstDiffer(ChangeMaker):
                 def on_mismatched_pair(_sn_s: SPIDNodePair, _sn_r: SPIDNodePair):
                     # MOVED: the file already exists in each tree, so just do a rename within the tree
                     # (it is possible that the trees are on different disks, so keep performance in mind)
+                    logger.debug(f'[MD5={md5}] on_mismatched_pair(): S={_sn_s.spid} R={_sn_r.spid}')
                     self.append_mv_op_r_to_r(_sn_s, _sn_r)
 
                     self.append_mv_op_s_to_s(_sn_s, _sn_r)
@@ -194,10 +196,12 @@ class ContentFirstDiffer(ChangeMaker):
 
                 def on_left_only(_sn_s: SPIDNodePair):
                     # There is an additional file with same signature on LEFT
+                    logger.debug(f'[MD5={md5}] on_left_only(): {_sn_s.spid}')
                     sn_list_only_s.append(_sn_s)
 
                 def on_right_only(_sn_r: SPIDNodePair):
                     # There is an additional file with same signature on RIGHT
+                    logger.debug(f'[MD5={md5}] on_right_only(): {_sn_r.spid}')
                     sn_list_only_r.append(_sn_r)
 
                 self._process_nonmatching_relative_path_pairs(single_md5_sn_list_s, single_md5_sn_list_r,
@@ -219,9 +223,9 @@ class ContentFirstDiffer(ChangeMaker):
                 if existing_sn_list_r:
                     if len(existing_sn_list_r) > 1:
                         assert self.right_side.root_identifier.tree_type == TreeType.GDRIVE, \
-                            f'Should never see multiple nodes for same path ("{left_on_right_path}") for this tree type, ' \
+                            f'Should never see multiple nodes for same path ("{repr(left_on_right_path)}") for this tree type, ' \
                             f'but found: {existing_sn_list_r}'
-                        logger.debug(f'Found {len(existing_sn_list_r)} nodes at path "{left_on_right_path}"; picking the first one')
+                        logger.debug(f'Found {len(existing_sn_list_r)} nodes at path "{repr(left_on_right_path)}"; picking the first one')
                     # GDrive creates a hard problem because it can allow nodes with the same name and path. Just pick first one for now.
                     # We can try to clean things up in the command executor.
                     existing_sn_r: SPIDNodePair = existing_sn_list_r[0]
@@ -230,7 +234,7 @@ class ContentFirstDiffer(ChangeMaker):
                         f'Expected different MD5 for left node ({sn_s.node}) and right node ({existing_sn_r})'
                     # UPDATED
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'File updated: {sn_s.node.md5} <- "{sn_s.spid.get_single_path()}" -> {existing_sn_r.node.md5}')
+                        logger.debug(f'File updated: {sn_s.node.md5} <- "{repr(sn_s.spid.get_single_path())}" -> {existing_sn_r.node.md5}')
                     # Same path, different md5 -> Updated.
                     # Remember, we don't know which direction is "correct" so we supply ops in both directions:
                     self.append_up_op_r_to_s(existing_sn_r, sn_s)
@@ -241,7 +245,7 @@ class ContentFirstDiffer(ChangeMaker):
 
             # ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'Left has new file: "{sn_s.spid.get_single_path()}"')
+                logger.debug(f'Left has new file: {sn_s.spid}')
             self.append_cp_op_s_to_r(sn_s)
 
             # Dead node walking:
@@ -258,7 +262,7 @@ class ContentFirstDiffer(ChangeMaker):
                     continue
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'Right has new file: "{sn_r.spid.get_single_path()}"')
+                logger.debug(f'Right has new file: {sn_r.spid}')
             self.append_cp_op_r_to_s(sn_r)
 
             # Dead node walking:
@@ -271,6 +275,5 @@ class ContentFirstDiffer(ChangeMaker):
                     f'add/del={count_add_delete_pairs} '
                     f'upd={count_updated_pairs} '
                     f'moved={count_moved_pairs})')
-        logger.info(f'{sw} Finished path comparison for right tree')
 
         return self.left_side.change_tree, self.right_side.change_tree

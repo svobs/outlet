@@ -85,7 +85,7 @@ class ContainerNode(Node):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'ContainerNode(node_id="{self.node_identifier}")'
+        return f'ContainerNode({self.node_identifier})'
 
 
 class CategoryNode(ContainerNode):

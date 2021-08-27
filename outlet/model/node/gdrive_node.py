@@ -146,7 +146,7 @@ class GDriveFolder(GDriveNode):
         """If true, all its children have been fetched from Google"""
 
     def __repr__(self):
-        return f'GDriveFolder(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} ' \
+        return f'GDriveFolder(id={self.node_identifier} goog_id="{self.goog_id}" name="{repr(self.name)}" trashed={self.trashed_str} ' \
                f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self._is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
                f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} all_children_fetched={self.all_children_fetched}]'
 
@@ -247,7 +247,7 @@ class GDriveFile(GDriveNode):
         self._size_bytes = ensure_int(size_bytes)
 
     def __repr__(self):
-        return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" mime_type_uid={self.mime_type_uid} ' \
+        return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{repr(self.name)}" mime_type_uid={self.mime_type_uid} ' \
                f'trashed={self.trashed_str} size={self.get_size_bytes()} md5={self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} ' \
                f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self.is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
                f'version={self.version} sync_ts={self.sync_ts} icon={self.get_icon()} parent_uids={self.get_parent_uids()})'
