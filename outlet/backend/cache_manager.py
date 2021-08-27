@@ -1301,8 +1301,9 @@ class CacheManager(HasLifecycle):
     def get_pending_op_count(self) -> int:
         return self._op_ledger.get_pending_op_count()
 
-    def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
-        return self._this_disk_local_store.build_local_file_node(full_path, staging_path, must_scan_signature)
+    def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False, is_live: bool = True) \
+            -> Optional[LocalFileNode]:
+        return self._this_disk_local_store.build_local_file_node(full_path, staging_path, must_scan_signature, is_live)
 
     def build_local_dir_node(self, full_path: str, is_live: bool = True, all_children_fetched: bool = False) -> LocalDirNode:
         return self._this_disk_local_store.build_local_dir_node(full_path, is_live, all_children_fetched=all_children_fetched)

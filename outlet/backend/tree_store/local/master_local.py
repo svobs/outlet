@@ -714,7 +714,8 @@ class LocalDiskMasterStore(TreeStore):
     def build_local_dir_node(self, full_path: str, is_live: bool, all_children_fetched: bool) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
 
-        if not os.path.isdir(full_path):
+        if is_live and not os.path.isdir(full_path):
+            # if is_live==false, we don't even expect it to exist
             raise RuntimeError(f'build_local_dir_node(): path is not a dir: {full_path}')
 
         parent_path = str(pathlib.Path(full_path).parent)
@@ -722,13 +723,14 @@ class LocalDiskMasterStore(TreeStore):
         return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path), parent_uid=parent_uid,
                             trashed=TrashStatus.NOT_TRASHED, is_live=is_live, all_children_fetched=all_children_fetched)
 
-    def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
+    def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False, is_live: bool = True)\
+            -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)
 
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
 
-        if os.path.isdir(full_path):
+        if is_live and os.path.isdir(full_path):
             raise RuntimeError(f'build_local_file_node(): path is actually a dir: {full_path}')
 
         # Check for broken links:
@@ -790,7 +792,7 @@ class LocalDiskMasterStore(TreeStore):
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
-        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
+        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, is_live)
 
         if TRACE_ENABLED:
             logger.debug(f'Built: {new_node} with sync_ts: {sync_ts}')
