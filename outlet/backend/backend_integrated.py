@@ -96,11 +96,11 @@ class BackendIntegrated(OutletBackend):
 
         state = self.cacheman.request_display_tree(request)
         if state:
+            assert not request.return_async, f'for {request}'
             tree = state.to_display_tree(backend=self)
             return tree
         else:
-            # will be sent async
-            assert request.return_async, f'No tree and return_async==False for {request.tree_id}'
+            # will be sent async, or an error occurred
             return None
 
     def start_subtree_load(self, tree_id: TreeID):

@@ -703,7 +703,11 @@ class CacheManager(HasLifecycle):
         which will then asynchronously call load_data_for_display_tree()"""
         self.wait_for_startup_done()
 
-        return self._active_tree_manager.request_display_tree(request)
+        try:
+            return self._active_tree_manager.request_display_tree(request)
+        except RuntimeError as err:
+            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Error requesting display tree "{request.tree_id}"', error=err)
+            return None
 
     def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: TreeID) -> DisplayTree:
         """Kinda similar to request_display_tree(), but for change trees"""

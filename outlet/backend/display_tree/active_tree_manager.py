@@ -301,13 +301,15 @@ class ActiveTreeManager(HasLifecycle):
 
             self._cancel_diff_mode()
         except Exception as err:
-            logger.exception(f'[{sender}] Failed to merge {len(meta.change_tree.get_ops())} operations')
-            self.backend.report_error(sender=ID_GLOBAL_CACHE, msg=f'Failed to merge {len(meta.change_tree.get_ops())} operations',
-                                      secondary_msg=f'{repr(err)}')
+            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to merge {len(meta.change_tree.get_ops())} operations',
+                                          error=err)
 
     def _on_exit_diff_mode_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.EXIT_DIFF_MODE.name} for tree "{sender}"')
-        self._cancel_diff_mode()
+        try:
+            self._cancel_diff_mode()
+        except Exception as err:
+            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to exit diff mode', error=err)
 
     def _cancel_diff_mode(self, tree_already_cancelled: Optional[DisplayTree] = None):
         if tree_already_cancelled and tree_already_cancelled.tree_id == ID_LEFT_TREE:
@@ -329,16 +331,19 @@ class ActiveTreeManager(HasLifecycle):
         # If GDrive cache was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
         logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED.name}" from {sender} with device_uid={device_uid}')
 
-        tree_id_list: List[str] = []
-        for tree_meta in self._display_tree_dict.values():
-            if tree_meta.root_sn.spid.device_uid == device_uid:
-                tree_id_list.append(tree_meta.tree_id)
+        try:
+            tree_id_list: List[str] = []
+            for tree_meta in self._display_tree_dict.values():
+                if tree_meta.root_sn.spid.device_uid == device_uid:
+                    tree_id_list.append(tree_meta.tree_id)
 
-        gdrive_root_spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
-        for tree_id in tree_id_list:
-            logger.info(f'[{tree_id}] Resetting subtree path to GDrive root')
-            request = DisplayTreeRequest(tree_id, spid=gdrive_root_spid, return_async=True)
-            self.request_display_tree(request)
+            gdrive_root_spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
+            for tree_id in tree_id_list:
+                logger.info(f'[{tree_id}] Resetting subtree path to GDrive root')
+                request = DisplayTreeRequest(tree_id, spid=gdrive_root_spid, return_async=True)
+                self.request_display_tree(request)
+        except Exception as err:
+            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Error occurred while relaoding Google Drive trees', error=err)
 
     def _deregister_display_tree(self, sender: str):
         logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
