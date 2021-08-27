@@ -44,10 +44,6 @@ class ContentFirstDiffer(ChangeMaker):
         meta: OneSideDiffMeta = OneSideDiffMeta()
 
         def on_file_found(sn: SPIDNodePair):
-            if not sn.node.md5 and not content_hasher.try_calculating_signatures(sn.node):
-                logger.error(f'Unable to calculate signature for file! Skipping: {sn.node.get_single_path()}')
-                return
-
             if sn.node.md5:
                 meta.md5_dict[sn.node.md5].append(sn)
                 path = sn.spid.get_single_path()
@@ -57,7 +53,8 @@ class ContentFirstDiffer(ChangeMaker):
                 meta.path_dict[path].append(sn)
                 on_file_found.count_nodes += 1
             else:
-                logger.debug(f'No MD5 for node; skipping: {sn.spid.get_single_path()}')
+                if not content_hasher.try_calculating_signatures(sn.node):
+                    logger.warning(f'Unable to calculate signature for file, skipping: {sn.spid}')
 
         on_file_found.count_nodes = 0
         on_file_found.count_duplicate_paths = 0
