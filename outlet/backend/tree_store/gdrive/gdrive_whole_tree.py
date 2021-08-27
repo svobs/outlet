@@ -655,6 +655,13 @@ def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Tup
     if existing_node.goog_id and existing_node.goog_id != new_node.goog_id:
         raise RuntimeError(f'Existing node goog_id ({existing_node.goog_id}) does not match new node goog_id ({new_node.goog_id})')
 
+    if existing_node.is_dir() and new_node.is_dir():
+        if existing_node.all_children_fetched and not new_node.all_children_fetched:
+            if TRACE_ENABLED:
+                logger.debug(f'Merging into existing node which has all_children_fetched=True; will set new node to True')
+            new_node.all_children_fetched = True
+        elif not existing_node.all_children_fetched and new_node.all_children_fetched:
+            logger.debug(f'Overwriting node with all_children_fetched=False with one which is True: {new_node}')
     existing_node.update_from(new_node)
 
     # Need to return these so they can be added to reverse dict

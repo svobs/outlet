@@ -1,11 +1,11 @@
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
-from constants import IS_MACOS, LOCAL_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED
 from backend.tree_store.local.local_disk_tree import LocalDiskTree
+from constants import IS_MACOS, LOCAL_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.container_node import RootTypeNode
-from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode, LocalNode
+from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
 from util.two_level_dict import Md5BeforeUidDict, Sha256BeforeUidDict
@@ -95,6 +95,15 @@ class LocalDiskMemoryStore:
             # just update the existing - much easier
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
+
+            if existing_node.is_dir() and node.is_dir():
+                if existing_node.all_children_fetched and not node.all_children_fetched:
+                    if TRACE_ENABLED:
+                        logger.debug(f'Merging into existing node which has all_children_fetched=True; will set new node to True')
+                    node.all_children_fetched = True
+                elif not existing_node.all_children_fetched and node.all_children_fetched:
+                    logger.debug(f'Overwriting node with all_children_fetched=False with one which is True: {node}')
+
             existing_node.update_from(node)
             node = existing_node
         elif update_only:
