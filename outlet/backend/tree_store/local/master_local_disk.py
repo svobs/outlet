@@ -116,7 +116,7 @@ class LocalDiskDiskStore(HasLifecycle):
                 logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
                 return None
 
-            status = f'[{tree_id}] Loading meta for subtree "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
+            status = f'[{tree_id}] Loading meta for subtree {cache_info.subtree_root} from cache: "{cache_info.cache_location}"'
             logger.debug(status)
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 

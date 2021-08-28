@@ -105,10 +105,8 @@ class ChangeTree(DisplayTree):
         logger.debug(f'[{self.tree_id}] Inserting op for GUID "{guid}": {op}')
 
         # Validation:
-        assert sn.node.node_identifier == op.src_node.node_identifier, \
-            f'Src node ({op.src_node.node_identifier}) does not match SN node ({sn.node.node_identifier})'
-        assert not op.dst_node or sn.node.node_identifier == op.dst_node.node_identifier, \
-            f'Dst node ({op.dst_node.node_identifier}) does not match SN node ({sn.node.node_identifier})'
+        if not ((op.dst_node and sn.node.node_identifier == op.dst_node.node_identifier) or (sn.node.node_identifier == op.src_node.node_identifier)):
+            raise RuntimeError(f'SN being added ({sn.node.node_identifier}) does not match either src or dst node of op ({op})')
 
         if self._op_dict.get(guid, None):
             raise RuntimeError(f'Duplicate UserOp for GUID "{guid}": 1st={op}; 2nd={self._op_dict.get(guid)}')
@@ -199,7 +197,7 @@ class ChangeTree(DisplayTree):
                                      full_path=from_sn.spid.get_single_path(), op_type=op_type)
         return SPIDNodePair(change_spid, from_sn.node)
 
-    def add_node(self, sn: SPIDNodePair, op: UserOp):
+    def add_sn_and_op(self, sn: SPIDNodePair, op: UserOp):
         """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't backed by any actual data nodes.
         This includes possibly tree-type nodes and category nodes.

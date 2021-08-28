@@ -245,7 +245,7 @@ class GDriveSPID(SinglePathNodeIdentifier):
         return f'{self.device_uid}:{self.node_uid}:{self._path_uid}'
 
     def __repr__(self):
-        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_single_path()}∣'
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{repr(self.get_single_path())}∣'
 
 
 class MixedTreeSPID(SinglePathNodeIdentifier):

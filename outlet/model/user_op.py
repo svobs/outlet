@@ -118,5 +118,5 @@ class UserOp(BaseNode):
             dst = self.dst_node.node_identifier
         else:
             dst = 'None'
-        return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} status={self.get_status()} ' \
+        return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} status={self.get_status().name} ' \
                f'src={self.src_node.node_identifier} dst={dst}'

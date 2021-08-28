@@ -35,7 +35,7 @@ class TreeDiffMergeTask:
         sn = src_tree.get_sn_for_guid(guid)
         op = src_tree.get_op_for_guid(guid)
         if op:
-            merged_tree.add_node(sn, op)
+            merged_tree.add_sn_and_op(sn, op)
         else:
             if sn and sn.node.is_display_only():
                 logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
