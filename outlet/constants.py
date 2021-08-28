@@ -5,6 +5,8 @@ import platform
 TRACE_ENABLED = False
 SUPER_DEBUG_ENABLED = False
 
+DIFF_DEBUG_ENABLED = False
+
 # do not modify this behavior
 if TRACE_ENABLED:
     SUPER_DEBUG_ENABLED = True

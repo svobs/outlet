@@ -7,7 +7,7 @@ from typing import Callable, DefaultDict, Dict, Iterable, List, Optional, Tuple
 from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from backend.display_tree.change_tree import ChangeTree
 from backend.tree_store.local import content_hasher
-from constants import TreeType
+from constants import DIFF_DEBUG_ENABLED, TreeType
 from model.user_op import UserOpType
 from util.stopwatch_sec import Stopwatch
 
@@ -24,7 +24,7 @@ class OneSideSourceMeta:
     """
     def __init__(self):
         self.md5_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
-        self.path_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
+        self.path_dict: Dict[str, SPIDNodePair] = {}
 
 
 class DiffState:
@@ -65,6 +65,8 @@ class ContentFirstDiffer(ChangeMaker):
     def build_one_side_src_meta(self, side: OneSide) -> OneSideSourceMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
         for GDrive trees"""
+
+        # FIXME: this appears to be VERY slow for local disk trees
         sw = Stopwatch()
         meta: OneSideSourceMeta = OneSideSourceMeta()
         duplicate_path_skipped_sn_list: List[SPIDNodePair] = []
@@ -81,7 +83,7 @@ class ContentFirstDiffer(ChangeMaker):
                 on_file_found.count_duplicates += 1
                 duplicate_path_skipped_sn_list.append(sn)
             else:
-                meta.path_dict[path].append(sn)
+                meta.path_dict[path] = sn
                 meta.md5_dict[sn.node.md5].append(sn)
                 on_file_found.count_file_nodes += 1
 
@@ -93,7 +95,7 @@ class ContentFirstDiffer(ChangeMaker):
 
         # Do this only after we have collected all our MD5s:
         for dup_sn in duplicate_path_skipped_sn_list:
-            prev_path_sn = meta.path_dict[dup_sn.spid.get_single_path()][-1]
+            prev_path_sn = meta.path_dict[dup_sn.spid.get_single_path()]
             prev_md5_sn_list = meta.md5_dict[dup_sn.node.md5]
             if prev_md5_sn_list:
                 prev_md5_sn = prev_md5_sn_list[-1]
@@ -157,17 +159,20 @@ class ContentFirstDiffer(ChangeMaker):
         for sn in sn_list_r:
             assert sn.node.md5 == md5, f'Expected MD5={md5} in {sn}'
 
-        logger.debug(f'[MD5={md5}] Found {len(sn_list_s)} S nodes and {len(sn_list_r)} R nodes with this MD5')
+        if DIFF_DEBUG_ENABLED:
+            logger.debug(f'[MD5={md5}] Found {len(sn_list_s)} S nodes and {len(sn_list_r)} R nodes with this MD5')
 
         if not sn_list_s:
             # Easy case: Content is only present on RIGHT side
-            logger.debug(f'[MD5={md5}] R only: {[sn.spid for sn in sn_list_r]}')
+            if DIFF_DEBUG_ENABLED:
+                logger.debug(f'[MD5={md5}] R only: {[sn.spid for sn in sn_list_r]}')
             state.sn_list_only_r = state.sn_list_only_r + sn_list_r
             return
 
         if not sn_list_r:
             # Easy case: Content is only present on LEFT side
-            logger.debug(f'[MD5={md5}] S only: {[sn.spid for sn in sn_list_s]}')
+            if DIFF_DEBUG_ENABLED:
+                logger.debug(f'[MD5={md5}] S only: {[sn.spid for sn in sn_list_s]}')
             state.sn_list_only_s = state.sn_list_only_s + sn_list_s
             return
 
@@ -189,7 +194,8 @@ class ContentFirstDiffer(ChangeMaker):
         def create_mv_ops(_sn_s: SPIDNodePair, _sn_r: SPIDNodePair):
             # MOVED: the file already exists in each tree, so just do a rename within the tree
             # (it is possible that the trees are on different disks, so keep performance in mind)
-            logger.debug(f'[MD5={md5}] Creating MV pair: S={_sn_s.spid} R={_sn_r.spid}')
+            if DIFF_DEBUG_ENABLED:
+                logger.debug(f'[MD5={md5}] Creating MV pair: S={_sn_s.spid} R={_sn_r.spid}')
             self.append_mv_op_r_to_r(_sn_s, _sn_r)
 
             self.append_mv_op_s_to_s(_sn_s, _sn_r)
@@ -200,11 +206,13 @@ class ContentFirstDiffer(ChangeMaker):
         # Can't create MV pairs if one side has more nodes:
         if remaining_list_s:
             for remaining_left in remaining_list_s:
-                logger.debug(f'[MD5={md5}] Orphan on left: {remaining_left}')
+                if DIFF_DEBUG_ENABLED:
+                    logger.debug(f'[MD5={md5}] Orphan on left: {remaining_left}')
                 state.sn_list_only_s.append(remaining_left)
         if remaining_list_r:
             for remaining_right in remaining_list_r:
-                logger.debug(f'[MD5={md5}] Orphan on right: {remaining_right}')
+                if DIFF_DEBUG_ENABLED:
+                    logger.debug(f'[MD5={md5}] Orphan on right: {remaining_right}')
                 state.sn_list_only_r.append(remaining_right)
 
     def diff(self, compare_paths_also=False) -> Tuple[ChangeTree, ChangeTree]:
@@ -258,7 +266,7 @@ class ContentFirstDiffer(ChangeMaker):
                 continue
             else:
                 # Op pair: (CP left->right, RM from left):
-                if logger.isEnabledFor(logging.DEBUG):
+                if DIFF_DEBUG_ENABLED:
                     logger.debug(f'Left has file with no matching MD5 or path on right: adding CP op on right, RM op on left): '
                                  f'{sn_s.spid} md5={sn_s.node.md5}')
 
@@ -277,7 +285,7 @@ class ContentFirstDiffer(ChangeMaker):
                     continue
 
             # Op pair: (CP left<-right, RM from right):
-            if logger.isEnabledFor(logging.DEBUG):
+            if DIFF_DEBUG_ENABLED:
                 logger.debug(f'Right has file with no matching MD5 or path on left: adding CP op on left, RM op on right: '
                              f'{sn_r.spid} md5={sn_r.node.md5}')
 
@@ -296,24 +304,14 @@ class ContentFirstDiffer(ChangeMaker):
 
     def _create_update_pair_for_left_sn(self, state: DiffState, sn_s: SPIDNodePair) -> bool:
         left_on_right_path: str = self.get_path_moved_to_right(sn_s.spid)
-        existing_sn_list_r: List[SPIDNodePair] = state.src_meta_r.path_dict.get(left_on_right_path)
-        if existing_sn_list_r:
+        existing_sn_r: Optional[SPIDNodePair] = state.src_meta_r.path_dict.get(left_on_right_path, None)
+        if existing_sn_r:
             # Path match: NODE UPDATED
-
-            if len(existing_sn_list_r) > 1:
-                assert self.right_side.root_identifier.tree_type == TreeType.GDRIVE, \
-                    f'Should never see multiple nodes for same path ("{repr(left_on_right_path)}") for non-GDrive trees, ' \
-                    f'but found: {existing_sn_list_r}'
-                # GDrive creates a hard problem because it can allow nodes with the same name and path. Just pick first one for now.
-                logger.warning(f'Found {len(existing_sn_list_r)} nodes in right tree at path "{repr(left_on_right_path)}"; picking the first')
-                logger.debug(f'List={existing_sn_list_r}')
-
-            existing_sn_r: SPIDNodePair = existing_sn_list_r[0]
             assert existing_sn_r.node.is_live(), f'non-existent nodes should have been pre-filtered: {existing_sn_r.node}'
             assert existing_sn_r.node.md5 != sn_s.node.md5, \
                 f'Expected different MD5 for left node ({sn_s.node}) and right node ({existing_sn_r.node})'
 
-            if logger.isEnabledFor(logging.DEBUG):
+            if DIFF_DEBUG_ENABLED:
                 logger.debug(f'Creating UP pair: S=({sn_s.spid} md5={sn_s.node.md5}) <-> R=({existing_sn_r.spid} md5={existing_sn_r.node.md5})')
             # Same path, different md5 -> Updated.
             # Remember, we don't know which direction is "correct" so we supply ops in both directions:

@@ -6,7 +6,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, List, Optional, Tuple
 
 from backend.display_tree.change_tree import ChangeTree
-from constants import SUPER_DEBUG_ENABLED, TrashStatus, TreeID, TreeType
+from constants import DIFF_DEBUG_ENABLED, TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
@@ -62,8 +62,9 @@ class OneSide:
 
         op: UserOp = UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
                             src_node=src_sn.node, dst_node=dst_node)
-        logger.debug(f'[{self.change_tree.tree_id}] Created new UserOp(uid={op.op_uid} op_type={op.op_type.name}). '
-                     f'Adding to ChangeTree along with node: {target_sn.spid}')
+        if DIFF_DEBUG_ENABLED:
+            logger.debug(f'[{self.change_tree.tree_id}] Created new UserOp(uid={op.op_uid} op_type={op.op_type.name}). '
+                         f'Adding to ChangeTree along with node: {target_sn.spid}')
 
         self.change_tree.add_sn_and_op(target_sn, op)
 
@@ -128,7 +129,8 @@ class OneSide:
         # ANCESTORS:
         self._add_needed_ancestors(dst_sn)
 
-        logger.debug(f'[{self.change_tree.tree_id}] Migrated single node: {sn_src.spid} -> {spid}')
+        if DIFF_DEBUG_ENABLED:
+            logger.debug(f'[{self.change_tree.tree_id}] Migrated single node: {sn_src.spid} -> {spid}')
         return dst_sn
 
     @staticmethod

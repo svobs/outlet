@@ -102,7 +102,8 @@ class ChangeTree(DisplayTree):
 
     def _append_op(self, sn: SPIDNodePair, op: UserOp):
         guid = sn.spid.guid
-        logger.debug(f'[{self.tree_id}] Inserting op for GUID "{guid}": {op}')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.tree_id}] Inserting op for GUID "{guid}": {op}')
 
         # Validation:
         if not ((op.dst_node and sn.node.node_identifier == op.dst_node.node_identifier) or (sn.node.node_identifier == op.src_node.node_identifier)):
@@ -125,7 +126,8 @@ class ChangeTree(DisplayTree):
         cat_spid = ChangeTreeSPID(self.get_root_sn().spid.path_uid, sn.spid.device_uid, self.root_path, op_type=sn.spid.op_type)
         cat_sn = self._category_tree.get_node_for_identifier(cat_spid.guid)
         if cat_sn:
-            logger.debug(f'[{self.tree_id}] Found existing CategoryNode with OpType={op_type.name} guid="{cat_spid.guid}"')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{self.tree_id}] Found existing CategoryNode with OpType={op_type.name} guid="{cat_spid.guid}"')
             assert isinstance(cat_sn.node, ContainerNode)
             return cat_sn
 
@@ -141,7 +143,8 @@ class ChangeTree(DisplayTree):
             if not device_sn:
                 device_node = RootTypeNode(node_identifier=device_spid)
                 device_sn: SPIDNodePair = SPIDNodePair(device_spid, device_node)
-                logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {device_sn.spid.guid} (under parent: {parent_sn.spid.guid}')
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {device_sn.spid.guid} (under parent: {parent_sn.spid.guid}')
                 self._category_tree.add_node(node=device_sn, parent=parent_sn)
             parent_sn = device_sn
 
@@ -149,7 +152,8 @@ class ChangeTree(DisplayTree):
         cat_node = CategoryNode(node_identifier=cat_spid, op_type=op_type)
         # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
         cat_sn: SPIDNodePair = SPIDNodePair(cat_spid, cat_node)
-        logger.debug(f'[{self.tree_id}] Inserting new CategoryNode: {cat_spid.guid}')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.tree_id}] Inserting new CategoryNode: {cat_spid.guid}')
         self._category_tree.add_node(node=cat_sn, parent=parent_sn)
 
         # this is the last pre-ancestor.
@@ -162,7 +166,8 @@ class ChangeTree(DisplayTree):
         assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
 
         # Walk up the source tree and compose a list of ancestors:
-        logger.debug(f'[{self.tree_id}] Looking for ancestors for path "{full_path}"')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.tree_id}] Looking for ancestors for path "{full_path}"')
         ancestor_spid: ChangeTreeSPID = sn.spid
         while True:
             # Go up one dir:
@@ -185,7 +190,7 @@ class ChangeTree(DisplayTree):
         while len(stack) > 0:
             child_sn = stack.pop()
             if SUPER_DEBUG_ENABLED:
-                logger.info(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child_sn} under parent: {parent_sn}')
+                logger.debug(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child_sn} under parent: {parent_sn}')
             self._category_tree.add_node(node=child_sn, parent=parent_sn)
             parent_sn = child_sn
 
@@ -228,7 +233,7 @@ class ChangeTree(DisplayTree):
         try:
             # Finally add the node itself.
             if SUPER_DEBUG_ENABLED:
-                logger.info(f'[{self.tree_id}] Adding change node: {sn.spid} to parent {parent_sn.spid}')
+                logger.debug(f'[{self.tree_id}] Adding change node: {sn.spid} to parent {parent_sn.spid}')
 
             self._category_tree.add_node(node=sn, parent=parent_sn)
         except NodeAlreadyPresentError:
