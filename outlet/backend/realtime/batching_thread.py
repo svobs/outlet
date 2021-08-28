@@ -142,10 +142,10 @@ class MkPath(PathOp):
 
     def execute(self, this_task: Task, caller):
         if os.path.isdir(self.path):
-            node: LocalDirNode = caller.cacheman.build_local_dir_node(self.path, is_live=True, all_children_fetched=True)
+            node: LocalDirNode = caller.backend.cacheman.build_local_dir_node(self.path, is_live=True, all_children_fetched=True)
         else:
-            node: LocalNode = caller.cacheman.build_local_file_node(self.path)
-        caller.cacheman.upsert_single_node(node)
+            node: LocalNode = caller.backend.cacheman.build_local_file_node(self.path)
+        caller.backend.cacheman.upsert_single_node(node)
 
 
 class RmPath(PathOp):
@@ -153,12 +153,12 @@ class RmPath(PathOp):
         self.path = path
 
     def execute(self, this_task: Task, caller):
-        node: LocalNode = caller.cacheman.get_node_for_local_path(self.path)
+        node: LocalNode = caller.backend.cacheman.get_node_for_local_path(self.path)
         if node:
             if node.is_dir():
-                caller.cacheman.remove_subtree(node, to_trash=False)
+                caller.backend.cacheman.remove_subtree(node, to_trash=False)
             else:
-                caller.cacheman.remove_node(node, to_trash=False)
+                caller.backend.cacheman.remove_node(node, to_trash=False)
         else:
             logger.debug(f'Cannot remove from cache: node not found in cache for path: {self.path}')
 
@@ -178,7 +178,7 @@ class MvPath(PathOp):
             else:
                 logger.error(f'MV ("{self.src_path}" -> "{self.dst_path}"): was expecting dst = "{expected_move_dst}"!')
 
-        node_list_tuple = caller.cacheman.move_local_subtree(this_task, self.src_path, self.dst_path)
+        node_list_tuple = caller.backend.cacheman.move_local_subtree(this_task, self.src_path, self.dst_path)
 
         if node_list_tuple:
             self._add_to_expected_node_moves(caller.expected_node_moves, node_list_tuple[0], node_list_tuple[1])

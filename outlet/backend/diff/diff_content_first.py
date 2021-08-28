@@ -62,11 +62,11 @@ class ContentFirstDiffer(ChangeMaker):
                  tree_id_left_src: str, tree_id_right_src: str):
         super().__init__(backend, left_tree_sn, right_tree_sn, tree_id_left_src, tree_id_right_src, tree_id_left, tree_id_right)
 
-    def build_one_side_src_meta(self, side: OneSide) -> OneSideSourceMeta:
+    def _build_one_side_src_meta(self, side: OneSide) -> OneSideSourceMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
         for GDrive trees"""
 
-        # FIXME: this appears to be VERY slow for local disk trees
+        # FIXME: this appears to be VERY slow for local disk trees. Investigate!
         sw = Stopwatch()
         meta: OneSideSourceMeta = OneSideSourceMeta()
         duplicate_path_skipped_sn_list: List[SPIDNodePair] = []
@@ -237,7 +237,7 @@ class ContentFirstDiffer(ChangeMaker):
         # the set of MD5s already processed
         md5_set_stopwatch = Stopwatch()
 
-        state = DiffState(compare_paths_also, self.build_one_side_src_meta(self.left_side), self.build_one_side_src_meta(self.right_side))
+        state = DiffState(compare_paths_also, self._build_one_side_src_meta(self.left_side), self._build_one_side_src_meta(self.right_side))
 
         md5_union_set = state.src_meta_s.md5_dict.keys() | state.src_meta_r.md5_dict.keys()
         logger.debug(f'{md5_set_stopwatch} Found {len(md5_union_set)} combined MD5s')
