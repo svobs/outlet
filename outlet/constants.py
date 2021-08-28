@@ -1,11 +1,18 @@
 from enum import IntEnum
+from logging import config
+
+import logging_constants
 from model.uid import UID
 import platform
+import os
 
-TRACE_ENABLED = False
-SUPER_DEBUG_ENABLED = False
+_cur_dir = os.path.dirname(__file__)
 
-DIFF_DEBUG_ENABLED = False
+
+TRACE_ENABLED = logging_constants.TRACE_ENABLED
+SUPER_DEBUG_ENABLED = logging_constants.SUPER_DEBUG_ENABLED
+
+DIFF_DEBUG_ENABLED = logging_constants.DIFF_DEBUG_ENABLED
 
 # do not modify this behavior
 if TRACE_ENABLED:
@@ -16,10 +23,13 @@ IS_WINDOWS = _system == 'windows'
 IS_LINUX = _system == 'linux'
 IS_MACOS = _system == 'darwin'
 
-FIND_DUPLICATE_GDRIVE_NODE_NAMES = False
-COUNT_MULTIPLE_GDRIVE_PARENTS = False
+GDRIVE_FIX_ORPHANS_ON_LOAD = True
+GDRIVE_CHECK_FOR_BROKEN_NODES = True
+GDRIVE_FIND_DUPLICATE_NODE_NAMES = False
+GDRIVE_COUNT_MULTIPLE_PARENTS = False
 
-VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')
+# When parsing config file:
+PROJECT_DIR_TOKEN = '$PROJECT_DIR'
 
 GRPC_CHANGE_TREE_NO_OP = 9
 

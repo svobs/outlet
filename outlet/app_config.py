@@ -7,11 +7,10 @@ import json
 import logging
 
 import logging_config
-from constants import DEFAULT_CONFIG_PATH, PROJECT_DIR
+from constants import DEFAULT_CONFIG_PATH, PROJECT_DIR, PROJECT_DIR_TOKEN
 from util.file_util import get_resource_path
 
 logger = logging.getLogger(__name__)
-PROJECT_DIR_TOKEN = '$PROJECT_DIR'
 
 
 class AppConfig:

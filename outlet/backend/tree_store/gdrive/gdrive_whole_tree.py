@@ -3,8 +3,7 @@ import os
 from collections import Counter, defaultdict, deque
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
-from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, \
-    TreeType
+from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeType
 from error import GDriveItemNotFoundError, NodeNotPresentError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -585,7 +584,6 @@ class GDriveWholeTree(BaseTree):
 
         return path_list
 
-    # TODO: make use of this
     def find_duplicate_node_names(self):
         """Finds and builds a list of all nodes which have the same name inside the same folder"""
         queue: Deque[GDriveNode] = deque()
@@ -626,7 +624,6 @@ class GDriveWholeTree(BaseTree):
 
         logger.info(f'Tree contains {len(duplicates)} filename conflicts')
 
-    # TODO: make use of this
     def count_multiple_parents(self):
         counter: Counter = Counter()
         for uid, node in self.uid_dict.items():

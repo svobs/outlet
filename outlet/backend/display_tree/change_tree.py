@@ -228,7 +228,7 @@ class ChangeTree(DisplayTree):
         else:
             parent_sn = self._get_or_create_pre_ancestors(sn)
 
-            parent_sn = self._get_or_create_ancestors(sn, parent_sn)
+        parent_sn = self._get_or_create_ancestors(sn, parent_sn)
 
         try:
             # Finally add the node itself.
@@ -249,7 +249,6 @@ class ChangeTree(DisplayTree):
                 self.count_conflict_errors += 1
                 if SUPER_DEBUG_ENABLED:
                     logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & different content: existing={conflict_sn.node} new={sn.node}')
-                # raise
 
         if SUPER_DEBUG_ENABLED:
             self.print_tree_contents_debug()

@@ -507,7 +507,6 @@ class ActiveTreeManager(HasLifecycle):
             assert display_tree_meta.state.tree_id == response_tree_id, f'TreeID "{response_tree_id}" != {display_tree_meta.state.tree_id}'
 
         else:
-            logger.debug(f'[{sender_tree_id}] Reading FilterCriteria from app_config')
             filter_state = FilterState.from_config(self.backend, sender_tree_id, root_sn)
 
             display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)

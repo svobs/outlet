@@ -11,9 +11,12 @@ from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
 from backend.tree_store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from backend.tree_store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
-from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
+from constants import GDRIVE_CHECK_FOR_BROKEN_NODES, GDRIVE_COUNT_MULTIPLE_PARENTS, GDRIVE_FIND_DUPLICATE_NODE_NAMES, GDRIVE_DOWNLOAD_STATE_COMPLETE, \
+    GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, \
+    GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, \
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_FIX_ORPHANS_ON_LOAD, \
+    GDRIVE_ROOT_UID, \
     ROOT_PATH, SUPER_DEBUG_ENABLED, \
     TRACE_ENABLED, TreeID
 from model.node.gdrive_node import GDriveFolder, GDriveNode
@@ -123,11 +126,8 @@ class GDriveTreeLoader:
             self.backend.executor.submit_async_task(subtask_4)
 
         # 5: post-processing (will need to do this even after loading):
-        subtask_5 = this_task.create_child_task(self._do_post_load_processing, tree, initial_download, cache_info)
+        subtask_5 = this_task.create_child_task(self._do_post_load_processing, tree, initial_download, cache_info, after_tree_loaded)
         self.backend.executor.submit_async_task(subtask_5)
-
-        after_tree_loaded_subtask = this_task.create_child_task(self._call_after_tree_loaded, tree, cache_info, after_tree_loaded)
-        self.backend.executor.submit_async_task(after_tree_loaded_subtask)
 
     def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload, sync_ts: int):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
@@ -195,20 +195,32 @@ class GDriveTreeLoader:
             logger.debug(f'_compile_downloaded_meta(): skipping because download state = {initial_download.current_state} '
                          f'(was expecting {GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE})')
 
-    def _do_post_load_processing(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download, cache_info):
+    def _do_post_load_processing(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download, cache_info, after_tree_loaded_func):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_COMPLETE:
 
+            if GDRIVE_FIX_ORPHANS_ON_LOAD:
+                self._fix_orphans(tree)
+
             # Still need to compute this in memory every time we load:
-            self._fix_orphans(tree)
             self._compile_full_paths(tree)
 
-            self._check_for_broken_nodes(tree)
+            if GDRIVE_CHECK_FOR_BROKEN_NODES:
+                self._check_for_broken_nodes(tree)
 
-            # set cache_info.is_loaded=True:
-            cache_info.is_loaded = True
+            if GDRIVE_FIND_DUPLICATE_NODE_NAMES:
+                tree.find_duplicate_node_names()
+                
+            if GDRIVE_COUNT_MULTIPLE_PARENTS:
+                tree.count_multiple_parents()
 
             logger.debug('GDrive: load_all() done')
+            cache_info.is_loaded = True
 
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Calling after_tree_loaded func ({after_tree_loaded_func}) async')
+            after_tree_loaded_func(tree)
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'The after_tree_loaded func returned')
         else:
             logger.debug(f'_do_post_load_processing(): skipping because download state = {initial_download.current_state} '
                          f'(was expecting {GDRIVE_DOWNLOAD_STATE_COMPLETE})')
@@ -217,9 +229,9 @@ class GDriveTreeLoader:
         """Finds orphans (nodes with no parents) and sets them as children of root"""
         # TODO: can we roll this into the node loading?
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Determining topmost nodes for {len(tree.uid_dict)} GDrive nodes')
+            logger.debug(f'Determining orphans for {len(tree.uid_dict)} GDrive nodes')
 
-        count_found = 0
+        count_orphans_found = 0
 
         max_uid = GDRIVE_ROOT_UID + 1
         for node in tree.uid_dict.values():
@@ -230,25 +242,14 @@ class GDriveTreeLoader:
                 logger.info(f'Found GDrive orphan (attaching to root): {node.node_identifier}')
                 node.add_parent(GDRIVE_ROOT_UID)
                 tree.get_child_list_for_root().append(node)
-                count_found += 1
+                count_orphans_found += 1
 
             if node.uid >= max_uid:
                 max_uid = node.uid
 
-        logger.debug(f'Found {count_found} GDrive orphans')
+        logger.debug(f'Found {count_orphans_found} GDrive orphans')
 
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
-
-    @staticmethod
-    def _call_after_tree_loaded(_this_task, tree: GDriveWholeTree, cache_info, after_tree_loaded_func):
-        if not cache_info.is_loaded:
-            logger.debug(f'Looks like tree did not finish loading; will not call after_tree_loaded func')
-            return
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Calling after_tree_loaded func ({after_tree_loaded_func}) async')
-        after_tree_loaded_func(tree)
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'The after_tree_loaded func returned')
 
     def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, Optional[UID], str, int]]) -> List[Tuple]:
         """Fills in the parent_uid field ([1]) based on the parent's goog_id ([2]) for each downloaded mapping"""
