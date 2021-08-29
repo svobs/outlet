@@ -453,8 +453,8 @@ class ActiveTreeManager(HasLifecycle):
                     logger.warning(f'request_display_tree(): this is a ChangeDisplayTrees. Did you mean to call this method?')
                     return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
 
-            elif display_tree_meta.root_sn.spid == root_path_meta.root_spid:
-                # Requested the existing tree and root? Just return that:
+            elif display_tree_meta.root_sn.spid == root_path_meta.root_spid and display_tree_meta.root_exists == root_path_meta.root_exists:
+                # Requested the existing tree and root? Just return that. (note that we make an exception if root existence has changed)
                 logger.debug(f'Display tree already registered with given root; returning existing')
                 return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
 
