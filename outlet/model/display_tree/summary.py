@@ -97,7 +97,8 @@ class TreeSummarizer:
         size = util.format.humanfriendlier_size(dir_stats.get_size_bytes())
         file_s = '' if dir_stats.file_count == 1 else 's'
         dir_s = '' if dir_stats.dir_count == 1 else 's'
-        return f'{size} in {dir_stats.file_count:n} file{file_s} and {dir_stats.dir_count:n} {dir_str}{dir_s}'
+        dir_str = f' and {dir_stats.dir_count:n} {dir_str}{dir_s}' if dir_stats.dir_count else ''
+        return f'{size} in {dir_stats.file_count:n} file{file_s}{dir_str}'
 
     # ChangeTree
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -116,7 +117,7 @@ class TreeSummarizer:
             summary = cat_map.get(op_type, None)
             if summary:
                 cat_summaries.append(summary)
-        return ', '.join(cat_summaries)
+        return '. '.join(cat_summaries)
 
     @staticmethod
     def _build_summary_cat_map(tree: ChangeTree, spid, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats]):

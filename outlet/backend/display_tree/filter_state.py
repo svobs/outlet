@@ -123,7 +123,14 @@ class FilterState:
                             # should never happen
                             logger.error(f'DirStatsDict contents: {dir_stats_dict}')
                             raise RuntimeError(f'Internal error: no child stats in dict for dir node: {child_guid} ({child_sn.spid})')
-                        dir_stats.add_dir_stats(child_stats, child_sn.node.get_trashed_status() == TrashStatus.NOT_TRASHED)
+                        dir_stats.add_dir_stats(child_stats)
+
+                        # Do not count container nodes in dir count
+                        if not child_sn.node.is_container_node():
+                            if child_sn.node.get_trashed_status() != TrashStatus.NOT_TRASHED:
+                                dir_stats.trashed_dir_count += 1
+                            else:
+                                dir_stats.dir_count += 1
                     else:
                         dir_stats.add_file_node(child_sn.node)
             if filtered_child_list:
