@@ -383,7 +383,7 @@ class ActiveTreeManager(HasLifecycle):
         return change_tree.state.to_display_tree(self.backend)
 
     # TODO: make this wayyyy less complicated by just making each tree_id represent a set of persisted configs. Minimize DisplayTreeRequest
-    def request_display_tree(self, request: DisplayTreeRequest, propogate_diff_tree_cancellation: bool = True) -> Optional[DisplayTreeUiState]:
+    def request_display_tree(self, request: DisplayTreeRequest, propogate_diff_tree_cancellation: bool = True) -> Optional[DisplayTree]:
         """
         Gets the following into memory (if not already):
         1. Root SPID
@@ -451,12 +451,12 @@ class ActiveTreeManager(HasLifecycle):
                 else:
                     # ChangeDisplayTrees are already loaded, and live capture should not apply
                     logger.warning(f'request_display_tree(): this is a ChangeDisplayTrees. Did you mean to call this method?')
-                    return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
+                    return self._return_display_tree(sender_tree_id, display_tree_meta, request.return_async)
 
             elif display_tree_meta.root_sn.spid == root_path_meta.root_spid and display_tree_meta.root_exists == root_path_meta.root_exists:
                 # Requested the existing tree and root? Just return that. (note that we make an exception if root existence has changed)
                 logger.debug(f'Display tree already registered with given root; returning existing')
-                return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
+                return self._return_display_tree(sender_tree_id, display_tree_meta, request.return_async)
 
             if display_tree_meta.root_path_config_persister:
                 # If we started from a persister, continue persisting:
@@ -524,21 +524,21 @@ class ActiveTreeManager(HasLifecycle):
         if is_cancelling_diff and propogate_diff_tree_cancellation:
             self._cancel_diff_mode(display_tree_meta.state.to_display_tree(self.backend))
 
-        return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
+        return self._return_display_tree(sender_tree_id, display_tree_meta, request.return_async)
 
-    def _return_display_tree_ui_state(self, sender_tree_id: TreeID, display_tree_meta, return_async: bool) -> Optional[DisplayTreeUiState]:
-        state = display_tree_meta.state
+    def _return_display_tree(self, sender_tree_id: TreeID, display_tree_meta, return_async: bool) -> Optional[DisplayTree]:
+        state: DisplayTreeUiState = display_tree_meta.state
         assert state.tree_id and state.root_sn and state.root_sn.spid, f'Bad DisplayTreeUiState: {state}'
+        tree = state.to_display_tree(self.backend)
 
         if return_async:
             # notify clients asynchronously
-            tree = state.to_display_tree(self.backend)
             logger.debug(f'[{sender_tree_id}] Firing signal: {Signal.DISPLAY_TREE_CHANGED.name}')
             dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=sender_tree_id, tree=tree)
             return None
         else:
             logger.debug(f'[{sender_tree_id}] Returning display tree synchronously because return_async=False: {state}')
-            return state
+            return tree
 
     def _resolve_root_meta_from_path(self, full_path: str, device_uid: UID) -> RootPathMeta:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,

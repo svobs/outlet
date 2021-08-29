@@ -19,7 +19,7 @@ class GlobalActions(HasLifecycle):
         self.backend = backend
 
     def start(self):
-        logger.debug('Starting GlobalActions listeners')
+        logger.debug('Starting GlobalActions')
         HasLifecycle.start(self)
 
     def shutdown(self):

@@ -100,7 +100,7 @@ class TaskRunner(HasLifecycle):
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
     def enqueue_task(self, task: Task) -> Future:
-        logger.debug(f'Submitting new task to executor: name="{task.task_func.__name__}" uuid={task.task_uuid}')
+        logger.debug(f'Submitting new task to executor: name="{task}')
         future: Future = self._executor.submit(task.run)
         return future
 

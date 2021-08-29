@@ -16,15 +16,9 @@ class CommandContext:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, staging_dir: str, backend):
+    def __init__(self, staging_dir: str, cacheman):
         self.staging_dir: str = staging_dir
-        self.cacheman = backend.cacheman
-
-    def __del__(self):
-        self.shutdown()
-
-    def shutdown(self):
-        pass
+        self.cacheman = cacheman
 
 
 class Command(BaseNode, ABC):

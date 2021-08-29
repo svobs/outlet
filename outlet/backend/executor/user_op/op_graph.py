@@ -162,7 +162,7 @@ class OpGraph(HasLifecycle):
 
         # non-reentrant nodes cannot execute concurrently and must have dependencies on each other:
         for potential_child_op in non_reentrant_tgt_node_dict.values():
-            parent_device_uid = potential_child_op.get_tgt_node().device_uid()
+            parent_device_uid = potential_child_op.get_tgt_node().device_uid
             parent_uid_list: List[UID] = potential_child_op.get_tgt_node().get_parent_uids()
             if SUPER_DEBUG_ENABLED and len(parent_uid_list) > 1:
                 logger.debug(f'Target node of op has multiple parents: {potential_child_op}')

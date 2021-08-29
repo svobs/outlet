@@ -267,10 +267,6 @@ class OpDatabase(MetaDatabase):
         for table in itertools.chain(self.table_lists.gdrive_dir, self.table_lists.gdrive_file):
             _add_gdrive_parent_cols(table)
 
-    def _get_parent_uid(self, full_path: str) -> UID:
-        parent_path = str(pathlib.Path(full_path).parent)
-        return self.cacheman.get_uid_for_local_path(parent_path)
-
     def _verify_goog_id_consistency(self, goog_id: str, device_uid: UID, node_uid: UID):
         if goog_id:
             # Sanity check: make sure pending change cache matches GDrive cache
@@ -279,20 +275,20 @@ class OpDatabase(MetaDatabase):
                 raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({node_uid}) '
                                    f'for goog_id "{goog_id}"')
 
-    def _collect_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, action_uid_int: int,
+    def _collect_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, op_uid_int: int,
                                nodes_by_action_uid: Dict[UID, Node]):
         self._verify_goog_id_consistency(goog_id, obj.device_uid, obj.uid)
 
         if not parent_uid_int:
             raise RuntimeError(f'Invalid GDrive object in op database: it has no parent! Object: {obj}')
         obj.set_parent_uids(UID(parent_uid_int))
-        op_uid = UID(action_uid_int)
+        op_uid = UID(op_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
         nodes_by_action_uid[op_uid] = obj
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFolder:
-        action_uid_int, device_uid, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id,\
+        op_uid_int, device_uid, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id,\
             is_shared, shared_by_user_uid, sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
         obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
@@ -300,12 +296,12 @@ class OpDatabase(MetaDatabase):
                            create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id, is_shared=is_shared,
                            shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
-        self._collect_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
+        self._collect_gdrive_object(obj, goog_id, parent_uid_int, op_uid_int, nodes_by_action_uid)
 
         return obj
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
-        action_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, \
+        op_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, \
             owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
 
         obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
@@ -314,33 +310,31 @@ class OpDatabase(MetaDatabase):
                          create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid,
                          sync_ts=sync_ts)
 
-        self._collect_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
+        self._collect_gdrive_object(obj, goog_id, parent_uid_int, op_uid_int, nodes_by_action_uid)
         return obj
 
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
-        action_uid_int, device_uid, uid_int, full_path, trashed_status, is_live, all_children_fetched = row
+        op_uid_int, device_uid, uid_int, parent_uid, full_path, trashed_status, is_live, all_children_fetched = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
-        parent_uid: UID = self._get_parent_uid(full_path)
         obj = LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid),
                                                full_path=full_path), parent_uid, trashed_status, bool(is_live), bool(all_children_fetched))
-        op_uid = UID(action_uid_int)
+        op_uid = UID(op_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
         nodes_by_action_uid[op_uid] = obj
         return obj
 
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
-        action_uid_int, device_uid, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
+        op_uid_int, device_uid, uid_int, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cacheman returned {uid} but op cache returned {uid_int} (from row: {row})')
-        parent_uid: UID = self._get_parent_uid(full_path)
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid), full_path=full_path)
         obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
-        op_uid = UID(action_uid_int)
+        op_uid = UID(op_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
         nodes_by_action_uid[op_uid] = obj

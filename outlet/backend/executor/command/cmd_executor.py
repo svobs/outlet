@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydispatch import dispatcher
 import logging
@@ -7,24 +7,37 @@ from constants import SUPER_DEBUG_ENABLED
 from util import file_util
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal
+from util.has_lifecycle import HasLifecycle
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
 
-class CommandExecutor:
+class CommandExecutor(HasLifecycle):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS CommandExecutor
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend):
+        HasLifecycle.__init__(self)
         self.backend = backend
         val = self.backend.get_config('agent.local_disk.staging_dir')
         self.staging_dir: str = file_util.get_resource_path(val)
         logger.debug(f'Staging dir: "{self.staging_dir}"')
-        # TODO: optionally clean staging dir at startup
 
-    def execute_command(self, command: Command, context: CommandContext = None, start_stop_progress: bool = False):
+        self.global_context: Optional[CommandContext] = None
+
+    def start(self):
+        HasLifecycle.start(self)
+
+        # TODO: optionally clean staging dir at startup
+        self.global_context = CommandContext(self.staging_dir, self.backend.cacheman)
+
+    def shutdown(self):
+        self.global_context = None
+
+    def execute_command(self, this_task: Task, command: Command, context: CommandContext = None, start_stop_progress: bool = False):
         if not command:
             logger.error(f'No command!')
             return
@@ -34,7 +47,7 @@ class CommandExecutor:
 
         try:
             if not context:
-                context = CommandContext(self.staging_dir, self.backend)
+                context = CommandContext(self.staging_dir, self.backend.cacheman)
 
             if command.get_status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.get_status()}')
@@ -60,10 +73,8 @@ class CommandExecutor:
 
         if start_stop_progress:
             dispatcher.send(signal=Signal.STOP_PROGRESS, sender=ID_COMMAND_EXECUTOR)
-            if context:
-                context.shutdown()
 
-    def execute_batch(self, command_batch: List[Command]):
+    def execute_batch(self, this_task: Task, command_batch: List[Command]):
         """deprecated - use execute_command()"""
         total = 0
         count_commands = len(command_batch)
@@ -78,17 +89,13 @@ class CommandExecutor:
             total += command.get_total_work()
 
         dispatcher.send(signal=Signal.START_PROGRESS, sender=ID_COMMAND_EXECUTOR, total=total)
-        context = None
         try:
-            context = CommandContext(self.staging_dir, self.backend)
 
             for command_num, command in enumerate(command_batch):
-                self.execute_command(command, context, False)
+                self.execute_command(this_task, command, self.global_context, False)
 
         finally:
             dispatcher.send(signal=Signal.STOP_PROGRESS, sender=ID_COMMAND_EXECUTOR)
-            if context:
-                context.shutdown()
 
         logger.debug(f'{_get_total_completed(command_batch)} out of {len(command_batch)} completed without error')
 

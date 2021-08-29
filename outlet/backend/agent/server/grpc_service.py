@@ -257,12 +257,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         request = DisplayTreeRequest(tree_id=grpc_req.tree_id, return_async=grpc_req.return_async, user_path=grpc_req.user_path, spid=spid,
                                      device_uid=grpc_req.device_uid, is_startup=grpc_req.is_startup, tree_display_mode=grpc_req.tree_display_mode)
 
-        display_tree_ui_state: Optional[DisplayTreeUiState] = self.cacheman.request_display_tree(request)
+        display_tree: Optional[DisplayTree] = self.cacheman.request_display_tree(request)
 
         response = RequestDisplayTree_Response()
-        if display_tree_ui_state:
-            logger.debug(f'Converting DisplayTreeUiState: {display_tree_ui_state}')
-            self._converter.display_tree_ui_state_to_grpc(display_tree_ui_state, response.display_tree_ui_state)
+        if display_tree:
+            logger.debug(f'Converting DisplayTreeUiState: {display_tree.state}')
+            self._converter.display_tree_ui_state_to_grpc(display_tree.state, response.display_tree_ui_state)
         return response
 
     def start_subtree_load(self, request: StartSubtreeLoad_Request, context):

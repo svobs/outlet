@@ -108,6 +108,8 @@ class CentralExecutor(HasLifecycle):
         logger.debug('Central Executor starting')
         HasLifecycle.start(self)
 
+        self._command_executor.start()
+
         self._global_actions.start()
 
         self._central_exec_thread.start()
@@ -123,10 +125,17 @@ class CentralExecutor(HasLifecycle):
             return
 
         HasLifecycle.shutdown(self)
+        with self._running_task_cv:
+            self._running_task_cv.notify_all()
+
         self.backend = None
-        self._command_executor = None
+        if self._command_executor:
+            self._command_executor.shutdown()
+            self._command_executor = None
         self._global_actions = None
-        self._be_task_runner = None
+        if self._be_task_runner:
+            self._be_task_runner.shutdown()
+            self._be_task_runner = None
 
         logger.debug('CentralExecutor shut down')
 
@@ -254,7 +263,8 @@ class CentralExecutor(HasLifecycle):
                 if command:
                     if TRACE_ENABLED:
                         logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
-                    return Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command, None, True)
+                    return Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command,
+                                self._command_executor.global_context, True)
             except RuntimeError as e:
                 logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving command: halting execution pipeline')
                 self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error reteiving command', secondary_msg=f'{e}')

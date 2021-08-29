@@ -613,8 +613,10 @@ class CacheManager(HasLifecycle):
         if send_signals:
             # This will be carried across gRPC if needed
             # Clients will immediately begin to request rows of interest & populating their trees via get_child_list()
-            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name})')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.LOAD_STARTED, status_msg='Loading...')
+            msg = 'Loading...'
+            logger.debug(f'[{tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with state={TreeLoadState.LOAD_STARTED.name} '
+                         f' status_msg="{msg}"')
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_id, tree_load_state=TreeLoadState.LOAD_STARTED, status_msg=msg)
 
         # Full cache load. Both first-order & higher-order trees do this:
         self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._load_cache_for_subtree, tree_meta, send_signals))
@@ -697,7 +699,7 @@ class CacheManager(HasLifecycle):
         tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_meta, self.get_device_list())
         logger.debug(f'[{tree_meta.tree_id}] New summary: "{tree_meta.summary_msg}"')
 
-    def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
+    def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
         """The FE needs to first call this to ensure the given tree_id has a ActiveDisplayTreeMeta loaded into memory.
         Afterwards, the FE should call backend.start_subtree_load(), which will call enqueue_load_tree_task(),
         which will then asynchronously call load_data_for_display_tree()"""

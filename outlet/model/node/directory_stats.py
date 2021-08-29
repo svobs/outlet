@@ -40,8 +40,7 @@ class DirectoryStats:
         self.file_count = 0
         self.dir_count = 0
 
-    def add_dir_stats(self, child_dir_stats, child_is_trashed):
-        # Child is DIR
+    def add_dir_stats(self, child_dir_stats):
         assert isinstance(child_dir_stats, DirectoryStats)
         self._size_bytes += child_dir_stats._size_bytes
         self.dir_count += child_dir_stats.dir_count
@@ -50,11 +49,6 @@ class DirectoryStats:
         self.trashed_dir_count += child_dir_stats.trashed_dir_count
         self.trashed_file_count += child_dir_stats.trashed_file_count
         self.trashed_bytes += child_dir_stats.trashed_bytes
-
-        if child_is_trashed:
-            self.trashed_dir_count += 1
-        else:
-            self.dir_count += 1
 
     def add_file_node(self, child_node):
         if child_node.get_trashed_status() == TrashStatus.NOT_TRASHED:

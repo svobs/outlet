@@ -180,7 +180,8 @@ class OneSide:
 
             # Need to create ancestor
             if tree_type == TreeType.GDRIVE:
-                logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
+                if DIFF_DEBUG_ENABLED:
+                    logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
                 new_ancestor_uid = self.backend.uid_generator.next_uid()
                 folder_name = os.path.basename(parent_path)
                 new_ancestor_node = GDriveFolder(GDriveIdentifier(uid=new_ancestor_uid, device_uid=device_uid, path_list=parent_path),
@@ -188,7 +189,8 @@ class OneSide:
                                                  trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None,
                                                  drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TreeType.LOCAL_DISK:
-                logger.debug(f'Creating LocalDirToAdd for {parent_path}')
+                if DIFF_DEBUG_ENABLED:
+                    logger.debug(f'Creating LocalDirToAdd for {parent_path}')
                 new_ancestor_node = self.backend.cacheman.build_local_dir_node(parent_path, is_live=False, all_children_fetched=True)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')

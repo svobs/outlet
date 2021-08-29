@@ -94,14 +94,7 @@ class BackendIntegrated(OutletBackend):
         if not request.tree_id:
             raise RuntimeError(f'Invalid DisplayTree request: tree_id cannot be null for {request}')
 
-        state = self.cacheman.request_display_tree(request)
-        if state:
-            assert not request.return_async, f'for {request}'
-            tree = state.to_display_tree(backend=self)
-            return tree
-        else:
-            # will be sent async, or an error occurred
-            return None
+        return self.cacheman.request_display_tree(request)
 
     def start_subtree_load(self, tree_id: TreeID):
         self.cacheman.start_subtree_load(tree_id, send_signals=True)

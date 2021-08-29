@@ -88,6 +88,10 @@ class Node(BaseNode, HasParentList, ABC):
     def __lt__(self, other):
         return self.name < other.name
 
+    @staticmethod
+    def is_container_node() -> bool:
+        return False
+
     @classmethod
     @abstractmethod
     def get_obj_type(cls):

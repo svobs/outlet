@@ -87,7 +87,14 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
                     child_node = self.extract_node_func(child)
                     if child_node.is_dir():
                         child_stats = dir_stats_dict[self.extract_id(child)]
-                        dir_stats.add_dir_stats(child_stats, child_node.get_trashed_status() != TrashStatus.NOT_TRASHED)
+                        dir_stats.add_dir_stats(child_stats)
+
+                        # Do not count container nodes in dir count
+                        if not child_node.is_container_node():
+                            if child_node.get_trashed_status() != TrashStatus.NOT_TRASHED:
+                                dir_stats.trashed_dir_count += 1
+                            else:
+                                dir_stats.dir_count += 1
                     else:
                         dir_stats.add_file_node(child_node)
 

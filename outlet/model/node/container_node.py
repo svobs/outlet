@@ -71,6 +71,10 @@ class ContainerNode(Node):
         assert self.node_identifier.get_single_path(), f'For {type(self)}, uid={self.uid}'
         return os.path.basename(self.node_identifier.get_single_path())
 
+    @staticmethod
+    def is_container_node() -> bool:
+        return True
+
     @property
     def sync_ts(self):
         return None

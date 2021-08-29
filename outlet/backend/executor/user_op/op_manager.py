@@ -287,9 +287,9 @@ class OpManager(HasLifecycle):
 
         reduced_batch = sorted(reduced_batch, key=get_op_uid)
 
-        self._append_batch(batch_uid, reduced_batch, save_to_disk=True)
+        self._append_batch(None, batch_uid, reduced_batch, save_to_disk=True)
 
-    def _append_batch(self, batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):
+    def _append_batch(self, this_task: Optional[Task], batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):
 
         batch_root: RootNode = self._op_graph.make_graph_from_batch(batch_uid, batch_op_list)
 
