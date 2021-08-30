@@ -202,7 +202,7 @@ message StatsUpdate {
 
 message TreeLoadUpdate {
 	uint32 load_state_int = 1;
-	string status_msg = 2;
+	StatsUpdate stats_update = 2;
 }
 
 message SubtreeChangeData {

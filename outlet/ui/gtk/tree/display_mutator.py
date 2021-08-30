@@ -116,7 +116,8 @@ class DisplayMutator(HasLifecycle):
             logger.exception(msg)
             GlobalActions.display_error_in_ui(sender, msg, repr(err))
 
-    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str):
+    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str, dir_stats_dict_by_guid: Dict,
+                               dir_stats_dict_by_uid: Dict):
         if sender != self.con.tree_id:
             return
         logger.debug(f'[{self.con.tree_id}] Got signal "{Signal.TREE_LOAD_STATE_UPDATED.name}" '
@@ -126,6 +127,8 @@ class DisplayMutator(HasLifecycle):
         if tree_load_state == TreeLoadState.LOAD_STARTED:
             logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
             dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
+        elif tree_load_state == TreeLoadState.COMPLETELY_LOADED:
+            self._update_stats(sender, status_msg, dir_stats_dict_by_guid, dir_stats_dict_by_uid)
 
     def _populate_and_expand_recursively(self, parent_iter, sn: SPIDNodePair, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
@@ -568,6 +571,10 @@ class DisplayMutator(HasLifecycle):
         if sender != self.con.tree_id:
             return
         logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.STATS_UPDATED.name}"')
+        self._update_stats(sender, status_msg, dir_stats_dict_by_guid, dir_stats_dict_by_uid)
+
+    def _update_stats(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict[GUID, DirectoryStats],
+                      dir_stats_dict_by_uid: Dict[UID, DirectoryStats]):
 
         def redraw_displayed_node(tree_iter):
             if self._is_shutdown:

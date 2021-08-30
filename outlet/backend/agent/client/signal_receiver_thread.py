@@ -117,22 +117,12 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['upserted_sn_list'] = self._converter.sn_list_from_grpc(signal_msg.subtree.upserted_sn_list)
             kwargs['removed_sn_list'] = self._converter.sn_list_from_grpc(signal_msg.subtree.removed_sn_list)
         elif signal == Signal.STATS_UPDATED:
-            kwargs['status_msg'] = signal_msg.stats_update.status_msg
-            dir_stats_dict_by_guid: Dict[GUID, DirectoryStats] = {}
-            dir_stats_dict_by_uid: Dict[UID, DirectoryStats] = {}
-            for dir_meta_grpc in signal_msg.stats_update.dir_meta_by_guid_list:
-                dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
-                dir_stats_dict_by_guid[dir_meta_grpc.guid] = dir_stats
-            for dir_meta_grpc in signal_msg.stats_update.dir_meta_by_uid_list:
-                dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
-                dir_stats_dict_by_uid[dir_meta_grpc.uid] = dir_stats
-            kwargs['dir_stats_dict_by_guid'] = dir_stats_dict_by_guid
-            kwargs['dir_stats_dict_by_uid'] = dir_stats_dict_by_uid
+            self._convert_stats_and_status(signal_msg.stats_update, kwargs)
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
         elif signal == Signal.TREE_LOAD_STATE_UPDATED:
             kwargs['tree_load_state'] = TreeLoadState(signal_msg.tree_load_update.load_state_int)
-            kwargs['status_msg'] = signal_msg.tree_load_update.status_msg
+            self._convert_stats_and_status(signal_msg.tree_load_update.stats_update, kwargs)
         elif signal == Signal.DEVICE_UPSERTED:
             kwargs['device'] = self._converter.device_from_grpc(signal_msg.device)
         logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')
@@ -140,3 +130,16 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         kwargs['sender'] = signal_msg.sender
         # IMPORTANT: Do not be tempted to use PyDispatcher's "named" argument for kwargs. It seems to fail in unexpected ways
         dispatcher.send(**kwargs)
+
+    def _convert_stats_and_status(self, stats_update, kwargs):
+        kwargs['status_msg'] = stats_update.status_msg
+        dir_stats_dict_by_guid: Dict[GUID, DirectoryStats] = {}
+        dir_stats_dict_by_uid: Dict[UID, DirectoryStats] = {}
+        for dir_meta_grpc in stats_update.dir_meta_by_guid_list:
+            dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
+            dir_stats_dict_by_guid[dir_meta_grpc.guid] = dir_stats
+        for dir_meta_grpc in stats_update.dir_meta_by_uid_list:
+            dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
+            dir_stats_dict_by_uid[dir_meta_grpc.uid] = dir_stats
+        kwargs['dir_stats_dict_by_guid'] = dir_stats_dict_by_guid
+        kwargs['dir_stats_dict_by_uid'] = dir_stats_dict_by_uid

@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeLoadState, TreeType
 from model.device import Device
@@ -361,7 +361,8 @@ class RootPathPanel(HasLifecycle):
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
-    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str):
+    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str, dir_stats_dict_by_guid: Dict,
+                               dir_stats_dict_by_uid: Dict):
         if sender != self.con.tree_id:
             return
 

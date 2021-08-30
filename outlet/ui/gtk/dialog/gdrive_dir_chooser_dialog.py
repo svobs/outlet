@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydispatch import dispatcher
 
@@ -85,7 +85,8 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         Gtk.Dialog.destroy(self)
         self.close()
 
-    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str):
+    def _on_load_state_updated(self, sender, tree_load_state: TreeLoadState, status_msg: str, dir_stats_dict_by_guid: Dict,
+                               dir_stats_dict_by_uid: Dict):
         if sender != self.tree_id:
             return
         if tree_load_state == TreeLoadState.COMPLETELY_LOADED:

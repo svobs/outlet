@@ -269,33 +269,38 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.backend.start_subtree_load(request.tree_id)
         return StartSubtreeLoad_Response()
 
+    def _dir_stats_to_grpc(self, dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict, dir_meta_grpc_parent):
+        if dir_stats_dict_by_guid:
+            for key, dir_stats in dir_stats_dict_by_guid.items():
+                dir_meta_grpc = dir_meta_grpc_parent.dir_meta_by_guid_list.add()
+                dir_meta_grpc.guid = key
+                self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
+
+        if dir_stats_dict_by_uid:
+            for key, dir_stats in dir_stats_dict_by_uid.items():
+                dir_meta_grpc = dir_meta_grpc_parent.dir_meta_by_uid_list.add()
+                dir_meta_grpc.uid = key
+                self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
+
     def _on_stats_updated(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict):
         signal = SignalMsg(sig_int=Signal.STATS_UPDATED, sender=sender)
         signal.stats_update.status_msg = status_msg
 
-        if dir_stats_dict_by_guid:
-            for key, dir_stats in dir_stats_dict_by_guid.items():
-                dir_meta_grpc = signal.stats_update.dir_meta_by_guid_list.add()
-                dir_meta_grpc.guid = key
-                self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
-        else:
-            dir_stats_dict_by_guid = {}  # for safety, in case it's None
+        self._dir_stats_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.stats_update)
 
-        if dir_stats_dict_by_uid:
-            for key, dir_stats in dir_stats_dict_by_uid.items():
-                dir_meta_grpc = signal.stats_update.dir_meta_by_uid_list.add()
-                dir_meta_grpc.uid = key
-                self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
-        else:
-            dir_stats_dict_by_uid = {}  # for safety, in case it's None
-
+        if dir_stats_dict_by_guid is None:
+            dir_stats_dict_by_guid = {}  # for safety when logging
+        if dir_stats_dict_by_uid is None:
+            dir_stats_dict_by_uid = {}  # for safety
         logger.info(f'[{sender}] Pushing DirStats update across gRPC with {len(dir_stats_dict_by_guid)} GUID, {len(dir_stats_dict_by_uid)} UID stats')
         self._send_grpc_signal_to_all_clients(signal)
 
-    def _on_load_state_updated(self, sender: str, tree_load_state: TreeLoadState, status_msg: str):
+    def _on_load_state_updated(self, sender: str, tree_load_state: TreeLoadState, status_msg: str,
+                               dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict):
         signal = SignalMsg(sig_int=Signal.TREE_LOAD_STATE_UPDATED, sender=sender)
         signal.tree_load_update.load_state_int = tree_load_state.value
-        signal.tree_load_update.status_msg = status_msg
+        signal.tree_load_update.stats_update.status_msg = status_msg
+        self._dir_stats_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.tree_load_update.stats_update)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_gdrive_download_done(self, sender, filename: str):

@@ -396,7 +396,7 @@ class ActiveTreeManager(HasLifecycle):
            a. If async==true, send via DISPLAY_TREE_CHANGED signal
            b. Else return the tree directly.
 
-        Note: this does not actually load the tree's nodes beyond the root. To do that, the FE must call backend.start_subtree_load().
+        Note: this does not actually load the tree's nodes beyond the root node. To do that, the FE must call backend.start_subtree_load().
 
         See _cancel_diff_mode() for why propogate_diff_tree_cancellation is used
         """
