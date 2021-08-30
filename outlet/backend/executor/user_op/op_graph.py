@@ -451,6 +451,9 @@ class OpGraph(HasLifecycle):
                 # notify consumers there is something to get:
                 self._cv_can_get.notifyAll()
 
+        # Wake Central Executor:
+        self.backend.executor.notify()
+
         logger.debug(f'Done adding batch {batch_uid}')
         self._print_current_state()
 
@@ -667,6 +670,9 @@ class OpGraph(HasLifecycle):
 
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
+
+        # Wake Central Executor in case it is in the waiting state:
+        self.backend.executor.notify()
 
 
 def _skip_root(node_list: List[OpGraphNode]) -> Iterable[OpGraphNode]:

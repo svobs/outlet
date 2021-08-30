@@ -127,7 +127,7 @@ class CacheManager(HasLifecycle):
         """Same deal with GoogID mapper. We init it here, so that we can load in all the cached GoogIDs ASAP"""
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
-        self._op_ledger: OpManager = OpManager(self.backend, op_db_path)
+        self._op_manager: OpManager = OpManager(self.backend, op_db_path)
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
 
         self._local_disk_sig_calc_thread: Optional[SigCalcBatchingThread] = None
@@ -168,9 +168,9 @@ class CacheManager(HasLifecycle):
             pass
 
         try:
-            if self._op_ledger:
-                self._op_ledger.shutdown()
-                self._op_ledger = None
+            if self._op_manager:
+                self._op_manager.shutdown()
+                self._op_manager = None
         except (AttributeError, NameError):
             pass
 
@@ -220,7 +220,7 @@ class CacheManager(HasLifecycle):
             self._active_tree_manager.start()
             for store in self._store_dict.values():
                 store.start()
-            self._op_ledger.start()
+            self._op_manager.start()
 
             if self._this_disk_local_store and self.lazy_load_local_file_signatures:
                 self._local_disk_sig_calc_thread = SigCalcBatchingThread(self.backend, self._this_disk_local_store.device_uid)
@@ -244,9 +244,9 @@ class CacheManager(HasLifecycle):
             # Finally, add or cancel any queued changes (asynchronously)
             if self.cancel_all_pending_ops_on_startup:
                 logger.debug(f'User configuration specifies cancelling all pending ops on startup')
-                pending_ops_task = self._op_ledger.cancel_pending_ops_from_disk
+                pending_ops_task = self._op_manager.cancel_pending_ops_from_disk
             else:
-                pending_ops_task = self._op_ledger.resume_pending_ops_from_disk
+                pending_ops_task = self._op_manager.resume_pending_ops_from_disk
             # This is a lower priority, so will not execute until after caches are all loaded
             self.backend.executor.submit_async_task(Task(ExecPriority.P7_USER_OP_EXECUTION, pending_ops_task))
 
@@ -564,7 +564,7 @@ class CacheManager(HasLifecycle):
             for removed_node in result.nodes_to_remove:
                 self.remove_node(removed_node, to_trash=False)
 
-        self._op_ledger.finish_command(command)
+        self._op_manager.finish_command(command)
 
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -1009,7 +1009,7 @@ class CacheManager(HasLifecycle):
         return self._row_state_tracking.get_rows_of_interest(tree_id)
 
     def update_node_icon(self, node: Node):
-        icon_id: Optional[IconId] = self._op_ledger.get_icon_for_node(node.device_uid, node.uid)
+        icon_id: Optional[IconId] = self._op_manager.get_icon_for_node(node.device_uid, node.uid)
         if TRACE_ENABLED:
             logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
         node.set_icon(icon_id)
@@ -1280,28 +1280,28 @@ class CacheManager(HasLifecycle):
         self._get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(this_task, node_identifier, tree_id)
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
-        return self._op_ledger.get_last_pending_op_for_node(device_uid, node_uid)
+        return self._op_manager.get_last_pending_op_for_node(device_uid, node_uid)
 
     def enqueue_op_list(self, op_list: Iterable[UserOp]):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
          the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
-        self._op_ledger.append_new_pending_op_batch(op_list)
+        self._op_manager.append_new_pending_op_batch(op_list)
 
     def get_next_command(self) -> Optional[Command]:
         # blocks !
         self.wait_for_startup_done()
         # also blocks !
-        return self._op_ledger.get_next_command()
+        return self._op_manager.get_next_command()
 
     def get_next_command_nowait(self) -> Optional[Command]:
         # blocks !
         self.wait_for_startup_done()
 
-        return self._op_ledger.get_next_command_nowait()
+        return self._op_manager.get_next_command_nowait()
 
     def get_pending_op_count(self) -> int:
-        return self._op_ledger.get_pending_op_count()
+        return self._op_manager.get_pending_op_count()
 
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False, is_live: bool = True) \
             -> Optional[LocalFileNode]:

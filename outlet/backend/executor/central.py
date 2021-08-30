@@ -405,6 +405,10 @@ class CentralExecutor(HasLifecycle):
             if len(self._running_task_dict) < TASK_RUNNER_MAX_WORKERS:
                 self._running_task_cv.notify_all()
 
+    def notify(self):
+        with self._running_task_cv:
+            self._running_task_cv.notify_all()
+
     # Op Execution State
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
