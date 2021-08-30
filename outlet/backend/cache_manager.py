@@ -1101,6 +1101,7 @@ class CacheManager(HasLifecycle):
         return self.backend.node_identifier_factory.for_values(uid=node_uid, device_uid=device_uid, path_list=full_path, must_be_single_path=True)
 
     def get_sn_for(self, node_uid: UID, device_uid: UID, full_path: str) -> Optional[SPIDNodePair]:
+        assert node_uid and device_uid, f'node_uid={node_uid}, device_uid={device_uid}, full_path="{full_path}"'
         node = self._get_store_for_device_uid(device_uid).get_node_for_uid(node_uid)
         if not node:
             return None

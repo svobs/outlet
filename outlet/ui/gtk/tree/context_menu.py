@@ -82,6 +82,9 @@ class TreeContextMenu:
         return menu
 
     def _build_menu_items_for_single_node(self, menu, tree_path, node: Node, single_path: str):
+        if node.is_container_node():
+            return
+
         is_gdrive = node.node_identifier.tree_type == TreeType.GDRIVE
 
         # MenuItem: 'Show in Nautilus'
