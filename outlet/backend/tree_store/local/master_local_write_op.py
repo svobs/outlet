@@ -26,8 +26,8 @@ class LocalSubtree(ABC):
 
     def __init__(self, subtree_root: NodeIdentifier, remove_node_list: List[LocalNode], upsert_node_list: List[LocalNode]):
         self.subtree_root: NodeIdentifier = subtree_root
-        self.remove_node_list: List[LocalNode] = remove_node_list
-        self.upsert_node_list: List[LocalNode] = upsert_node_list
+        self.remove_node_list: List[LocalNode] = [] if remove_node_list is None else remove_node_list
+        self.upsert_node_list: List[LocalNode] = [] if upsert_node_list is None else upsert_node_list
 
     def __repr__(self):
         return f'LocalSubtree({self.subtree_root} remove_nodes={len(self.remove_node_list)} upsert_nodes={len(self.upsert_node_list)}'

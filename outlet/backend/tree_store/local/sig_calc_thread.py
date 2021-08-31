@@ -1,4 +1,3 @@
-import copy
 import logging
 import threading
 import time
@@ -150,15 +149,10 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         elif SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
 
-        md5, sha256 = content_hasher.calculate_signatures(full_path=node.get_single_path())
-        if not md5 and not sha256:
+        node_with_signature = content_hasher.try_calculating_signatures(node)
+        if not node_with_signature:
             logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted from disk')
             return
-
-        # Do not modify the original node, or cacheman will not detect that it has changed. Edit and submit a copy instead
-        node_with_signature = copy.deepcopy(node)
-        node_with_signature.md5 = md5
-        node_with_signature.sha256 = sha256
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.name}] Node {node_with_signature.node_identifier.guid} has MD5: {node_with_signature.md5}')

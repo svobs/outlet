@@ -8,7 +8,7 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 Note: this file was copied from the excellent Maestral Dropbox project
 
 """
-
+import copy
 import hashlib
 
 # From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
@@ -40,14 +40,18 @@ def compute_dropbox_hash(filename):
     return hasher.hexdigest()
 
 
-def try_calculating_signatures(node) -> bool:
+def try_calculating_signatures(node) -> Optional:
     if node.is_file() and node.tree_type == TreeType.LOCAL_DISK:
         # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
         # assert isinstance(node, LocalFileNode)
-        node.md5, node.sha256 = calculate_signatures(node.get_single_path())
-        if node.md5:
-            return True
-    return False
+        md5, sha256 = calculate_signatures(node.get_single_path())
+        if md5:
+            # Do not modify the original node, or cacheman will not detect that it has changed. Edit and submit a copy instead:
+            node_with_signature = copy.deepcopy(node)
+            node_with_signature.md5 = md5
+            node_with_signature.sha256 = sha256
+            return node_with_signature
+    return None
 
 
 def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:

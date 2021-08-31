@@ -323,6 +323,12 @@ class GDriveMasterStore(TreeStore):
     def populate_filter(self, filter_state: FilterState):
         filter_state.ensure_cache_populated(self._memstore.master_tree)
 
+    @ensure_locked
+    def submit_batch_of_changes(self, subtree_root: GDriveIdentifier,  upsert_node_list: List[GDriveNode] = None,
+                                remove_node_list: List[GDriveNode] = None):
+        self._execute_write_op(BatchChangesOp(self.backend, upsert_node_list))
+        self._execute_write_op(BatchChangesOp(self.backend, remove_node_list))
+
     def refresh_subtree(self, this_task: Task, subtree_root: GDriveIdentifier, tree_id: TreeID):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
         logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root})')

@@ -72,7 +72,7 @@ class LocalDiskMasterStore(TreeStore):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDiskMasterStore
 
-    In-memory cache for local filesystem
+    Facade for in-memory & disk caches for a local filesystem
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -130,6 +130,11 @@ class LocalDiskMasterStore(TreeStore):
         file_list, dir_list = self.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
 
         self._diskstore.save_subtree(cache_info, file_list, dir_list, tree_id)
+
+    @locked
+    def submit_batch_of_changes(self, subtree_root: LocalNodeIdentifier,  upsert_node_list: List[LocalNode] = None,
+                                remove_node_list: List[LocalNode] = None):
+        self._execute_write_op(BatchChangesOp(subtree_root=subtree_root, upsert_node_list=upsert_node_list, remove_node_list=remove_node_list))
 
     @locked
     def overwrite_dir_entries_list(self, parent_full_path: str, child_list: List[LocalNode]):
@@ -633,7 +638,7 @@ class LocalDiskMasterStore(TreeStore):
         return None
 
     def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
 
         if filter_state and filter_state.has_criteria():

@@ -4,11 +4,14 @@ import logging
 import time
 from typing import Callable, DefaultDict, Dict, Iterable, List, Optional, Tuple
 
+from pydispatch import dispatcher
+
 from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from backend.display_tree.change_tree import ChangeTree
 from backend.tree_store.local import content_hasher
 from constants import DIFF_DEBUG_ENABLED, TreeType
 from model.user_op import UserOpType
+from signal_constants import ID_DIFF_TASK, Signal
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -70,12 +73,18 @@ class ContentFirstDiffer(ChangeMaker):
         sw = Stopwatch()
         meta: OneSideSourceMeta = OneSideSourceMeta()
         duplicate_path_skipped_sn_list: List[SPIDNodePair] = []
+        node_list_signatures_calculated = []
 
         def on_file_found(sn: SPIDNodePair):
-            if not sn.node.md5 and not content_hasher.try_calculating_signatures(sn.node):
-                # TODO: handle GDrive objects which don't have MD5s
-                logger.warning(f'Unable to calculate signature for file, skipping: {sn.spid}')
-                on_file_found.count_skipped_no_md5 += 1
+            on_file_found.count_file_nodes += 1
+            if not sn.node.md5:
+                node_with_signature = content_hasher.try_calculating_signatures(sn.node)
+                if node_with_signature:
+                    node_list_signatures_calculated.append(node_with_signature)
+                else:
+                    # TODO: handle GDrive objects which don't have MD5s
+                    logger.warning(f'Unable to calculate signature for file, skipping: {sn.spid}')
+                    on_file_found.count_skipped_no_md5 += 1
                 return
                 
             path = sn.spid.get_single_path()
@@ -85,13 +94,16 @@ class ContentFirstDiffer(ChangeMaker):
             else:
                 meta.path_dict[path] = sn
                 meta.md5_dict[sn.node.md5].append(sn)
-                on_file_found.count_file_nodes += 1
 
         on_file_found.count_file_nodes = 0
         on_file_found.count_duplicates = 0
         on_file_found.count_skipped_no_md5 = 0
 
         self.visit_each_sn_for_subtree(side.root_sn, on_file_found, side.tree_id_src)
+
+        if node_list_signatures_calculated:
+            logger.debug(f'[{side.tree_id}] Sending batch of {len(node_list_signatures_calculated)} nodes with updated signatures to CacheMan')
+            self.backend.cacheman.submit_batch_of_changes(subtree_root=side.root_sn.spid, upsert_node_list=node_list_signatures_calculated)
 
         # Do this only after we have collected all our MD5s:
         for dup_sn in duplicate_path_skipped_sn_list:
@@ -108,8 +120,8 @@ class ContentFirstDiffer(ChangeMaker):
                              f' prev node with same path: (spid={prev_path_sn.spid}, MD5={prev_path_sn.node.md5})')
 
         logger.info(f'[{side.tree_id}] {sw} Found {len(meta.md5_dict)} MD5s & {len(meta.path_dict)} paths for {on_file_found.count_file_nodes} file '
-                    f'nodes (including {on_file_found.count_duplicates} skipped due to duplicate paths '
-                    f'& {on_file_found.count_skipped_no_md5} skipped due to missing MD5)')
+                    f'nodes (skipped {on_file_found.count_duplicates} file nodes due to duplicate paths '
+                    f'& {on_file_found.count_skipped_no_md5} due to missing MD5)')
         return meta
 
     def _match_relative_paths_for_same_md5(self, lefts: List[SPIDNodePair], rights: List[SPIDNodePair], pairing_func: Callable) \

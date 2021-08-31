@@ -43,9 +43,10 @@ class RowStateTracking:
         rows_of_interest = RowsOfInterest()
         rows_of_interest.expanded = meta.expanded_row_set
         rows_of_interest.selected = meta.selected_row_set
-        logger.debug(f'[{tree_id}] get_rows_of_interest(): returning {len(meta.expanded_row_set)} expanded & {len(meta.selected_row_set)} selected')
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] get_rows_of_interest(): Returning: expanded={meta.expanded_row_set}, selected={meta.selected_row_set}')
+        else:
+            logger.debug(f'[{tree_id}] get_rows_of_interest(): Returning {len(meta.expanded_row_set)} expanded & {len(meta.selected_row_set)} selected')
 
         return rows_of_interest
 

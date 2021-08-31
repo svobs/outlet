@@ -68,44 +68,46 @@ class LocalDiskMemoryStore:
         if not node.uid:
             raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
 
-        existing_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
-        if existing_node:
-            if existing_node.is_live() and not node.is_live():
+        cached_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
+        if cached_node:
+            if cached_node.is_live() and not node.is_live():
                 # In the future, let's close this hole with more elegant logic
                 logger.debug(f'Cannot replace a node which exists with one which does not exist; skipping memstore update for {node.node_identifier}')
                 return None, False
 
-            if existing_node.is_dir() and not node.is_dir():
+            if cached_node.is_dir() and not node.is_dir():
                 # Not allowed. Need to first delete all descendants via other ops.
                 raise RuntimeError(f'Cannot replace a directory with a file: "{node.node_identifier}"')
-            elif node.is_file() and existing_node.is_file():
+            elif node.is_file() and cached_node.is_file():
                 # Check for freshly scanned files which are missing signatures. If their other meta checks out, copy from the cache before doing
                 # equals comparison
-                assert isinstance(node, LocalFileNode) and isinstance(existing_node, LocalFileNode)
-                _merge_signature_if_appropriate(existing_node, node)
+                assert isinstance(node, LocalFileNode) and isinstance(cached_node, LocalFileNode)
                 if SUPER_DEBUG_ENABLED:
-                    _check_update_sanity(existing_node, node)
+                    logger.debug(f'MD5 before merging: cached={cached_node.md5} fresh={node.md5}')
+                _merge_signature_if_appropriate(cached_node, node)
+                if SUPER_DEBUG_ENABLED:
+                    _check_update_sanity(cached_node, node)
 
-            if existing_node == node:
+            if cached_node == node:
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Node being upserted is identical to node already in the cache; skipping memstore update '
-                                 f'(CachedNode={existing_node}; NewNode={node}')
-                return existing_node, False
+                                 f'(CachedNode={cached_node}; NewNode={node}')
+                return cached_node, False
 
             # just update the existing - much easier
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
+                logger.debug(f'Merging node (PyID {id(node)}) into cached_node (PyID {id(cached_node)})')
 
-            if existing_node.is_dir() and node.is_dir():
-                if existing_node.all_children_fetched and not node.all_children_fetched:
+            if cached_node.is_dir() and node.is_dir():
+                if cached_node.all_children_fetched and not node.all_children_fetched:
                     if TRACE_ENABLED:
                         logger.debug(f'Merging into existing node which has all_children_fetched=True; will set new node to True')
                     node.all_children_fetched = True
-                elif not existing_node.all_children_fetched and node.all_children_fetched:
+                elif not cached_node.all_children_fetched and node.all_children_fetched:
                     logger.debug(f'Overwriting node with all_children_fetched=False with one which is True: {node}')
 
-            existing_node.update_from(node)
-            node = existing_node
+            cached_node.update_from(node)
+            node = cached_node
         elif update_only:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Skipping update of node {node.uid} because it is not in memstore')

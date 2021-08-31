@@ -12,7 +12,7 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
+from constants import DIFF_DEBUG_ENABLED, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
     SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
     TreeID, TreeLoadState, TreeType
 from error import CacheNotLoadedError, GDriveItemNotFoundError
@@ -271,7 +271,8 @@ class ActiveTreeManager(HasLifecycle):
                 upserted_sn_list = []
                 removed_sn_list = []
 
-                logger.debug(f'[{tree_id}] Converting {len(upserted_node_list)} upserts and {len(removed_node_list)} removes at  {subtree_root_spid}')
+                logger.debug(f'[{tree_id}] Converting {len(upserted_node_list)} upserts and {len(removed_node_list)} removes at {subtree_root_spid}'
+                             f' to SNs')
 
                 # Just do the easiest and least-error prone thing for now:
                 for node in upserted_node_list:
@@ -368,7 +369,7 @@ class ActiveTreeManager(HasLifecycle):
         """Stores the given ChangeTree in the in-memory dict, and returns a DisplayTree which can be sent to clients.
         src_tree_id is a reference to the DisplayTree on which the ChangeTree was based"""
         logger.info(f'Registering ChangeTree: {change_tree.tree_id} (src_tree_id: {src_tree_id})')
-        if SUPER_DEBUG_ENABLED:
+        if DIFF_DEBUG_ENABLED:
             change_tree.print_tree_contents_debug()
             change_tree.print_op_structs_debug()
 

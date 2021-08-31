@@ -3,7 +3,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import SUPER_DEBUG_ENABLED
+from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -162,8 +162,10 @@ class ChangeTree(DisplayTree):
     def _get_or_create_ancestors(self, sn: SPIDNodePair, parent_sn: SPIDNodePair):
         stack: Deque[SPIDNodePair] = deque()
         full_path = sn.spid.get_single_path()
-        assert full_path, f'SPID does not have a path: {sn.spid}'
-        assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
+        if not full_path:
+            raise RuntimeError(f'SPID does not have a path: {sn.spid}')
+        if not full_path.startswith(self.root_path):
+            raise RuntimeError(f'ItemPath ("{full_path}") does not start with TreeRootPath ("{self.root_path}")')
 
         # Walk up the source tree and compose a list of ancestors:
         if SUPER_DEBUG_ENABLED:
@@ -250,7 +252,7 @@ class ChangeTree(DisplayTree):
                 if SUPER_DEBUG_ENABLED:
                     logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & different content: existing={conflict_sn.node} new={sn.node}')
 
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             self.print_tree_contents_debug()
 
     def __repr__(self):

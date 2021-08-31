@@ -1,5 +1,4 @@
 from enum import IntEnum
-from logging import config
 
 import logging_constants
 from model.uid import UID

@@ -20,7 +20,7 @@ from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
 from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
-from constants import SUPER_DEBUG_ENABLED, TreeLoadState
+from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -405,9 +405,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         try:
             child_list = self.cacheman.get_child_list(parent_spid, request.tree_id, request.is_expanding_parent, max_results)
             self._converter.sn_list_to_grpc(child_list, response.child_list)
-            logger.debug(f'[{request.tree_id}] Relaying {len(child_list)} children for {parent_spid}')
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{request.tree_id}] Children: {child_list}')
+            if TRACE_ENABLED:
+                logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying children: {child_list}')
+            else:
+                logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying {len(child_list)} children for {parent_spid}')
         except ResultsExceededError as err:
             response.result_exceeded_count = err.actual_count
             logger.debug(f'[{request.tree_id}] Too many children ({response.result_exceeded_count}) for {parent_spid}'

@@ -108,6 +108,11 @@ class TreeStore(HasLifecycle, ABC):
     def refresh_subtree(self, this_task: Task, subtree_root: NodeIdentifier, tree_id: TreeID):
         pass
 
+    @abstractmethod
+    def submit_batch_of_changes(self, subtree_root: NodeIdentifier,  upsert_node_list: List[Node] = None,
+                                remove_node_list: List[Node] = None):
+        pass
+
     # UID <-> DomainID mapping
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

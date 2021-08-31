@@ -941,8 +941,8 @@ class CacheManager(HasLifecycle):
 
     def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) \
             -> List[SPIDNodePair]:
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{tree_id}] Entered get_child_list() for parent_spid={parent_spid} (is_expanding_parent={is_expanding_parent})')
+        if TRACE_ENABLED:
+            logger.debug(f'[{tree_id}] get_child_list() entered with parent_spid={parent_spid} is_expanding_parent={is_expanding_parent}')
         if not parent_spid:
             raise RuntimeError('get_child_list(): parent_spid not provided!')
         if not isinstance(parent_spid, SinglePathNodeIdentifier):
@@ -976,8 +976,8 @@ class CacheManager(HasLifecycle):
         for child_sn in child_list:
             self.update_node_icon(child_sn.node)
 
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {parent_spid}')
+        if TRACE_ENABLED:
+            logger.debug(f'[{tree_id}] get_child_list(): Returning {len(child_list)} children for node: {parent_spid}')
         return child_list
 
     @staticmethod
@@ -1273,6 +1273,10 @@ class CacheManager(HasLifecycle):
 
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def submit_batch_of_changes(self, subtree_root: NodeIdentifier, upsert_node_list: List[Node] = None,
+                                remove_node_list: List[Node] = None):
+        return self._get_store_for_device_uid(subtree_root.device_uid).submit_batch_of_changes(subtree_root, upsert_node_list, remove_node_list)
 
     def show_tree(self, subtree_root: NodeIdentifier) -> str:
         return self._get_store_for_device_uid(subtree_root.device_uid).show_tree(subtree_root)
