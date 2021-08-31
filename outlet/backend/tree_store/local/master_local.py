@@ -21,7 +21,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
 from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
-from error import NodeNotPresentError
+from error import CacheNotLoadedError, NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
@@ -410,23 +410,38 @@ class LocalDiskMasterStore(TreeStore):
         """This actually reads directly from the disk cache if needed"""
         if TRACE_ENABLED:
             logger.debug(f'read_single_node_for_path() entered: "{full_path}"')
-        node = self.get_node_for_domain_id(full_path)
-        if node:
-            return
+        node_uid: UID = self.get_uid_for_domain_id(full_path)
+
+        return self._read_single_node_for(node_uid, full_path)
+
+    def read_single_node_for_uid(self, node_uid: UID) -> Optional[LocalNode]:
+        """This actually reads directly from the disk cache if needed"""
+        if TRACE_ENABLED:
+            logger.debug(f'read_single_node_for_uid() entered: "{node_uid}"')
+        full_path = self.get_path_for_uid(node_uid)
+
+        return self._read_single_node_for(node_uid, full_path)
+
+    def _read_single_node_for(self, node_uid: UID, full_path: str) -> Optional[LocalNode]:
+        """node_uid and full_path MUST correspond, or we'll really be in trouble"""
+        assert node_uid and full_path and self.get_path_for_uid(node_uid) == full_path, f'Invalid: node_uid={node_uid}, full_path={full_path}'
 
         cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
         if not cache_info:
-            logger.debug(f'read_single_node_for_path(): Could not find cache containing path: "{full_path}"')
+            logger.error(f'read_single_node_for_uid(): Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
+            node = self.get_node_for_uid(node_uid)
+            if node:
+                return
             if TRACE_ENABLED:
-                logger.debug(f'read_single_node_for_path(): Memcache is loaded but node not found for: "{full_path}"')
+                logger.debug(f'read_single_node_for_uid(): Memcache is loaded but node not found for: {node_uid}')
             return None
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'read_single_node_for_path(): Memcache not loaded; reading diskcache for: "{full_path}"')
+            logger.debug(f'read_single_node_for_path(): Memcache not loaded; reading diskcache for UID {node_uid}"')
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-            return cache.get_file_or_dir_for_path(full_path)
+            return cache.get_file_or_dir_for_uid(node_uid)
 
     def upsert_single_node(self, node: LocalNode) -> LocalNode:
         if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
@@ -575,6 +590,11 @@ class LocalDiskMasterStore(TreeStore):
         assert isinstance(full_path, str)
         return self.uid_path_mapper.get_uid_for_path(full_path, uid_suggestion)
 
+    def get_path_for_uid(self, path_uid: UID) -> str:
+        assert isinstance(path_uid, UID)
+        # Throws exception if no path found:
+        return self.uid_path_mapper.get_path_for_uid(path_uid)
+
     @staticmethod
     def _cache_exists(cache_info: PersistedCacheInfo):
         """Check for the uncommon case of a cache being listed but failing to be created"""
@@ -696,8 +716,16 @@ class LocalDiskMasterStore(TreeStore):
         return None
 
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
-        if TRACE_ENABLED:
-            logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Entered get_node_for_uid(): uid={uid}')
+
+        full_path = self.get_path_for_uid(uid)
+        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
+        if not cache_info:
+            logger.error(f'get_node_for_uid(): Could not find cache containing path: "{full_path}"')
+            return None
+        if not cache_info.is_loaded:
+            raise CacheNotLoadedError(f'Could not load node UID {uid}: cache for subtree {cache_info.subtree_root} is not loaded!')
 
         return self._memstore.master_tree.get_node_for_uid(uid)
 

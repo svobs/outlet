@@ -645,7 +645,7 @@ class CacheManager(HasLifecycle):
             def _populate_filter_for_subtree(_this_task):
                 if tree_meta.state.root_exists:
                     # get up-to-date root node:
-                    subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid)
+                    subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid, spid.device_uid)
                     if not subtree_root_node:
                         raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_meta.tree_id})')
 
@@ -923,16 +923,9 @@ class CacheManager(HasLifecycle):
     def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[Node]:
         return self.get_node_for_uid(node_identifer.node_uid, node_identifer.device_uid)
 
-    def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None):
-        if device_uid:
-            return self._get_store_for_device_uid(device_uid).get_node_for_uid(uid)
-
-        for store in self._store_dict.values():
-            node = store.get_node_for_uid(uid)
-            if node:
-                return node
-
-        return None
+    def get_node_for_uid(self, uid: UID, device_uid: UID):
+        assert device_uid, 'device_uid is required now!'
+        return self._get_store_for_device_uid(device_uid).get_node_for_uid(uid)
 
     def get_node_list_for_path_list(self, path_list: List[str], device_uid: UID) -> List[Node]:
         """Because of GDrive, we cannot guarantee that a single path will have only one node, or a single node will have only one path."""
@@ -1243,6 +1236,7 @@ class CacheManager(HasLifecycle):
                 return sn_list[0]
             return None
 
+        # No tree specified: will not look in ChangeTrees
         spid = self.backend.node_identifier_factory.from_guid(guid)
         return self.get_sn_for(node_uid=spid.node_uid, device_uid=spid.device_uid, full_path=spid.get_single_path())
 
