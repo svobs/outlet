@@ -50,6 +50,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
 
     def start(self):
         HasLifecycle.start(self)
+        self.connect_dispatch_listener(signal=Signal.NODE_NEEDS_SIG_CALC, receiver=self._on_node_upserted_in_cache)
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted_in_cache)
         self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, receiver=self._on_subtree_nodes_changed_in_cache)
         threading.Thread.start(self)
@@ -105,7 +106,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
 
         logger.debug(f'[{self.name}] Calculating signatures for batch of {len(nodes_to_scan)} nodes')
         for node in nodes_to_scan:
-            self.calculate_signature_for_local_node(node)
+            self._calculate_signature_for_local_node(node)
 
         with self._cv_can_get:
             self._running_task_set.remove(this_task.task_uuid)
@@ -133,7 +134,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
     # Signature calculation
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def calculate_signature_for_local_node(self, node: LocalFileNode):
+    def _calculate_signature_for_local_node(self, node: LocalFileNode):
         # Get up-to-date copy:
         node = self.backend.cacheman.get_node_for_uid(node.uid, node.device_uid)
 
@@ -151,7 +152,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
 
         node_with_signature = content_hasher.try_calculating_signatures(node)
         if not node_with_signature:
-            logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted from disk')
+            logger.info(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted from disk')
             return
 
         if SUPER_DEBUG_ENABLED:

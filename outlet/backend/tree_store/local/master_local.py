@@ -8,6 +8,8 @@ import threading
 from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple
 
+from pydispatch import dispatcher
+
 from backend.display_tree.filter_state import FilterState
 from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local import content_hasher
@@ -27,7 +29,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from signal_constants import ID_GLOBAL_CACHE
+from signal_constants import ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
@@ -265,10 +267,12 @@ class LocalDiskMasterStore(TreeStore):
                     logger.debug(f'[{tree_id}] Updated memstore (device_uid={self.device_uid}) from disk. Tree size is now: {len(self._memstore.master_tree):n}')
 
         # FS SYNC
+        did_rescan = False
         if force_rescan_disk or cache_info.needs_refresh or (not was_loaded and self.backend.cacheman.sync_from_local_disk_on_cache_load):
             logger.debug(f'[{tree_id}] Will resync with file system: is_loaded={cache_info.is_loaded}, sync_on_cache_load='
                          f'{self.backend.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh}, '
                          f'force_rescan_disk={force_rescan_disk}')
+            did_rescan = True
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(this_task, requested_subtree_root, tree_id)
 
@@ -287,6 +291,13 @@ class LocalDiskMasterStore(TreeStore):
             logger.debug(f'[{tree_id}] Skipping filesystem sync because it is disabled for cache loads')
         elif not cache_info.needs_refresh:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
+
+        if not did_rescan:
+            logger.debug(f'[{tree_id}] Disk scan was skipped; checking cached nodes for missing signatures')
+            # Check whether any nodes still need their signatures filled in, and enqueue them if so:
+            for node in self._memstore.master_tree.get_subtree_bfs(requested_subtree_root.node_uid):
+                if node.is_file() and not node.md5:
+                    dispatcher.send(signal=Signal.NODE_NEEDS_SIG_CALC, sender=tree_id, node=node)
 
         def _after_load_complete(_this_task):
             """Finish up"""

@@ -4,14 +4,11 @@ import logging
 import time
 from typing import Callable, DefaultDict, Dict, Iterable, List, Optional, Tuple
 
-from pydispatch import dispatcher
-
 from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from backend.display_tree.change_tree import ChangeTree
 from backend.tree_store.local import content_hasher
 from constants import DIFF_DEBUG_ENABLED, TreeType
 from model.user_op import UserOpType
-from signal_constants import ID_DIFF_TASK, Signal
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)

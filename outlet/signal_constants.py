@@ -31,6 +31,8 @@ class Signal(IntEnum):
     """Internal to BE: should only be received by ActiveTreeManager"""
     SUBTREE_NODES_CHANGED_IN_CACHE = 18
     """Internal to BE: should only be received by ActiveTreeManager"""
+    NODE_NEEDS_SIG_CALC = 19
+    """Internal to BE: should only be received by SigCalcBatchingThread"""
 
     # --- Tree actions: requests ---
     CALL_EXIFTOOL = 20
@@ -105,4 +107,3 @@ ID_GLOBAL_CACHE = 'global_cache'
 ID_COMMAND_EXECUTOR = 'command-executor'
 ID_CENTRAL_EXEC = 'central-executor'
 ID_GDRIVE_POLLING_THREAD = 'gdrive_polling_thread'
-ID_DIFF_TASK = 'diff_task'
