@@ -156,7 +156,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             return
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Node {node_with_signature.node_identifier.guid} has MD5: {node_with_signature.md5}')
+            logger.debug(f'[{self.name}] Calculated MD5: {node_with_signature.md5} for node: {node_with_signature.node_identifier.guid}')
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:

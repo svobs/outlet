@@ -594,7 +594,7 @@ class GDriveMasterStore(TreeStore):
             # 1. Use in-memory cache if it exists:
             if self._memstore.is_loaded():
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'get_child_list_for_spid(): getting child list from in-memory cache (parent_spid={parent_spid})')
+                    logger.debug(f'get_child_list_for_spid(): getting child list from memstore (parent_spid={parent_spid})')
                 try:
                     return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
                 except NodeNotPresentError as e:

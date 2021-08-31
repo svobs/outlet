@@ -266,19 +266,6 @@ class GDriveWholeTree(BaseTree):
 
         return file_list, folder_list
 
-    def get_identifier_list_for_path_list(self, path_list: List[str], error_if_not_found: bool = False):
-        assert isinstance(path_list, List)
-        identifiers_found: List[NodeIdentifier] = []
-
-        for single_path in path_list:
-            try:
-                identifiers = self._get_identifier_list_for_single_path(single_path, error_if_not_found)
-                if identifiers:
-                    identifiers_found += identifiers
-            except GDriveItemNotFoundError:
-                logger.warning(f'No node identifier(s) found for path, skipping: "{single_path}"')
-        return identifiers_found
-
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
         identifiers_found: List[NodeIdentifier] = self.get_identifier_list_for_path_list(path_list)
 
@@ -287,6 +274,19 @@ class GDriveWholeTree(BaseTree):
             logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"')
         return list(map(lambda x: self.get_node_for_uid(x.node_uid), identifiers_found))
 
+    def get_identifier_list_for_path_list(self, path_list: List[str], error_if_not_found: bool = False):
+        assert isinstance(path_list, List)
+        identifiers_found: List[NodeIdentifier] = []
+
+        for single_path in path_list:
+            try:
+                identifiers = self._get_identifier_list_for_single_path(single_path, error_if_not_found)
+                if identifiers:
+                    identifiers_found = identifiers_found + identifiers
+            except GDriveItemNotFoundError:
+                logger.warning(f'No node identifier(s) found for path, skipping: "{single_path}"')
+        return identifiers_found
+
     def _get_identifier_list_for_single_path(self, full_path: str, error_if_not_found: bool) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
         Since GDrive allows for multiple parents per child, it is possible for multiple matches to occur. This
@@ -294,70 +294,55 @@ class GDriveWholeTree(BaseTree):
         NOTE: returns FileNotFoundError if not even one ID could be matched
         """
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'GDriveWholeTree.get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
+            logger.debug(f'GDriveWholeTree._get_identifier_list_for_single_path() requested for full_path: "{full_path}", '
+                         f'error_if_not_found={error_if_not_found}')
+
+        current_seg_nodes: List[GDriveNode] = [self.get_root_node()]
+
         if full_path == ROOT_PATH:
-            return [self.backend.node_identifier_factory.get_root_constant_gdrive_identifier(self.device_uid)]
-        name_segments = file_util.split_path(full_path)
-        if len(name_segments) == 0:
+            return [n.node_identifier for n in current_seg_nodes]
+
+        if not full_path.startswith('/'):
             raise RuntimeError(f'Bad path: "{full_path}"')
-        # name_segments = list(map(lambda x: x.lower(), name_segments))
-        iter_name_segs = iter(name_segments)
-        try:
-            seg = next(iter_name_segs)
-        except StopIteration:
-            seg = ''
-        if seg == '/':
-            # Strip off root prefix if there is one
-            try:
-                seg = next(iter_name_segs)
-            except StopIteration:
-                seg = ''
-        path_so_far = '/' + seg
-        current_seg_nodes: List[GDriveNode] = [x for x in self.get_child_list_for_root() if x.name.lower() == seg.lower()]
+
+        target_path = full_path.lower()  # case insensitive search
+        path_so_far = ''
         next_seg_nodes: List[GDriveNode] = []
-        path_found = '/'
-        if current_seg_nodes:
-            path_found += current_seg_nodes[0].name
 
-        for name_seg in iter_name_segs:
+        for name_seg in file_util.split_path(target_path[1:]):
             path_so_far = path_so_far + '/' + name_seg
-            for current in current_seg_nodes:
-                current_id: UID = current.uid
-                children: List[Node] = self.get_child_list_for_node(current)
-                if not children:
-                    if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
-                    break
-                matches: List[Node] = [x for x in children if x.name.lower() == name_seg.lower()]
-                if SUPER_DEBUG_ENABLED and len(matches) > 1:
-                    logger.info(f'get_identifier_list_for_single_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
-                                f'{current_id}", path_so_far "{path_so_far}"')
-                    for num, match in enumerate(matches):
-                        logger.info(f'Match {num}: {match}')
-                next_seg_nodes += matches
 
-            if len(next_seg_nodes) == 0:
+            for current_seg_node in current_seg_nodes:
+                matching_children: List[Node] = [n for n in self.get_child_list_for_node(current_seg_node) if n.name.lower() == name_seg]
+                if SUPER_DEBUG_ENABLED and len(matching_children) > 1:
+                    logger.info(f'get_identifier_list_for_single_path(): Multiple child IDs ({len(matching_children)}) found for parent "'
+                                f'{current_seg_node.node_identifier}", path_so_far "{path_so_far}"')
+                    for num, match in enumerate(matching_children):
+                        logger.info(f'Match {num}: {match}')
+                next_seg_nodes += matching_children
+
+            if next_seg_nodes:
+                # transfer next_seg_nodes to current list, then clear current_seg_node
+                current_seg_nodes = next_seg_nodes
+                next_seg_nodes = []
+            else:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}" (target_path: "{full_path}"')
+                    logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}"'
+                                 f' (target_path: "{target_path}", path_so_far="{path_so_far}")')
                 if error_if_not_found:
                     err_node_identifier = self.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
                                                                                   path_list=full_path)
                     raise GDriveItemNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
-            else:
-                path_found = path_found + '/' + next_seg_nodes[0].name
+                else:
+                    return []
 
-            current_seg_nodes = next_seg_nodes
-            next_seg_nodes = []
         matching_node_identifiers: List[NodeIdentifier] = list(map(lambda x: x.node_identifier, current_seg_nodes))
         for node_identifier in matching_node_identifiers:
-            # Needs to be filled in:
-            node_identifier.add_path_if_missing(path_found)
+            assert full_path in node_identifier.get_path_list(), \
+                f'path just built ({full_path}) not found in path list of node identifeir ({node_identifier})'
+            # node_identifier.add_path_if_missing(full_path)
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'get_identifier_list_for_single_path(): Found for path "{path_so_far}": {matching_node_identifiers}')
-        if error_if_not_found and not matching_node_identifiers:
-            err_node_identifier = self.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
-                                                                          path_list=full_path)
-            raise GDriveItemNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
         return matching_node_identifiers
 
     @staticmethod

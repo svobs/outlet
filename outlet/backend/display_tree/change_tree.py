@@ -165,7 +165,7 @@ class ChangeTree(DisplayTree):
         if not full_path:
             raise RuntimeError(f'SPID does not have a path: {sn.spid}')
         if not full_path.startswith(self.root_path):
-            raise RuntimeError(f'ItemPath ("{full_path}") does not start with TreeRootPath ("{self.root_path}")')
+            raise RuntimeError(f'Cannot insert node ({sn.spid}): its path does not start with tree root path ("{self.get_root_spid()}")')
 
         # Walk up the source tree and compose a list of ancestors:
         if SUPER_DEBUG_ENABLED:
@@ -192,7 +192,7 @@ class ChangeTree(DisplayTree):
         while len(stack) > 0:
             child_sn = stack.pop()
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child_sn} under parent: {parent_sn}')
+                logger.debug(f'[{self.tree_id}] Inserting new dummy ancestor: {child_sn.spid} under parent: {parent_sn.spid}')
             self._category_tree.add_node(node=child_sn, parent=parent_sn)
             parent_sn = child_sn
 

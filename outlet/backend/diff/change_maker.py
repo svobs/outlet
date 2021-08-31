@@ -160,15 +160,22 @@ class OneSide:
 
         child_path: str = new_sn.spid.get_single_path()
         child: Node = new_sn.node
+        if DIFF_DEBUG_ENABLED:
+            logger.debug(f'[{self.change_tree.tree_id}] Checking for missing ancestors for node with path: "{child_path}"')
 
         # Determine ancestors:
         while True:
             parent_path = str(pathlib.Path(child_path).parent)
 
+            if parent_path == self.root_sn.spid.get_single_path():
+                if DIFF_DEBUG_ENABLED:
+                    logger.debug(f'[{self.change_tree.tree_id}] Parent of new node has the same path as tree root; no more ancestors to create')
+                break
+
             # AddedFolder already generated and added?
-            existing_ancestor: Optional[SPIDNodePair] = self._added_folders.get(parent_path, None)
-            if existing_ancestor:
-                child.set_parent_uids(existing_ancestor.node.uid)
+            prev_added_ancestor: Optional[SPIDNodePair] = self._added_folders.get(parent_path, None)
+            if prev_added_ancestor:
+                child.set_parent_uids(prev_added_ancestor.node.uid)
                 break
 
             # Folder already existed in original tree?
@@ -181,7 +188,7 @@ class OneSide:
             # Need to create ancestor
             if tree_type == TreeType.GDRIVE:
                 if DIFF_DEBUG_ENABLED:
-                    logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
+                    logger.debug(f'[{self.change_tree.tree_id}] Creating GoogFolderToAdd for {parent_path}')
                 new_ancestor_uid = self.backend.uid_generator.next_uid()
                 folder_name = os.path.basename(parent_path)
                 new_ancestor_node = GDriveFolder(GDriveIdentifier(uid=new_ancestor_uid, device_uid=device_uid, path_list=parent_path),
@@ -190,7 +197,7 @@ class OneSide:
                                                  drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TreeType.LOCAL_DISK:
                 if DIFF_DEBUG_ENABLED:
-                    logger.debug(f'Creating LocalDirToAdd for {parent_path}')
+                    logger.debug(f'[{self.change_tree.tree_id}] Creating LocalDirToAdd for {parent_path}')
                 new_ancestor_node = self.backend.cacheman.build_local_dir_node(parent_path, is_live=False, all_children_fetched=True)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')

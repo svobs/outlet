@@ -82,7 +82,7 @@ class LocalDiskMemoryStore:
                 # Check for freshly scanned files which are missing signatures. If their other meta checks out, copy from the cache before doing
                 # equals comparison
                 assert isinstance(node, LocalFileNode) and isinstance(cached_node, LocalFileNode)
-                if SUPER_DEBUG_ENABLED:
+                if TRACE_ENABLED:
                     logger.debug(f'MD5 before merging: cached={cached_node.md5} fresh={node.md5}')
                 _merge_signature_if_appropriate(cached_node, node)
                 if SUPER_DEBUG_ENABLED:
@@ -110,14 +110,14 @@ class LocalDiskMemoryStore:
             node = cached_node
         elif update_only:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Skipping update of node {node.uid} because it is not in memstore')
+                logger.debug(f'Skipping update of node {node.node_identifier.guid} because it is not in memstore')
             return node, False
         else:
             # new file or directory insert
             self.master_tree.add_to_tree(node)
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Node {node.uid} was upserted into memstore')
+            logger.debug(f'Node {node.node_identifier.guid} was upserted into memstore')
         return node, True
 
 
