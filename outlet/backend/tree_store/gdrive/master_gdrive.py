@@ -512,9 +512,16 @@ class GDriveMasterStore(TreeStore):
             raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}(: GDrive cache not loaded!')
         return self._memstore.master_tree.get_node_for_uid(uid)
 
-    def read_single_node_from_disk_for_uid(self, uid: UID) -> Optional[Node]:
-        logger.debug(f'Loading single node for uid: {uid}')
-        return self._diskstore.get_single_node_with_uid(uid)
+    def read_node_for_uid(self, node_uid: UID) -> Optional[GDriveNode]:
+        """This actually reads directly from the disk cache if needed"""
+        if TRACE_ENABLED:
+            logger.debug(f'read_node_for_uid() entered: {node_uid}')
+        if self._memstore.is_loaded():
+            return self._memstore.master_tree.get_node_for_uid(node_uid)
+
+        logger.debug(f'read_node_for_uid(): memstore node loaded; reading direct from disk: {node_uid}')
+        # FIXME: what about populating its paths?
+        return self._diskstore.get_single_node_with_uid(node_uid)
 
     def build_gdrive_root_node(self, sync_ts: Optional[int] = None) -> GDriveFolder:
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.

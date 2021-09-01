@@ -406,18 +406,18 @@ class LocalDiskMasterStore(TreeStore):
     # Cache CRUD operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def read_single_node_for_path(self, full_path: str) -> Optional[LocalNode]:
+    def read_node_for_path(self, full_path: str) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache if needed"""
         if TRACE_ENABLED:
-            logger.debug(f'read_single_node_for_path() entered: "{full_path}"')
+            logger.debug(f'read_node_for_path() entered: "{full_path}"')
         node_uid: UID = self.get_uid_for_domain_id(full_path)
 
         return self._read_single_node_for(node_uid, full_path)
 
-    def read_single_node_for_uid(self, node_uid: UID) -> Optional[LocalNode]:
+    def read_node_for_uid(self, node_uid: UID) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache if needed"""
         if TRACE_ENABLED:
-            logger.debug(f'read_single_node_for_uid() entered: "{node_uid}"')
+            logger.debug(f'read_node_for_uid() entered: "{node_uid}"')
         full_path = self.get_path_for_uid(node_uid)
 
         return self._read_single_node_for(node_uid, full_path)
@@ -428,18 +428,18 @@ class LocalDiskMasterStore(TreeStore):
 
         cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
         if not cache_info:
-            logger.error(f'read_single_node_for_uid(): Could not find cache containing path: "{full_path}"')
+            logger.error(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
             node = self.get_node_for_uid(node_uid)
             if node:
                 return
             if TRACE_ENABLED:
-                logger.debug(f'read_single_node_for_uid(): Memcache is loaded but node not found for: {node_uid}')
+                logger.debug(f'_read_single_node_for(): Memcache is loaded but node not found for: {node_uid}')
             return None
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'read_single_node_for_path(): Memcache not loaded; reading diskcache for UID {node_uid}"')
+            logger.debug(f'_read_single_node_for(): Memcache not loaded; reading diskcache for UID {node_uid}"')
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             return cache.get_file_or_dir_for_uid(node_uid)
 
@@ -578,7 +578,7 @@ class LocalDiskMasterStore(TreeStore):
         """
         node_list: List[LocalNode] = []
         for full_path in path_list:
-            node = self.read_single_node_for_path(full_path)
+            node = self.read_node_for_path(full_path)
             if node:
                 node_list.append(node)
         return node_list
@@ -591,7 +591,6 @@ class LocalDiskMasterStore(TreeStore):
         return self.uid_path_mapper.get_uid_for_path(full_path, uid_suggestion)
 
     def get_path_for_uid(self, path_uid: UID) -> str:
-        assert isinstance(path_uid, UID)
         # Throws exception if no path found:
         return self.uid_path_mapper.get_path_for_uid(path_uid)
 

@@ -177,7 +177,7 @@ class LocalDiskDatabase(MetaDatabase):
         for node in node_list:
             if node.is_dir():
                 if not isinstance(node, LocalDirNode):
-                    logger.debug('TODO')  # TODO
+                    raise NotImplementedError('TODO')  # TODO
                 assert isinstance(node, LocalDirNode), f'Not a LocalDirNode: {node}'
                 dir_list.append(node)
             else:

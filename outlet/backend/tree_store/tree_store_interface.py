@@ -52,6 +52,11 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
+    def read_node_for_uid(self, node_uid: UID) -> Optional[Node]:
+        """This actually reads directly from the disk cache if needed"""
+        pass
+
+    @abstractmethod
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
         pass
 

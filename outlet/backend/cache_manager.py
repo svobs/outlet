@@ -1097,7 +1097,7 @@ class CacheManager(HasLifecycle):
 
     def get_sn_for(self, node_uid: UID, device_uid: UID, full_path: str) -> Optional[SPIDNodePair]:
         assert node_uid and device_uid, f'node_uid={node_uid}, device_uid={device_uid}, full_path="{full_path}"'
-        node = self._get_store_for_device_uid(device_uid).get_node_for_uid(node_uid)
+        node = self._get_store_for_device_uid(device_uid).read_node_for_uid(node_uid)
         if not node:
             return None
 
@@ -1167,7 +1167,7 @@ class CacheManager(HasLifecycle):
         """This will consult both the in-memory and disk caches"""
         if not full_path:
             raise RuntimeError('get_node_for_local_path(): full_path not specified!')
-        return self._this_disk_local_store.read_single_node_for_path(full_path)
+        return self._this_disk_local_store.read_node_for_path(full_path)
 
     # Drag & drop
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -1315,6 +1315,7 @@ class CacheManager(HasLifecycle):
         store = self._get_gdrive_store_for_device_uid(device_uid)
         return store.build_gdrive_root_node(sync_ts=sync_ts)
 
+    # TODO: move this logic into each of the master stores
     def read_single_node(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
         store = self._get_store_for_device_uid(spid.device_uid)
 
@@ -1334,7 +1335,7 @@ class CacheManager(HasLifecycle):
                 logger.debug(f'Normalized path: {full_path}')
 
             assert isinstance(store, LocalDiskMasterStore)
-            node = store.read_single_node_for_path(full_path)
+            node = store.read_node_for_path(full_path)
             if node:
                 logger.debug(f'read_single_node(): read node from disk cache: {node}')
                 return node
@@ -1354,7 +1355,7 @@ class CacheManager(HasLifecycle):
 
         elif spid.tree_type == TreeType.GDRIVE:
             assert isinstance(store, GDriveMasterStore)
-            node = store.read_single_node_from_disk_for_uid(spid.node_uid)
+            node = store.read_node_for_uid(spid.node_uid)
             if node:
                 return node
             else:

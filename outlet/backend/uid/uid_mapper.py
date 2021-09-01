@@ -8,6 +8,7 @@ from backend.sqlite.uid_mapper_db import UidMapperDb
 from util import file_util
 from constants import CACHE_WRITE_HOLDOFF_TIME_MS, GoogID, ROOT_PATH, ROOT_PATH_UID, SUPER_DEBUG_ENABLED
 from model.uid import UID
+from util.ensure import ensure_uid
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 from util.stopwatch_sec import Stopwatch
@@ -74,6 +75,7 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
         if not uid:
             raise RuntimeError(f'get_mapping_for_uid(): UID is empty or zero!')
 
+        uid = ensure_uid(uid)
         if not isinstance(uid, UID):
             raise RuntimeError(f'get_mapping_for_uid(): not a UID: {uid}')
 
@@ -139,6 +141,9 @@ class UidPathMapper(UidPersistedMapper[str]):
 
         if not isinstance(full_path, str):
             raise RuntimeError(f'get_uid_for_path(): full_path is not str: {full_path}')
+
+        if not full_path.startswith('/'):
+            raise RuntimeError(f'get_uid_for_path(): not a valid path: "{full_path}"')
 
         path = file_util.normalize_path(full_path)
         return self.get_uid_for_mapping(path, uid_suggestion)
