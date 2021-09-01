@@ -94,9 +94,11 @@ class OpManager(HasLifecycle):
 
     @staticmethod
     def _derive_dst_parent_key_list(dst_node: Node) -> List[str]:
-        return [f'{parent_uid}/{dst_node.name}' for parent_uid in dst_node.get_parent_uids()]
+        if not dst_node.get_parent_uids():
+            raise RuntimeError(f'Node has no parents: {dst_node}')
+        return [f'{dst_node.device_uid}:{parent_uid}/{dst_node.name}' for parent_uid in dst_node.get_parent_uids()]
 
-    def _reduce_ops(self, op_list: Iterable[UserOp]) -> Iterable[UserOp]:
+    def _reduce_and_validate_ops(self, op_list: Iterable[UserOp]) -> Iterable[UserOp]:
         final_list: List[UserOp] = []
 
         # Put all affected nodes in map.
@@ -109,6 +111,8 @@ class OpManager(HasLifecycle):
         cp_src_dict: DefaultDict[UID, List[UserOp]] = defaultdict(lambda: list())
         count_ops_orig = 0
         for op in op_list:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'ReduceChanges(): examining op: {op}')
             count_ops_orig += 1
             if op.op_type == UserOpType.MKDIR:
                 # remove dup MKDIRs (easy)
@@ -126,10 +130,12 @@ class OpManager(HasLifecycle):
                     logger.info(f'ReduceChanges(): Adding RM-type: {op}')
                     final_list.append(op)
                     rm_dict[op.src_node.uid] = op
-            elif op.op_type == UserOpType.CP or op.op_type == UserOpType.UP or op.op_type == UserOpType.MV:
+            elif op.has_dst():
                 # GDrive nodes' UIDs are derived from their goog_ids; nodes with no goog_id can have different UIDs.
                 # So for GDrive nodes with no goog_id, we must rely on a combination of their parent UID and name to check for uniqueness
                 for dst_parent_key in self._derive_dst_parent_key_list(op.dst_node):
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'Checking parent key: {dst_parent_key}')
                     existing = cp_dst_dict.get(dst_parent_key, None)
                     if existing:
                         # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
@@ -151,22 +157,28 @@ class OpManager(HasLifecycle):
                         cp_src_dict[op.src_node.uid].append(op)
                         cp_dst_dict[dst_parent_key] = op
                         final_list.append(op)
+            else:
+                assert False, f'Unrecognized op type: {op}'
 
-        def eval_rm_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        logger.debug(f'Reduced {count_ops_orig} ops to {len(final_list)} ops')
+
+        # Validation begin
+
+        def validate_rm_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             conflict = mkdir_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to create a node and remove its descendant at the same time!')
 
-        def eval_mkdir_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        def validate_mkdir_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             conflict = rm_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to remove a node and create its descendant at the same time!')
 
-        def eval_cp_src_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        def validate_cp_src_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Evaluating src ancestor (op={op_arg.op_uid}): {ancestor}')
+                logger.debug(f'Validating src ancestor (UserOp={op_arg.op_uid}): {ancestor}')
             if ancestor.uid in mkdir_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
             if ancestor.uid in rm_dict:
@@ -174,29 +186,30 @@ class OpManager(HasLifecycle):
             if ancestor.uid in cp_dst_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
 
-        def eval_cp_dst_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        def validate_cp_dst_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Evaluating dst ancestor (op={op.op_uid}): {ancestor}')
+                logger.debug(f'Validating dst ancestor (op={op.op_uid}): {ancestor}')
             if ancestor.uid in rm_dict:
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
             if ancestor.uid in cp_src_dict:
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
 
         # For each element, traverse up the tree and compare each parent node to map
-        for op in op_list:
+        for op in final_list:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'_reduce_ops(): Evaluating {op}')
             if op.op_type == UserOpType.RM:
-                self._check_ancestors(op, op.src_node, eval_rm_ancestor_func)
+                self._check_ancestors(op, op.src_node, validate_rm_ancestor_func)
             elif op.op_type == UserOpType.MKDIR:
-                self._check_ancestors(op, op.src_node, eval_mkdir_ancestor_func)
+                self._check_ancestors(op, op.src_node, validate_mkdir_ancestor_func)
             elif op.op_type == UserOpType.CP or op.op_type == UserOpType.UP or op.op_type == UserOpType.MV:
                 """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
                  1. No ancestors of src or dst correspond to any Ops.
                  2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
                  """
-                self._check_ancestors(op, op.src_node, eval_cp_src_ancestor_func)
-                self._check_ancestors(op, op.dst_node, eval_cp_dst_ancestor_func)
+                self._check_ancestors(op, op.src_node, validate_cp_src_ancestor_func)
+                self._check_ancestors(op, op.dst_node, validate_cp_dst_ancestor_func)
 
-        logger.debug(f'Reduced {count_ops_orig} ops to {len(final_list)} ops')
         return final_list
 
     def _check_ancestors(self, op: UserOp, node: Node, eval_func: Callable[[UserOp, Node], None]):
@@ -204,11 +217,9 @@ class OpManager(HasLifecycle):
         queue.append(node)
 
         while len(queue) > 0:
-            node: Node = queue.popleft()
-            for ancestor in self.backend.cacheman.get_parent_list_for_node(node):
+            popped_node: Node = queue.popleft()
+            for ancestor in self.backend.cacheman.get_parent_list_for_node(popped_node):
                 queue.append(ancestor)
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'(UserOp={op.op_uid}): evaluating ancestor: {ancestor}')
                 eval_func(op, ancestor)
 
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
@@ -273,14 +284,10 @@ class OpManager(HasLifecycle):
             return
 
         # Validate batch_uid
-        op_iter = iter(batch_op_list)
-        batch_uid = next(op_iter).batch_uid
-        for op in op_iter:
-            if op.batch_uid != batch_uid:
-                raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {op.batch_uid} and {batch_uid})')
+        batch_uid: UID = self._validate_batch_uid_consistency(batch_op_list)
 
         # Simplify and remove redundancies in op_list
-        reduced_batch: Iterable[UserOp] = self._reduce_ops(batch_op_list)
+        reduced_batch: Iterable[UserOp] = self._reduce_and_validate_ops(batch_op_list)
 
         def get_op_uid(_op):
             return _op.op_uid
@@ -288,6 +295,16 @@ class OpManager(HasLifecycle):
         reduced_batch = sorted(reduced_batch, key=get_op_uid)
 
         self._append_batch(None, batch_uid, reduced_batch, save_to_disk=True)
+
+    @staticmethod
+    def _validate_batch_uid_consistency(batch_op_list) -> UID:
+        op_iter = iter(batch_op_list)
+        batch_uid = next(op_iter).batch_uid
+        for op in op_iter:
+            if op.batch_uid != batch_uid:
+                raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {op.batch_uid} and {batch_uid})')
+
+        return batch_uid
 
     def _append_batch(self, this_task: Optional[Task], batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):
 

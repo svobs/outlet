@@ -552,15 +552,27 @@ class CacheManager(HasLifecycle):
         logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE.name}"')
         result = command.op.result
 
+        # FIXME: refactor all GDrive commands so that new UIDs are not assigned (and thus no NODE_REMOVED for the same node)
+
         # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
 
         if result.nodes_to_upsert:
-            logger.debug(f'Cmd resulted in {len(result.nodes_to_upsert)} nodes to upsert')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert: '
+                             f'{result.nodes_to_upsert}')
+            else:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert')
+
             for node_to_upsert in result.nodes_to_upsert:
                 self.upsert_single_node(node_to_upsert)
 
         if result.nodes_to_remove:
-            logger.debug(f'Cmd resulted in {len(result.nodes_to_remove)} nodes to remove')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove:'
+                             f'{result.nodes_to_remove}')
+            else:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove')
+
             for removed_node in result.nodes_to_remove:
                 self.remove_node(removed_node, to_trash=False)
 
@@ -892,7 +904,7 @@ class CacheManager(HasLifecycle):
             op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
                                   op_type=UserOpType.RM, src_node=node_to_delete))
 
-        self.enqueue_op_list(op_list)
+        self.enqueue_op_batch(op_list)
 
     def _get_subtree_for_node(self, subtree_root: Node) -> List[Node]:
         subtree_files, subtree_dirs = self.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
@@ -1070,7 +1082,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'get_ancestor_list_for_spid(): not a SPID (type={type(spid)}): {spid}')
 
         ancestor_deque: Deque[SPIDNodePair] = deque()
-        ancestor_node: Node = self.get_node_for_uid(spid.node_uid)
+        ancestor_node: Node = self.get_node_for_uid(spid.node_uid, device_uid=spid.device_uid)
         if not ancestor_node:
             logger.debug(f'get_ancestor_list_for_spid(): Node not found: {spid}')
             return ancestor_deque
@@ -1195,7 +1207,7 @@ class CacheManager(HasLifecycle):
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
         elif self._is_dropping_on_self(src_sn_list, dst_sn, dst_tree_id):
-            logger.debug(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
+            logger.info(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{dst_tree_id}] Dropping into dest: {dst_sn.spid}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
@@ -1205,7 +1217,7 @@ class CacheManager(HasLifecycle):
             change_maker.copy_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.CP)
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
-            self.enqueue_op_list(op_list)
+            self.enqueue_op_batch(op_list)
 
     def _is_dropping_on_self(self, src_sn_list: List[SPIDNodePair], dst_sn: SPIDNodePair, dst_tree_id: TreeID):
         dst_ancestor_list = self.get_ancestor_list_for_spid(dst_sn.spid)
@@ -1229,18 +1241,17 @@ class CacheManager(HasLifecycle):
 
         return False
 
-    def get_sn_for_guid(self, guid: GUID, tree_id: Optional[TreeID] = None) -> Optional[SPIDNodePair]:
-        if tree_id:
-            sn_list = self.get_sn_list_for_guid_list(guid_list=[guid], tree_id=tree_id)
-            if sn_list:
-                return sn_list[0]
-            return None
-
-        # No tree specified: will not look in ChangeTrees
-        spid = self.backend.node_identifier_factory.from_guid(guid)
-        return self.get_sn_for(node_uid=spid.node_uid, device_uid=spid.device_uid, full_path=spid.get_single_path())
+    def get_sn_for_guid(self, guid: GUID, tree_id: TreeID) -> Optional[SPIDNodePair]:
+        """Unlike get_sn_for(), this will also examine change trees, but requires a tree_id"""
+        sn_list = self.get_sn_list_for_guid_list(guid_list=[guid], tree_id=tree_id)
+        if sn_list:
+            return sn_list[0]
+        return None
 
     def get_sn_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID) -> List[SPIDNodePair]:
+        """Unlike get_sn_for(), this will also examine change trees"""
+        assert tree_id, 'tree_id is required!'
+
         sn_list = []
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
@@ -1283,11 +1294,14 @@ class CacheManager(HasLifecycle):
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_manager.get_last_pending_op_for_node(device_uid, node_uid)
 
-    def enqueue_op_list(self, op_list: Iterable[UserOp]):
+    def enqueue_op_batch(self, op_list: Iterable[UserOp]):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
          the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
-        self._op_manager.append_new_pending_op_batch(op_list)
+        try:
+            self._op_manager.append_new_pending_op_batch(op_list)
+        except RuntimeError as err:
+            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to enqueue batch of operations', error=err)
 
     def get_next_command(self) -> Optional[Command]:
         # blocks !

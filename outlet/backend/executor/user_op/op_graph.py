@@ -215,6 +215,7 @@ class OpGraph(HasLifecycle):
         """
 
         assert isinstance(op_root, RootNode)
+        assert op_root.get_child_list(), f'no ops in batch!'
 
         # Invert RM nodes when inserting into tree
         batch_uid: UID = op_root.get_first_child().op.batch_uid

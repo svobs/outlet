@@ -78,7 +78,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             return
 
         if not self.node.is_live():
-            logger.debug(f'Node does not exist; skipping save to disk: {self.node}')
+            logger.debug(f'Node is not live; skipping save to disk: {self.node}')
             return
 
         parent_mappings = []

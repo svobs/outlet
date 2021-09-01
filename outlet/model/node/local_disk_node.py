@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC
 from typing import Optional, Tuple
 
-from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TreeType
+from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier

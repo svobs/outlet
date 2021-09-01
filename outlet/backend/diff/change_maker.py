@@ -170,6 +170,7 @@ class OneSide:
             if parent_path == self.root_sn.spid.get_single_path():
                 if DIFF_DEBUG_ENABLED:
                     logger.debug(f'[{self.change_tree.tree_id}] Parent of new node has the same path as tree root; no more ancestors to create')
+                child.set_parent_uids(self.root_sn.node.uid)
                 break
 
             # AddedFolder already generated and added?

@@ -78,7 +78,7 @@ class BackendIntegrated(OutletBackend):
     def get_icon(self, icon_id: IconId) -> Optional:
         return self.icon_cache.get_icon(icon_id)
 
-    def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[Node]:
         return self.cacheman.get_node_for_uid(uid, device_uid)
 
     def next_uid(self) -> UID:

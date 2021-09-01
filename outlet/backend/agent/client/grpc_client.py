@@ -189,11 +189,10 @@ class BackendGRPCClient(OutletBackend):
             return Image.open(img_byte_arr)
         return None
 
-    def get_node_for_uid(self, uid: UID, device_uid: Optional[UID] = None) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[Node]:
         request = GetNodeForUid_Request()
         request.uid = uid
-        if device_uid:
-            request.device_uid = device_uid
+        request.device_uid = device_uid
 
         grpc_response = self.grpc_stub.get_node_for_uid(request)
         return self._converter.optional_node_from_grpc_container(grpc_response)

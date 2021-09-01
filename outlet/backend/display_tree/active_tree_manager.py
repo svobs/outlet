@@ -106,10 +106,10 @@ class ActiveTreeManager(HasLifecycle):
         parent_sn: SPIDNodePair = self.backend.cacheman.get_parent_for_sn(sn)
         if not parent_sn:
             if sn.spid.tree_type == TreeType.LOCAL_DISK and sn.spid.node_uid == LOCAL_ROOT_UID:
-                # root node does not have a parent
+                # tree root does not have a parent
                 return None
             if sn.spid.tree_type == TreeType.GDRIVE and sn.spid.node_uid == GDRIVE_ROOT_UID:
-                # root node does not have a parent
+                # tree root does not have a parent
                 return None
 
             # this really shouldn't happen otherwise...
@@ -127,7 +127,7 @@ class ActiveTreeManager(HasLifecycle):
             return None
 
         # FIXME: almost certainly a race condition here. Low-priority high-effort: user can work around for now
-        if sn.spid.parent_guid not in tree_meta.expanded_row_set:
+        if sn.spid.parent_guid != tree_meta.root_sn.spid.guid and sn.spid.parent_guid not in tree_meta.expanded_row_set:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{tree_meta.tree_id}] Parent ({sn.spid.parent_guid}) is not expanded in FE; will discard notification for {sn.spid}')
             return None
@@ -223,6 +223,7 @@ class ActiveTreeManager(HasLifecycle):
                 logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for sn in subtree_sn_list:
+                self.backend.cacheman.update_node_icon(sn.node)
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{tree_id}] Notifying tree of upserted node: {sn.spid}, parent_guid={sn.spid.parent_guid}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
@@ -298,7 +299,7 @@ class ActiveTreeManager(HasLifecycle):
         try:
             op_list = meta.change_tree.get_ops()
             logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
-            self.backend.cacheman.enqueue_op_list(op_list=op_list)
+            self.backend.cacheman.enqueue_op_batch(op_list=op_list)
 
             self._cancel_diff_mode()
         except Exception as err:
