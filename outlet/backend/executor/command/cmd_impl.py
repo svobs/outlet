@@ -37,33 +37,52 @@ class CopyFileLocallyCommand(CopyNodeCommand):
         assert isinstance(self.op.dst_node, LocalFileNode), f'Got {self.op.dst_node}'
         src_path = self.op.src_node.get_single_path()
         dst_path = self.op.dst_node.get_single_path()
-        if not self.op.src_node.md5:
-            # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            if not content_hasher.try_calculating_signatures(self.op.src_node):
-                return self.set_error_result(f'Failed to calculate signature for src node: {self.op.src_node.node_identifier}')
-        md5 = self.op.src_node.md5
+        src_node = self._ensure_up_to_date(self.op.src_node, cxt)
+        to_upsert = [src_node]
+
+        md5 = src_node.md5
         staging_path = os.path.join(cxt.staging_dir, md5)
         logger.debug(f'CP: src={src_path}')
         logger.debug(f'    stg={staging_path}')
         logger.debug(f'    dst={dst_path}')
         if self.overwrite:
-            file_util.copy_file_update(src_path=src_path, staging_path=staging_path,
-                                       md5_expected=md5, dst_path=dst_path,
-                                       md5_src=md5, verify=True)
+            file_util.copy_file_update(src_path=src_path, staging_path=staging_path, md5_expected=md5, dst_path=dst_path, md5_src=md5, verify=True)
         else:
             try:
-                file_util.copy_file_new(src_path=src_path, staging_path=staging_path, dst_path=dst_path,
-                                        md5_src=md5, verify=True)
+                file_util.copy_file_new(src_path=src_path, staging_path=staging_path, dst_path=dst_path, md5_src=md5, verify=True)
             except file_util.IdenticalFileExistsError:
                 # Not a real error. Nothing to do.
                 # However make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats:
                 dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
-                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, dst_node])
+                to_upsert.append(dst_node)
+                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=to_upsert)
 
         # update cache:
         dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
         assert dst_node.uid == self.op.dst_node.uid, f'LocalNode={dst_node}, DstNode={self.op.dst_node}'
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, dst_node])
+        to_upsert.append(dst_node)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert)
+
+    def _ensure_up_to_date(self, node: LocalFileNode, cxt: CommandContext) -> LocalFileNode:
+        if not node.has_signature():
+            # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
+            node_with_signatures = content_hasher.try_calculating_signatures(self.op.src_node)
+            if not node_with_signatures:
+                raise RuntimeError(f'Failed to calculate signature for node: {node}')
+            return node_with_signatures
+
+        assert node.has_signature()
+        fresh_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=node.get_single_path())
+        if not fresh_node:
+            raise RuntimeError(f'File missing: {node.get_single_path()}')
+        fresh_node.copy_signature_if_meta_matches(node)
+        if not fresh_node.has_signature():
+            # inconsistent: throw error
+            node_with_signatures = content_hasher.try_calculating_signatures(fresh_node)
+            if node_with_signatures:
+                raise RuntimeError(f'File has changed signature: "{node.node_identifier}"; expected="{node.md5}, found="{node_with_signatures.md5}"')
+            raise RuntimeError(f'File has changed, and failed to calculate its new signature: {node.node_identifier}')
+        return fresh_node
 
 
 class DeleteLocalNodeCommand(DeleteNodeCommand):
@@ -84,17 +103,14 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
             # TODO: add support for local trash
             raise InvalidOperationError(f'to_trash==True not supported!')
 
-        deleted_nodes_list = []
-
         if self.op.src_node.is_file():
             file_util.delete_file(self.op.src_node.get_single_path(), self.to_trash)
         elif self.op.src_node.is_dir():
             file_util.delete_empty_dir(self.op.src_node.get_single_path(), self.to_trash)
         else:
             raise RuntimeError(f'Not a file or dir: {self.op.src_node}')
-        deleted_nodes_list.append(self.op.src_node)
 
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=deleted_nodes_list)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
 
 
 class MoveFileLocallyCommand(TwoNodeCommand):
@@ -111,18 +127,29 @@ class MoveFileLocallyCommand(TwoNodeCommand):
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, LocalFileNode)
         assert isinstance(self.op.dst_node, LocalFileNode)
+
+        # Do the move:
         file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
 
-        # Add to cache:
-        local_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.get_single_path())
-        to_upsert = [self.op.src_node, local_node]
-        to_delete = []
-        if not os.path.exists(self.op.src_node.get_single_path()):
-            to_delete = [self.op.src_node]
-            cxt.cacheman.remove_node(local_node)
-        else:
-            logger.warning(f'Src node still exists after move: {self.op.src_node.get_single_path()}')
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_remove=to_delete)
+        # Verify dst was created:
+        new_dst_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.get_single_path())
+        if not new_dst_node:
+            raise RuntimeError(f'Dst node not found after move: {self.op.dst_node.get_single_path()}')
+        assert new_dst_node.uid == self.op.dst_node.uid
+
+        # Verify src was deleted:
+        if os.path.exists(self.op.src_node.get_single_path()):
+            self._cleanup_after_error()
+            raise RuntimeError(f'Src node still exists after move: {self.op.src_node.get_single_path()}')
+
+        to_remove = [self.op.src_node]
+        to_upsert = [self.op.dst_node]
+
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_remove=to_remove)
+
+    def _cleanup_after_error(self):
+        if os.path.exists(self.op.dst_node.get_single_path()):
+            file_util.delete_file(self.op.dst_node.get_single_path(), to_trash=False)
 
 
 class CreatLocalDirCommand(Command):

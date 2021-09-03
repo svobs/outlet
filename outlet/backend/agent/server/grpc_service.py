@@ -20,7 +20,7 @@ from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
 from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
-from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
+from constants import IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -216,7 +216,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         if image:
             response.icon.icon_id = request.icon_id
             response.icon.content = self._img_to_bytes(image)
-            logger.debug(f'Returning requested image with iconId={request.icon_id}')
+            logger.debug(f'Returning requested image with iconId={IconId(request.icon_id).name}')
         else:
             logger.debug(f'Could not find image with requested iconId={request.icon_id}')
 

@@ -415,6 +415,7 @@ class CentralExecutor(HasLifecycle):
     def _start_op_execution(self, sender):
         logger.info(f'Received signal "{Signal.RESUME_OP_EXECUTION.name}" from {sender}')
         self.enable_op_execution = True
+        self.notify()
         logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution})')
         dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution)
 

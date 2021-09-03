@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC
 from typing import Optional, Tuple
 
-from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
+from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, SUPER_DEBUG_ENABLED, TrashStatus
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
@@ -230,18 +230,32 @@ class LocalFileNode(LocalNode):
         return self.uid, self.get_single_parent_uid(), self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, \
                self.get_single_path(), self._trashed, self._is_live
 
-    def equals_ignoring_missing_sig(self, other):
-        """Same as __eq__, but allows missing MD5s and SHA256s, as long as they are not both present and not equal"""
+    def has_signature(self) -> bool:
+        return self._md5 is not None and self._sha256 is not None
+
+    def copy_signature_if_meta_matches(self, other) -> bool:
         if isinstance(other, LocalFileNode) and \
-                (((other._md5 is None or self._md5 is None) and (other._sha256 is None or self._sha256 is None))
-                    or ((other._md5 == self._md5) and (other._sha256 == self._sha256))) and \
-                other.node_identifier.node_uid == self.node_identifier.node_uid and \
-                other.node_identifier.device_uid == self.node_identifier.device_uid and \
-                other._modify_ts == self._modify_ts and \
-                other._change_ts == self._change_ts and \
-                other.get_trashed_status() == self.get_trashed_status() and \
-                other._is_live == self._is_live and \
-                other.get_icon() == self.get_icon():
+                other.modify_ts == self.modify_ts and \
+                other.change_ts == self.change_ts and \
+                other.get_size_bytes() == self.get_size_bytes() and \
+                (other._md5 or other._sha256):
+            if other._md5:
+                if SUPER_DEBUG_ENABLED:
+                    if self._md5 and self._md5 != other._md5:
+                        logger.error(f'copy_signature_if_meta_matches(): meta matches but MD5s differ! this={self}, other={other}')
+                    else:
+                        logger.debug(f'Copying MD5 from node: {other.node_identifier}')
+
+                self._md5 = other._md5
+
+            if other._sha256:
+                if SUPER_DEBUG_ENABLED:
+                    if self._sha256 and self._sha256 != other._sha256:
+                        logger.error(f'copy_signature_if_meta_matches(): meta matches but SHA256s differ! this={self}, other={other}')
+                    else:
+                        logger.debug(f'Copying SHA256 from node: {other.node_identifier}')
+
+                self._sha256 = other._sha256
             return True
 
         return False

@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Union
 
+from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 from model.node.node import BaseNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
@@ -54,10 +55,9 @@ class Command(BaseNode, ABC):
     def execute(self, context: CommandContext):
         pass
 
-    @abstractmethod
     def get_total_work(self) -> int:
         """Return the total work needed to complete this task, as an integer for a progressbar widget"""
-        return 0
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def needs_gdrive(self):
         return False

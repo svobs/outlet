@@ -56,7 +56,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [3] Tombstone trash support
 * [5] Run multiple concurrent ops
 * [3] Optimal Path - CommandBuilder: look up MD5 for src_node and use a closer node
-* [1] UID <-> MD5/SHA256 mappings
+* [1] Content UID <-> MD5/SHA256 mappings
 * [5] OpManager: simplify the op tree each time the next change requested
 * [3] Bulk delete dir trees instead of one by one
 * [5] Progress bar for current task + view all pending & current tasks
