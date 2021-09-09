@@ -122,7 +122,7 @@ class GDriveAPIConverter:
         goog_id = item['id']
 
         uid = self._gdrive_store.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
-        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, device_uid=self.device_uid, path_list=None),
+        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, device_uid=self._gdrive_store.device_uid, path_list=None),
                                            goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveAPIConverter._convert_trashed(item),
                                            drive_id=item.get('driveId', None), version=version,

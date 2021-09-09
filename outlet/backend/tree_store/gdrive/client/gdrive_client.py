@@ -8,7 +8,6 @@ import time
 from functools import partial
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import dateutil.parser
 import humanfriendly
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -17,18 +16,16 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
+from backend.tree_store.gdrive.client.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from backend.tree_store.gdrive.client.conversion import GDriveAPIConverter
 from backend.tree_store.gdrive.client.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
-    GDRIVE_MY_DRIVE_ROOT_GOOG_ID, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TrashStatus, \
-    TreeID
-from backend.tree_store.gdrive.client.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
+    GDRIVE_MY_DRIVE_ROOT_GOOG_ID, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TreeID
 from error import GDriveError
-from model.uid import UID
-from model.gdrive_meta import GDriveUser, MimeType
+from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node_identifier import GDriveIdentifier
+from model.uid import UID
 from signal_constants import Signal
 from util import file_util, time_util
 from util.has_lifecycle import HasLifecycle
@@ -74,15 +71,18 @@ class GDriveClient(HasLifecycle):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend, gdrive_store, device_uid: UID, tree_id=None):
+    def __init__(self, backend, gdrive_store):
         HasLifecycle.__init__(self)
         self.backend = backend
         self.gdrive_store = gdrive_store
-        self.device_uid: UID = device_uid
-        self.tree_id: TreeID = tree_id
+        self.tree_id: TreeID = None
         self.page_size: int = self.backend.get_config('gdrive.page_size')
         self.service: Optional[Resource] = None
         self._converter = GDriveAPIConverter(self.gdrive_store)
+
+    @property
+    def device_uid(self) -> UID:
+        return self.gdrive_store.device_uid
 
     def start(self):
         logger.debug(f'Starting GDriveClient')

@@ -127,7 +127,7 @@ class GDriveMasterStore(TreeStore):
         """Used to protect structures inside memstore"""
         self._memstore: GDriveMemoryStore = GDriveMemoryStore(backend, self._uid_mapper, device.uid)
         self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore, device.uid)
-        self.gdrive_client: GDriveClient = GDriveClient(self.backend, gdrive_store=self, device_uid=self.device_uid, tree_id=ID_GLOBAL_CACHE)
+        self.gdrive_client: GDriveClient = GDriveClient(self.backend, gdrive_store=self)
         self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, gdrive_client=self.gdrive_client,
                                             device_uid=device.uid, tree_id=ID_GLOBAL_CACHE)
 
