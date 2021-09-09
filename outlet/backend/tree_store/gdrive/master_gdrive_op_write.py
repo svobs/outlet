@@ -6,7 +6,7 @@ from typing import DefaultDict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.sqlite.gdrive_db import GDriveDatabase
-from backend.tree_store.gdrive.change_observer import GDriveChange, GDriveNodeChange
+from backend.tree_store.gdrive.client.change_observer import GDriveChange, GDriveNodeChange
 from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from constants import SUPER_DEBUG_ENABLED, TreeType
 from model.gdrive_meta import GDriveUser, MimeType

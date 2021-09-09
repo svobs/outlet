@@ -17,13 +17,13 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
-from backend.executor.central import ExecPriority
-from backend.tree_store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
+from backend.tree_store.gdrive.client.conversion import GDriveAPIConverter
+from backend.tree_store.gdrive.client.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
     GDRIVE_MY_DRIVE_ROOT_GOOG_ID, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TrashStatus, \
     TreeID
-from backend.tree_store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
+from backend.tree_store.gdrive.client.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from error import GDriveError
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
@@ -82,6 +82,7 @@ class GDriveClient(HasLifecycle):
         self.tree_id: TreeID = tree_id
         self.page_size: int = self.backend.get_config('gdrive.page_size')
         self.service: Optional[Resource] = None
+        self._converter = GDriveAPIConverter(self.gdrive_store)
 
     def start(self):
         logger.debug(f'Starting GDriveClient')
@@ -160,125 +161,6 @@ class GDriveClient(HasLifecycle):
                 time.sleep(GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC)
                 retries_remaining -= 1
 
-    @staticmethod
-    def _convert_trashed(result) -> Optional[TrashStatus]:
-        x_trashed = result.get('explicitlyTrashed', None)
-        trashed = result.get('trashed', None)
-        if x_trashed is None and trashed is None:
-            return None
-
-        if x_trashed:
-            return TrashStatus.EXPLICITLY_TRASHED
-        elif trashed:
-            return TrashStatus.IMPLICITLY_TRASHED
-        else:
-            return TrashStatus.NOT_TRASHED
-
-    @staticmethod
-    def _parse_gdrive_date(result, field_name) -> Optional[int]:
-        timestamp = result.get(field_name, None)
-        if timestamp:
-            timestamp = dateutil.parser.parse(timestamp)
-            timestamp = int(timestamp.timestamp() * 1000)
-        return timestamp
-
-    def _store_user(self, user: Dict) -> GDriveUser:
-        permission_id = user.get('permissionId', None)
-        gdrive_user: Optional[GDriveUser] = self.gdrive_store.get_gdrive_user_for_permission_id(permission_id)
-        if not gdrive_user:
-            # Completely new user
-            user_name = user.get('displayName', None)
-            user_email = user.get('emailAddress', None)
-            user_photo_link = user.get('photoLink', None)
-            user_is_me = user.get('me', None)
-            gdrive_user: GDriveUser = GDriveUser(display_name=user_name, permission_id=permission_id, email_address=user_email,
-                                                 photo_link=user_photo_link, is_me=user_is_me)
-            self.gdrive_store.create_gdrive_user(gdrive_user)
-        return gdrive_user
-
-    def _convert_dict_to_gdrive_folder(self, item: Dict, sync_ts: int = 0, uid: UID = None) -> GDriveFolder:
-        # 'driveId' only populated for items which someone has shared with me
-
-        if not sync_ts:
-            sync_ts = time_util.now_sec()
-
-        goog_id = item['id']
-        uid = self.gdrive_store.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
-
-        owners = item.get('owners', None)
-        if owners:
-            user = self._store_user(owners[0])
-            owner_uid = user.uid
-        else:
-            owner_uid = None
-
-        sharing_user = item.get('sharingUser', None)
-        if sharing_user:
-            user = self._store_user(sharing_user)
-            sharing_user_uid = user.uid
-        else:
-            sharing_user_uid = None
-
-        create_ts = GDriveClient._parse_gdrive_date(item, 'createdTime')
-
-        modify_ts = GDriveClient._parse_gdrive_date(item, 'modifiedTime')
-
-        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, device_uid=self.device_uid, path_list=None), goog_id=goog_id, node_name=item['name'],
-                                 trashed=GDriveClient._convert_trashed(item), create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid,
-                                 drive_id=item.get('driveId', None), is_shared=item.get('shared', None), shared_by_user_uid=sharing_user_uid,
-                                 sync_ts=sync_ts, all_children_fetched=False)
-
-        parent_goog_ids = item.get('parents', [])
-        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(parent_goog_ids)
-        goog_node.set_parent_uids(parent_uids)
-
-        return goog_node
-
-    def _convert_dict_to_gdrive_file(self, item: Dict, sync_ts: int = 0, uid: UID = None) -> GDriveFile:
-        if not sync_ts:
-            sync_ts = time_util.now_sec()
-
-        owners = item.get('owners', None)
-        if owners:
-            user = self._store_user(owners[0])
-            owner_uid = user.uid
-        else:
-            owner_uid = None
-
-        sharing_user = item.get('sharingUser', None)
-        if sharing_user:
-            user = self._store_user(sharing_user)
-            sharing_user_uid = user.uid
-        else:
-            sharing_user_uid = None
-
-        create_ts = GDriveClient._parse_gdrive_date(item, 'createdTime')
-
-        modify_ts = GDriveClient._parse_gdrive_date(item, 'modifiedTime')
-
-        size_str = item.get('size', None)
-        size = None if size_str is None else int(size_str)
-        version = item.get('version', None)
-        mime_type_string = item.get('mimeType', None)
-        mime_type: MimeType = self.gdrive_store.get_or_create_gdrive_mime_type(mime_type_string)
-
-        goog_id = item['id']
-
-        uid = self.gdrive_store.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
-        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, device_uid=self.device_uid, path_list=None),
-                                           goog_id=goog_id, node_name=item["name"],
-                                           mime_type_uid=mime_type.uid, trashed=GDriveClient._convert_trashed(item),
-                                           drive_id=item.get('driveId', None), version=version,
-                                           md5=item.get('md5Checksum', None), is_shared=item.get('shared', None), create_ts=create_ts,
-                                           modify_ts=modify_ts, size_bytes=size, shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid,
-                                           sync_ts=sync_ts)
-
-        parent_goog_ids = item.get('parents', [])
-        parent_uids = self.gdrive_store.get_uid_list_for_goog_id_list(parent_goog_ids)
-        goog_node.set_parent_uids(parent_uids)
-
-        return goog_node
-
     def _exec_single_page_request(self, this_task: Optional[Task], make_request_func: Callable[[QueryRequestState], None],
                                   request_state: QueryRequestState):
         binded_request = partial(make_request_func, request_state)
@@ -304,9 +186,9 @@ class GDriveClient(HasLifecycle):
         for item in items:
             mime_type = item['mimeType']
             if mime_type == MIME_TYPE_FOLDER:
-                goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=request_state.sync_ts)
+                goog_node: GDriveFolder = self._converter.dict_to_gdrive_folder(item, sync_ts=request_state.sync_ts)
             else:
-                goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=request_state.sync_ts)
+                goog_node: GDriveFile = self._converter.dict_to_gdrive_file(item, sync_ts=request_state.sync_ts)
 
             request_state.observer.node_received(goog_node, item)
             request_state.item_count += 1
@@ -359,7 +241,7 @@ class GDriveClient(HasLifecycle):
                     logger.debug('Done!')
                     break
 
-    # API CALLS
+    # VARIOUS GETTERS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_about(self) -> GDriveUser:
@@ -380,7 +262,7 @@ class GDriveClient(HasLifecycle):
         about = GDriveClient._try_repeatedly(request)
         logger.debug(f'ABOUT: {about}')
 
-        user: GDriveUser = self._store_user(about['user'])
+        user: GDriveUser = self._converter.get_or_store_user(about['user'])
         logger.info(f'Logged in as user {user.display_name} <{user.email_address}> (user_id={user.permission_id})')
 
         storage_quota = about['storageQuota']
@@ -408,7 +290,7 @@ class GDriveClient(HasLifecycle):
 
         result = GDriveClient._try_repeatedly(request)
 
-        root_node = self._convert_dict_to_gdrive_folder(result, sync_ts)
+        root_node = self._converter.dict_to_gdrive_folder(result, sync_ts)
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
@@ -488,9 +370,9 @@ class GDriveClient(HasLifecycle):
 
         mime_type = item['mimeType']
         if mime_type == MIME_TYPE_FOLDER:
-            goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=sync_ts)
+            goog_node: GDriveFolder = self._converter.dict_to_gdrive_folder(item, sync_ts=sync_ts)
         else:
-            goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
+            goog_node: GDriveFile = self._converter.dict_to_gdrive_file(item, sync_ts=sync_ts)
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Request returned {goog_node}')
@@ -571,7 +453,7 @@ class GDriveClient(HasLifecycle):
             logger.error(f'Copy request returned no files! For copied goog_id: {src_goog_id}')
             return None
 
-        goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts, uid=uid)
+        goog_node: GDriveFile = self._converter.dict_to_gdrive_file(item, sync_ts=sync_ts, uid=uid)
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Request returned {goog_node}')
@@ -618,7 +500,7 @@ class GDriveClient(HasLifecycle):
 
         item = GDriveClient._try_repeatedly(request)
 
-        goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, uid=uid)
+        goog_node: GDriveFolder = self._converter.dict_to_gdrive_folder(item, uid=uid)
         if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 
@@ -672,7 +554,7 @@ class GDriveClient(HasLifecycle):
             return response
 
         file_meta = GDriveClient._try_repeatedly(request)
-        gdrive_file = self._convert_dict_to_gdrive_file(file_meta, uid=uid)
+        gdrive_file = self._converter.dict_to_gdrive_file(file_meta, uid=uid)
 
         logger.info(
             f'File uploaded successfully! Returning {gdrive_file}",')
@@ -695,7 +577,7 @@ class GDriveClient(HasLifecycle):
                                                fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
         updated_file_meta = GDriveClient._try_repeatedly(request)
-        gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(updated_file_meta)
+        gdrive_file: GDriveFile = self._converter.dict_to_gdrive_file(updated_file_meta)
 
         logger.info(
             f'File update uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", '
@@ -725,9 +607,9 @@ class GDriveClient(HasLifecycle):
 
         mime_type = item['mimeType']
         if mime_type == MIME_TYPE_FOLDER:
-            goog_node = self._convert_dict_to_gdrive_folder(item)
+            goog_node = self._converter.dict_to_gdrive_folder(item)
         else:
-            goog_node = self._convert_dict_to_gdrive_file(item)
+            goog_node = self._converter.dict_to_gdrive_file(item)
         return goog_node
 
     def trash(self, goog_id: str):
@@ -740,7 +622,7 @@ class GDriveClient(HasLifecycle):
             return self.service.files().update(fileId=goog_id, body=file_metadata, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
         file_meta = GDriveClient._try_repeatedly(request)
-        gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(file_meta)
+        gdrive_file: GDriveFile = self._converter.dict_to_gdrive_file(file_meta)
 
         logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={gdrive_file.get_trashed_status()}')
         return gdrive_file
@@ -756,6 +638,9 @@ class GDriveClient(HasLifecycle):
 
         GDriveClient._try_repeatedly(request)
         logger.debug(f'Successfully deleted GDriveNode: {goog_id}')
+
+    # CHANGES
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_changes_start_token(self) -> str:
         logger.debug(f'Sending request to get startPageToken from Changes API"')
@@ -804,9 +689,9 @@ class GDriveClient(HasLifecycle):
                     file = item['file']
                     mime_type = file['mimeType']
                     if mime_type == MIME_TYPE_FOLDER:
-                        goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(file, sync_ts=observer.sync_ts)
+                        goog_node: GDriveFolder = self._converter.dict_to_gdrive_folder(file, sync_ts=observer.sync_ts)
                     else:
-                        goog_node: GDriveFile = self._convert_dict_to_gdrive_file(file, sync_ts=observer.sync_ts)
+                        goog_node: GDriveFile = self._converter.dict_to_gdrive_file(file, sync_ts=observer.sync_ts)
                     change: GDriveNodeChange = GDriveNodeChange(change_ts, goog_id, goog_node)
                 else:
                     logger.error(f'Strange item: {item}')

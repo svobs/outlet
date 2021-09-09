@@ -54,8 +54,6 @@ class CommandBuilder:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Building command for UserOp={op}')
 
-        # TODO: [improvement] look up MD5 for src_node and use a closer node
-
         if op.dst_node:
             # Src AND Dst:
             tree_type_key = _make_key_from_node(op.src_node, op.dst_node)

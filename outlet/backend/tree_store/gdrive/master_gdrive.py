@@ -11,8 +11,8 @@ from pydispatch import dispatcher
 from backend.display_tree.filter_state import FilterState
 from backend.executor.central import ExecPriority
 from backend.sqlite.gdrive_db import CurrentDownload
-from backend.tree_store.gdrive.change_observer import GDriveChange, PagePersistingChangeObserver
-from backend.tree_store.gdrive.gdrive_client import GDriveClient
+from backend.tree_store.gdrive.client.change_observer import GDriveChange, PagePersistingChangeObserver
+from backend.tree_store.gdrive.client.gdrive_client import GDriveClient
 from backend.tree_store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
 from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
@@ -31,11 +31,11 @@ from model.device import Device
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import SPIDNodePair
 from model.node_identifier import GDriveIdentifier, GDriveSPID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE, Signal
-from util import file_util, time_util
+from util import file_util
 from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
@@ -111,7 +111,6 @@ class GDriveMasterStore(TreeStore):
     - Every time you expand a node, you should call to sync it from the GoogStore.
     - Every time you retrieve new data from G, you must perform sanity checks on it
 
-    # TODO: support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, goog_id_mapper: UidGoogIdMapper, device: Device):
