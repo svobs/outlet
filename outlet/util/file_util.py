@@ -247,23 +247,27 @@ def move_to_dst(staging_path: str, dst_path: str):
 def copy_file_new(src_path, staging_path, dst_path, md5_src, verify):
     """Copies the src (src_path) to the destination path (dst_path), by first doing the copy to an
     intermediary location (staging_path) and then moving it to the destination once its signature
-    has been verified."""
+    has been verified.
+
+    Raises an error if a file is already present at the destination."""
     if os.path.exists(dst_path):
         # sha256 = fmeta.content_hasher.dropbox_hash(dst_path)
         md5_encountered = content_hasher.compute_md5(dst_path)
         if md5_src == md5_encountered:
             # TODO: what about if stats are different?
-            msg = f'Identical file already exists at dst; skipping: {dst_path}'
+            msg = f'Identical file already exists at dst: {dst_path}'
             logger.info(msg)
             # This will be caught and treated as a no-op
             raise IdenticalFileExistsError(msg)
+        else:
+            raise FileExistsError(f'Found unexpected file at destination path ("{dst_path}") with MD5: {md5_encountered}')
 
     _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify)
 
     move_to_dst(staging_path, dst_path)
 
 
-def copy_file_update(src_path: str, md5_src: str, staging_path: str, md5_expected: str, dst_path: str, verify: bool):
+def copy_file_update(src_path: str, md5_src: str, staging_path: str, dst_path: str, verify: bool):
     """Copies the src (src_path) to the destination path (dst_path) via a staging dir, but first
     verifying that a file already exists there and it has the expected MD5; failing otherwise"""
 
@@ -273,8 +277,8 @@ def copy_file_update(src_path: str, md5_src: str, staging_path: str, md5_expecte
 
     # sha256 = fmeta.content_hasher.dropbox_hash(dst_path)
     md5_encountered = content_hasher.compute_md5(dst_path)
-    if md5_encountered != md5_expected:
-        raise RuntimeError(f'Expected MD5 ({md5_expected}) does not match actual ({md5_encountered})')
+    if md5_encountered != md5_src:
+        raise RuntimeError(f'Expected MD5 ({md5_src}) does not match actual ({md5_encountered})')
 
     _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify)
 

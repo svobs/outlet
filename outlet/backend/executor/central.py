@@ -188,6 +188,10 @@ class CentralExecutor(HasLifecycle):
                         if TRACE_ENABLED:
                             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV timeout!')
 
+                    if self.was_shutdown:
+                        # check this again in case shutdown broke us out of our CV:
+                        break
+
                     if len(self._running_task_dict) < TASK_RUNNER_MAX_WORKERS:
                         task = self._get_next_task_to_run()
                         if task:

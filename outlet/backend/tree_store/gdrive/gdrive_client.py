@@ -549,7 +549,8 @@ class GDriveClient(HasLifecycle):
 
         return self._execute_files_query(query, fields, initial_page_token, sync_ts, observer, this_task)
 
-    def copy_existing_file(self, src_goog_id: str, new_name: str, new_parent_goog_ids: List[str]) -> Optional[GDriveNode]:
+    def copy_existing_file(self, src_goog_id: str, new_name: str, new_parent_goog_ids: List[str], uid: Optional[UID] = None)\
+            -> Optional[GDriveNode]:
         if not src_goog_id:
             raise RuntimeError('GDriveClient.copy_existing_file(): no goog_id specified!')
         fields = f'{GDRIVE_FILE_FIELDS}, parents'
@@ -570,7 +571,7 @@ class GDriveClient(HasLifecycle):
             logger.error(f'Copy request returned no files! For copied goog_id: {src_goog_id}')
             return None
 
-        goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
+        goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts, uid=uid)
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Request returned {goog_node}')
