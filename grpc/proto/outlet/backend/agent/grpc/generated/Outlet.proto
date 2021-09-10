@@ -178,7 +178,7 @@ message StartDiffTrees_Response {
 }
 
 message DragDrop_Response {
-	// nothing
+	bool is_accepted = 1;
 }
 
 message DirMetaGuidUpdate {
