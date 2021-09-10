@@ -66,6 +66,7 @@ class ActiveTreeManager(HasLifecycle):
         self.on_deregister_tree_hook: Optional[Callable] = None
 
     def start(self):
+        logger.debug('Starting ActiveTreeManager')
         gdrive_live_monitor_enabled = self._is_live_monitoring_enabled and self._live_monitor.enable_gdrive_polling_thread
         if not gdrive_live_monitor_enabled and not self.backend.cacheman.sync_from_gdrive_on_cache_load:
             logger.warning(f'GDrive: live monitoring is disabled AND sync on cache load is disabled: GDrive cache will not be updated!')

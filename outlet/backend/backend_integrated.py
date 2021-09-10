@@ -41,7 +41,7 @@ class BackendIntegrated(OutletBackend):
         self.icon_cache = IconStorePy(self)
 
     def start(self):
-        logger.debug('Starting up backend')
+        logger.debug('Starting backend')
 
         self.icon_cache.load_all_icons()
         OutletBackend.start(self)

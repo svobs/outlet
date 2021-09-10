@@ -91,6 +91,8 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
         return val
 
     def _load_cached_uids(self):
+        logger.debug(f'{self.__class__.__name__}: Loading UID mappings from disk cache')
+
         with self._uid_lock:
             sw = Stopwatch()
             with UidMapperDb(self.cache_path, self.backend, self.table) as db:
@@ -104,7 +106,7 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
 
             self.uid_generator.ensure_next_uid_greater_than(max_uid)
 
-            logger.debug(f'{sw} Loaded {len(mapping_list)} UID mappings from disk cache')
+            logger.debug(f'{self.__class__.__name__}: {sw} Loaded {len(mapping_list)} UID mappings from disk cache')
 
     def _write_to_disk(self):
         with self._uid_lock:

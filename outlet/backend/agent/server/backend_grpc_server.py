@@ -35,6 +35,7 @@ class OutletAgent(BackendIntegrated):
         self.zc_info = None
 
     def start(self):
+        logger.debug(f'Starting OutletAgent')
         self._grpc_service.start()
         BackendIntegrated.start(self)
 
@@ -47,6 +48,7 @@ class OutletAgent(BackendIntegrated):
             pass
 
     def serve(self):
+        logger.debug(f'Creating gRPC server thread pool: max_workers={GRPC_SERVER_MAX_WORKER_THREADS}')
         # See note about GRPC_SERVER_MAX_WORKER_THREADS
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=GRPC_SERVER_MAX_WORKER_THREADS), options=(
                                                             ('grpc.keepalive_time_ms', 10000),
@@ -72,6 +74,7 @@ class OutletAgent(BackendIntegrated):
         port = server.add_insecure_port(f'[::]:{port}')
 
         if self.use_zeroconf:
+            logger.debug(f'We are configured to use ZeroConf: determining local address[es]')
             address_list = self.get_local_address_list()
 
             if not address_list:

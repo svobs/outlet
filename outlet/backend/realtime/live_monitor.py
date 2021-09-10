@@ -85,10 +85,12 @@ class LiveMonitor(HasLifecycle):
         self._watchdog_observer = Observer()
 
     def start(self):
+        logger.debug('Starting LiveMonitor')
         HasLifecycle.start(self)
         self._watchdog_observer.start()
 
     def shutdown(self):
+        logger.debug('Shutting down LiveMonitor')
         HasLifecycle.shutdown(self)
         self._watchdog_observer.stop()
         self._stop_gdrive_capture()

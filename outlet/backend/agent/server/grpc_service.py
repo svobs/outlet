@@ -60,6 +60,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._converter = GRPCConverter(self.backend)
 
     def start(self):
+        logger.debug("Starting OutletGRPCService")
         HasLifecycle.start(self)
 
         # PyDispatcher signals to be sent across gRPC:
@@ -87,7 +88,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
         self.forward_signal_to_clients(signal=Signal.SHUTDOWN_APP)
 
-        logger.debug("OutletGRPCService started")
+        logger.debug("OutletGRPCService start done")
 
     def forward_signal_to_clients(self, signal: Signal):
         self.connect_dispatch_listener(signal=signal, receiver=self._send_signal_to_all_clients, weak=False)

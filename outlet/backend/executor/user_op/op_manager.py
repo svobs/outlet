@@ -66,15 +66,21 @@ class OpManager(HasLifecycle):
         logger.debug(f'Starting OpManager')
         HasLifecycle.start(self)
         self._disk_store.start()
-
         self._op_graph.start()
 
     def shutdown(self):
+        logger.debug(f'Shutting down OpManager')
         HasLifecycle.shutdown(self)
+
+        if self._disk_store:
+            self._disk_store.shutdown()
+            self._disk_store = None
+        if self._op_graph:
+            self._op_graph.shutdown()
+            self._op_graph = None
 
         self.backend = None
         self._cmd_builder = None
-        self._op_graph = None
 
     def _update_nodes_in_memstore(self, op: UserOp):
         """Looks at the given UserOp and notifies cacheman so that it can send out update notifications. The nodes involved may not have

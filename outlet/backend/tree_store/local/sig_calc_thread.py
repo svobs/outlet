@@ -64,7 +64,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             self._cv_can_get.notifyAll()
 
     def _run(self):
-        logger.info(f'Starting {self.name}...')
+        logger.info(f'[{self.name}] Starting thread...')
 
         while not self.was_shutdown:
             time.sleep(self.batch_interval_ms / 1000.0)  # allow some nodes to collect

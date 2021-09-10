@@ -239,7 +239,7 @@ class CacheManager(HasLifecycle):
                 load_all_caches_task.add_next_task(notify_load_all_done)
                 self.backend.executor.submit_async_task(load_all_caches_task)
             else:
-                logger.info(f'Configured not to load on startup')
+                logger.info(f'Configured not to load caches on startup')
 
             # Finally, add or cancel any queued changes (asynchronously)
             if self.cancel_all_pending_ops_on_startup:
@@ -360,6 +360,7 @@ class CacheManager(HasLifecycle):
             self._store_dict[device.uid] = store
 
     def _load_registry(self):
+        logger.debug('Loading registry')
         stopwatch = Stopwatch()
 
         caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_list_from_registry()
@@ -393,7 +394,7 @@ class CacheManager(HasLifecycle):
             self._overwrite_all_caches_in_registry(caches)
 
         self._load_registry_done.set()
-        logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
+        logger.info(f'{stopwatch} Done loading registry. Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
 
     def write_cache_registry_updates_to_disk(self):
         """Overrites all entries in the CacheInfoRegistry with the entries in memory"""
@@ -1187,6 +1188,7 @@ class CacheManager(HasLifecycle):
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
         logger.info(f'Got drop of {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}" dst_guid={dst_guid} is_into={is_into}')
 
+        raise RuntimeError('TEST FAIL!')
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
         dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
         if not src_tree:
