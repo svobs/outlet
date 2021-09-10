@@ -317,7 +317,7 @@ class BackendGRPCClient(OutletBackend):
         response = self.grpc_stub.get_ancestor_list_for_spid(request)
         return self._converter.sn_list_from_grpc(response.ancestor_list)
 
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID) -> bool:
         request = DragDrop_Request()
         request.src_tree_id = src_tree_id
         request.dst_tree_id = dst_tree_id
@@ -327,7 +327,8 @@ class BackendGRPCClient(OutletBackend):
         for src_guid in src_guid_list:
             request.src_guid_list.append(src_guid)
 
-        self.grpc_stub.drop_dragged_nodes(request)
+        response = self.grpc_stub.drop_dragged_nodes(request)
+        return response.is_accepted
 
     def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
         request = StartDiffTrees_Request()

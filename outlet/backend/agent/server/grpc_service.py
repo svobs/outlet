@@ -426,8 +426,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def drop_dragged_nodes(self, request: DragDrop_Request, context):
-        self.cacheman.drop_dragged_nodes(request.src_tree_id, request.src_guid_list, request.is_into, request.dst_tree_id, request.dst_guid)
-        return DragDrop_Response()
+        was_accepted = self.cacheman.drop_dragged_nodes(request.src_tree_id, request.src_guid_list,
+                                                        request.is_into, request.dst_tree_id, request.dst_guid)
+        response = DragDrop_Response()
+        response.is_accepted = was_accepted
+        return response
 
     def generate_merge_tree(self, request: GenerateMergeTree_Request, context):
         selected_change_list_left = []

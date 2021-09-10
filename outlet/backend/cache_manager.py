@@ -1185,20 +1185,22 @@ class CacheManager(HasLifecycle):
     # Drag & drop
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID) -> bool:
         logger.info(f'Got drop of {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}" dst_guid={dst_guid} is_into={is_into}')
 
-        raise RuntimeError('TEST FAIL!')
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
         dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
         if not src_tree:
             logger.error(f'Aborting drop: could not find src tree: "{src_tree_id}"')
-            return
+            return False
         if not dst_tree:
             logger.error(f'Aborting drop: could not find dst tree: "{dst_tree_id}"')
-            return
+            return False
 
         src_sn_list = self.get_sn_list_for_guid_list(src_guid_list, src_tree_id)
+        if not src_sn_list:
+            logger.error(f'Aborting drop: could not resolve GUIDs into any nodes: {src_guid_list}')
+            return False
 
         dst_sn: SPIDNodePair = self.get_sn_for_guid(dst_guid, dst_tree_id)
 
@@ -1208,8 +1210,10 @@ class CacheManager(HasLifecycle):
 
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
+            return False
         elif self._is_dropping_on_self(src_sn_list, dst_sn, dst_tree_id):
             logger.info(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
+            return False
         else:
             logger.debug(f'[{dst_tree_id}] Dropping into dest: {dst_sn.spid}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
@@ -1220,6 +1224,7 @@ class CacheManager(HasLifecycle):
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
             self.enqueue_op_batch(op_list)
+            return True
 
     def _is_dropping_on_self(self, src_sn_list: List[SPIDNodePair], dst_sn: SPIDNodePair, dst_tree_id: TreeID):
         dst_ancestor_list = self.get_ancestor_list_for_spid(dst_sn.spid)

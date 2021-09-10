@@ -122,8 +122,8 @@ class BackendIntegrated(OutletBackend):
     def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self.cacheman.get_rows_of_interest(tree_id)
 
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
-        self.cacheman.drop_dragged_nodes(src_tree_id, src_guid_list, is_into, dst_tree_id, dst_guid)
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID) -> bool:
+        return self.cacheman.drop_dragged_nodes(src_tree_id, src_guid_list, is_into, dst_tree_id, dst_guid)
 
     def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
         """Starts the Diff Trees task async"""

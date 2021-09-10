@@ -105,7 +105,7 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
             if TRACE_ENABLED:
                 logger.debug(f'DirNode {identifier} has {dir_stats}"')
 
-        logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node}")')
+        logger.debug(f'[{tree_id}] {stats_sw} Generated stats for tree ("{subtree_root_node}") with {len(dir_stats_dict)} entries')
         return dir_stats_dict
 
     def for_each_node_breadth_first(self, action_func: Callable[[NodeT], None], subtree_root_identifier: Optional[IdentifierT] = None):

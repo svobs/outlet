@@ -151,7 +151,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID):
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID) -> bool:
         pass
 
     @abstractmethod
