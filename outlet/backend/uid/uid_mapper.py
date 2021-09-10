@@ -47,6 +47,7 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
 
     def _add(self, value: MappingT, uid: UID):
         assert value and uid, f'Missing param: value={value}, uid={uid}'
+        assert isinstance(uid, UID), f'Not a UID: {uid}'
         self._uid_forward_dict[value] = uid
         self._uid_reverse_dict[uid] = value
         self._to_write.append((uid, value))

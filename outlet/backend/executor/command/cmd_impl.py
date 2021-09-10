@@ -432,7 +432,6 @@ class CopyFileGDriveCommand(CopyNodeCommand):
         assert isinstance(self.op.src_node, GDriveFile), f'For {self.op.src_node}'
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
         dst_parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.dst_node)
-        src_goog_id = self.op.src_node.goog_id
         dst_name = self.op.dst_node.name
 
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
@@ -459,10 +458,10 @@ class CopyFileGDriveCommand(CopyNodeCommand):
             if self.op.dst_node.goog_id:
                 raise RuntimeError(f'Cannot overwrite existing node when overwrite==false: {self.op.dst_node}')
 
-        new_node = gdrive_client.copy_existing_file(src_goog_id=src_goog_id, new_name=dst_name, new_parent_goog_ids=dst_parent_goog_id_list,
-                                                    uid=self.op.dst_node)
+        new_node = gdrive_client.copy_existing_file(src_goog_id=self.op.src_node.goog_id, new_name=dst_name,
+                                                    new_parent_goog_ids=dst_parent_goog_id_list, uid=self.op.dst_node.uid)
         if not new_node:
-            raise RuntimeError(f'Copy failed to return a new Google Drive node! (src_id={src_goog_id})')
+            raise RuntimeError(f'Copy failed to return a new Google Drive node! (src_id={self.op.src_node.goog_id})')
 
         if new_node.uid != self.op.dst_node.uid:
             assert self.overwrite, f'new_node={new_node}, orig_dst={self.op.dst_node}'
