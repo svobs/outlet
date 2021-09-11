@@ -1197,6 +1197,13 @@ class CacheManager(HasLifecycle):
             logger.error(f'Aborting drop: could not find dst tree: "{dst_tree_id}"')
             return False
 
+        if not src_tree.root_exists:
+            logger.error(f'Aborting drop: src tree root does not exist: "{src_tree_id}"')
+            return False
+        if not dst_tree.root_exists:
+            logger.error(f'Aborting drop: dst tree root does not exist: "{dst_tree_id}"')
+            return False
+
         src_sn_list = self.get_sn_list_for_guid_list(src_guid_list, src_tree_id)
         if not src_sn_list:
             logger.error(f'Aborting drop: could not resolve GUIDs into any nodes: {src_guid_list}')
