@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from pydispatch import dispatcher
 
-from constants import IconId, TreeDisplayMode, TreeID
+from constants import DragOperation, IconId, TreeDisplayMode, TreeID
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -151,7 +151,8 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID) -> bool:
+    def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID,
+                           drag_operation: DragOperation) -> bool:
         pass
 
     @abstractmethod

@@ -146,6 +146,7 @@ message DragDrop_Request {
 	repeated string src_guid_list = 3;
 	string dst_guid = 4;
 	bool is_into = 5;
+	uint32 drag_operation = 6;
 }
 
 message RefreshSubtree_Request {

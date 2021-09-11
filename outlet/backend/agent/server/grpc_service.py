@@ -20,7 +20,7 @@ from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
 from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
-from constants import IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
+from constants import DragOperation, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -426,8 +426,9 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def drop_dragged_nodes(self, request: DragDrop_Request, context):
+        drag_operation = DragOperation(request.drag_operation)
         was_accepted = self.cacheman.drop_dragged_nodes(request.src_tree_id, request.src_guid_list,
-                                                        request.is_into, request.dst_tree_id, request.dst_guid)
+                                                        request.is_into, request.dst_tree_id, request.dst_guid, drag_operation)
         response = DragDrop_Response()
         response.is_accepted = was_accepted
         return response

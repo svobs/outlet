@@ -170,6 +170,13 @@ class TreeType(IntEnum):
     GDRIVE = 3
 
 
+class DragOperation(IntEnum):
+    MOVE = 1
+    COPY = 2
+    LINK = 3
+    DELETE = 4
+
+
 TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.MIXED: 'M', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G'}
 
 # UID reserved values:
