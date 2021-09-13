@@ -204,7 +204,7 @@ class TreeLoadState(IntEnum):
     UNKNOWN = 0  # should never be returned
     NOT_LOADED = 1
     LOAD_STARTED = 2
-    COMPLETELY_LOADED = 10  # final state: all unflitered + filtered nodes loaded
+    COMPLETELY_LOADED = 10  # final state: all unfiltered + filtered nodes loaded
 
 
 class EngineSummaryState(IntEnum):

@@ -11,7 +11,7 @@ from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node_identifier import GUID
 from model.uid import UID
-from model.user_op import DISPLAYED_USER_OP_TYPES
+from model.user_op import OpTypeMeta
 
 logger = logging.getLogger(__name__)
 
@@ -106,17 +106,15 @@ class TreeSummarizer:
     @staticmethod
     def _make_cat_map():
         cm = {}
-        for op_type, disp_str in DISPLAYED_USER_OP_TYPES.items():
+        for op_type, disp_str in OpTypeMeta.all_display_labels():
             cm[op_type] = f'{disp_str}: 0'
         return cm
 
     @staticmethod
     def _build_cat_summaries_str(cat_map) -> str:
         cat_summaries = []
-        for op_type in DISPLAYED_USER_OP_TYPES.keys():
-            summary = cat_map.get(op_type, None)
-            if summary:
-                cat_summaries.append(summary)
+        for op_type, summary in cat_map.keys():
+            cat_summaries.append(summary)
         return '. '.join(cat_summaries)
 
     @staticmethod

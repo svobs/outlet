@@ -5,9 +5,9 @@ from constants import IconId, OBJ_TYPE_DIR, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
-from model.node_identifier import ChangeTreeSPID, SinglePathNodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import DISPLAYED_USER_OP_TYPES, UserOpType
+from model.user_op import OpTypeMeta, UserOpType
 
 
 class ContainerNode(Node):
@@ -119,7 +119,7 @@ class CategoryNode(ContainerNode):
 
     @property
     def name(self):
-        return DISPLAYED_USER_OP_TYPES[self.op_type]
+        return OpTypeMeta.display_label(self.op_type)
 
     def get_default_icon(self) -> IconId:
         # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)

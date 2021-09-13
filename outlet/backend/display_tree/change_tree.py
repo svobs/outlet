@@ -12,7 +12,7 @@ from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
-from model.user_op import UserOp, UserOpType
+from model.user_op import OpTypeMeta, UserOp, UserOpType
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 
 logger = logging.getLogger(__name__)
@@ -210,7 +210,7 @@ class ChangeTree(DisplayTree):
             # For display purposes, group "mkdir" with "copy":
             change_spid.op_type = UserOpType.CP
         change_node = copy.deepcopy(from_sn.node)
-        change_icon = OpManager.get_icon_for(change_node.device_uid, change_node.uid, op)
+        change_icon = OpTypeMeta.get_icon_for(change_node.device_uid, change_node.uid, op)
         if change_icon:
             change_node.set_icon(change_icon)
         return SPIDNodePair(change_spid, change_node)

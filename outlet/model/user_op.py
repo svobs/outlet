@@ -2,6 +2,7 @@ from enum import IntEnum
 import logging
 from typing import Dict, List, Optional, Union
 
+from constants import IconId
 from model.uid import UID
 from model.node.node import BaseNode, Node
 from util import time_util
@@ -32,14 +33,6 @@ class UserOpType(IntEnum):
         return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.UP
 
 
-DISPLAYED_USER_OP_TYPES: Dict[UserOpType, str] = {
-    UserOpType.CP: 'To Add',
-    UserOpType.RM: 'To Delete',
-    UserOpType.UP: 'To Update',
-    UserOpType.MV: 'To Move'
-}
-
-
 # ENUM UserOpStatus
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -61,6 +54,7 @@ class UserOpResult:
     CLASS UserOpResult
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, status: UserOpStatus, error: Optional[Union[str, Exception]] = None,
                  to_upsert: Optional[List[Node]] = None, to_remove: Optional[List[Node]] = None):
         self.status: UserOpStatus = status
@@ -120,3 +114,78 @@ class UserOp(BaseNode):
             dst = 'None'
         return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} status={self.get_status().name} ' \
                f'src={self.src_node.node_identifier} dst={dst}'
+
+
+class OpTypeMeta:
+    _display_label_dict: Dict[UserOpType, str] = {
+        UserOpType.CP: 'To Add',
+        UserOpType.RM: 'To Delete',
+        UserOpType.UP: 'To Update',
+        UserOpType.MV: 'To Move'
+    }
+
+    _icon_src_file_dict = {
+        UserOpType.RM: IconId.ICON_FILE_RM,
+        UserOpType.MV: IconId.ICON_FILE_MV_SRC,
+        UserOpType.UP: IconId.ICON_FILE_UP_SRC,
+        UserOpType.CP: IconId.ICON_FILE_CP_SRC
+    }
+    _icon_dst_file_dict = {
+        UserOpType.MV: IconId.ICON_FILE_MV_DST,
+        UserOpType.UP: IconId.ICON_FILE_UP_DST,
+        UserOpType.CP: IconId.ICON_FILE_CP_DST
+    }
+    _icon_src_dir_dict = {
+        UserOpType.MKDIR: IconId.ICON_DIR_MK,
+        UserOpType.RM: IconId.ICON_DIR_RM,
+        UserOpType.MV: IconId.ICON_DIR_MV_SRC,
+        UserOpType.UP: IconId.ICON_DIR_UP_SRC,
+        UserOpType.CP: IconId.ICON_DIR_CP_SRC
+    }
+    _icon_dst_dir_dict = {
+        UserOpType.MV: IconId.ICON_DIR_MV_DST,
+        UserOpType.UP: IconId.ICON_DIR_UP_DST,
+        UserOpType.CP: IconId.ICON_DIR_CP_DST
+    }
+
+    @staticmethod
+    def has_dst(op_type: UserOpType) -> bool:
+        return op_type.has_dst()
+
+    @staticmethod
+    def display_label(op_type: UserOpType) -> str:
+        return OpTypeMeta._display_label_dict[op_type]
+
+    @staticmethod
+    def all_display_labels():
+        return OpTypeMeta._display_label_dict.items()
+
+    @staticmethod
+    def icon_src_file(op_type: UserOpType) -> IconId:
+        return OpTypeMeta._icon_src_file_dict[op_type]
+
+    @staticmethod
+    def icon_dst_file(op_type: UserOpType) -> IconId:
+        return OpTypeMeta._icon_dst_file_dict[op_type]
+
+    @staticmethod
+    def icon_src_dir(op_type: UserOpType) -> IconId:
+        return OpTypeMeta._icon_src_dir_dict[op_type]
+
+    @staticmethod
+    def icon_dst_dir(op_type: UserOpType) -> IconId:
+        return OpTypeMeta._icon_dst_dir_dict[op_type]
+
+    @staticmethod
+    def get_icon_for(device_uid: UID, node_uid: UID, op: UserOp) -> IconId:
+        if op.has_dst() and op.dst_node.device_uid == device_uid and op.dst_node.uid == node_uid:
+            if op.dst_node.is_dir():
+                return OpTypeMeta._icon_dst_dir_dict[op.op_type]
+            else:
+                return OpTypeMeta._icon_dst_file_dict[op.op_type]
+
+        assert op.src_node.uid == node_uid
+        if op.src_node.is_dir():
+            return OpTypeMeta._icon_src_dir_dict[op.op_type]
+        else:
+            return OpTypeMeta._icon_src_file_dict[op.op_type]
