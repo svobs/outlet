@@ -179,16 +179,18 @@ class ChangeTree(DisplayTree):
             if full_path == self.root_path:
                 break
             # Need some work to assemble the GUID to look up the ancestor:
-            ancestor_path_uid = self.backend.cacheman.get_uid_for_local_path(full_path)
+            ancestor_path_uid = self.backend.cacheman.get_uid_for_local_path(full_path)  # TODO: take "_local" out of this
             ancestor_spid: ChangeTreeSPID = ChangeTreeSPID(ancestor_path_uid, ancestor_spid.device_uid, full_path, ancestor_spid.op_type)
             ancestor_sn = self._category_tree.get_node_for_identifier(ancestor_spid.guid)
             if ancestor_sn:
+                # already added ancestor to tree
                 parent_sn = ancestor_sn
                 break
             else:
                 # create ancestor & push to stack for later insertion in correct order
-                ancestor = ContainerNode(ancestor_spid)
-                stack.append(SPIDNodePair(ancestor_spid, ancestor))
+                ancestor_dir = ContainerNode(ancestor_spid)
+                ancestor_dir.set_icon(OpManager.icon_src_dir_dict[ancestor_spid.op_type])
+                stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
 
         # Walk down the ancestor list and create a node for each ancestor dir:
         while len(stack) > 0:
@@ -204,6 +206,9 @@ class ChangeTree(DisplayTree):
     def _make_change_node_pair(from_sn: SPIDNodePair, op: UserOp) -> SPIDNodePair:
         change_spid = ChangeTreeSPID(path_uid=from_sn.spid.path_uid, device_uid=from_sn.spid.device_uid,
                                      full_path=from_sn.spid.get_single_path(), op_type=op.op_type)
+        if change_spid.op_type == UserOpType.MKDIR:
+            # For display purposes, group "mkdir" with "copy":
+            change_spid.op_type = UserOpType.CP
         change_node = copy.deepcopy(from_sn.node)
         change_icon = OpManager.get_icon_for(change_node.device_uid, change_node.uid, op)
         if change_icon:
@@ -223,9 +228,6 @@ class ChangeTree(DisplayTree):
         assert isinstance(sn, SPIDNodePair), f'Wrong type: {type(sn)}'
 
         sn = self._make_change_node_pair(sn, op)
-        if sn.spid.op_type == UserOpType.MKDIR:
-            # For display purposes, group "mkdir" with "copy":
-            sn.spid.op_type = UserOpType.CP
 
         self._append_op(sn, op)
 

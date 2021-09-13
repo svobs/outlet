@@ -340,15 +340,10 @@ class OpManager(HasLifecycle):
     @staticmethod
     def get_icon_for(device_uid: UID, node_uid: UID, op: UserOp) -> IconId:
         if op.has_dst() and op.dst_node.device_uid == device_uid and op.dst_node.uid == node_uid:
-            op_type = op.op_type
-            if op_type == UserOpType.MV and not op.dst_node.is_live():
-                # Use an add-like icon if nothing there right now:
-                op_type = UserOpType.CP
-
             if op.dst_node.is_dir():
-                return OpManager.icon_dst_dir_dict[op_type]
+                return OpManager.icon_dst_dir_dict[op.op_type]
             else:
-                return OpManager.icon_dst_file_dict[op_type]
+                return OpManager.icon_dst_file_dict[op.op_type]
 
         assert op.src_node.uid == node_uid
         if op.src_node.is_dir():
