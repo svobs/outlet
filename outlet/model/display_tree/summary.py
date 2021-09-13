@@ -113,7 +113,8 @@ class TreeSummarizer:
     @staticmethod
     def _build_cat_summaries_str(cat_map) -> str:
         cat_summaries = []
-        for op_type, summary in cat_map.keys():
+        # this should be in the same order as inserted
+        for summary in cat_map.values():
             cat_summaries.append(summary)
         return '. '.join(cat_summaries)
 
