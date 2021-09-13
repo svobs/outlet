@@ -2,7 +2,7 @@ import logging
 from typing import Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
-from constants import GRPC_CHANGE_TREE_NO_OP, IconId, TreeType
+from constants import GRPC_CHANGE_TREE_NO_OP, IconId, TRACE_ENABLED, TreeType
 from model.device import Device
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
@@ -42,9 +42,10 @@ class GRPCConverter:
         # Node common fields:
         grpc_node.trashed = node.get_trashed_status()
         grpc_node.is_shared = node.is_shared
-        icon = node.get_custom_icon()
-        if icon:
-            grpc_node.icon_id = icon.value
+        grpc_node.icon_id = node.get_icon().value
+
+        if TRACE_ENABLED:
+            logger.debug(f'Serializing node: {node}')
 
         if isinstance(node, NonexistentDirNode):
             grpc_node.nonexistent_dir_meta.name = node.name

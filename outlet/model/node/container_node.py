@@ -122,8 +122,7 @@ class CategoryNode(ContainerNode):
         return OpTypeMeta.display_label(self.op_type)
 
     def get_default_icon(self) -> IconId:
-        # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)
-        return IconId.ICON_GENERIC_DIR
+        return OpTypeMeta.icon_cat_node(op_type=self.op_type)
 
     @classmethod
     def is_display_only(cls):

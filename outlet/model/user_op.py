@@ -147,6 +147,12 @@ class OpTypeMeta:
         UserOpType.UP: IconId.ICON_DIR_UP_DST,
         UserOpType.CP: IconId.ICON_DIR_CP_DST
     }
+    _icon_cat_node = {
+        UserOpType.CP: IconId.ICON_TO_ADD,
+        UserOpType.RM: IconId.ICON_TO_DELETE,
+        UserOpType.UP: IconId.ICON_TO_UPDATE,
+        UserOpType.MV: IconId.ICON_TO_MOVE
+    }
 
     @staticmethod
     def has_dst(op_type: UserOpType) -> bool:
@@ -175,6 +181,10 @@ class OpTypeMeta:
     @staticmethod
     def icon_dst_dir(op_type: UserOpType) -> IconId:
         return OpTypeMeta._icon_dst_dir_dict[op_type]
+
+    @staticmethod
+    def icon_cat_node(op_type: UserOpType) -> IconId:
+        return OpTypeMeta._icon_cat_node[op_type]
 
     @staticmethod
     def get_icon_for(device_uid: UID, node_uid: UID, op: UserOp) -> IconId:

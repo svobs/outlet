@@ -4,7 +4,6 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from backend.executor.user_op.op_manager import OpManager
 from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
@@ -96,7 +95,7 @@ class ChangeTree(DisplayTree):
     def get_ancestor_list(self, spid: ChangeTreeSPID) -> Deque[Node]:
         raise InvalidOperationError('ChangeTree.get_ancestor_list()')
 
-    def get_ops(self) -> List[UserOp]:
+    def get_op_list(self) -> List[UserOp]:
         return self._op_list
 
     def get_op_for_guid(self, guid: GUID) -> Optional[UserOp]:

@@ -324,6 +324,11 @@ class IconId(IntEnum):
 
     ICON_LOADING = 50
 
+    ICON_TO_ADD = 51
+    ICON_TO_DELETE = 52
+    ICON_TO_UPDATE = 53
+    ICON_TO_MOVE = 54
+
     BADGE_RM = 100
     BADGE_MV_SRC = 101
     BADGE_MV_DST = 102

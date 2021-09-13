@@ -298,13 +298,13 @@ class ActiveTreeManager(HasLifecycle):
             raise RuntimeError(f'Could not find change tree for: {sender}')
 
         try:
-            op_list = meta.change_tree.get_ops()
+            op_list = meta.change_tree.get_op_list()
             logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
             self.backend.cacheman.enqueue_op_batch(op_list=op_list)
 
             self._cancel_diff_mode()
         except Exception as err:
-            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to merge {len(meta.change_tree.get_ops())} operations',
+            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to merge {len(meta.change_tree.get_op_list())} operations',
                                           error=err)
 
     def _on_exit_diff_mode_requested(self, sender: str):

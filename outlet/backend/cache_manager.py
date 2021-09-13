@@ -1234,7 +1234,7 @@ class CacheManager(HasLifecycle):
             # So far we only support COPY.
             change_maker.copy_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.CP)
             # This should fire listeners which ultimately populate the tree:
-            op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
+            op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_op_list()
             self.enqueue_op_batch(op_list)
             return True
 

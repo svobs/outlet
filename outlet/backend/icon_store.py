@@ -173,6 +173,13 @@ class IconStore(ABC):
             IconId.ICON_DIR_CP_DST: CompositeIcon(name=ICON_DIR_CP_DST, base_path=dir_base, badges=[badge_meta_dict[IconId.BADGE_CP_DST]]),
             IconId.ICON_DIR_TRASHED: SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{tree_icon_size}px.png'),
 
+            # Categories
+
+            IconId.ICON_TO_ADD: SimpleIcon(name=ICON_GENERIC_FILE, path=f'{BASE_ICON_BASE_DIR}/ToAdd-{tree_icon_size}.png'),
+            IconId.ICON_TO_DELETE: SimpleIcon(name=ICON_GENERIC_FILE, path=f'{BASE_ICON_BASE_DIR}/ToDelete-{tree_icon_size}.png'),
+            IconId.ICON_TO_UPDATE: SimpleIcon(name=ICON_GENERIC_FILE, path=f'{BASE_ICON_BASE_DIR}/ToUpdate-{tree_icon_size}.png'),
+            IconId.ICON_TO_MOVE: SimpleIcon(name=ICON_GENERIC_FILE, path=f'{BASE_ICON_BASE_DIR}/ToMove-{tree_icon_size}.png'),
+
             # Misc UI
             IconId.ICON_ALERT: SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
             IconId.ICON_WINDOW: SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
