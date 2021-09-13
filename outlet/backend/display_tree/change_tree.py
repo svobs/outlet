@@ -189,7 +189,7 @@ class ChangeTree(DisplayTree):
             else:
                 # create ancestor & push to stack for later insertion in correct order
                 ancestor_dir = ContainerNode(ancestor_spid)
-                ancestor_dir.set_icon(OpManager.icon_src_dir_dict[ancestor_spid.op_type])
+                ancestor_dir.set_icon(OpTypeMeta.icon_src_dir(ancestor_spid.op_type))
                 stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
 
         # Walk down the ancestor list and create a node for each ancestor dir:
