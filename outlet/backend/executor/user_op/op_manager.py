@@ -37,6 +37,21 @@ class OpManager(HasLifecycle):
     CLASS OpManager
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+    icon_src_file_dict = {UserOpType.RM: IconId.ICON_FILE_RM,
+                          UserOpType.MV: IconId.ICON_FILE_MV_SRC,
+                          UserOpType.UP: IconId.ICON_FILE_UP_SRC,
+                          UserOpType.CP: IconId.ICON_FILE_CP_SRC}
+    icon_dst_file_dict = {UserOpType.MV: IconId.ICON_FILE_MV_DST,
+                          UserOpType.UP: IconId.ICON_FILE_UP_DST,
+                          UserOpType.CP: IconId.ICON_FILE_CP_DST}
+    icon_src_dir_dict = {UserOpType.MKDIR: IconId.ICON_DIR_MK,
+                         UserOpType.RM: IconId.ICON_DIR_RM,
+                         UserOpType.MV: IconId.ICON_DIR_MV_SRC,
+                         UserOpType.UP: IconId.ICON_DIR_UP_SRC,
+                         UserOpType.CP: IconId.ICON_DIR_CP_SRC}
+    icon_dst_dir_dict = {UserOpType.MV: IconId.ICON_DIR_MV_DST,
+                         UserOpType.UP: IconId.ICON_DIR_UP_DST,
+                         UserOpType.CP: IconId.ICON_DIR_CP_DST}
 
     def __init__(self, backend, op_db_path):
         HasLifecycle.__init__(self)
@@ -45,22 +60,6 @@ class OpManager(HasLifecycle):
         self._disk_store: OpDiskStore = OpDiskStore(self.backend, op_db_path=op_db_path)
         self._op_graph: OpGraph = OpGraph(self.backend)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
-
-        self.icon_src_file_dict = {UserOpType.RM: IconId.ICON_FILE_RM,
-                                   UserOpType.MV: IconId.ICON_FILE_MV_SRC,
-                                   UserOpType.UP: IconId.ICON_FILE_UP_SRC,
-                                   UserOpType.CP: IconId.ICON_FILE_CP_SRC}
-        self.icon_dst_file_dict = {UserOpType.MV: IconId.ICON_FILE_MV_DST,
-                                   UserOpType.UP: IconId.ICON_FILE_UP_DST,
-                                   UserOpType.CP: IconId.ICON_FILE_CP_DST}
-        self.icon_src_dir_dict = {UserOpType.MKDIR: IconId.ICON_DIR_MK,
-                                  UserOpType.RM: IconId.ICON_DIR_RM,
-                                  UserOpType.MV: IconId.ICON_DIR_MV_SRC,
-                                  UserOpType.UP: IconId.ICON_DIR_UP_SRC,
-                                  UserOpType.CP: IconId.ICON_DIR_CP_SRC}
-        self.icon_dst_dir_dict = {UserOpType.MV: IconId.ICON_DIR_MV_DST,
-                                  UserOpType.UP: IconId.ICON_DIR_UP_DST,
-                                  UserOpType.CP: IconId.ICON_DIR_CP_DST}
 
     def start(self):
         logger.debug(f'Starting OpManager')
@@ -338,7 +337,8 @@ class OpManager(HasLifecycle):
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(device_uid, node_uid)
 
-    def _get_icon_for_node(self, device_uid: UID, node_uid: UID, op: UserOp) -> IconId:
+    @staticmethod
+    def get_icon_for(device_uid: UID, node_uid: UID, op: UserOp) -> IconId:
         if op.has_dst() and op.dst_node.device_uid == device_uid and op.dst_node.uid == node_uid:
             op_type = op.op_type
             if op_type == UserOpType.MV and not op.dst_node.is_live():
@@ -346,15 +346,15 @@ class OpManager(HasLifecycle):
                 op_type = UserOpType.CP
 
             if op.dst_node.is_dir():
-                return self.icon_dst_dir_dict[op_type]
+                return OpManager.icon_dst_dir_dict[op_type]
             else:
-                return self.icon_dst_file_dict[op_type]
+                return OpManager.icon_dst_file_dict[op_type]
 
         assert op.src_node.uid == node_uid
         if op.src_node.is_dir():
-            return self.icon_src_dir_dict[op.op_type]
+            return OpManager.icon_src_dir_dict[op.op_type]
         else:
-            return self.icon_src_file_dict[op.op_type]
+            return OpManager.icon_src_file_dict[op.op_type]
 
     def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
         op: Optional[UserOp] = self.get_last_pending_op_for_node(device_uid, node_uid)
@@ -363,7 +363,7 @@ class OpManager(HasLifecycle):
                 logger.debug(f'Node {device_uid}:{node_uid}: no custom icon (op={op})')
             return None
 
-        icon = self._get_icon_for_node(device_uid, node_uid, op)
+        icon = OpManager.get_icon_for(device_uid, node_uid, op)
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
         return icon

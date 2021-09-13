@@ -967,9 +967,10 @@ class CacheManager(HasLifecycle):
                 child_list = tree_meta.filter_state.get_filtered_child_list(parent_spid, tree_meta.change_tree)
             else:
                 child_list = tree_meta.change_tree.get_child_list_for_spid(parent_spid)
-        else:
-            filter_state = tree_meta.filter_state
 
+        else:
+            # Regular tree
+            filter_state = tree_meta.filter_state
             device_uid: UID = parent_spid.device_uid
             child_list = self._get_store_for_device_uid(device_uid).get_child_list_for_spid(parent_spid, filter_state)
 
@@ -1017,10 +1018,12 @@ class CacheManager(HasLifecycle):
         return self._row_state_tracking.get_rows_of_interest(tree_id)
 
     def update_node_icon(self, node: Node):
+        """Note: this should not be called for ChangeTree nodes. It will not consult a ChangeTree."""
         icon_id: Optional[IconId] = self._op_manager.get_icon_for_node(node.device_uid, node.uid)
+        if icon_id:
+            node.set_icon(icon_id)
         if TRACE_ENABLED:
             logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
-        node.set_icon(icon_id)
 
     @staticmethod
     def derive_parent_path(child_path) -> Optional[str]:

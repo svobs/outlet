@@ -1,8 +1,10 @@
+import copy
 import logging
 import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
+from backend.executor.user_op.op_manager import OpManager
 from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
@@ -199,10 +201,14 @@ class ChangeTree(DisplayTree):
         return parent_sn
 
     @staticmethod
-    def _make_change_node_pair(from_sn: SPIDNodePair, op_type: Optional[UserOpType]) -> SPIDNodePair:
+    def _make_change_node_pair(from_sn: SPIDNodePair, op: UserOp) -> SPIDNodePair:
         change_spid = ChangeTreeSPID(path_uid=from_sn.spid.path_uid, device_uid=from_sn.spid.device_uid,
-                                     full_path=from_sn.spid.get_single_path(), op_type=op_type)
-        return SPIDNodePair(change_spid, from_sn.node)
+                                     full_path=from_sn.spid.get_single_path(), op_type=op.op_type)
+        change_node = copy.deepcopy(from_sn.node)
+        change_icon = OpManager.get_icon_for(change_node.device_uid, change_node.uid, op)
+        if change_icon:
+            change_node.set_icon(change_icon)
+        return SPIDNodePair(change_spid, change_node)
 
     def add_sn_and_op(self, sn: SPIDNodePair, op: UserOp):
         """When we add the node, we add any necessary ancestors for it as well.
@@ -216,7 +222,7 @@ class ChangeTree(DisplayTree):
         """
         assert isinstance(sn, SPIDNodePair), f'Wrong type: {type(sn)}'
 
-        sn = self._make_change_node_pair(sn, op.op_type)
+        sn = self._make_change_node_pair(sn, op)
         if sn.spid.op_type == UserOpType.MKDIR:
             # For display purposes, group "mkdir" with "copy":
             sn.spid.op_type = UserOpType.CP

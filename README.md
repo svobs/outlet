@@ -45,7 +45,6 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [3] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)
 * [1] Better tracking of BE readiness states: see CentralExecutor.get_engine_summary_state()
 * [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
-* [3] Disable UI elements for trees until cache loaded
   
 #### FUTURE / NON-ESSENTIAL
 * [1] Copy metadata when copying files (MAC times)
