@@ -1,12 +1,14 @@
 import logging
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import gi
 from pydispatch import dispatcher
 
 from constants import DATE_REGEX, SUPER_DEBUG_ENABLED, TreeType
+from model.device import Device
 from model.node.node import Node, SPIDNodePair
+from model.uid import UID
 from model.user_op import UserOp
 from signal_constants import Signal
 
@@ -59,23 +61,26 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL_LIST, {'sn_list': selected_sn_list})
             menu.append(item)
 
-        # FIXME: this does not support multiple devices or GDrives
-        items_to_delete_local: List[Node] = []
-        items_to_delete_gdrive: List[Node] = []
+        # Show an option to delete nodes (sort nodes by subtree; display option for each subtree found)
+        items_to_delete_by_device_uid: Dict[UID, List[Node]] = {}
         for selected_sn in selected_sn_list:
-            if selected_sn.spid.tree_type == TreeType.LOCAL_DISK and selected_sn.node.is_live():
-                items_to_delete_local.append(selected_sn.node)
-            elif selected_sn.spid.tree_type == TreeType.GDRIVE and selected_sn.node.is_live():
-                items_to_delete_gdrive.append(selected_sn.node)
+            if selected_sn.node.is_live():
+                node_list_for_device = items_to_delete_by_device_uid.get(selected_sn.spid.device_uid, None)
+                if node_list_for_device is None:
+                    node_list_for_device = []
+                    items_to_delete_by_device_uid[selected_sn.spid.device_uid] = node_list_for_device
+                node_list_for_device.append(selected_sn.node)
 
-        if len(items_to_delete_local) > 0:
-            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_local)} Items from Local Disk')
-            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': items_to_delete_local})
-            menu.append(item)
+        device_list: List[Device] = self.con.backend.get_device_list()
+        for device_uid, node_list in items_to_delete_by_device_uid.items():
+            device = None
+            for some_device in device_list:
+                if some_device.uid == device_uid:
+                    device = some_device
+                    break
 
-        if len(items_to_delete_gdrive) > 0:
-            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_gdrive)} Items from Google Drive')
-            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': items_to_delete_gdrive})
+            item = Gtk.MenuItem(label=f'Delete {len(node_list)} Items from {device.friendly_name}')
+            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': node_list})
             menu.append(item)
 
         menu.show_all()

@@ -1,6 +1,7 @@
 import logging
 import os
 import pathlib
+import subprocess
 import threading
 import uuid
 from collections import deque
@@ -24,7 +25,7 @@ from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, DragOperation, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
-    MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
+    IS_LINUX, IS_MACOS, IS_WINDOWS, MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType, UID_GOOG_ID_FILE_NAME, \
     UID_PATH_FILE_NAME
 from error import CacheNotFoundError, CacheNotLoadedError, ResultsExceededError
@@ -50,8 +51,6 @@ from util.task_runner import Task
 from util.two_level_dict import TwoLevelDict
 
 logger = logging.getLogger(__name__)
-
-DEVICE_UUID_CONFIG_KEY = 'agent.local_disk.device_uuid'
 
 
 def ensure_cache_dir_path(backend):
@@ -92,6 +91,7 @@ class CacheManager(HasLifecycle):
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
 
         self._device_uuid: str = self.get_or_set_local_device_uuid()
+        logger.debug(f'LocalDisk device UUID is: {self._device_uuid}')
 
         self._store_dict: Dict[UID, TreeStore] = {}
 
@@ -256,6 +256,34 @@ class CacheManager(HasLifecycle):
             logger.info('CacheManager startup done')
 
     def get_or_set_local_device_uuid(self) -> str:
+        if IS_MACOS:
+            logger.debug(f'get_or_set_local_device_uuid(): looking for MacOS volume UUID...')
+            entry_list = subprocess.check_output('/usr/sbin/diskutil info /'.split(' ')).decode().split('\n')[1:]
+            prefix = 'Volume UUID:'
+            for entry in entry_list:
+                entry = entry.strip()
+                if TRACE_ENABLED:
+                    logger.debug(f'Checking diskutil entry: {entry}')
+                if entry.startswith(prefix):
+                    return entry.removeprefix(prefix).strip().lower()
+
+            raise RuntimeError('Could not find Volume UUID for local MacOS device!')
+        elif IS_LINUX:
+            # logger.debug(f'get_or_set_local_device_uuid(): looking for Linux volume UUID...')
+            # TODO
+            pass
+        elif IS_WINDOWS:
+            logger.debug(f'get_or_set_local_device_uuid(): looking for Windows disk serial number...')
+            serial_list = subprocess.check_output('wmic diskdrive get SerialNumber'.split(' ')).decode().split('\n')[1:]
+            serial_list = [s.strip() for s in serial_list if s.strip()]
+            for entry in serial_list:
+                entry = entry.strip()
+                # TODO
+                logger.info(f'SERIAL: {entry}')
+        else:
+            raise RuntimeError('Unknown local device!')
+
+        # FIXME: use serial number instead. Ditch this whole file.
         file_path: str = file_util.get_resource_path(self.backend.get_config('agent.local_disk.device_id_file_path'))
         if os.path.exists(file_path):
             with open(file_path, 'r') as reader:
@@ -266,7 +294,6 @@ class CacheManager(HasLifecycle):
                 reader.write(device_uuid)
                 reader.write('\n')
                 reader.flush()
-        logger.debug(f'LocalDisk device UUID is: {device_uuid}')
         return device_uuid
 
     # TODO: when do we create a new device?
@@ -310,6 +337,7 @@ class CacheManager(HasLifecycle):
     def _init_store_dict(self):
         logger.debug('Init store dict')
         has_super_root = False
+
         # TODO: add true support for multiple GDrives
         master_gdrive = None
         for device in self._read_device_list():
@@ -344,13 +372,12 @@ class CacheManager(HasLifecycle):
             logger.info(f'Found this_local_disk in registry with UID {self._this_disk_local_store.device_uid}')
         else:
             # Need to create new device for this disk (first run)
-            device = Device(NULL_UID, self._device_uuid, TreeType.LOCAL_DISK, "My Local Disk")
+            device = Device(NULL_UID, self._device_uuid, TreeType.LOCAL_DISK, "Local Disk")
             self._write_new_device(device)
             store = LocalDiskMasterStore(self.backend, self._uid_path_mapper, device)
             self._store_dict[device.uid] = store
             self._this_disk_local_store = store
 
-        # TODO: add true support for multiple GDrives
         if master_gdrive:
             logger.info(f'Found master_gdrive in registry with device UID {master_gdrive.device_uid}')
         else:

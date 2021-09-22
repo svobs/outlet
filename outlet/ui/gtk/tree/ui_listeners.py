@@ -5,7 +5,7 @@ import gi
 from pydispatch import dispatcher
 
 from backend.diff.change_maker import SPIDNodePair
-from constants import DragOperation, TreeID, TreeLoadState, TreeType
+from constants import DragOperation, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import GUID
