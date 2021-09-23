@@ -467,7 +467,7 @@ class ActiveTreeManager(HasLifecycle):
 
         # Try to retrieve the root node from the cache:
         try:
-            node: Optional[Node] = self.backend.cacheman.read_single_node(spid)
+            node: Optional[Node] = self.backend.cacheman.read_node_for_spid(spid)
             if node:
                 logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
             else:

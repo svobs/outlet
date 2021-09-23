@@ -270,7 +270,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError('Could not find Volume UUID for local MacOS device!')
         elif IS_LINUX:
             # logger.debug(f'get_or_set_local_device_uuid(): looking for Linux volume UUID...')
-            # TODO
+            # TODO: https://stackoverflow.com/questions/4193514/how-to-get-hard-disk-serial-number-using-python
             pass
         elif IS_WINDOWS:
             logger.debug(f'get_or_set_local_device_uuid(): looking for Windows disk serial number...')
@@ -1375,56 +1375,18 @@ class CacheManager(HasLifecycle):
         store = self._get_gdrive_store_for_device_uid(device_uid)
         return store.build_gdrive_root_node(sync_ts=sync_ts)
 
-    # TODO: move this logic into each of the master stores
-    def read_single_node(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
-        store = self._get_store_for_device_uid(spid.device_uid)
+    def read_node(self, node_uid: UID, device_uid: UID) -> Optional[Node]:
+        return self._get_store_for_device_uid(device_uid).read_node_for_uid(node_uid)
 
-        # Use in-memory cache if available:
-        try:
-            node: Node = store.get_node_for_uid(spid.node_uid)
-            if node:
-                return node
-        except CacheNotLoadedError:
-            pass
-
-        # else read from disk
-        if spid.tree_type == TreeType.LOCAL_DISK:
-            full_path = spid.get_single_path()
+    # This is only called at startup (shh...)
+    def read_node_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
+        # ensure all paths are normalized:
+        path_list = spid.get_path_list()
+        for index, full_path in enumerate(path_list):
             if not file_util.is_normalized(full_path):
                 full_path = file_util.normalize_path(full_path)
                 logger.debug(f'Normalized path: {full_path}')
+                path_list[index] = full_path
+        spid.set_path_list(path_list)
 
-            assert isinstance(store, LocalDiskMasterStore)
-            node = store.read_node_for_path(full_path)
-            if node:
-                logger.debug(f'read_single_node(): read node from disk cache: {node}')
-                return node
-            else:
-                if store.device.uid == self._this_disk_local_store.device_uid:
-                    # Local disk? Scan and add to cache
-                    if os.path.isdir(full_path):
-                        node = self.build_local_dir_node(full_path)
-                    else:
-                        node = self.build_local_file_node(full_path)
-                    logger.debug(f'read_single_node(): scanned node from disk: {node}')
-                    self.upsert_single_node(node)
-                    return node
-                else:
-                    # out of luck
-                    return None
-
-        elif spid.tree_type == TreeType.GDRIVE:
-            assert isinstance(store, GDriveMasterStore)
-            node = store.read_node_for_uid(spid.node_uid)
-            if node:
-                return node
-            else:
-                # try to recover the goog_id from the UID database
-                goog_id = store.get_goog_id_for_uid(spid.node_uid)
-                node: Optional[GDriveNode] = store.gdrive_client.get_existing_node_by_id(goog_id)
-                if node:
-                    return node
-                else:
-                    return None
-        else:
-            raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
+        return self.read_node(spid.node_uid, spid.device_uid)

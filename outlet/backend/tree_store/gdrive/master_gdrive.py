@@ -382,7 +382,7 @@ class GDriveMasterStore(TreeStore):
     # Individual node cache updates
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    @ensure_locked
+    @ensure_locked  # <-- ehhh... let's just not deal with how dumb this is just yet
     def upsert_single_node(self, node: GDriveNode) -> GDriveNode:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered upsert_single_node(): locked={self._struct_lock.locked()}')
@@ -512,15 +512,36 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_node_for_uid(uid)
 
     def read_node_for_uid(self, node_uid: UID) -> Optional[GDriveNode]:
-        """This actually reads directly from the disk cache if needed"""
+        """This actually reads directly from the disk cache if needed.
+        IMPORTANT NOTE: if gotten from disk cache or GDrive client"""
         if TRACE_ENABLED:
-            logger.debug(f'read_node_for_uid() entered: {node_uid}')
-        if self._memstore.is_loaded():
-            return self._memstore.master_tree.get_node_for_uid(node_uid)
+            logger.debug(f'read_node_for_uid() entered: memstore_is_loaded={self._memstore.is_loaded()}, node_uid={node_uid}')
 
-        logger.debug(f'read_node_for_uid(): memstore node loaded; reading direct from disk: {node_uid}')
-        # FIXME: what about populating its paths?
-        return self._diskstore.get_single_node_with_uid(node_uid)
+        # 1. Memory cache
+        if self._memstore.is_loaded():
+            node: Optional[GDriveNode] = self._memstore.master_tree.get_node_for_uid(node_uid)
+            if node:
+                return node
+        else:
+            logger.debug(f'read_node_for_uid(): memstore not loaded; reading direct from disk: {node_uid}')
+
+        # 2. Disk cache
+        # FIXME: we should find a way to populate its path.
+        node = self._diskstore.get_single_node_with_uid(node_uid)
+        if node:
+            return node
+
+        # try to recover the goog_id from the UID database
+        goog_id = self.get_goog_id_for_uid(node_uid)
+        if not goog_id:
+            logger.warning(f'read_node_for_uid(): no goog_id found for node_uid (returning null): {node_uid}')
+            return None
+        node = self.gdrive_client.get_existing_node_by_id(goog_id)
+        if node:
+            logger.debug(f'read_node_for_uid(): got node from GDrive API: {node}')
+            self.upsert_single_node(node)
+
+        return node
 
     def build_gdrive_root_node(self, sync_ts: Optional[int] = None) -> GDriveFolder:
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.

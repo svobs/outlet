@@ -423,9 +423,11 @@ class LocalDiskMasterStore(TreeStore):
         return self._read_single_node_for(node_uid, full_path)
 
     def _read_single_node_for(self, node_uid: UID, full_path: str) -> Optional[LocalNode]:
-        """node_uid and full_path MUST correspond, or we'll really be in trouble"""
+        """Try in-memory cache first; if miss, try disk cache.
+        Params node_uid and full_path MUST correspond, or we'll really be in trouble"""
         assert node_uid and full_path and self.get_path_for_uid(node_uid) == full_path, f'Invalid: node_uid={node_uid}, full_path={full_path}'
 
+        # 1. Memory cache
         cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
         if not cache_info:
             logger.error(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
@@ -433,15 +435,35 @@ class LocalDiskMasterStore(TreeStore):
         if cache_info.is_loaded:
             node = self.get_node_for_uid(node_uid)
             if node:
-                return
+                return node
             if TRACE_ENABLED:
                 logger.debug(f'_read_single_node_for(): Memcache is loaded but node not found for: {node_uid}')
             return None
 
+        # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'_read_single_node_for(): Memcache not loaded; reading diskcache for UID {node_uid}"')
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-            return cache.get_file_or_dir_for_uid(node_uid)
+            node = cache.get_file_or_dir_for_uid(node_uid)
+        if node:
+            if TRACE_ENABLED:
+                logger.debug(f'_read_single_node_for(): found node in disk cache: {node}')
+            return node
+
+        if TRACE_ENABLED:
+            logger.debug(f'_read_single_node_for(): Not found in memory or disk cache (will try disk scan): {node_uid}')
+
+        # 3. Disk scan?
+        if os.path.isdir(full_path):
+            node = self.build_local_dir_node(full_path, is_live=True, all_children_fetched=False)
+        else:
+            node = self.build_local_file_node(full_path)
+        if node:
+            logger.debug(f'_read_single_node_for(): scanned node from disk: {node}')
+            self.upsert_single_node(node)
+        else:
+            logger.debug(f'_read_single_node_for(): failed to scan node from disk: {node_uid}')
+        return node
 
     def upsert_single_node(self, node: LocalNode) -> LocalNode:
         if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
@@ -775,7 +797,7 @@ class LocalDiskMasterStore(TreeStore):
         return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path), parent_uid=parent_uid,
                             trashed=TrashStatus.NOT_TRASHED, is_live=is_live, all_children_fetched=all_children_fetched)
 
-    def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False, is_live: bool = True)\
+    def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False, is_live: bool = True) \
             -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)
 
