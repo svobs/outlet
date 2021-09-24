@@ -177,6 +177,27 @@ class DragOperation(IntEnum):
     DELETE = 4
 
 
+# For operations where the src dir and dst dir have same name
+class DirConflictResolution(IntEnum):
+    PROMPT = 1  # Prompt user every time and display remaining options TODO: also show live preview
+    SKIP_ENTIRE_DIR = 2  # Leave dst dir alone. Note: For MOVE operations, this will leave the src dir as-is
+    REPLACE_ENTIRE_DIR = 3  # Essentially delete all children in dst dir and replace it with src dir contents
+    MERGE = 4  # Dive into src & dst dirs and follow FileConflictResolution rules for files
+
+
+# For operations where the src file and dst file has same same name but different content
+class FileConflictResolution(IntEnum):
+    PROMPT = 1  # Prompt user every time and display remaining options TODO: also show preview of changes
+    SKIP = 2  # Leave the existing dst file. Note: for MOVE op, this will leave the src file as-is
+    REPLACE = 3  # Update/replace the dst file with the src file
+    RENAME_AND_ADD = 4  # Rename the target file so there is no collision (i.e. keep both files)
+
+
+# Note: if user does a MOVE with DirConflictResolution.MERGE, FileConflictResolution.SKIP, then files which
+# couldn't be moved will be left behind. The user can chose to delete them afterwards
+# TODO: create new icon for directory which has descendant(s) which have pending operations
+
+
 TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.MIXED: 'M', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G'}
 
 # UID reserved values:
