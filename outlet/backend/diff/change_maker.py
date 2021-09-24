@@ -235,17 +235,22 @@ class ChangeMaker:
         self.left_side = OneSide(backend, tree_id_left, left_tree_root_sn, batch_uid, tree_id_left_src)
         self.right_side = OneSide(backend, tree_id_right, right_tree_root_sn, batch_uid, tree_id_right_src)
 
-    def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
+    # FIXME: change method sig: use DragOperation instead of UserOpType. Add DirMergeStrategy
+    def drag_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes.
         We won't deal with update logic here. A node being copied will be treated as an "add" unless a node exists at the given path,
         in which case the conflict strategy determines whether it's it's an update or something else."""
         assert sn_dst_parent and sn_dst_parent.node.is_dir()
+
+        # FIXME: this logic is flawed! (jeez, who wrote this... ;-)) We cannot use a single op type for all nodes.
+        # FIXME: Instead, take an argument for the folder merge strategy and use that logic
         assert op_type == UserOpType.CP or op_type == UserOpType.MV or op_type == UserOpType.UP
         dst_parent_path: str = sn_dst_parent.spid.get_single_path()
 
         # We won't deal with update logic here. A node being copied will be treated as an "add"
         # unless a node exists at the given path, in which case the conflict strategy determines whether it's
         # it's an update or something else
+        # TODO: disregard this block ^^^
 
         logger.debug(f'Preparing {len(src_sn_list)} nodes for copy...')
 

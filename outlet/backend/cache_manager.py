@@ -1217,6 +1217,7 @@ class CacheManager(HasLifecycle):
 
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID,
                            drag_operation: DragOperation) -> bool:
+        assert drag_operation is not None and isinstance(drag_operation, DragOperation), f'Invalid drag operation: {drag_operation}'
         logger.info(f'Got drop: {drag_operation.name} {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}"'
                     f' dst_guid={dst_guid} is_into={is_into}')
 
@@ -1251,6 +1252,7 @@ class CacheManager(HasLifecycle):
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
             return False
         elif self._is_dropping_on_self(src_sn_list, dst_sn, dst_tree_id):
+            # don't allow this, even for copy. It's super annoying when an erroneous bump of the mouse results in a huge copy operation
             logger.info(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
             return False
         else:
@@ -1258,8 +1260,16 @@ class CacheManager(HasLifecycle):
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
                                        tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
-            # So far we only support COPY.
-            change_maker.copy_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.CP)
+
+            if drag_operation == DragOperation.COPY:
+                change_maker.drag_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.CP)
+            elif drag_operation == DragOperation.MOVE:
+                change_maker.drag_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.MV)
+            elif drag_operation == DragOperation.LINK:
+                # TODO: link operation
+                raise NotImplementedError('LINK drag operation is not yet supported!')
+            else:
+                raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_op_list()
             self.enqueue_op_batch(op_list)
