@@ -75,6 +75,7 @@ class GDriveMemoryStore:
             return node, False
 
         # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
+        # FIXME: determine if nodes were removed from parents. If so, send notifications to ATM
         node = self.master_tree.upsert_node(node)
 
         return node, True

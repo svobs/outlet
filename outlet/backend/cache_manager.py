@@ -244,7 +244,7 @@ class CacheManager(HasLifecycle):
             # Finally, add or cancel any queued changes (asynchronously)
             if self.cancel_all_pending_ops_on_startup:
                 logger.debug(f'User configuration specifies cancelling all pending ops on startup')
-                pending_ops_task = self._op_manager.cancel_pending_ops_from_disk
+                pending_ops_task = self._op_manager.cancel_all_pending_ops
             else:
                 pending_ops_task = self._op_manager.resume_pending_ops_from_disk
             # This is a lower priority, so will not execute until after caches are all loaded

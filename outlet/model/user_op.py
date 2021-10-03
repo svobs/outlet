@@ -15,19 +15,19 @@ logger = logging.getLogger(__name__)
 
 class UserOpType(IntEnum):
     RM = 1
-    """Remove src node"""
+    """Remove src node (single-node op)"""
 
     CP = 2
-    """Copy content of src node to dst node"""
+    """Copy content of src node to dst node, where dst node does not yet exist"""
 
     MKDIR = 3
-    """Make dir represented by src node"""
+    """Make dir represented by src node (single-node op)"""
 
     MV = 4
     """Equivalent to CP followed by RM: copy src node to dst node, then delete src node"""
 
     UP = 5
-    """Essentially equivalent to CP, but intention is different. Copy content of src node to dst node, overwriting the contents of dst"""
+    """Similar to CP, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst"""
 
     def has_dst(self) -> bool:
         return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.UP

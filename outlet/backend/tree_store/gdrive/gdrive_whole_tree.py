@@ -59,6 +59,7 @@ class GDriveWholeTree(BaseTree):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered upsert_folder_and_children(): parent_node={parent_node}, child_list size={len(child_list)}')
 
+        # FIXME: determine if nodes were removed from parents. If so, send notifications to ATM
         upserted_node_list: List[GDriveNode] = [self.upsert_node(parent_node)]
 
         former_child_list: List[GDriveNode] = self.parent_child_dict.get(parent_node.uid)
@@ -67,6 +68,7 @@ class GDriveWholeTree(BaseTree):
         former_child_count = len(former_child_list)
 
         for child in child_list:
+            # FIXME: determine if nodes were removed from parents. If so, send notifications to ATM
             upserted_node_list.append(self.upsert_node(child))
             GDriveWholeTree._remove_from_list(former_child_list, child)
 

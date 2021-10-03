@@ -215,15 +215,15 @@ class OpManager(HasLifecycle):
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     # Reduce Changes logic
 
-    def cancel_pending_ops_from_disk(self, this_task: Task):
+    def cancel_all_pending_ops(self, this_task: Task):
         """Call this at startup, to CANCEL pending ops which have not yet been applied (archive them on disk)."""
-        self._disk_store.cancel_pending_ops_from_disk()
+        self._disk_store.cancel_all_pending_ops()
 
     def resume_pending_ops_from_disk(self, this_task: Task):
         """Call this at startup, to RESUME pending ops which have not yet been applied."""
 
         # Load from disk
-        op_list: List[UserOp] = self._disk_store.load_pending_ops_from_disk()
+        op_list: List[UserOp] = self._disk_store.load_all_pending_ops()
         if not op_list:
             logger.debug(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
             return
@@ -306,13 +306,13 @@ class OpManager(HasLifecycle):
 
         if save_to_disk:
             # Save ops and their planning nodes to disk
-            self._disk_store.save_pending_ops_to_disk(batch_op_list)
+            self._disk_store.upsert_pending_op_list(batch_op_list)
 
         inserted_op_list, discarded_op_list = self._op_graph.enqueue_batch(batch_root)
 
         if discarded_op_list:
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
-            self._disk_store.remove_pending_ops(discarded_op_list)
+            self._disk_store.delete_pending_op_list(discarded_op_list)
 
         # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).
         # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
@@ -360,7 +360,8 @@ class OpManager(HasLifecycle):
 
     def finish_command(self, command: Command):
         logger.debug(f'Archiving op: {command.op}')
-        self._disk_store.archive_pending_ops_to_disk([command.op])
+        # FIXME: need to save prev dst node for UPDATE op
+        self._disk_store.archive_completed_op_list([command.op])
 
         # Ensure command is one that we are expecting.
         # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:

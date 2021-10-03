@@ -494,7 +494,7 @@ class OpDatabase(MetaDatabase):
             assert table, f'No table for values: {lifecycle_state}, {src_or_dst}, {tree_type}, {obj_type}'
             table.upsert_many(tuple_list, commit=False)
 
-    def upsert_pending_ops(self, entries: Iterable[UserOp], overwrite, commit=True):
+    def upsert_pending_op_list(self, entries: Iterable[UserOp], overwrite, commit=True):
         """Inserts or updates a list of Ops (remember that each action's UID is its primary key).
         If overwrite=true, then removes all existing changes first."""
 
@@ -571,10 +571,10 @@ class OpDatabase(MetaDatabase):
     # Compound operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def archive_completed_ops(self, entries: Iterable[UserOp]):
+    def archive_completed_op_list(self, entries: Iterable[UserOp]):
         self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_completed_ops(entries)
 
-    def archive_failed_ops(self, entries: Iterable[UserOp], error_msg: str):
+    def archive_failed_op_list(self, entries: Iterable[UserOp], error_msg: str):
         self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_failed_ops(entries, error_msg)

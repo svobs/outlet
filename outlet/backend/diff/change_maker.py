@@ -77,7 +77,7 @@ class OneSide:
 
         # First figure out UID and other identifying info for dst node.
         if dst_tree_type == TreeType.LOCAL_DISK:
-            dst_node_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_path)
+            dst_node_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_path)  # always returns something
             dst_node_goog_id = None  # N/A, but need to make compiler happy
         elif dst_tree_type == TreeType.GDRIVE:
             existing_dst_node_list = self.backend.cacheman.get_node_list_for_path_list([dst_path], device_uid=dst_device_uid)
@@ -90,8 +90,9 @@ class OneSide:
                 if self._is_same_md5_and_name_for_all(existing_dst_node_list):
                     logger.warning(f'Found {len(existing_dst_node_list)} identical nodes already present at at GDrive dst path '
                                    f'("{repr(dst_path)}"). Will overwrite all starting with UID {existing_dst_node_list[0].uid}')
-                    dst_node_uid = existing_dst_node_list[0].uid
-                    dst_node_goog_id = existing_dst_node_list[0].goog_id
+                    existing_node = existing_dst_node_list[0]
+                    dst_node_uid = existing_node.uid
+                    dst_node_goog_id = existing_node.goog_id
                 else:
                     # FIXME: what to do in this case? Perhaps collect these errors and display them all to the user.
                     # TODO: Also do an audit for this issue as soon as all the user's GDrive metadata is downloaded

@@ -34,30 +34,30 @@ class OpDiskStore(HasLifecycle):
             self._db.close()
             self._db = None
 
-    def cancel_pending_ops_from_disk(self):
+    def cancel_all_pending_ops(self):
         if SUPER_DEBUG_ENABLED:
-            logger.debug('Entered cancel_pending_ops_from_disk()')
+            logger.debug('Entered cancel_all_pending_ops()')
 
         op_list: List[UserOp] = self._db.get_all_pending_ops()
         if op_list:
-            self._db.archive_failed_ops(op_list, 'Cancelled on startup per app_config')
+            self._db.archive_failed_op_list(op_list, 'Cancelled on startup per app_config')
             logger.info(f'Cancelled {len(op_list)} pending ops found in cache')
         else:
             logger.debug(f'Found no pending ops to cancel')
 
-    def load_pending_ops_from_disk(self) -> List[UserOp]:
-        """ Gets all pending ops, filling int their src and dst nodes as well """
+    def load_all_pending_ops(self) -> List[UserOp]:
+        """ Gets all pending ops from disk, filling in their src and dst nodes as well """
         if SUPER_DEBUG_ENABLED:
-            logger.debug('Entered load_pending_ops_from_disk()')
+            logger.debug('Entered load_all_pending_ops()')
 
         return self._db.get_all_pending_ops()
 
-    def remove_pending_ops(self, op_list: Iterable[UserOp]):
+    def delete_pending_op_list(self, op_list: Iterable[UserOp]):
         self._db.delete_pending_ops(op_list)
 
-    def save_pending_ops_to_disk(self, op_list: Iterable[UserOp]):
+    def upsert_pending_op_list(self, op_list: Iterable[UserOp]):
         # This will save each of the planning nodes, if any:
-        self._db.upsert_pending_ops(op_list, overwrite=False)
+        self._db.upsert_pending_op_list(op_list, overwrite=False)
 
-    def archive_pending_ops_to_disk(self, op_list: Iterable[UserOp]):
-        self._db.archive_completed_ops(op_list)
+    def archive_completed_op_list(self, op_list: Iterable[UserOp]):
+        self._db.archive_completed_op_list(op_list)

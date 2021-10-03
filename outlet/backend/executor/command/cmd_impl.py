@@ -215,8 +215,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
         else:
             # Seriously rare edge case here.
             # FIXME: if overwrite=true and multiple matches are found, we will overwrite the first match we find. Need to find a cleaner behavior
-            existing_dst_node, existing_raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(
-                self.op.dst_node)
+            existing_dst_node, existing_raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
 
         to_upsert = [src_node]
         to_remove = []
@@ -235,7 +234,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
                 if self.overwrite:
                     # Possibility #2: different node at dst AND overwrite=True -> overwrite existing
                     existing_dst_node = gdrive_client.update_existing_file(name=existing_dst_node.name, mime_type=existing_raw['mimeType'],
-                                                                               goog_id=existing_dst_node.goog_id, local_file_full_path=src_file_path)
+                                                                           goog_id=existing_dst_node.goog_id, local_file_full_path=src_file_path)
                     to_upsert.append(existing_dst_node)
                     if existing_dst_node.uid != self.op.dst_node.uid:
                         to_remove = [self.op.dst_node]
@@ -365,7 +364,8 @@ class CreateGDriveFolderCommand(Command):
 
 class MoveFileGDriveCommand(TwoNodeCommand):
     """
-    Move GDrive -> GDrive. This command cannot be used to overwrite an existing node; for that, use CopyFileGDriveCommand.
+    Move GDrive -> GDrive. The dst node is expected to have the same UID & goog_id as the src node, but different parent node[s].
+    This command cannot be used to overwrite an existing node; for that, use CopyFileGDriveCommand.
     """
 
     def __init__(self, uid: UID, op: UserOp):
@@ -379,17 +379,21 @@ class MoveFileGDriveCommand(TwoNodeCommand):
         return True
 
     def execute(self, cxt: CommandContext):
-        assert isinstance(self.op.dst_node, GDriveFile), f'For {self.op.dst_node}'
-        assert isinstance(self.op.src_node, GDriveFile), f'For {self.op.src_node}'
+        assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.uid and self.op.src_node.is_live(), f'Invalid: {self.op.src_node}'
+        assert isinstance(self.op.dst_node, GDriveFile) and self.op.dst_node.uid, f'Invalid {self.op.dst_node}'
+        assert self.op.src_node.device_uid == self.op.dst_node.device_uid, \
+            f'Not the same device_uid: {self.op.src_node.node_identifier}, {self.op.dst_node.node_identifier}'
+        assert self.op.src_node.uid == self.op.dst_node.uid, \
+            f'Src ({self.op.src_node}) & dst ({self.op.dst_node}) should have same UID!'
+        assert self.op.src_node.goog_id == self.op.dst_node.goog_id, \
+            f'Src ({self.op.src_node}) & dst ({self.op.dst_node}) should have same goog_id!'
+        assert not self.op.src_node.has_same_parents(self.op.dst_node), \
+            f'Src ({self.op.src_node}) & dst ({self.op.dst_node}) should have different parents!'
+
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
         src_parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.src_node)
         dst_parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.dst_node)
-        # Really, this node should have the same goog_id as the src_node, but that would violate our model because it would require
-        # two identical node UIDs in the same tree. Thus, think of the dst_node here as a "temporary node"
-        assert not self.op.dst_node.goog_id
 
-        assert self.op.src_node.device_uid == self.op.dst_node.device_uid, \
-            f'Not the same device_uid: {self.op.src_node.node_identifier}, {self.op.dst_node.node_identifier}'
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
         existing_src = gdrive_client.get_existing_node_by_id(self.op.src_node.goog_id)
         if not existing_src:
@@ -406,10 +410,11 @@ class MoveFileGDriveCommand(TwoNodeCommand):
         goog_node = gdrive_client.modify_meta(goog_id=self.op.src_node.goog_id, remove_parents=[src_parent_goog_id_list],
                                               add_parents=[dst_parent_goog_id_list], name=self.op.dst_node.name)
 
-        assert goog_node.name == self.op.dst_node.name and goog_node.uid == self.op.src_node.uid
+        assert goog_node.name == self.op.dst_node.name and goog_node.uid == self.op.src_node.uid and goog_node.goog_id == self.op.src_node.goog_id, \
+            f'Bad result: {goog_node}'
 
-        # Update master cache. The dst_node must be removed (it has a temporary UID). The src_node will be updated with the returned info
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node], to_remove=[self.op.dst_node])
+        # Update master cache. Treat as an upsert, and let the master cache figure out what nodes need to be removed
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node])
 
 
 class CopyFileGDriveCommand(CopyNodeCommand):
