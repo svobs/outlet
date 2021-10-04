@@ -177,21 +177,60 @@ class DragOperation(IntEnum):
     DELETE = 4
 
 
-# For operations where the src dir and dst dir have same name
+# For operations where the src dir and dst dir have same name but different content. This determines
+# # the operations which are created at the time of drop.
 class DirConflictResolution(IntEnum):
-    PROMPT = 1  # Prompt user every time and display remaining options TODO: also show live preview
-    SKIP_DST_DIRECTORY = 2  # Leave dst dir alone. Note: For MOVE operations, this will leave the src dir as-is
-    REPLACE_DST_DIR = 3  # Essentially delete all children in dst dir and replace it with src dir contents
-    MERGE = 4  # Dive into src & dst dirs and follow FileConflictResolution rules for files
+    PROMPT = 1
+    """Prompt user every time and display remaining options TODO: also show live preview"""
+
+    SKIP = 2
+    """Leave dst dir alone. Note: For MOVE operations, this will leave the src dir as-is"""
+
+    REPLACE = 3
+    """Essentially delete all children in dst dir and replace it with src dir contents"""
+
+    MERGE = 4
+    """Recursively dive into src & dst dirs and follow FileConflictResolution rules for each file"""
 
 
-# For operations where the src file and dst file has same same name but different content
-class FileonflictResolution(IntEnum):
-    PROMPT = 1  # Prompt user every time and display remaining options TODO: also show preview of changes
-    SKIP = 2  # Leave the existing dst file. Note: for MOVE op, this will leave the src file as-is
-    REPLACE = 3  # Update/replace the dst file with the src file
-    RENAME_DST = 4  # Rename the target file so there is no collision (i.e. keep both files)
+# For operations where the src file and dst file has same same name but different content. This determines
+# the operations which are created at the time of drop.
+class FileConflictResolution(IntEnum):
+    PROMPT = 1
+    """Prompt user every time and display remaining options
+    TODO: also show preview of changes"""
 
+    SKIP_ALWAYS = 2
+    """Leave the existing dst file."""
+
+    REPLACE_ALWAYS = 4
+    """Update/replace the dst file with the src file"""
+
+    REPLACE_IF_NEWER_VER = 5
+    """Update/replace the dst file with the src file IF the src file is different AND has a newer modify TS"""
+
+    RENAME_ALWAYS = 3
+    """Rename the target file so there is no collision (i.e. keep both files).
+    This can result in files with duplicate content being created side by side."""
+
+    RENAME_IF_NEWER_VER = 6
+    """Rename the target file so there is no collision (i.e. keep both files) if the src file is has different content and has a later modify TS"""
+
+
+class MovePolicy(IntEnum):
+    DELETE_SRC_ALWAYS = 1
+    """Delete the src node EVEN IF it is skipped. NOTE: this will likely result in loss of data"""
+
+    DELETE_SRC_IF_NOT_SKIPPED = 2
+    """Delete the src node if it ends up represented at the dst (even if it's not copied).
+    Examples:
+    1. User drops with REPLACE_IF_NEWER_VER, and the dst node is found to be a newer version than the src node:
+       -> Dst node is not copied. Src node is not deleted
+    2. User drops with RENAME_IF_NEWER_VER, and the dst file is found to be same version as the src file:
+       -> Dst node is not copied. Src node is deleted because it is same as dst
+    3. User drops with SKIP_ALWAYS, and dst file has the same name as the src file:
+       -> Dst node is not copied. Src node is not deleted
+   """
 
 # Note: if user does a MOVE with DirConflictResolution.MERGE, FileConflictResolution.SKIP, then files which
 # couldn't be moved will be left behind. The user can chose to delete them afterwards
