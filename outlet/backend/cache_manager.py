@@ -24,7 +24,8 @@ from backend.tree_store.local.master_local import LocalDiskMasterStore
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
-from constants import CACHE_LOAD_TIMEOUT_SEC, DragOperation, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, \
+    INDEX_FILE_SUFFIX, \
     IS_LINUX, IS_MACOS, IS_WINDOWS, MAIN_REGISTRY_FILE_NAME, NULL_UID, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType, UID_GOOG_ID_FILE_NAME, \
     UID_PATH_FILE_NAME
@@ -1216,8 +1217,12 @@ class CacheManager(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID,
-                           drag_operation: DragOperation) -> bool:
+                           drag_operation: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy) -> bool:
         assert drag_operation is not None and isinstance(drag_operation, DragOperation), f'Invalid drag operation: {drag_operation}'
+        assert dir_conflict_policy is not None and isinstance(dir_conflict_policy, DirConflictPolicy), \
+            f'Invalid dir_conflict_policy: {dir_conflict_policy}'
+        assert file_conflict_policy is not None and isinstance(file_conflict_policy, FileConflictPolicy), \
+            f'Invalid file_conflict_policy: {file_conflict_policy}'
         logger.info(f'Got drop: {drag_operation.name} {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}"'
                     f' dst_guid={dst_guid} is_into={is_into}')
 
@@ -1261,17 +1266,15 @@ class CacheManager(HasLifecycle):
             change_maker = ChangeMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
                                        tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
 
-            if drag_operation == DragOperation.COPY:
-                change_maker.drag_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.CP)
-            elif drag_operation == DragOperation.MOVE:
-                change_maker.drag_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.MV)
+            if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
+                change_maker.drag_nodes_left_to_right(src_sn_list, dst_sn, drag_operation, dir_conflict_policy, file_conflict_policy)
             elif drag_operation == DragOperation.LINK:
                 # TODO: link operation
                 raise NotImplementedError('LINK drag operation is not yet supported!')
             else:
                 raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
             # This should fire listeners which ultimately populate the tree:
-            op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_op_list()
+            op_list: Iterable[UserOp] = change_maker.get_all_op_list()
             self.enqueue_op_batch(op_list)
             return True
 

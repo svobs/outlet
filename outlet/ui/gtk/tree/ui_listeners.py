@@ -5,7 +5,7 @@ import gi
 from pydispatch import dispatcher
 
 from backend.diff.change_maker import SPIDNodePair
-from constants import DragOperation, TreeID, TreeType
+from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import GUID
@@ -27,11 +27,14 @@ class DragAndDropData:
     CLASS DragAndDropData
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, dd_uid: UID, src_treecon, sn_list: List[SPIDNodePair], drag_op: DragOperation):
+    def __init__(self, dd_uid: UID, src_treecon, sn_list: List[SPIDNodePair], drag_op: DragOperation,
+                 dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy):
         self.dd_uid: UID = dd_uid
         self.src_treecon = src_treecon
         self.sn_list: List[SPIDNodePair] = sn_list
         self.drag_op: DragOperation = drag_op
+        self.dir_conflict_policy: DirConflictPolicy = dir_conflict_policy
+        self.file_conflict_policy: FileConflictPolicy = file_conflict_policy
 
 
 class TreeUiListeners(HasLifecycle):
@@ -142,8 +145,10 @@ class TreeUiListeners(HasLifecycle):
         if selected_sn_list:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.app.ui_uid_generator.next_uid()
-            action = drag_context.get_selected_action()  # TODO: add support for more actions. For now, assume CP
-            drag_data = DragAndDropData(dd_uid, self.con, selected_sn_list, DragOperation.COPY)
+            action = drag_context.get_selected_action()
+            # FIXME: add support for more operations and conflict policies!
+            drag_data = DragAndDropData(dd_uid, self.con, selected_sn_list,
+                                        DragOperation.COPY, DirConflictPolicy.MERGE, FileConflictPolicy.REPLACE_IF_NEWER_VER)
             dispatcher.send(signal=Signal.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
             selection_data.set_text(str(dd_uid), -1)
         else:
@@ -192,7 +197,9 @@ class TreeUiListeners(HasLifecycle):
 
         src_guid_list = [sn.spid.guid for sn in drag_data.sn_list]
         self.con.app.backend.drop_dragged_nodes(src_tree_id=drag_data.src_treecon.tree_id, src_guid_list=src_guid_list, is_into=is_into,
-                                                dst_tree_id=self.con.tree_id, dst_guid=sn_dst.spid.guid, drag_operation=drag_data.drag_op)
+                                                dst_tree_id=self.con.tree_id, dst_guid=sn_dst.spid.guid, drag_operation=drag_data.drag_op,
+                                                dir_conflict_policy=drag_data.dir_conflict_policy,
+                                                file_conflict_policy=drag_data.file_conflict_policy)
 
     def _check_drop(self):
         """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.

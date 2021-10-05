@@ -3,10 +3,10 @@ import logging
 import os
 import pathlib
 from collections import deque
-from typing import Callable, Deque, Dict, List, Optional, Tuple
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple
 
 from backend.display_tree.change_tree import ChangeTree
-from constants import DIFF_DEBUG_ENABLED, TrashStatus, TreeID, TreeType
+from constants import DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, FileConflictPolicy, TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
@@ -236,16 +236,13 @@ class ChangeMaker:
         self.left_side = OneSide(backend, tree_id_left, left_tree_root_sn, batch_uid, tree_id_left_src)
         self.right_side = OneSide(backend, tree_id_right, right_tree_root_sn, batch_uid, tree_id_right_src)
 
-    # FIXME: change method sig: use DragOperation instead of UserOpType. Add DirMergeStrategy
-    def drag_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
-        """Populates the destination parent in "change_tree_right" with the given source nodes.
-        We won't deal with update logic here. A node being copied will be treated as an "add" unless a node exists at the given path,
-        in which case the conflict strategy determines whether it's it's an update or something else."""
+    def drag_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair,
+                                 drag_op: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy):
+        """Populates the destination parent in "change_tree_right" with a subset of the given source nodes
+         based on the given DragOperation and policies. NOTE: this may actually result in UserOps created in the left
+         ChangeTree (in particular RM), so use the get_all_op_list() method to get the complete list of resulting UserOps."""
         assert sn_dst_parent and sn_dst_parent.node.is_dir()
-
-        # FIXME: this logic is flawed! (jeez, who wrote this... ;-)) We cannot use a single op type for all nodes.
-        # FIXME: Instead, take an argument for the folder merge strategy and use that logic
-        assert op_type == UserOpType.CP or op_type == UserOpType.MV or op_type == UserOpType.UP
+        assert drag_op == DragOperation.COPY or drag_op == DragOperation.MOVE
         dst_parent_path: str = sn_dst_parent.spid.get_single_path()
 
         # We won't deal with update logic here. A node being copied will be treated as an "add"
@@ -273,6 +270,10 @@ class ChangeMaker:
                 dst_path = os.path.join(dst_parent_path, src_sn.node.name)
                 dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(src_sn, dst_path)
                 self.right_side.add_node_and_new_op(op_type=op_type, src_sn=src_sn, dst_sn=dst_sn)
+
+    def get_all_op_list(self) -> List[UserOp]:
+        """Returns all UserOps, from both sides."""
+        return [] + self.left_side.change_tree.get_op_list() + self.right_side.change_tree.get_op_list()
 
     def _build_child_spid(self, child_node: Node, parent_path: str):
         return self.backend.node_identifier_factory.for_values(uid=child_node.uid, device_uid=child_node.device_uid,
@@ -344,11 +345,11 @@ class ChangeMaker:
         self.left_side.add_node_and_new_op(op_type=UserOpType.MV, src_sn=sn_s, dst_sn=self._migrate_node_to_left(sn_r))
 
     def append_cp_op_s_to_r(self, sn_s: SPIDNodePair):
-        """COPY: Left -> Right"""
+        """COPY: Left -> Right. (Node on Right does not yet exist)"""
         self.right_side.add_node_and_new_op(op_type=UserOpType.CP, src_sn=sn_s, dst_sn=self._migrate_node_to_right(sn_s))
 
     def append_cp_op_r_to_s(self, sn_r: SPIDNodePair):
-        """COPY: Left <- Right"""
+        """COPY: Left <- Right. (Node on Left does not yet exist)"""
         self.left_side.add_node_and_new_op(op_type=UserOpType.CP, src_sn=sn_r, dst_sn=self._migrate_node_to_left(sn_r))
 
     def append_up_op_s_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):

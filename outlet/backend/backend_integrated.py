@@ -8,7 +8,7 @@ from backend.diff.task.tree_diff_task import TreeDiffTask
 from backend.executor.central import CentralExecutor, ExecPriority
 from backend.cache_manager import CacheManager
 from backend.icon_store import IconStorePy
-from constants import DragOperation, IconId, TreeID
+from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeID
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -123,8 +123,9 @@ class BackendIntegrated(OutletBackend):
         return self.cacheman.get_rows_of_interest(tree_id)
 
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID,
-                           drag_operation: DragOperation) -> bool:
-        return self.cacheman.drop_dragged_nodes(src_tree_id, src_guid_list, is_into, dst_tree_id, dst_guid, drag_operation)
+                           drag_operation: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy) -> bool:
+        return self.cacheman.drop_dragged_nodes(src_tree_id, src_guid_list, is_into, dst_tree_id, dst_guid,
+                                                drag_operation, dir_conflict_policy, file_conflict_policy)
 
     def start_diff_trees(self, tree_id_left: TreeID, tree_id_right: TreeID) -> DiffResultTreeIds:
         """Starts the Diff Trees task async"""

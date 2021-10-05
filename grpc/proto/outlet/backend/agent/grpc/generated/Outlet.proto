@@ -147,6 +147,8 @@ message DragDrop_Request {
 	string dst_guid = 4;
 	bool is_into = 5;
 	uint32 drag_operation = 6;
+	uint32 dir_conflict_policy = 7;
+	uint32 file_conflict_policy = 8;
 }
 
 message RefreshSubtree_Request {

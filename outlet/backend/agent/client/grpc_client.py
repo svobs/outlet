@@ -22,7 +22,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     PutConfig_Request, RefreshSubtree_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
     SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
-from constants import DragOperation, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeID, ZEROCONF_SERVICE_TYPE
+from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeID, ZEROCONF_SERVICE_TYPE
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -318,13 +318,15 @@ class BackendGRPCClient(OutletBackend):
         return self._converter.sn_list_from_grpc(response.ancestor_list)
 
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID,
-                           drag_operation: DragOperation) -> bool:
+                           drag_operation: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy) -> bool:
         request = DragDrop_Request()
         request.src_tree_id = src_tree_id
         request.dst_tree_id = dst_tree_id
         request.is_into = is_into
         request.dst_guid = dst_guid
         request.drag_operation = drag_operation
+        request.dir_conflict_policy = dir_conflict_policy
+        request.file_conflict_policy = file_conflict_policy
 
         for src_guid in src_guid_list:
             request.src_guid_list.append(src_guid)
