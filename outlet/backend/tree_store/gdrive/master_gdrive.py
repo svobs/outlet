@@ -408,7 +408,7 @@ class GDriveMasterStore(TreeStore):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'remove_subtree(): locked={self._struct_lock.locked()}')
             with self._struct_lock:
-                subtree_nodes: List[GDriveNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root.uid)
+                subtree_nodes: List[GDriveNode] = self.get_subtree_bfs(subtree_root.node_identifier)
                 logger.info(f'Removing subtree with {len(subtree_nodes)} nodes (to_trash={to_trash})')
                 self._execute_write_op(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
         else:
@@ -491,6 +491,10 @@ class GDriveMasterStore(TreeStore):
         return uid_list
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
+        # FIXME: there is no good way to do this without first loading the GDrive master tree. At least find a way to load the tree on demand here.
+        if not self._memstore.is_loaded():
+            raise CacheNotLoadedError(f'get_node_list_for_path_list(): GDrive cache not loaded!')
+
         return self._memstore.master_tree.get_node_list_for_path_list(path_list)
 
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
@@ -508,7 +512,7 @@ class GDriveMasterStore(TreeStore):
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         if not self._memstore.is_loaded():
-            raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}(: GDrive cache not loaded!')
+            raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}): GDrive cache not loaded!')
         return self._memstore.master_tree.get_node_for_uid(uid)
 
     def read_node_for_uid(self, node_uid: UID) -> Optional[GDriveNode]:
@@ -662,6 +666,9 @@ class GDriveMasterStore(TreeStore):
             # Just fail for now:
             raise RuntimeError(f'Cannot get path list ({path_list}): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
+
+    def get_subtree_bfs(self, subtree_root: GDriveIdentifier) -> List[GDriveNode]:
+        return self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)

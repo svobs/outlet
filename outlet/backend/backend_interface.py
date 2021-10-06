@@ -92,9 +92,12 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) -> \
-            Iterable[SPIDNodePair]:
-        """If max_results is 0, unlimited nodes are returned. If nonzero and actual node count exceeds this, ResultsExceededError is raised"""
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, use_filter: bool = False,
+                       max_results: int = 0) -> Iterable[SPIDNodePair]:
+        """Gets the children for the given SPID. This is intended for single-path identifier trees (i.e. DisplayTrees).
+        Includes support for searching ChangeTrees (note that the tree_id param is required).
+        If use_filter==True, will filter the results using the current FilterState for the tree, if any; if use_filter==False, will not filter.
+        If max_results==0, unlimited nodes are returned. If nonzero and actual node count exceeds this, ResultsExceededError is raised"""
         pass
 
     @abstractmethod

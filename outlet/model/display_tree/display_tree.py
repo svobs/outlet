@@ -136,7 +136,7 @@ class DisplayTree:
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, is_expanding_parent: bool = False) -> Iterable[SPIDNodePair]:
         # if is_expanding_parent==True, this will also tell the backend to record the parent as expanded
         assert parent_spid, 'Arg "parent_spid" cannot be null!'
-        return self.backend.get_child_list(parent_spid, self.tree_id, is_expanding_parent=is_expanding_parent,
+        return self.backend.get_child_list(parent_spid, self.tree_id, is_expanding_parent=is_expanding_parent, use_filter=True,
                                            max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:

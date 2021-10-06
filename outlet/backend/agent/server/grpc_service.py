@@ -399,12 +399,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def get_child_list_for_spid(self, request, context):
-        max_results = request.max_results
-
         response = GetChildList_Response()
         parent_spid = self._converter.node_identifier_from_grpc(request.parent_spid)
         try:
-            child_list = self.cacheman.get_child_list(parent_spid, request.tree_id, request.is_expanding_parent, max_results)
+            use_filter = True
+            child_list = self.cacheman.get_child_list(parent_spid, request.tree_id, request.is_expanding_parent, use_filter, request.max_results)
             self._converter.sn_list_to_grpc(child_list, response.child_list)
             if TRACE_ENABLED:
                 logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying children: {child_list}')
@@ -413,7 +412,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         except ResultsExceededError as err:
             response.result_exceeded_count = err.actual_count
             logger.debug(f'[{request.tree_id}] Too many children ({response.result_exceeded_count}) for {parent_spid}'
-                         f' (max was {max_results})')
+                         f' (max was {request.max_results})')
 
         return response
 

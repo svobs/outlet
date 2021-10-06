@@ -586,6 +586,9 @@ class LocalDiskMasterStore(TreeStore):
     # Various public getters
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def get_subtree_bfs(self, subtree_root: LocalNodeIdentifier) -> List[LocalNode]:
+        return self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid)
+
     @ensure_locked
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         if SUPER_DEBUG_ENABLED:
@@ -596,7 +599,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalNode]:
         """
-        Falls back to diskstore if not found in memstore
+        Checks (1) memstore, (2) diskstore, (3) live disk
         """
         node_list: List[LocalNode] = []
         for full_path in path_list:

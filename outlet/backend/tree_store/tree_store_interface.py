@@ -70,6 +70,13 @@ class TreeStore(HasLifecycle, ABC):
 
     @abstractmethod
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
+        """Gets any nodes associated for the list of paths.
+        Checks (1) the in-memory cache first, and if that's a miss, checks (2) the disk cache. If both of those miss, checks (3) the live source.
+        For GDrive stores, we cannot guarantee that a single path will have only one node, or a single node will have only one path."""
+        pass
+
+    @abstractmethod
+    def get_subtree_bfs(self, subtree_root: NodeIdentifier) -> List[Node]:
         pass
 
     @abstractmethod

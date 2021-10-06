@@ -922,8 +922,8 @@ class CacheManager(HasLifecycle):
                 continue
 
             if node_to_delete.is_dir():
-                # Expand dir nodes. ChangeManager will not remove non-empty dirs
-                expanded_node_list = self._get_subtree_for_node(node_to_delete)
+                # Expand dir nodes. OpManager will not remove non-empty dirs
+                expanded_node_list = self.get_subtree_bfs(node_to_delete.node_identifier)
                 for node in expanded_node_list:
                     # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
@@ -935,9 +935,8 @@ class CacheManager(HasLifecycle):
 
         self.enqueue_op_batch(op_list)
 
-    def _get_subtree_for_node(self, subtree_root: Node) -> List[Node]:
-        subtree_files, subtree_dirs = self.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
-        return subtree_files + subtree_dirs
+    def get_subtree_bfs(self, subtree_root: NodeIdentifier) -> List[Node]:
+        return self._get_store_for_device_uid(subtree_root.device_uid).get_subtree_bfs(subtree_root)
 
     def remove_subtree(self, node: Node, to_trash: bool):
         """NOTE: this is only called for tests currently."""
@@ -973,14 +972,21 @@ class CacheManager(HasLifecycle):
         path_list = ensure_list(path_list)
         return self._get_store_for_device_uid(device_uid).get_node_list_for_path_list(path_list)
 
-    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, max_results: int = 0) \
-            -> List[SPIDNodePair]:
-        if TRACE_ENABLED:
-            logger.debug(f'[{tree_id}] get_child_list() entered with parent_spid={parent_spid} is_expanding_parent={is_expanding_parent}')
+    def get_child_list(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID, is_expanding_parent: bool = False, use_filter: bool = False,
+                       max_results: int = 0) -> List[SPIDNodePair]:
+        """This method is a mess.
+        Gets the children for the given SPID. This is intended for single-path identifier trees (i.e. DisplayTrees).
+        Includes support for searching ChangeTrees (note that the tree_id param is required).
+        If use_filter==True, will filter the results using the current FilterState for the tree, if any; if use_filter==False, will not filter.
+        If max_results==0, unlimited nodes are returned. If nonzero and actual node count exceeds this, ResultsExceededError is raised."""
+        if not tree_id:
+            raise RuntimeError('get_child_list(): tree_id not provided!')
         if not parent_spid:
             raise RuntimeError('get_child_list(): parent_spid not provided!')
         if not isinstance(parent_spid, SinglePathNodeIdentifier):
             raise RuntimeError(f'get_child_list(): not a SPID (type={type(parent_spid)}): {parent_spid}')
+        if TRACE_ENABLED:
+            logger.debug(f'[{tree_id}] get_child_list() entered with parent_spid={parent_spid} is_expanding_parent={is_expanding_parent}')
 
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not tree_meta:
@@ -991,14 +997,14 @@ class CacheManager(HasLifecycle):
 
         if tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Change trees have their own storage of nodes (not in master caches)
-            if tree_meta.filter_state and tree_meta.filter_state.has_criteria():
+            if use_filter and tree_meta.filter_state and tree_meta.filter_state.has_criteria():
                 child_list = tree_meta.filter_state.get_filtered_child_list(parent_spid, tree_meta.change_tree)
             else:
                 child_list = tree_meta.change_tree.get_child_list_for_spid(parent_spid)
 
         else:
             # Regular tree
-            filter_state = tree_meta.filter_state
+            filter_state = tree_meta.filter_state if use_filter else None
             device_uid: UID = parent_spid.device_uid
             child_list = self._get_store_for_device_uid(device_uid).get_child_list_for_spid(parent_spid, filter_state)
 
@@ -1208,7 +1214,9 @@ class CacheManager(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
-        """This will consult both the in-memory and disk caches"""
+        """This will consult both the in-memory and disk caches.
+        This is a convenience function which omits GDrive results because that would need to return a list
+        (for that, see get_node_list_for_path_list().)"""
         if not full_path:
             raise RuntimeError('get_node_for_local_path(): full_path not specified!')
         return self._this_disk_local_store.read_node_for_path(full_path)

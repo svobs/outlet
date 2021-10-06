@@ -239,28 +239,26 @@ class ChangeMaker:
     def drag_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair,
                                  drag_op: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy):
         """Populates the destination parent in "change_tree_right" with a subset of the given source nodes
-         based on the given DragOperation and policies. NOTE: this may actually result in UserOps created in the left
-         ChangeTree (in particular RM), so use the get_all_op_list() method to get the complete list of resulting UserOps."""
+        based on the given DragOperation and policies. NOTE: this may actually result in UserOps created in the left
+        ChangeTree (in particular RM), so use the get_all_op_list() method to get the complete list of resulting UserOps."""
+
         assert sn_dst_parent and sn_dst_parent.node.is_dir()
-        assert drag_op == DragOperation.COPY or drag_op == DragOperation.MOVE
+        if not (drag_op == DragOperation.COPY or drag_op == DragOperation.MOVE):
+            raise RuntimeError(f'Unsupported DragOperation: {drag_op.name}')
+
+        logger.debug(f'Preparing {len(src_sn_list)} nodes for {drag_op.name}...')
+
         dst_parent_path: str = sn_dst_parent.spid.get_single_path()
 
-        # We won't deal with update logic here. A node being copied will be treated as an "add"
-        # unless a node exists at the given path, in which case the conflict strategy determines whether it's
-        # it's an update or something else
-        # TODO: disregard this block ^^^
-
-        logger.debug(f'Preparing {len(src_sn_list)} nodes for copy...')
+        # FIXME FIXME FIXME this is all broken:
 
         for src_sn in src_sn_list:
+            # Remember that each individual drop will only be dropping
             if src_sn.node.is_dir():
-                # Unpack dir and add it and its descendants:
-                src_parent_path = src_sn.spid.get_single_parent_path()
-
-                subtree_sn_list: List[SPIDNodePair] = self._get_file_sn_list_for_left_subtree(src_sn)
+                subtree_node_list: List[Node] = self.backend.cacheman.get_subtree_bfs(src_sn.node.node_identifier)
                 logger.debug(f'Unpacking subtree with {len(subtree_sn_list)} nodes for copy...')
                 for subtree_sn in subtree_sn_list:
-                    dst_rel_path: str = file_util.strip_root(subtree_sn.spid.get_single_path(), src_parent_path)
+                    dst_rel_path: str = file_util.strip_root(subtree_sn.spid.get_single_path(), src_sn.spid.get_single_parent_path())
                     dst_path = os.path.join(dst_parent_path, dst_rel_path)
                     # this will add any missing ancestors, and populate the parent list if applicable:
                     dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(subtree_sn, dst_path)
@@ -280,8 +278,10 @@ class ChangeMaker:
                                                                tree_type=child_node.tree_type,
                                                                path_list=os.path.join(parent_path, child_node.name), must_be_single_path=True)
 
-    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id_src: TreeID):
-        """Note: here, param "tree_id_src" indicates which tree_id from which to request nodes from CacheManager (or None to indicate master cache)"""
+    def visit_each_file_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id_src: TreeID):
+        """Note: here, param "tree_id_src" indicates which tree_id from which to request nodes from CacheManager
+        (via repeated calls to get_child_list()). This includes ChangeTrees, if tree_id_src resolves to a ChangeTree."""
+
         assert isinstance(subtree_root, Tuple), \
             f'Expected NamedTuple with SinglePathNodeIdentifier but got {type(subtree_root)}: {subtree_root}'
         queue: Deque[SPIDNodePair] = collections.deque()
@@ -309,13 +309,7 @@ class ChangeMaker:
                     count_file_nodes += 1
                     on_file_found(sn)
 
-        logger.debug(f'[{tree_id_src}] visit_each_sn_for_subtree(): Visited {count_file_nodes} file nodes out of {count_total_nodes} total nodes')
-
-    def _get_file_sn_list_for_left_subtree(self, src_sn: SPIDNodePair):
-        subtree_files: List[SPIDNodePair] = []
-
-        self.visit_each_sn_for_subtree(src_sn, lambda file_sn: subtree_files.append(file_sn), self.left_side.tree_id_src)
-        return subtree_files
+        logger.debug(f'[{tree_id_src}] visit_each_file_for_subtree(): Visited {count_file_nodes} file nodes out of {count_total_nodes} total nodes')
 
     @staticmethod
     def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier) -> str:
