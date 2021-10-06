@@ -923,7 +923,7 @@ class CacheManager(HasLifecycle):
 
             if node_to_delete.is_dir():
                 # Expand dir nodes. OpManager will not remove non-empty dirs
-                expanded_node_list = self.get_subtree_bfs(node_to_delete.node_identifier)
+                expanded_node_list = self.get_subtree_bfs_node_list(node_to_delete.node_identifier)
                 for node in expanded_node_list:
                     # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
@@ -935,8 +935,11 @@ class CacheManager(HasLifecycle):
 
         self.enqueue_op_batch(op_list)
 
-    def get_subtree_bfs(self, subtree_root: NodeIdentifier) -> List[Node]:
-        return self._get_store_for_device_uid(subtree_root.device_uid).get_subtree_bfs(subtree_root)
+    def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[Node]:
+        return self._get_store_for_device_uid(subtree_root.device_uid).get_subtree_bfs_node_list(subtree_root)
+
+    def get_subtree_bfs_sn_list(self, subtree_root_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
+        return self._get_store_for_device_uid(subtree_root_spid.device_uid).get_subtree_bfs_sn_list()
 
     def remove_subtree(self, node: Node, to_trash: bool):
         """NOTE: this is only called for tests currently."""

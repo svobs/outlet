@@ -136,7 +136,7 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
                         dir_queue.append(child)
                     action_func(child)
 
-    def get_subtree_bfs(self, subtree_root_identifier: IdentifierT = None) -> List[NodeT]:
+    def get_subtree_bfs_node_list(self, subtree_root_identifier: IdentifierT = None) -> List[NodeT]:
         """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
         of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
         """

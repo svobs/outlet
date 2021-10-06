@@ -61,6 +61,10 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
+    def to_sn(self, node: Node, single_path: Optional[str]) -> SPIDNodePair:
+        pass
+
+    @abstractmethod
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
         pass
 
@@ -76,7 +80,11 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_subtree_bfs(self, subtree_root: NodeIdentifier) -> List[Node]:
+    def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[Node]:
+        pass
+
+    @abstractmethod
+    def get_subtree_bfs_sn_list(self, subtree_root_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
         pass
 
     @abstractmethod

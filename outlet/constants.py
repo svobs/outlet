@@ -230,12 +230,15 @@ class FileConflictPolicy(IntEnum):
     """Rename the target file so there is no collision (i.e. keep both files) if the src file is has different content"""
 
 
-class MovePolicy(IntEnum):
+class SrcNodeMovePolicy(IntEnum):
     DELETE_SRC_ALWAYS = 1
-    """Delete the src node EVEN IF it is skipped. NOTE: this will likely result in loss of data"""
+    """Delete the src node EVEN IF it is skipped. NOTE: this will likely result in loss of data if user doesn't know what they are doing"""
 
     DELETE_SRC_IF_NOT_SKIPPED = 2
-    """Delete the src node if it ends up represented at the dst (even if it's not copied).
+    """Delete the src node if a node with the same content is represented at the dst. This corresponds to the more intuitive sense of 
+    "the move was successful".
+    Do not delete if (A) the operation in question ended up following the SKIP policy, (B) it ended up following a policy with a conditional test
+    which failed to be true. All other situations will result in delete.
     Examples:
     1. User drops with REPLACE_IF_NEWER_VER, and the dst node is found to be a newer version than the src node:
        -> Dst node is not copied. Src node is not deleted

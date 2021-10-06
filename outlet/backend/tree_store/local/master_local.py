@@ -294,7 +294,7 @@ class LocalDiskMasterStore(TreeStore):
         if not did_rescan:
             logger.debug(f'[{tree_id}] Disk scan was skipped; checking cached nodes for missing signatures')
             # Check whether any nodes still need their signatures filled in, and enqueue them if so:
-            for node in self._memstore.master_tree.get_subtree_bfs(requested_subtree_root.node_uid):
+            for node in self._memstore.master_tree.get_subtree_bfs_node_list(requested_subtree_root.node_uid):
                 if node.is_file() and not node.md5:
                     dispatcher.send(signal=Signal.NODE_NEEDS_SIG_CALC, sender=tree_id, node=node)
 
@@ -530,10 +530,10 @@ class LocalDiskMasterStore(TreeStore):
             if existing_dst_subroot_node:
                 # This will be very rare and probably means there's a bug, but let's try to handle it:
                 logger.warning(f'Subroot node already exists at MV dst; will remove all nodes in tree: {existing_dst_subroot_node.node_identifier}')
-                existing_dst_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(dst_uid)
+                existing_dst_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(dst_uid)
                 dst_subtree.remove_node_list = existing_dst_node_list
 
-            existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(src_subroot_node.uid)
+            existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(src_subroot_node.uid)
 
         if existing_src_node_list:
             # Use cached list of existing nodes in the old location to infer the nodes in the new location:
@@ -586,8 +586,11 @@ class LocalDiskMasterStore(TreeStore):
     # Various public getters
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_subtree_bfs(self, subtree_root: LocalNodeIdentifier) -> List[LocalNode]:
-        return self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid)
+    def get_subtree_bfs_node_list(self, subtree_root: LocalNodeIdentifier) -> List[LocalNode]:
+        return self._memstore.master_tree.get_subtree_bfs_node_list(subtree_root.node_uid)
+
+    def get_subtree_bfs_sn_list(self, subtree_root_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
+        return [self.to_sn(x) for x in self._memstore.master_tree.get_subtree_bfs_sn_list(subtree_root_spid)]
 
     @ensure_locked
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
@@ -637,7 +640,7 @@ class LocalDiskMasterStore(TreeStore):
             self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
         if cache_info:
             if cache_info.is_loaded:
-                return self._memstore.master_tree.get_subtree_bfs(parent_spid.node_uid)
+                return self._memstore.master_tree.get_subtree_bfs_node_list(parent_spid.node_uid)
 
             else:
                 # Load subtree nodes directly from disk cache:
@@ -728,8 +731,7 @@ class LocalDiskMasterStore(TreeStore):
         child_list = scanner.scan_single_dir(parent_spid.get_single_path())
         return [self.to_sn(x) for x in child_list]
 
-    @staticmethod
-    def to_sn(node) -> SPIDNodePair:
+    def to_sn(self, node, single_path: Optional[str] = None) -> SPIDNodePair:
         # Trivial for LocalNodes
         return SPIDNodePair(node.node_identifier, node)
 

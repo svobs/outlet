@@ -6,7 +6,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple
 
 from backend.display_tree.change_tree import ChangeTree
-from constants import DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, FileConflictPolicy, TrashStatus, TreeID, TreeType
+from constants import DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, FileConflictPolicy, SUPER_DEBUG_ENABLED, TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode
@@ -245,29 +245,54 @@ class ChangeMaker:
         assert sn_dst_parent and sn_dst_parent.node.is_dir()
         if not (drag_op == DragOperation.COPY or drag_op == DragOperation.MOVE):
             raise RuntimeError(f'Unsupported DragOperation: {drag_op.name}')
+        op_type = UserOpType.CP if drag_op == DragOperation.COPY else UserOpType.MV
 
         logger.debug(f'Preparing {len(src_sn_list)} nodes for {drag_op.name}...')
 
         dst_parent_path: str = sn_dst_parent.spid.get_single_path()
 
-        # FIXME FIXME FIXME this is all broken:
+        dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = self._get_existing_child_name_dict(sn_dst_parent.spid, self.right_side.tree_id_src)
 
         for src_sn in src_sn_list:
-            # Remember that each individual drop will only be dropping
-            if src_sn.node.is_dir():
-                subtree_node_list: List[Node] = self.backend.cacheman.get_subtree_bfs(src_sn.node.node_identifier)
-                logger.debug(f'Unpacking subtree with {len(subtree_sn_list)} nodes for copy...')
-                for subtree_sn in subtree_sn_list:
-                    dst_rel_path: str = file_util.strip_root(subtree_sn.spid.get_single_path(), src_sn.spid.get_single_parent_path())
-                    dst_path = os.path.join(dst_parent_path, dst_rel_path)
-                    # this will add any missing ancestors, and populate the parent list if applicable:
-                    dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(subtree_sn, dst_path)
-                    self.right_side.add_node_and_new_op(op_type=op_type, src_sn=subtree_sn, dst_sn=dst_sn)
+            src_node_name = src_sn.node.name
+            conflicting_dst_sn_list = dst_existing_sn_dict.get(src_node_name)
+
+            if not conflicting_dst_sn_list:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Node "{src_node_name}": no name conflicts found')
+
+                if src_sn.node.is_dir():
+                    subtree_sn_list: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(src_sn.node.node_identifier)
+                    logger.debug(f'Unpacking subtree with {len(subtree_sn_list)} nodes for {drag_op.name}...')
+                    for subtree_sn in subtree_sn_list:
+                        if subtree_sn.node.is_dir() and drag_op == DragOperation.MOVE:
+                            # FIXME: add RM op to left side
+                            pass
+                        else:
+                            dst_rel_path: str = file_util.strip_root(subtree_sn.spid.get_single_path(), src_sn.spid.get_single_parent_path())
+                            dst_path = os.path.join(dst_parent_path, dst_rel_path)
+                            # this will add any missing ancestors, and populate the parent list if applicable:
+                            dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(subtree_sn, dst_path)
+                            self.right_side.add_node_and_new_op(op_type=op_type, src_sn=subtree_sn, dst_sn=dst_sn)
+                else:
+                    # Single file; easy case:
+                    dst_path = os.path.join(dst_parent_path, src_sn.node.name)
+                    dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(src_sn, dst_path)
+                    self.right_side.add_node_and_new_op(op_type=op_type, src_sn=src_sn, dst_sn=dst_sn)
+
             else:
-                # Single file; easy case:
-                dst_path = os.path.join(dst_parent_path, src_sn.node.name)
-                dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(src_sn, dst_path)
-                self.right_side.add_node_and_new_op(op_type=op_type, src_sn=src_sn, dst_sn=dst_sn)
+                # FIXME: handle conflicts
+                pass
+
+    def _get_existing_child_name_dict(self, parent_spid, tree_id):
+        dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = {}
+        for existing_sn in self.backend.cacheman.get_child_list(parent_spid, tree_id=tree_id):
+            name = existing_sn.node.name
+            entry = dst_existing_sn_dict.get(name, [])
+            if not entry:
+                dst_existing_sn_dict[name] = entry
+            entry.append(existing_sn)
+        return dst_existing_sn_dict
 
     def get_all_op_list(self) -> List[UserOp]:
         """Returns all UserOps, from both sides."""

@@ -408,7 +408,7 @@ class GDriveMasterStore(TreeStore):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'remove_subtree(): locked={self._struct_lock.locked()}')
             with self._struct_lock:
-                subtree_nodes: List[GDriveNode] = self.get_subtree_bfs(subtree_root.node_identifier)
+                subtree_nodes: List[GDriveNode] = self.get_subtree_bfs_node_list(subtree_root.node_identifier)
                 logger.info(f'Removing subtree with {len(subtree_nodes)} nodes (to_trash={to_trash})')
                 self._execute_write_op(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
         else:
@@ -667,8 +667,11 @@ class GDriveMasterStore(TreeStore):
             raise RuntimeError(f'Cannot get path list ({path_list}): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
-    def get_subtree_bfs(self, subtree_root: GDriveIdentifier) -> List[GDriveNode]:
-        return self._memstore.master_tree.get_subtree_bfs(subtree_root.node_uid)
+    def get_subtree_bfs_node_list(self, subtree_root: GDriveIdentifier) -> List[GDriveNode]:
+        return self._memstore.master_tree.get_subtree_bfs_node_list(subtree_root.node_uid)
+
+    def get_subtree_bfs_sn_list(self, subtree_root_spid: GDriveSPID) -> List[SPIDNodePair]:
+        return self._memstore.master_tree.get_subtree_bfs_sn_list(subtree_root_spid)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)

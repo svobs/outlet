@@ -451,6 +451,30 @@ class GDriveWholeTree(BaseTree):
 
         return child_sn_list
 
+    def get_subtree_bfs_sn_list(self, subtree_root_spid: GDriveSPID) -> List[SPIDNodePair]:
+        """Identical to get_subtree_bfs_node_list(), but uses GDriveSPIDs / SPIDNodePairs"""
+        if not subtree_root_spid:
+            subtree_root_spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
+
+        subtree_root_node = self.get_node_for_identifier(subtree_root_spid.node_uid)
+        if not subtree_root_node:
+            return []
+
+        subtree_root_sn = self.to_sn(subtree_root_node, subtree_root_spid.get_single_path())
+
+        bfs_list: List[SPIDNodePair] = []
+
+        sn_queue: Deque[SPIDNodePair] = deque()
+        sn_queue.append(subtree_root_sn)
+
+        while len(sn_queue) > 0:
+            sn = sn_queue.popleft()
+            bfs_list.append(sn)
+            for child_sn in self.get_child_list_for_spid(sn.spid):
+                sn_queue.append(child_sn)
+
+        return bfs_list
+
     def get_child_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self.parent_child_dict.get(node.uid, [])
 
