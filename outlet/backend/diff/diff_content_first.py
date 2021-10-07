@@ -288,7 +288,7 @@ class ContentFirstDiffer(ChangeMaker):
         sw = Stopwatch()
         for sn_r in state.sn_list_only_r:
             if compare_paths_also:
-                right_on_left_path: str = self.get_path_moved_to_left(sn_r.spid)
+                right_on_left_path: str = self.migrate_rel_path_to_left_tree(sn_r.spid)
                 if state.src_meta_s.path_dict.get(right_on_left_path):
                     # NODE UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                     continue
@@ -312,7 +312,7 @@ class ContentFirstDiffer(ChangeMaker):
         return self.left_side.change_tree, self.right_side.change_tree
 
     def _create_update_pair_for_left_sn(self, state: DiffState, sn_s: SPIDNodePair) -> bool:
-        left_on_right_path: str = self.get_path_moved_to_right(sn_s.spid)
+        left_on_right_path: str = self.migrate_rel_path_to_right_tree(sn_s.spid)
         existing_sn_r: Optional[SPIDNodePair] = state.src_meta_r.path_dict.get(left_on_right_path, None)
         if existing_sn_r:
             # Path match: NODE UPDATED

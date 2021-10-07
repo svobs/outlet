@@ -49,19 +49,19 @@ class OneSide:
     def get_root_sn(self) -> SPIDNodePair:
         return self.change_tree.get_root_sn()
 
-    def add_node_and_new_op(self, op_type: UserOpType, src_sn: SPIDNodePair, dst_sn: SPIDNodePair = None):
+    def add_node_and_new_op(self, op_type: UserOpType, sn_src: SPIDNodePair, sn_dst: SPIDNodePair = None):
         """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a UserOp
         of the given type"""
 
-        if dst_sn:
-            target_sn = dst_sn
-            dst_node = dst_sn.node
+        if sn_dst:
+            target_sn = sn_dst
+            dst_node = sn_dst.node
         else:
-            target_sn = src_sn
+            target_sn = sn_src
             dst_node = None
 
         op: UserOp = UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
-                            src_node=src_sn.node, dst_node=dst_node)
+                            src_node=sn_src.node, dst_node=dst_node)
         if DIFF_DEBUG_ENABLED:
             logger.debug(f'[{self.change_tree.tree_id}] Created new UserOp(uid={op.op_uid} op_type={op.op_type.name}). '
                          f'Adding to ChangeTree along with node: {target_sn.spid}')
@@ -116,8 +116,8 @@ class OneSide:
             dst_node: Node = LocalFileNode(node_identifier, dst_parent_uid, src_node.md5, src_node.sha256, src_node.get_size_bytes(),
                                            sync_ts=None, modify_ts=None, change_ts=None, trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
-            dst_node: Node = GDriveFile(node_identifier=node_identifier, goog_id=dst_node_goog_id, node_name=src_node.name, mime_type_uid=None,
-                                        trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=src_node.md5,
+            dst_node: Node = GDriveFile(node_identifier=node_identifier, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
+                                        mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=src_node.md5,
                                         is_shared=False, create_ts=None, modify_ts=None, size_bytes=src_node.get_size_bytes(),
                                         owner_uid=None, shared_by_user_uid=None, sync_ts=None)
         else:
@@ -125,14 +125,14 @@ class OneSide:
 
         spid = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
                                                                device_uid=dst_device_uid, must_be_single_path=True)
-        dst_sn: SPIDNodePair = SPIDNodePair(spid, dst_node)
+        sn_dst: SPIDNodePair = SPIDNodePair(spid, dst_node)
 
         # ANCESTORS:
-        self._add_needed_ancestors(dst_sn)
+        self._add_needed_ancestors(sn_dst)
 
         if DIFF_DEBUG_ENABLED:
             logger.debug(f'[{self.change_tree.tree_id}] Migrated single node: {sn_src.spid} -> {spid}')
-        return dst_sn
+        return sn_dst
 
     @staticmethod
     def _is_same_md5_and_name_for_all(existing_node_list: List[Node]) -> bool:
@@ -152,7 +152,7 @@ class OneSide:
         while len(ancestor_stack) > 0:
             ancestor_sn: SPIDNodePair = ancestor_stack.pop()
             # Create an accompanying MKDIR action which will create the new folder/dir
-            self.add_node_and_new_op(op_type=UserOpType.MKDIR, src_sn=ancestor_sn)
+            self.add_node_and_new_op(op_type=UserOpType.MKDIR, sn_src=ancestor_sn)
 
     def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[SPIDNodePair]:
         tree_type: int = new_sn.spid.tree_type
@@ -236,7 +236,7 @@ class ChangeMaker:
         self.left_side = OneSide(backend, tree_id_left, left_tree_root_sn, batch_uid, tree_id_left_src)
         self.right_side = OneSide(backend, tree_id_right, right_tree_root_sn, batch_uid, tree_id_right_src)
 
-    def drag_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair,
+    def drag_nodes_left_to_right(self, sn_src_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair,
                                  drag_op: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy):
         """Populates the destination parent in "change_tree_right" with a subset of the given source nodes
         based on the given DragOperation and policies. NOTE: this may actually result in UserOps created in the left
@@ -247,61 +247,144 @@ class ChangeMaker:
             raise RuntimeError(f'Unsupported DragOperation: {drag_op.name}')
         op_type = UserOpType.CP if drag_op == DragOperation.COPY else UserOpType.MV
 
-        logger.debug(f'Preparing {len(src_sn_list)} nodes for {drag_op.name}...')
+        logger.debug(f'Preparing {len(sn_src_list)} nodes for {drag_op.name}...')
 
-        dst_parent_path: str = sn_dst_parent.spid.get_single_path()
+        dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = self._get_name_child_list_dict(sn_dst_parent.spid, self.right_side.tree_id_src)
 
-        dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = self._get_existing_child_name_dict(sn_dst_parent.spid, self.right_side.tree_id_src)
-
-        for src_sn in src_sn_list:
-            src_node_name = src_sn.node.name
-            conflicting_dst_sn_list = dst_existing_sn_dict.get(src_node_name)
+        for sn_src in sn_src_list:
+            src_name = sn_src.node.name
+            conflicting_dst_sn_list: List[SPIDNodePair] = dst_existing_sn_dict.get(src_name)
 
             if not conflicting_dst_sn_list:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Node "{src_node_name}": no name conflicts found')
+                    logger.debug(f'Node "{src_name}": no name conflicts found')
+                self._handle_no_conflicts_found(op_type, sn_src, sn_dst_parent)
 
-                if src_sn.node.is_dir():
-                    subtree_sn_list: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(src_sn.node.node_identifier)
-                    logger.debug(f'Unpacking subtree with {len(subtree_sn_list)} nodes for {drag_op.name}...')
-                    for subtree_sn in subtree_sn_list:
-                        if subtree_sn.node.is_dir() and drag_op == DragOperation.MOVE:
-                            # FIXME: add RM op to left side
-                            pass
-                        else:
-                            dst_rel_path: str = file_util.strip_root(subtree_sn.spid.get_single_path(), src_sn.spid.get_single_parent_path())
-                            dst_path = os.path.join(dst_parent_path, dst_rel_path)
-                            # this will add any missing ancestors, and populate the parent list if applicable:
-                            dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(subtree_sn, dst_path)
-                            self.right_side.add_node_and_new_op(op_type=op_type, src_sn=subtree_sn, dst_sn=dst_sn)
+            else:  # Conflict(s)
+                # In general, we will throw an error rather than attempt to replace or merge more than 1 node with the same name
+                has_multiple_name_conflicts: bool = len(conflicting_dst_sn_list) > 1
+
+                if sn_src.node.is_dir():
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'Dir "{src_name}" has {len(conflicting_dst_sn_list)} conflicts: following policy {dir_conflict_policy.name}')
+
+                    if dir_conflict_policy == DirConflictPolicy.SKIP:
+                        # SKIP DIR: trivial
+                        pass
+                    elif dir_conflict_policy == DirConflictPolicy.REPLACE:
+                        # REPLACE DIR
+                        if has_multiple_name_conflicts:
+                            raise RuntimeError(f'For folder "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
+                                               f'at the destination with the same name, and cannot determine which to replace!')
+                        # TODO
+                        pass
+                    elif dir_conflict_policy == DirConflictPolicy.RENAME:
+                        # RENAME DIR
+                        self._handle_rename(op_type, sn_src, sn_dst_parent, src_name, dst_existing_sn_dict)
+                    elif dir_conflict_policy == DirConflictPolicy.MERGE:
+                        if has_multiple_name_conflicts:
+                            raise RuntimeError(f'For folder "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
+                                               f'at the destination with the same name, and cannot determine which to merge with!')
+                        # TODO
+                        pass
+                    elif dir_conflict_policy == DirConflictPolicy.PROMPT:
+                        # TODO
+                        pass
+                    else:
+                        raise RuntimeError(f'Unrecognized DirConflictPolicy: {dir_conflict_policy}')
                 else:
-                    # Single file; easy case:
-                    dst_path = os.path.join(dst_parent_path, src_sn.node.name)
-                    dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(src_sn, dst_path)
-                    self.right_side.add_node_and_new_op(op_type=op_type, src_sn=src_sn, dst_sn=dst_sn)
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'File "{src_name}" has {len(conflicting_dst_sn_list)} conflicts: following policy {file_conflict_policy.name}')
 
-            else:
-                # FIXME: handle conflicts
-                pass
+                    if file_conflict_policy == FileConflictPolicy.SKIP:
+                        pass
+                    elif file_conflict_policy == FileConflictPolicy.REPLACE_ALWAYS:
+                        if has_multiple_name_conflicts:
+                            # Just fail: the user may not have considered this scenario.
+                            raise RuntimeError(f'For item "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
+                                               f'at the destination with the same name, and cannot determine which to replace!')
+                        # TODO
+                        pass
+                    elif file_conflict_policy == FileConflictPolicy.REPLACE_IF_OLDER_AND_DIFFERENT:
+                        if has_multiple_name_conflicts:
+                            # Just fail: the user may not have considered this scenario.
+                            raise RuntimeError(f'For item "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
+                                               f'at the destination with the same name, and cannot determine which to replace!')
+                        # TODO
+                        pass
+                    elif file_conflict_policy == FileConflictPolicy.RENAME_ALWAYS:
+                        # RENAME ALWAYS (FILE)
+                        self._handle_rename(op_type, sn_src, sn_dst_parent, src_name, dst_existing_sn_dict)
+                    elif file_conflict_policy == FileConflictPolicy.RENAME_IF_OLDER_AND_DIFFERENT:
+                        # TODO
+                        pass
+                    elif file_conflict_policy == FileConflictPolicy.RENAME_IF_DIFFERENT:
+                        # TODO
+                        pass
+                    elif file_conflict_policy == FileConflictPolicy.PROMPT:
+                        # TODO
+                        pass
+                    else:
+                        raise RuntimeError(f'Unrecognized FileConflictPolicy: {file_conflict_policy}')
 
-    def _get_existing_child_name_dict(self, parent_spid, tree_id):
-        dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = {}
+    def increment_node_name(self, node_name: str) -> str:
+        # TODO
+        raise NotImplementedError
+
+    def _handle_rename(self, op_type: UserOpType, sn_src: SPIDNodePair, sn_dst_parent: SPIDNodePair, src_name: str, dst_existing_sn_dict):
+        while True:
+            src_name = self.increment_node_name(src_name)
+            if not dst_existing_sn_dict.get(src_name):
+                break
+
+        logger.debug(f'Renaming "{sn_src.spid.get_single_path()}" to "{src_name}"')
+        self._handle_no_conflicts_found(op_type, sn_src, sn_dst_parent, new_dst_name=src_name)
+
+    def _handle_no_conflicts_found(self, op_type: UserOpType, sn_src: SPIDNodePair, sn_dst_parent: SPIDNodePair, new_dst_name: Optional[str] = None):
+        if sn_src.node.is_dir():
+            # Need to get all the nodes in its whole subtree and add them individually:
+            sn_list_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.node.node_identifier)
+            logger.debug(f'Unpacking subtree with {len(sn_list_subtree)} nodes for {op_type.name}...')
+
+            for sn_src_descendent in sn_list_subtree:
+                dst_path = self._change_base_path(orig_target_path=sn_src_descendent.spid.get_single_path(), orig_base=sn_src, new_base=sn_dst_parent, new_target_name=new_dst_name)
+                sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path)
+
+                if sn_src_descendent.node.is_dir() and sn_src == UserOpType.MV:
+                    # TODO: test MOVE of a subtree. Do we need to add this in reverse?
+                    # When all nodes in a dir have been moved, the src dir itself should be deleted.
+                    self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_src_descendent)
+
+                    # Add explicit MKDIR here, so that we don't omit empty dirs
+                    self.right_side.add_node_and_new_op(op_type=UserOpType.MKDIR, sn_src=sn_dst_descendent)
+                else:
+                    # this will add any missing ancestors, and populate the parent list if applicable:
+                    self.right_side.add_node_and_new_op(op_type=op_type, sn_src=sn_src_descendent, sn_dst=sn_dst_descendent)
+        else:
+            # Src node is file: easy case:
+            sn_dst: SPIDNodePair = self._migrate_sn_to_right(sn_src, sn_dst_parent, new_dst_name)
+            self.right_side.add_node_and_new_op(op_type=op_type, sn_src=sn_src, sn_dst=sn_dst)
+
+    def _migrate_sn_to_right(self, sn_src: SPIDNodePair, sn_dst_parent: SPIDNodePair, sn_dst_name: Optional[str] = None) -> SPIDNodePair:
+        # note: sn_dst_parent should be on right side
+        if not sn_dst_name:
+            sn_dst_name = sn_src.node.name
+        dst_path = os.path.join(sn_dst_parent.spid.get_single_path(), sn_dst_name)
+        return self.right_side.migrate_single_node_to_this_side(sn_src, dst_path)
+
+    def _get_name_child_list_dict(self, parent_spid, tree_id):
+        name_sn_list_dict: Dict[str, List[SPIDNodePair]] = {}
         for existing_sn in self.backend.cacheman.get_child_list(parent_spid, tree_id=tree_id):
             name = existing_sn.node.name
-            entry = dst_existing_sn_dict.get(name, [])
+            entry = name_sn_list_dict.get(name, [])
             if not entry:
-                dst_existing_sn_dict[name] = entry
+                name_sn_list_dict[name] = entry
             entry.append(existing_sn)
-        return dst_existing_sn_dict
+        return name_sn_list_dict
 
     def get_all_op_list(self) -> List[UserOp]:
         """Returns all UserOps, from both sides."""
         return [] + self.left_side.change_tree.get_op_list() + self.right_side.change_tree.get_op_list()
-
-    def _build_child_spid(self, child_node: Node, parent_path: str):
-        return self.backend.node_identifier_factory.for_values(uid=child_node.uid, device_uid=child_node.device_uid,
-                                                               tree_type=child_node.tree_type,
-                                                               path_list=os.path.join(parent_path, child_node.name), must_be_single_path=True)
 
     def visit_each_file_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id_src: TreeID):
         """Note: here, param "tree_id_src" indicates which tree_id from which to request nodes from CacheManager
@@ -337,44 +420,55 @@ class ChangeMaker:
         logger.debug(f'[{tree_id_src}] visit_each_file_for_subtree(): Visited {count_file_nodes} file nodes out of {count_total_nodes} total nodes')
 
     @staticmethod
+    def _change_base_path(orig_target_path: str, orig_base: SPIDNodePair, new_base: SPIDNodePair, new_target_name: Optional[str] = None) -> str:
+        dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base.spid.get_single_parent_path())
+        if new_target_name:
+            # target is being renamed
+            orig_target_name = os.path.basename(orig_target_path)
+            dst_rel_path_minus_name = dst_rel_path.removesuffix(orig_target_name)
+            assert dst_rel_path_minus_name != dst_rel_path, f'Not equal: "{dst_rel_path_minus_name}" and "{orig_target_name}"'
+            dst_rel_path = dst_rel_path_minus_name + new_target_name
+        return os.path.join(new_base.spid.get_single_path(), dst_rel_path)
+
+    @staticmethod
     def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier) -> str:
-        return os.path.join(dst_side.root_sn.spid.get_single_path(), file_util.strip_root(spid_from_src_tree.get_single_path(),
-                                                                                          src_side.root_sn.spid.get_single_path()))
+        return ChangeMaker._change_base_path(orig_target_path=spid_from_src_tree.get_single_path(), orig_base=src_side.root_sn,
+                                             new_base=dst_side.root_sn)
 
-    def get_path_moved_to_right(self, spid_left: SinglePathNodeIdentifier) -> str:
-        return self._change_tree_path(self.left_side, self.right_side, spid_left)
+    def migrate_rel_path_to_right_tree(self, spid_left: SinglePathNodeIdentifier) -> str:
+        return ChangeMaker._change_tree_path(self.left_side, self.right_side, spid_left)
 
-    def get_path_moved_to_left(self, spid_right: SinglePathNodeIdentifier) -> str:
-        return self._change_tree_path(self.right_side, self.left_side, spid_right)
+    def migrate_rel_path_to_left_tree(self, spid_right: SinglePathNodeIdentifier) -> str:
+        return ChangeMaker._change_tree_path(self.right_side, self.left_side, spid_right)
 
     def _migrate_node_to_right(self, sn_s: SPIDNodePair) -> SPIDNodePair:
-        dst_path = self.get_path_moved_to_right(sn_s.spid)
+        dst_path = self.migrate_rel_path_to_right_tree(sn_s.spid)
         return self.right_side.migrate_single_node_to_this_side(sn_s, dst_path)
 
     def _migrate_node_to_left(self, sn_r: SPIDNodePair) -> SPIDNodePair:
-        dst_path = self.get_path_moved_to_left(sn_r.spid)
+        dst_path = self.migrate_rel_path_to_left_tree(sn_r.spid)
         return self.left_side.migrate_single_node_to_this_side(sn_r, dst_path)
 
     def append_mv_op_r_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a dst node which will rename a file within the right tree to match the relative path of the file on the left"""
-        self.right_side.add_node_and_new_op(op_type=UserOpType.MV, src_sn=sn_r, dst_sn=self._migrate_node_to_right(sn_s))
+        self.right_side.add_node_and_new_op(op_type=UserOpType.MV, sn_src=sn_r, sn_dst=self._migrate_node_to_right(sn_s))
 
     def append_mv_op_s_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
-        self.left_side.add_node_and_new_op(op_type=UserOpType.MV, src_sn=sn_s, dst_sn=self._migrate_node_to_left(sn_r))
+        self.left_side.add_node_and_new_op(op_type=UserOpType.MV, sn_src=sn_s, sn_dst=self._migrate_node_to_left(sn_r))
 
     def append_cp_op_s_to_r(self, sn_s: SPIDNodePair):
         """COPY: Left -> Right. (Node on Right does not yet exist)"""
-        self.right_side.add_node_and_new_op(op_type=UserOpType.CP, src_sn=sn_s, dst_sn=self._migrate_node_to_right(sn_s))
+        self.right_side.add_node_and_new_op(op_type=UserOpType.CP, sn_src=sn_s, sn_dst=self._migrate_node_to_right(sn_s))
 
     def append_cp_op_r_to_s(self, sn_r: SPIDNodePair):
         """COPY: Left <- Right. (Node on Left does not yet exist)"""
-        self.left_side.add_node_and_new_op(op_type=UserOpType.CP, src_sn=sn_r, dst_sn=self._migrate_node_to_left(sn_r))
+        self.left_side.add_node_and_new_op(op_type=UserOpType.CP, sn_src=sn_r, sn_dst=self._migrate_node_to_left(sn_r))
 
     def append_up_op_s_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left -> Right. Both nodes already exist, but one will overwrite the other"""
-        self.right_side.add_node_and_new_op(op_type=UserOpType.UP, src_sn=sn_s, dst_sn=sn_r)
+        self.right_side.add_node_and_new_op(op_type=UserOpType.UP, sn_src=sn_s, sn_dst=sn_r)
 
     def append_up_op_r_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left <- Right. Both nodes already exist, but one will overwrite the other"""
-        self.left_side.add_node_and_new_op(op_type=UserOpType.UP, src_sn=sn_r, dst_sn=sn_s)
+        self.left_side.add_node_and_new_op(op_type=UserOpType.UP, sn_src=sn_r, sn_dst=sn_s)

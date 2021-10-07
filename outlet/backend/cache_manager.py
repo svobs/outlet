@@ -1253,32 +1253,32 @@ class CacheManager(HasLifecycle):
             logger.error(f'Aborting drop: dst tree root does not exist: "{dst_tree_id}"')
             return False
 
-        src_sn_list = self.get_sn_list_for_guid_list(src_guid_list, src_tree_id)
-        if not src_sn_list:
+        sn_src_list = self.get_sn_list_for_guid_list(src_guid_list, src_tree_id)
+        if not sn_src_list:
             logger.error(f'Aborting drop: could not resolve GUIDs into any nodes: {src_guid_list}')
             return False
 
-        dst_sn: SPIDNodePair = self.get_sn_for_guid(dst_guid, dst_tree_id)
+        sn_dst: SPIDNodePair = self.get_sn_for_guid(dst_guid, dst_tree_id)
 
-        if not is_into or (dst_sn and not dst_sn.node.is_dir()):
+        if not is_into or (sn_dst and not sn_dst.node.is_dir()):
             # cannot drop into a file; just use parent in this case
-            dst_sn = self.get_parent_sn_for_sn(dst_sn)
+            sn_dst = self.get_parent_sn_for_sn(sn_dst)
 
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
             return False
-        elif self._is_dropping_on_self(src_sn_list, dst_sn, dst_tree_id):
+        elif self._is_dropping_on_self(sn_src_list, sn_dst, dst_tree_id):
             # don't allow this, even for copy. It's super annoying when an erroneous bump of the mouse results in a huge copy operation
             logger.info(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
             return False
         else:
-            logger.debug(f'[{dst_tree_id}] Dropping into dest: {dst_sn.spid}')
+            logger.debug(f'[{dst_tree_id}] Dropping into dest: {sn_dst.spid}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
                                        tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
 
             if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
-                change_maker.drag_nodes_left_to_right(src_sn_list, dst_sn, drag_operation, dir_conflict_policy, file_conflict_policy)
+                change_maker.drag_nodes_left_to_right(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
             elif drag_operation == DragOperation.LINK:
                 # TODO: link operation
                 raise NotImplementedError('LINK drag operation is not yet supported!')
@@ -1289,24 +1289,24 @@ class CacheManager(HasLifecycle):
             self.enqueue_op_batch(op_list)
             return True
 
-    def _is_dropping_on_self(self, src_sn_list: List[SPIDNodePair], dst_sn: SPIDNodePair, dst_tree_id: TreeID):
-        dst_ancestor_list = self.get_ancestor_list_for_spid(dst_sn.spid)
+    def _is_dropping_on_self(self, sn_src_list: List[SPIDNodePair], sn_dst: SPIDNodePair, dst_tree_id: TreeID):
+        dst_ancestor_list = self.get_ancestor_list_for_spid(sn_dst.spid)
 
-        for src_sn in src_sn_list:
-            logger.debug(f'[{dst_tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{src_sn.node}"')
+        for sn_src in sn_src_list:
+            logger.debug(f'[{dst_tree_id}] DestNode="{sn_dst.spid}", DroppedNode="{sn_src.node}"')
 
             # Same node onto itself?
-            if dst_sn.node.node_identifier == src_sn.node.node_identifier:
+            if sn_dst.node.node_identifier == sn_src.node.node_identifier:
                 return True
 
             # Dropping into its parent (essentially a no-op)
-            if dst_sn.node.is_parent_of(src_sn.node):
+            if sn_dst.node.is_parent_of(sn_src.node):
                 return True
 
             # Dropping an ancestor onto its descendant:
             for dst_ancestor in dst_ancestor_list:
-                if src_sn.node.node_identifier == dst_ancestor.node.node_identifier:
-                    logger.debug(f'[{dst_tree_id}] Source node ({src_sn.spid}) is ancestor of dest ({dst_sn.spid}): no bueno')
+                if sn_src.node.node_identifier == dst_ancestor.node.node_identifier:
+                    logger.debug(f'[{dst_tree_id}] Source node ({sn_src.spid}) is ancestor of dest ({sn_dst.spid}): no bueno')
                     return True
 
         return False
