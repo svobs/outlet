@@ -256,8 +256,8 @@ class ReplaceDirWithFilePolicy(IntEnum):
     FAIL = 2
     """Disallow the containing operation and throw an error back to the user"""
 
-    TREAT_DIR_AS_FILE = 3
-    """Go ahead and follow the FileConflictPolicy."""
+    FOLLOW_FILE_POLICY_FOR_DIR = 3
+    """Act like the dir is a file: go ahead and follow the FileConflictPolicy."""
 
 # TODO: create new icon for directory which has descendant(s) which have pending operations
 

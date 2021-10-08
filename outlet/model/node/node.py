@@ -212,6 +212,21 @@ class Node(BaseNode, HasParentList, ABC):
             return IconId.ICON_GENERIC_FILE
         return IconId.ICON_FILE_CP_DST
 
+    def is_signature_match(self, other_node) -> bool:
+        assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
+        if other_node.device_uid == self.device_uid and other_node.uid == self.uid:
+            # Same identity -> signature matches by default
+            return True
+
+        if other_node.md5 and self.md5:
+            return other_node.md5 == self.md5
+
+        if other_node.sha256 and self.sha256:
+            return other_node.sha256 == self.sha256
+
+        logger.error(f'is_signature_match(): not enough info to compare signatures for this ({self}) and other ({other_node})')
+        raise RuntimeError(f'Cannot not compare signatures for nodes: neeed either MD5 or SHA256 from both this ({self}) and other ({other_node})')
+
     @abstractmethod
     def update_from(self, other_node):
         assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
