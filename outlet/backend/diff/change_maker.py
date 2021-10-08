@@ -2,10 +2,12 @@ import collections
 import logging
 import os
 import pathlib
+import re
 from collections import deque
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple
 
 from backend.display_tree.change_tree import ChangeTree
+from backend.tree_store.local import content_hasher
 from constants import DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, FileConflictPolicy, ReplaceDirWithFilePolicy, SrcNodeMovePolicy, \
     SUPER_DEBUG_ENABLED, \
     TRACE_ENABLED, TrashStatus, TreeID, TreeType
@@ -368,19 +370,39 @@ class ChangeMaker:
         else:
             raise RuntimeError(f'Unrecognized FileConflictPolicy: {policy}')
 
-    def _increment_node_name(self, node_name: str) -> str:
-        # TODO
+    @staticmethod
+    def _increment_node_name(node_name: str) -> str:
+        # Search for an existing copy number, starting from the end:
+        match = re.search("(?s:.*)[0-9]*", node_name)
+        if match:
+            matching_str = match.group(1)  # get first matching group
+            copy_number = int(matching_str) + 1  # try next
+            new_node_name_prefix = node_name.removesuffix(matching_str).rstrip()
+        else:
+            copy_number = 2  # first copy number to start with
+            new_node_name_prefix = node_name.rstrip()
 
+        return f'{new_node_name_prefix} {copy_number}'
 
-        raise NotImplementedError
+    @staticmethod
+    def _calculate_signatures_if_missing_and_local(sn):
+        """Ensure both nodes have signatures filled in (if local nodes)"""
+        if not sn.node.md5 or not sn.node.sha256:
+            node_with_sigs = content_hasher.try_calculating_signatures(sn.node)
+            if node_with_sigs:
+                sn.node = node_with_sigs
 
     def _is_same_content(self, sn_src_conflict: SPIDNodePair, sn_dst_conflict: SPIDNodePair) -> bool:
-        # TODO: ensure both nodes have signatures filled in (if local nodes)
+        self._calculate_signatures_if_missing_and_local(sn_src_conflict)
+        self._calculate_signatures_if_missing_and_local(sn_dst_conflict)
+
         # TODO: decide how to handle GDrive non-file types which don't have signatures (e.g. shortcuts, Google Docs...)
         return sn_src_conflict.node.is_signature_match(sn_dst_conflict.node)
 
     def _is_same_content_and_not_older(self, sn_src_conflict: SPIDNodePair, sn_dst_conflict: SPIDNodePair) -> bool:
-        # TODO: ensure both nodes have signatures filled in (if local nodes)
+        self._calculate_signatures_if_missing_and_local(sn_src_conflict)
+        self._calculate_signatures_if_missing_and_local(sn_dst_conflict)
+
         # TODO: decide how to handle GDrive non-file types which don't have signatures (e.g. shortcuts, Google Docs...)
         if sn_src_conflict.node.modify_ts == 0 or sn_dst_conflict.node.modify_ts == 0:
             logger.error(f'One of these has modify_ts=0. Src: {sn_src_conflict.node}, Dst: {sn_dst_conflict.node}')
@@ -442,6 +464,7 @@ class ChangeMaker:
 
             # No match for skip condition, or no skip condition supplied
             src_name = self._increment_node_name(src_name)
+            logger.debug(f'Incremented src_name to "{src_name}"')
 
         logger.debug(f'Renaming "{sn_src.spid.get_single_path()}" to "{src_name}"')
         self._handle_no_conflicts_found(dd_meta, sn_src, sn_dst_parent, new_dst_name=src_name)
