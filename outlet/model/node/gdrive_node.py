@@ -330,6 +330,15 @@ class GDriveFile(GDriveNode):
                 return IconId.ICON_FILE_CP_DST
         return IconId.ICON_FILE_TRASHED
 
+    def update_signature_and_timestamps_from(self, other):
+        assert isinstance(other, Node) and not other.is_file(), f'Incorrect type: {other}'
+        self.md5 = other.md5
+        self.set_size_bytes(other.get_size_bytes())
+        self.modify_ts = other.modify_ts
+
+        if isinstance(other, GDriveFile):
+            self.create_ts = other.create_ts
+
     @classmethod
     def has_tuple(cls) -> bool:
         return True

@@ -24,13 +24,18 @@ class UserOpType(IntEnum):
     """Make dir represented by src node (single-node op)"""
 
     MV = 4
-    """Equivalent to CP followed by RM: copy src node to dst node, then delete src node"""
+    """Equivalent to CP followed by RM: copy src node to dst node, then delete src node.
+    I would actually get rid of this and replace it with a CP followed with an RM, but most file systems provide an atomic operation for this,
+    so let's honor that."""
 
-    UP = 5
+    UP = 5  # TODO: rename to CP_ONTO
     """Similar to CP, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst"""
 
+    MV_ONTO = 6
+    """Similar to MV, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst, then delete src"""
+
     def has_dst(self) -> bool:
-        return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.UP
+        return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.UP or self == UserOpType.MV_ONTO
 
 
 # ENUM UserOpStatus
@@ -117,41 +122,48 @@ class UserOp(BaseNode):
 
 
 class OpTypeMeta:
+    # currently we only use these labels for displaying diff previews - thus the 'To Update' name. Also 'To Replace' will never be used for diff prev
     _display_label_dict: Dict[UserOpType, str] = {
-        UserOpType.CP: 'To Add',
         UserOpType.RM: 'To Delete',
+        UserOpType.CP: 'To Add',
         UserOpType.UP: 'To Update',
-        UserOpType.MV: 'To Move'
+        UserOpType.MV: 'To Move',
+        UserOpType.MV_ONTO: 'To Replace'
     }
 
     _icon_src_file_dict = {
         UserOpType.RM: IconId.ICON_FILE_RM,
         UserOpType.MV: IconId.ICON_FILE_MV_SRC,
-        UserOpType.UP: IconId.ICON_FILE_UP_SRC,
-        UserOpType.CP: IconId.ICON_FILE_CP_SRC
+        UserOpType.MV_ONTO: IconId.ICON_FILE_MV_SRC,
+        UserOpType.CP: IconId.ICON_FILE_CP_SRC,
+        UserOpType.UP: IconId.ICON_FILE_UP_SRC
     }
     _icon_dst_file_dict = {
         UserOpType.MV: IconId.ICON_FILE_MV_DST,
-        UserOpType.UP: IconId.ICON_FILE_UP_DST,
-        UserOpType.CP: IconId.ICON_FILE_CP_DST
+        UserOpType.MV_ONTO: IconId.ICON_FILE_MV_DST,
+        UserOpType.CP: IconId.ICON_FILE_CP_DST,
+        UserOpType.UP: IconId.ICON_FILE_UP_DST
     }
     _icon_src_dir_dict = {
         UserOpType.MKDIR: IconId.ICON_DIR_MK,
         UserOpType.RM: IconId.ICON_DIR_RM,
         UserOpType.MV: IconId.ICON_DIR_MV_SRC,
-        UserOpType.UP: IconId.ICON_DIR_UP_SRC,
-        UserOpType.CP: IconId.ICON_DIR_CP_SRC
+        UserOpType.MV_ONTO: IconId.ICON_DIR_MV_SRC,
+        UserOpType.CP: IconId.ICON_DIR_CP_SRC,
+        UserOpType.UP: IconId.ICON_DIR_UP_SRC
     }
     _icon_dst_dir_dict = {
         UserOpType.MV: IconId.ICON_DIR_MV_DST,
-        UserOpType.UP: IconId.ICON_DIR_UP_DST,
-        UserOpType.CP: IconId.ICON_DIR_CP_DST
+        UserOpType.MV_ONTO: IconId.ICON_DIR_MV_DST,
+        UserOpType.CP: IconId.ICON_DIR_CP_DST,
+        UserOpType.UP: IconId.ICON_DIR_UP_DST
     }
     _icon_cat_node = {
-        UserOpType.CP: IconId.ICON_TO_ADD,
         UserOpType.RM: IconId.ICON_TO_DELETE,
+        UserOpType.MV: IconId.ICON_TO_MOVE,
+        UserOpType.MV_ONTO: IconId.ICON_TO_MOVE,
+        UserOpType.CP: IconId.ICON_TO_ADD,
         UserOpType.UP: IconId.ICON_TO_UPDATE,
-        UserOpType.MV: IconId.ICON_TO_MOVE
     }
 
     @staticmethod

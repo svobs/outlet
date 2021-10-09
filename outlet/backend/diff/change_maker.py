@@ -1,4 +1,5 @@
 import collections
+import copy
 import logging
 import os
 import pathlib
@@ -300,7 +301,7 @@ class ChangeMaker:
             # SKIP DIR: trivial
             pass
         elif policy == DirConflictPolicy.REPLACE:
-            # REPLACE DIR
+            # REPLACE DIR: similar to MERGE
             if has_multiple_name_conflicts:
                 raise RuntimeError(f'For folder "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
                                    f'at the destination with the same name, and cannot determine which to replace!')
@@ -311,6 +312,7 @@ class ChangeMaker:
             # RENAME DIR
             self._handle_rename(dd_meta, sn_src, sn_dst_parent, skip_condition_func=None)
         elif policy == DirConflictPolicy.MERGE:
+            # MERGE DIR
             if has_multiple_name_conflicts:
                 raise RuntimeError(f'For folder "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
                                    f'at the destination with the same name, and cannot determine which to merge with!')
@@ -336,20 +338,22 @@ class ChangeMaker:
             pass
 
         elif policy == FileConflictPolicy.REPLACE_ALWAYS:
+            # REPLACE ALWAYS (FILE)
             if has_multiple_name_conflicts:
                 # Just fail: the user may not have considered this scenario.
                 raise RuntimeError(f'For item "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
                                    f'at the destination with the same name, and cannot determine which to replace!')
-            # TODO
-            pass
+
+            self._handle_replace(dd_meta, sn_src, conflicting_dst_sn_list[0])
 
         elif policy == FileConflictPolicy.REPLACE_IF_OLDER_AND_DIFFERENT:
+            # REPLACE ALWAYS (FILE)
             if has_multiple_name_conflicts:
                 # Just fail: the user may not have considered this scenario.
                 raise RuntimeError(f'For item "{src_name}": found {len(conflicting_dst_sn_list) > 1} items '
                                    f'at the destination with the same name, and cannot determine which to replace!')
-            # TODO
-            pass
+
+            self._handle_replace(dd_meta, sn_src, conflicting_dst_sn_list[0], skip_condition_func=self._is_same_content_and_not_older)
 
         elif policy == FileConflictPolicy.RENAME_ALWAYS:
             # RENAME ALWAYS (FILE)
@@ -409,6 +413,31 @@ class ChangeMaker:
             raise RuntimeError(f'Cannot compare modification times: at least one node is missing modify_ts')
         return sn_src_conflict.node.is_signature_match(sn_dst_conflict.node) and sn_src_conflict.node.modify_ts <= sn_dst_conflict.node.modify_ts
 
+
+    def _handle_replace(self, dd_meta: DragAndDropMeta, sn_src: SPIDNodePair, sn_dst_conflict: SPIDNodePair,
+                       skip_condition_func: Optional[Callable[[SPIDNodePair, SPIDNodePair], bool]] = None):
+        if TRACE_ENABLED:
+            logger.debug(f'Entered _handle_replace() for sn_src={sn_src.spid}')
+
+        src_name: str = sn_src.node.name
+        if skip_condition_func:
+            if self._execute_skip_condition(dd_meta, sn_src, src_name, sn_dst_conflict, skip_condition_func):
+                return
+        else:
+            if TRACE_ENABLED:
+                logger.debug(f'No skip condition func supplied; assuming skip=never for conflict name="{src_name}"')
+
+        # If we got here, we are going to replace (AKA update) the node:
+        sn_dst = copy.deepcopy(sn_dst_conflict)
+        sn_dst.node.set_is_live(False)
+        sn_dst.node.sync_ts = None
+        sn_dst.node.update_signature_and_timestamps_from(sn_src)
+
+        if dd_meta.drag_op == DragOperation.COPY:
+            self.right_side.add_node_and_new_op(op_type=UserOpType.UP, sn_src=sn_src, sn_dst=sn_dst)
+        elif dd_meta.drag_op == DragOperation.MOVE:
+            self.right_side.add_node_and_new_op(op_type=UserOpType.MV_ONTO, sn_src=sn_src, sn_dst=sn_dst)
+
     def _handle_rename(self, dd_meta: DragAndDropMeta, sn_src: SPIDNodePair, sn_dst_parent: SPIDNodePair,
                        skip_condition_func: Optional[Callable[[SPIDNodePair, SPIDNodePair], bool]] = None):
         """COPY or MOVE where target will be renamed so as to avoid any possible conflicts.
@@ -434,26 +463,9 @@ class ChangeMaker:
                 break
 
             if skip_condition_func:
-                for conflicting_dst_sn in conflicting_dst_sn_list:
-                    if skip_condition_func(sn_src, conflicting_dst_sn):
-                        if dd_meta.op_type == UserOpType.MV:
-                            mv_policy = dd_meta.src_node_move_policy
-
-                            if mv_policy == SrcNodeMovePolicy.DELETE_SRC_IF_NOT_SKIPPED:
-                                logger.debug(f'Skipping MV for node ({sn_src.spid}): it matched the skip condition '
-                                             f'and policy={mv_policy.name} for name="{src_name}"')
-                            elif mv_policy == SrcNodeMovePolicy.DELETE_SRC_ALWAYS:
-                                logger.debug(f'Adding RM op for src node ({sn_src.spid}) despite not making changes to dst,'
-                                             f' due to policy={mv_policy.name} for name="{src_name}"')
-                                self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_src)
-                            else:
-                                raise RuntimeError(f'Unrecognized SrcNodeMovePolicy: {mv_policy}')
-                        else:
-                            logger.debug(f'Skipping node ({sn_src.spid}): it matched the skip condition for name="{src_name}"')
+                for sn_dst_conflict in conflicting_dst_sn_list:
+                    if self._execute_skip_condition(dd_meta, sn_src, src_name, sn_dst_conflict, skip_condition_func):
                         return
-                    else:
-                        if TRACE_ENABLED:
-                            logger.debug(f'Node {conflicting_dst_sn.spid} did not match the skip condition for conflict name="{src_name}"')
 
                 if TRACE_ENABLED:
                     logger.debug(f'No conflicting nodes matched the skip condition for conflict name="{src_name}"')
@@ -468,6 +480,31 @@ class ChangeMaker:
 
         logger.debug(f'Renaming "{sn_src.spid.get_single_path()}" to "{src_name}"')
         self._handle_no_conflicts_found(dd_meta, sn_src, sn_dst_parent, new_dst_name=src_name)
+
+    def _execute_skip_condition(self, dd_meta: DragAndDropMeta, sn_src: SPIDNodePair, src_name: str, sn_dst_conflict: SPIDNodePair,
+                                skip_condition_func: Optional[Callable[[SPIDNodePair, SPIDNodePair], bool]]) -> bool:
+        if skip_condition_func(sn_src, sn_dst_conflict):
+            # True -> Do skip
+            if dd_meta.op_type == UserOpType.MV:
+                mv_policy = dd_meta.src_node_move_policy
+
+                if mv_policy == SrcNodeMovePolicy.DELETE_SRC_IF_NOT_SKIPPED:
+                    logger.debug(f'Skipping MV for node ({sn_src.spid}): it matched the skip condition '
+                                 f'and policy={mv_policy.name} for name="{src_name}"')
+                elif mv_policy == SrcNodeMovePolicy.DELETE_SRC_ALWAYS:
+                    logger.debug(f'Adding RM op for src node ({sn_src.spid}) despite not making changes to dst,'
+                                 f' due to policy={mv_policy.name} for name="{src_name}"')
+                    self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_src)
+                else:
+                    raise RuntimeError(f'Unrecognized SrcNodeMovePolicy: {mv_policy}')
+            else:
+                logger.debug(f'Skipping node ({sn_src.spid}): it matched the skip condition for name="{src_name}"')
+            return True
+        else:
+            # False -> Do not skip
+            if TRACE_ENABLED:
+                logger.debug(f'Node {sn_dst_conflict.spid} did not match the skip condition for conflict name="{src_name}"')
+            return False
 
     def _handle_no_conflicts_found(self, dd_meta: DragAndDropMeta, sn_src: SPIDNodePair, sn_dst_parent: SPIDNodePair, new_dst_name: Optional[str] = None):
         """COPY or MOVE where target does not already exist. Source node can either be a file or dir (in which case all its descendants will

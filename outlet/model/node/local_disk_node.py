@@ -260,6 +260,15 @@ class LocalFileNode(LocalNode):
 
         return False
 
+    def update_signature_and_timestamps_from(self, other):
+        self.md5 = other.md5
+        self.set_size_bytes(other.get_size_bytes())
+        self.modify_ts = other.modify_ts
+
+        if isinstance(other, LocalFileNode):
+            self.change_ts = other.change_ts
+            self.sha256 = other.sha256
+
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
         if isinstance(other, LocalFileNode) and \

@@ -110,5 +110,14 @@ def _populate_build_dict():
             GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=True),
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
+        },
+        UserOpType.MV_ONTO: {
+            # FIXME: Start coding these!
+            LO_same_LO: lambda uid, change: _fail(change, LO_same_LO),
+            GD_same_GD: lambda uid, change: _fail(change, GD_same_GD),
+            LO_GD: lambda uid, change: _fail(change, LO_GD),
+            GD_LO: lambda uid, change: _fail(change, GD_LO),
+            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
+            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         }
     }

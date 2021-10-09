@@ -237,6 +237,10 @@ class Node(BaseNode, HasParentList, ABC):
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
 
+    @abstractmethod
+    def update_signature_and_timestamps_from(self, other_node):
+        pass
+
 
 class NonexistentDirNode(Node):
     """
