@@ -192,7 +192,7 @@ class OpManager(HasLifecycle):
                 self._check_ancestors(op, op.src_node, validate_rm_ancestor_func)
             elif op.op_type == UserOpType.MKDIR:
                 self._check_ancestors(op, op.src_node, validate_mkdir_ancestor_func)
-            elif op.op_type == UserOpType.CP or op.op_type == UserOpType.UP or op.op_type == UserOpType.MV or op.op_type == UserOpType.MV_ONTO:
+            elif op.op_type == UserOpType.CP or op.op_type == UserOpType.CP_ONTO or op.op_type == UserOpType.MV or op.op_type == UserOpType.MV_ONTO:
                 """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
                  1. No ancestors of src or dst correspond to any Ops.
                  2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)

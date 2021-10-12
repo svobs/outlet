@@ -17,25 +17,28 @@ class UserOpType(IntEnum):
     RM = 1
     """Remove src node (single-node op)"""
 
-    CP = 2
-    """Copy content of src node to dst node, where dst node does not yet exist"""
+    UNLINK = 2
+    """Will (a) just remove from parent, for GDrive nodes, or (b) unlink shortcuts/links, if those type"""
 
     MKDIR = 3
     """Make dir represented by src node (single-node op)"""
 
-    MV = 4
+    CP = 4
+    """Copy content of src node to dst node, where dst node does not yet exist"""
+
+    CP_ONTO = 5
+    """Copy content of src node to existing dst node, overwriting the previous contents of dst"""
+
+    MV = 6
     """Equivalent to CP followed by RM: copy src node to dst node, then delete src node.
     I would actually get rid of this and replace it with a CP followed with an RM, but most file systems provide an atomic operation for this,
     so let's honor that."""
 
-    UP = 5  # TODO: rename to CP_ONTO
-    """Similar to CP, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst"""
-
-    MV_ONTO = 6
+    MV_ONTO = 7
     """Similar to MV, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst, then delete src"""
 
     def has_dst(self) -> bool:
-        return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.UP or self == UserOpType.MV_ONTO
+        return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.CP_ONTO or self == UserOpType.MV_ONTO
 
 
 # ENUM UserOpStatus
@@ -126,7 +129,7 @@ class OpTypeMeta:
     _display_label_dict: Dict[UserOpType, str] = {
         UserOpType.RM: 'To Delete',
         UserOpType.CP: 'To Add',
-        UserOpType.UP: 'To Update',
+        UserOpType.CP_ONTO: 'To Update',
         UserOpType.MV: 'To Move',
         UserOpType.MV_ONTO: 'To Replace'
     }
@@ -136,13 +139,13 @@ class OpTypeMeta:
         UserOpType.MV: IconId.ICON_FILE_MV_SRC,
         UserOpType.MV_ONTO: IconId.ICON_FILE_MV_SRC,
         UserOpType.CP: IconId.ICON_FILE_CP_SRC,
-        UserOpType.UP: IconId.ICON_FILE_UP_SRC
+        UserOpType.CP_ONTO: IconId.ICON_FILE_UP_SRC
     }
     _icon_dst_file_dict = {
         UserOpType.MV: IconId.ICON_FILE_MV_DST,
         UserOpType.MV_ONTO: IconId.ICON_FILE_MV_DST,
         UserOpType.CP: IconId.ICON_FILE_CP_DST,
-        UserOpType.UP: IconId.ICON_FILE_UP_DST
+        UserOpType.CP_ONTO: IconId.ICON_FILE_UP_DST
     }
     _icon_src_dir_dict = {
         UserOpType.MKDIR: IconId.ICON_DIR_MK,
@@ -150,20 +153,20 @@ class OpTypeMeta:
         UserOpType.MV: IconId.ICON_DIR_MV_SRC,
         UserOpType.MV_ONTO: IconId.ICON_DIR_MV_SRC,
         UserOpType.CP: IconId.ICON_DIR_CP_SRC,
-        UserOpType.UP: IconId.ICON_DIR_UP_SRC
+        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_SRC
     }
     _icon_dst_dir_dict = {
         UserOpType.MV: IconId.ICON_DIR_MV_DST,
         UserOpType.MV_ONTO: IconId.ICON_DIR_MV_DST,
         UserOpType.CP: IconId.ICON_DIR_CP_DST,
-        UserOpType.UP: IconId.ICON_DIR_UP_DST
+        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_DST
     }
     _icon_cat_node = {
         UserOpType.RM: IconId.ICON_TO_DELETE,
         UserOpType.MV: IconId.ICON_TO_MOVE,
         UserOpType.MV_ONTO: IconId.ICON_TO_MOVE,
         UserOpType.CP: IconId.ICON_TO_ADD,
-        UserOpType.UP: IconId.ICON_TO_UPDATE,
+        UserOpType.CP_ONTO: IconId.ICON_TO_UPDATE,
     }
 
     @staticmethod

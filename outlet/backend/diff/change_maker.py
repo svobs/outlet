@@ -564,7 +564,7 @@ class ChangeMaker:
             sn_dst.node.update_signature_and_timestamps_from(sn_src)
 
             if dd_meta.drag_op == DragOperation.COPY:
-                self.right_side.add_node_and_new_op(op_type=UserOpType.UP, sn_src=sn_src, sn_dst=sn_dst)
+                self.right_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_src, sn_dst=sn_dst)
             elif dd_meta.drag_op == DragOperation.MOVE:
                 self.right_side.add_node_and_new_op(op_type=UserOpType.MV_ONTO, sn_src=sn_src, sn_dst=sn_dst)
 
@@ -768,8 +768,8 @@ class ChangeMaker:
 
     def append_up_op_s_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left -> Right. Both nodes already exist, but one will overwrite the other"""
-        self.right_side.add_node_and_new_op(op_type=UserOpType.UP, sn_src=sn_s, sn_dst=sn_r)
+        self.right_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_s, sn_dst=sn_r)
 
     def append_up_op_r_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left <- Right. Both nodes already exist, but one will overwrite the other"""
-        self.left_side.add_node_and_new_op(op_type=UserOpType.UP, sn_src=sn_r, sn_dst=sn_s)
+        self.left_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_r, sn_dst=sn_s)

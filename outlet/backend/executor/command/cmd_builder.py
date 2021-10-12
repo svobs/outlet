@@ -103,7 +103,7 @@ def _populate_build_dict():
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         },
-        UserOpType.UP: {
+        UserOpType.CP_ONTO: {
             LO_same_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=True),
             GD_same_GD: lambda uid, change: CopyFileGDriveCommand(uid, change, overwrite=True),
             LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=True),
