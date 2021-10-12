@@ -39,9 +39,12 @@ def _ensure_up_to_date(node: LocalFileNode, cxt: CommandContext) -> LocalFileNod
     return fresh_node
 
 
+# TODO: GDrive 'overwrite' logic. Include switch for choosing whether to delete an item only if you are unlinking it from its last parent,
+#  or to delete it from all locations.
+# TODO: also include both options in context menu
+
 # LOCAL COMMANDS begin
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
 
 # TODO: what if staging dir is not on same file system?
 
@@ -364,7 +367,8 @@ class CreateGDriveFolderCommand(Command):
 
 class MoveFileGDriveCommand(TwoNodeCommand):
     """
-    Move GDrive -> GDrive. The dst node is expected to have the same UID & goog_id as the src node, but different parent node[s].
+    Move GDrive -> GDrive. Really, this command boils down to a change of parent.
+    Thus, the dst node is expected to have the same UID & goog_id as the src node, but different parent node[s].
     This command cannot be used to overwrite an existing node; for that, use CopyFileGDriveCommand.
     """
 
