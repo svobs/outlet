@@ -10,6 +10,7 @@ from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
 from pydispatch import dispatcher
 
 from backend.diff.change_maker import ChangeMaker
+from backend.diff.transfer_maker import TransferMaker
 from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
@@ -1274,18 +1275,18 @@ class CacheManager(HasLifecycle):
         else:
             logger.debug(f'[{dst_tree_id}] Dropping into dest: {sn_dst.spid}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            change_maker = ChangeMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
-                                       tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
+            transfer_maker = TransferMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
+                                           tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
 
             if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
-                change_maker.drag_nodes_left_to_right(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
+                transfer_maker.drag_and_drop(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
             elif drag_operation == DragOperation.LINK:
                 # TODO: link operation
                 raise NotImplementedError('LINK drag operation is not yet supported!')
             else:
                 raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
             # This should fire listeners which ultimately populate the tree:
-            op_list: Iterable[UserOp] = change_maker.get_all_op_list()
+            op_list: Iterable[UserOp] = transfer_maker.get_all_op_list()
             self.enqueue_op_batch(op_list)
             return True
 
