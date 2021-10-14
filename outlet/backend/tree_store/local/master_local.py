@@ -139,7 +139,7 @@ class LocalDiskMasterStore(TreeStore):
 
     @locked
     def overwrite_dir_entries_list(self, parent_full_path: str, child_list: List[LocalNode]):
-        parent_dir: Optional[LocalNode] = self.get_node_for_uid(self.get_uid_for_path(parent_full_path))
+        parent_dir: Optional[LocalNode] = self.read_node_for_uid(self.get_uid_for_path(parent_full_path))
         if not parent_dir or not parent_dir.is_dir():
             # Possibly just the cache for this one node is out-of-date. Let's bring it up to date.
             if os.path.isdir(parent_full_path):
@@ -433,7 +433,8 @@ class LocalDiskMasterStore(TreeStore):
             logger.error(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
-            node = self.get_node_for_uid(node_uid)
+            # If the cache is marked as loaded, then its contents should be represented in the in-memory master tree:
+            node = self._memstore.master_tree.get_node_for_uid(node_uid)
             if node:
                 return node
             if TRACE_ENABLED:
@@ -630,7 +631,7 @@ class LocalDiskMasterStore(TreeStore):
     def get_node_for_domain_id(self, domain_id: str) -> LocalNode:
         """AKA get_node_for_full_path()"""
         uid: UID = self.get_uid_for_domain_id(domain_id)
-        return self.get_node_for_uid(uid)
+        return self.read_node_for_uid(uid)
 
     def _get_subtree_bfs_from_cache(self, parent_spid: LocalNodeIdentifier) -> Optional[List[LocalNode]]:
         """Returns all nodes in the given subtree which can be found in the cache. If the cache is not loaded into memory, loads them from disk."""
@@ -744,16 +745,8 @@ class LocalDiskMasterStore(TreeStore):
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_node_for_uid(): uid={uid}')
-
-        full_path = self.get_path_for_uid(uid)
-        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
-        if not cache_info:
-            logger.error(f'get_node_for_uid(): Could not find cache containing path: "{full_path}"')
-            return None
-        if not cache_info.is_loaded:
-            raise CacheNotLoadedError(f'Could not load node UID {uid}: cache for subtree {cache_info.subtree_root} is not loaded!')
-
-        return self._memstore.master_tree.get_node_for_uid(uid)
+        # Just delegate to read_node_for_uid() and do a read-through:
+        return self.read_node_for_uid(uid)
 
     def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
         parent_node = self.get_single_parent_for_node(node)
