@@ -96,7 +96,7 @@ class ContentFirstDiffer(ChangeMaker):
         on_file_found.count_duplicates = 0
         on_file_found.count_skipped_no_md5 = 0
 
-        self.visit_each_file_for_subtree(side.root_sn, on_file_found, side.tree_id_src)
+        self.backend.cacheman.visit_each_sn_in_subtree(side.tree_id_src, side.root_sn, on_file_found)
 
         if node_list_signatures_calculated:
             logger.debug(f'[{side.tree_id}] Sending batch of {len(node_list_signatures_calculated)} nodes with updated signatures to CacheMan')

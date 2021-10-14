@@ -80,11 +80,6 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_subtree_bfs_visitor(self, subtree_root: NodeIdentifier):
-        # TODO
-        pass
-
-    @abstractmethod
     def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[Node]:
         pass
 

@@ -1,3 +1,4 @@
+import collections
 import logging
 import os
 import pathlib
@@ -5,7 +6,7 @@ import subprocess
 import threading
 import uuid
 from collections import deque
-from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
@@ -1349,6 +1350,38 @@ class CacheManager(HasLifecycle):
 
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def visit_each_sn_in_subtree(self, tree_id: TreeID, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None]):
+        """Note: here, param "tree_id" indicates which active tree from which to get child nodes from.
+         This includes ChangeTrees, if tree_id resolves to a ChangeTree."""
+
+        assert isinstance(subtree_root, Tuple), \
+            f'Expected NamedTuple with SinglePathNodeIdentifier but got {type(subtree_root)}: {subtree_root}'
+        queue: Deque[SPIDNodePair] = collections.deque()
+        queue.append(subtree_root)
+
+        count_total_nodes = 0
+        count_file_nodes = 0
+
+        while len(queue) > 0:
+            sn: SPIDNodePair = queue.popleft()
+            count_total_nodes += 1
+            if not sn.node:
+                raise RuntimeError(f'Node is null for: {sn.spid}')
+
+            if sn.node.is_live():  # avoid pending op nodes
+                if sn.node.is_dir():
+                    child_sn_list = self.get_child_list(sn.spid, tree_id=tree_id)
+                    if child_sn_list:
+                        for child_sn in child_sn_list:
+                            assert child_sn.spid.get_single_path() in child_sn.node.get_path_list(), \
+                                f'Bad SPIDNodePair found in children of {sn}: Path from SPID ({child_sn.spid}) not found in node: {child_sn.node}'
+                            queue.append(child_sn)
+                else:
+                    count_file_nodes += 1
+                    on_file_found(sn)
+
+        logger.debug(f'[{tree_id}] visit_each_sn_in_subtree(): Visited {count_file_nodes} file nodes out of {count_total_nodes} total nodes')
 
     def submit_batch_of_changes(self, subtree_root: NodeIdentifier, upsert_node_list: List[Node] = None,
                                 remove_node_list: List[Node] = None):

@@ -205,6 +205,9 @@ class GDriveFolder(GDriveNode):
                 return IconId.ICON_DIR_MK
         return IconId.ICON_DIR_TRASHED
 
+    def update_signature_and_timestamps_from(self, other):
+        raise InvalidOperationError('update_signature_and_timestamps_from')
+
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
         if isinstance(other, GDriveFolder) and \

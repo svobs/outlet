@@ -246,39 +246,6 @@ class ChangeMaker:
         """Returns all UserOps, from both sides."""
         return [] + self.left_side.change_tree.get_op_list() + self.right_side.change_tree.get_op_list()
 
-    def visit_each_file_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id_src: TreeID):
-        """Note: here, param "tree_id_src" indicates which tree_id from which to request nodes from CacheManager
-        (via repeated calls to get_child_list()). This includes ChangeTrees, if tree_id_src resolves to a ChangeTree."""
-
-        assert isinstance(subtree_root, Tuple), \
-            f'Expected NamedTuple with SinglePathNodeIdentifier but got {type(subtree_root)}: {subtree_root}'
-        queue: Deque[SPIDNodePair] = collections.deque()
-        queue.append(subtree_root)
-
-        count_total_nodes = 0
-        count_file_nodes = 0
-
-        while len(queue) > 0:
-            sn: SPIDNodePair = queue.popleft()
-            count_total_nodes += 1
-            if not sn.node:
-                raise RuntimeError(f'Node is null for: {sn.spid}')
-
-            if sn.node.is_live():  # avoid pending op nodes
-                if sn.node.is_dir():
-                    child_sn_list = self.backend.cacheman.get_child_list(sn.spid, tree_id=tree_id_src)
-                    if child_sn_list:
-                        for child_sn in child_sn_list:
-                            if child_sn.spid.get_single_path() not in child_sn.node.get_path_list():
-                                logger.error(f'[{tree_id_src}] Bad SPIDNodePair found in children of {sn}, see following error')
-                                raise RuntimeError(f'Invalid SPIDNodePair! Path from SPID ({child_sn.spid}) not found in node: {child_sn.node}')
-                            queue.append(child_sn)
-                else:
-                    count_file_nodes += 1
-                    on_file_found(sn)
-
-        logger.debug(f'[{tree_id_src}] visit_each_file_for_subtree(): Visited {count_file_nodes} file nodes out of {count_total_nodes} total nodes')
-
     @staticmethod
     def _change_base_path(orig_target_path: str, orig_base: SPIDNodePair, new_base: SPIDNodePair, new_target_name: Optional[str] = None) -> str:
         dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base.spid.get_single_parent_path())

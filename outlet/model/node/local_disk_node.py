@@ -4,6 +4,7 @@ from abc import ABC
 from typing import Optional, Tuple
 
 from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, SUPER_DEBUG_ENABLED, TrashStatus
+from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
@@ -113,6 +114,9 @@ class LocalDirNode(LocalNode):
     def sync_ts(self):
         # Local dirs are not currently synced to disk
         return None
+
+    def update_signature_and_timestamps_from(self, other):
+        raise InvalidOperationError('update_signature_and_timestamps_from')
 
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""

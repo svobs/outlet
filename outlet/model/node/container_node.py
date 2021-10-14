@@ -79,6 +79,9 @@ class ContainerNode(Node):
     def sync_ts(self):
         return None
 
+    def update_signature_and_timestamps_from(self, other):
+        raise InvalidOperationError('update_signature_and_timestamps_from')
+
     def __eq__(self, other):
         if not isinstance(other, ContainerNode):
             return False
