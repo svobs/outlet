@@ -133,9 +133,6 @@ class ActiveTreeManager(HasLifecycle):
                 logger.debug(f'[{tree_meta.tree_id}] Parent ({sn.spid.parent_guid}) is not expanded in FE; will discard notification for {sn.spid}')
             return None
 
-        # Make sure to update the node icon before sending!
-        self.backend.cacheman.update_node_icon(sn.node)
-
         return sn
 
     def _enqueue_stat_refresh_for_dir(self, dir_guid: GUID, tree_id: TreeID):
@@ -145,7 +142,7 @@ class ActiveTreeManager(HasLifecycle):
                 guid_set: Set[GUID] = set()
                 self._tree_stats_refresh_queue_dict[tree_id] = guid_set
             guid_set.add(dir_guid)
-
+            logger.debug(f'Added dir {dir_guid} to tree_id {tree_id}; giving the stats refresh timer a kick')
         self._stats_refresh_timer.start_or_delay()
 
     def _process_queued_stats(self):
@@ -153,17 +150,23 @@ class ActiveTreeManager(HasLifecycle):
             # For each display tree in the dict, need to regenerate stats for the given GUIDs and their descendants AND direct ancestors.
             # To simplify things and avoid possible errors, let's just regenerate the stats for the entire tree and see how that performs.
             for tree_id, guid_set in self._tree_stats_refresh_queue_dict.items():
-                meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
-                if meta and meta.state == TreeLoadState.COMPLETELY_LOADED:
-                    # Regenerate all the stats (+ status msg) and store the updates in the tree_meta:
-                    self.backend.cacheman.repopulate_dir_stats_for_tree(meta)
+                logger.debug(f'Recomputed stats for tree_id: {tree_id}')
 
-                    # Push out the updates to all of the affected clients:
-                    dispatcher.send(signal=Signal.STATS_UPDATED, sender=tree_id, status_msg=meta.summary_msg,
-                                    dir_stats_dict_by_guid=meta.dir_stats_unfiltered_by_guid, dir_stats_dict_by_uid=meta.dir_stats_unfiltered_by_uid)
+                meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+                if meta:
+                    if meta.load_state == TreeLoadState.COMPLETELY_LOADED:
+                        # Regenerate all the stats (+ status msg) and store the updates in the tree_meta:
+                        self.backend.cacheman.repopulate_dir_stats_for_tree(meta)
+
+                        # Push out the updates to all of the affected clients:
+                        dispatcher.send(signal=Signal.STATS_UPDATED, sender=tree_id, status_msg=meta.summary_msg,
+                                        dir_stats_dict_by_guid=meta.dir_stats_unfiltered_by_guid,
+                                        dir_stats_dict_by_uid=meta.dir_stats_unfiltered_by_uid)
+                    else:
+                        logger.debug(f'Will skip regeneration of DirStats for tree_id "{tree_id}": tree is not in '
+                                     f'{TreeLoadState.COMPLETELY_LOADED.name} state (actual state={meta.load_state})')
                 else:
-                    logger.debug(f'Will skip regeneration of DirStats for tree_id "{tree_id}": tree is not in '
-                                 f'{TreeLoadState.COMPLETELY_LOADED.name} state')
+                    logger.debug(f'Will skip regeneration of DirStats for tree_id "{tree_id}": tree no longer active!')
 
             self._tree_stats_refresh_queue_dict.clear()
 
@@ -226,7 +229,7 @@ class ActiveTreeManager(HasLifecycle):
             for sn in subtree_sn_list:
                 self.backend.cacheman.update_node_icon(sn.node)
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Notifying tree of upserted node: {sn.spid}, parent_guid={sn.spid.parent_guid}')
+                    logger.debug(f'[{tree_id}] Notifying tree of upserted node {sn.spid} parent_guid={sn.spid.parent_guid} icon={sn.node.get_icon()}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
 
     def _on_node_removed(self, sender: str, node: Node):
@@ -237,7 +240,7 @@ class ActiveTreeManager(HasLifecycle):
 
             for sn in subtree_sn_list:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Notifying tree of removed node: {sn.spid}, parent_guid={sn.spid.parent_guid}')
+                    logger.debug(f'[{tree_id}] Notifying tree of removed node {sn.spid} parent_guid={sn.spid.parent_guid}')
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=sn)
 
     def _get_intersecting_spid_for_subtree_root(self, tree_meta, subtree_root: NodeIdentifier) -> Optional[SinglePathNodeIdentifier]:

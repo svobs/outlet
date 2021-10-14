@@ -137,6 +137,9 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
     def _calculate_signature_for_local_node(self, node: LocalFileNode):
         # Get up-to-date copy:
         node = self.backend.cacheman.get_node_for_uid(node.uid, node.device_uid)
+        if not node:
+            logger.warning(f'[{self.name}] Skipping signature calculation: node is no longer present in the cache: {node}')
+            return
 
         if node.md5 or node.sha256:
             # Other threads, e.g., CommandExecutor, can also fill this in asynchronously

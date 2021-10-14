@@ -244,6 +244,8 @@ class OpManager(HasLifecycle):
             # Assume batch has already been reduced and reconciled against master tree.
             batch_op_list: List[UserOp] = batch_dict[batch_uid]
 
+            logger.debug(f'Resuming pending batch uid={batch_uid} with {len(batch_op_list)} ops')
+
             big_node_list: List[Node] = self._get_all_nodes(batch_op_list)
 
             # Make sure all relevant caches are loaded. Do this via executor tasks:
@@ -344,6 +346,8 @@ class OpManager(HasLifecycle):
 
         # This will block until a op is ready:
         op: UserOp = self._op_graph.get_next_op()
+
+        # TODO: keep track of op UIDs, and refuse to create commands if the UIDs are too small, as a sanity check against running commands repeatedly
 
         if op:
             return self._cmd_builder.build_command(op)

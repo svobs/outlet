@@ -153,7 +153,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
                 while True:  # empty the queue
                     with self._cv_has_signal:
-                        if SUPER_DEBUG_ENABLED:
+                        if TRACE_ENABLED:
                             logger.debug(f'Checking signal queue for ThreadID {thread_id}')
                         signal_queue: Optional[Deque] = self._thread_signal_queues.get(thread_id, None)
                         if signal_queue is None:
@@ -163,7 +163,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                         if len(signal_queue) > 0:
                             signal: Optional[SignalMsg] = signal_queue.popleft()
                         else:
-                            logger.debug(f'Signal queue for ThreadID {thread_id} emptied. Will wait for more signals')
+                            if TRACE_ENABLED:
+                                logger.debug(f'Signal queue emptied for ThreadID {thread_id}. Will wait for more signals')
                             signal = None
                             self._cv_has_signal.wait()
 

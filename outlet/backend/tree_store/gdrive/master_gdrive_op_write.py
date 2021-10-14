@@ -106,7 +106,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             cache.upsert_gdrive_file_list([self.node])
 
     def send_signals(self):
-        # Always update:
+        # Always send signals:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Sending signal {Signal.NODE_UPSERTED_IN_CACHE.name} with node: {self.node}')
         dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)

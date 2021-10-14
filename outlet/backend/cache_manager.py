@@ -602,7 +602,7 @@ class CacheManager(HasLifecycle):
 
         if result.nodes_to_remove:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove:'
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove: '
                              f'{result.nodes_to_remove}')
             else:
                 logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove')
@@ -1272,27 +1272,30 @@ class CacheManager(HasLifecycle):
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
             return False
-        elif self._is_dropping_on_self(sn_src_list, sn_dst, dst_tree_id):
+
+        if self._is_dropping_on_self(sn_src_list, sn_dst, dst_tree_id):
             # don't allow this, even for copy. It's super annoying when an erroneous bump of the mouse results in a huge copy operation
             logger.info(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
             return False
-        else:
-            logger.debug(f'[{dst_tree_id}] Dropping into dest: {sn_dst.spid}')
-            # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            transfer_maker = TransferMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
-                                           tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
 
-            if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
-                transfer_maker.drag_and_drop(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
-            elif drag_operation == DragOperation.LINK:
-                # TODO: link operation
-                raise NotImplementedError('LINK drag operation is not yet supported!')
-            else:
-                raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
-            # This should fire listeners which ultimately populate the tree:
-            op_list: List[UserOp] = transfer_maker.get_all_op_list()
-            self.enqueue_op_batch(op_list)
-            return True
+        # FIXME: add a wait so that the backend is done resuming pending ops, before continuing
+
+        logger.debug(f'[{dst_tree_id}] Dropping into dest: {sn_dst.spid}')
+        # "Left tree" here is the source tree, and "right tree" is the dst tree:
+        transfer_maker = TransferMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
+                                       tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
+
+        if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
+            transfer_maker.drag_and_drop(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
+        elif drag_operation == DragOperation.LINK:
+            # TODO: link operation
+            raise NotImplementedError('LINK drag operation is not yet supported!')
+        else:
+            raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
+        # This should fire listeners which ultimately populate the tree:
+        op_list: List[UserOp] = transfer_maker.get_all_op_list()
+        self.enqueue_op_batch(op_list)
+        return True
 
     def _is_dropping_on_self(self, sn_src_list: List[SPIDNodePair], sn_dst: SPIDNodePair, dst_tree_id: TreeID):
         dst_ancestor_list = self.get_ancestor_list_for_spid(sn_dst.spid)

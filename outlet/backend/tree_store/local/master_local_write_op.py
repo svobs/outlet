@@ -110,13 +110,9 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         cache.upsert_single_node(self.node, commit=False)
 
     def send_signals(self):
-        if self.was_updated:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'UpsertSingleNodeOp: sending upsert signal for {self.node.node_identifier}')
-            dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
-        else:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Skipping upsert signal for {self.node.node_identifier}: was_updated={self.was_updated}')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'UpsertSingleNodeOp: sending upsert signal for {self.node.node_identifier}')
+        dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
     def __repr__(self):
         return f'UpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
@@ -207,22 +203,19 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
                     memstore.remove_single_node(node)
 
             if subtree.upsert_node_list:
-                reduced_upsert_list = []
+                new_upsert_node_list = []
 
                 # Only nodes which were updated in the memstore and for which is_live()==true should be written to disk.
-                # However, any nodes which were updated (whether live or not) should have signals sent for them.
+                # But in this case, I am too lazy to rework this API to make it work; should be fine to do some extra writes
                 for node in subtree.upsert_node_list:
                     master_node, was_updated = memstore.upsert_single_node(node)
                     if TRACE_ENABLED:
                         logger.debug(f'Node {node.uid} was updated: {was_updated}')
-                    if was_updated:
-                        if master_node:
-                            node = master_node
-                        reduced_upsert_list.append(node)
-                    elif TRACE_ENABLED:
-                        logger.debug(f'Node was not updated in memcache and will be omitted from disk save: {node}')
+                    if master_node:
+                        node = master_node
+                    new_upsert_node_list.append(node)
 
-                subtree.upsert_node_list = reduced_upsert_list
+                subtree.upsert_node_list = new_upsert_node_list
 
     def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         if SUPER_DEBUG_ENABLED:
@@ -244,6 +237,7 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
                 logger.debug(f'No nodes to upsert to diskstore')
 
     def send_signals(self):
+        # All nodes in our lists (whether live or not) should have signals sent for them.
         for subtree in self.subtree_list:
             dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root=subtree.subtree_root,
                             upserted_node_list=subtree.upsert_node_list, removed_node_list=list(reversed(subtree.remove_node_list)))

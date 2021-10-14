@@ -563,9 +563,7 @@ class OpGraph(HasLifecycle):
         logger.debug(f'Entered pop_op() for op {op}')
 
         with self._cv_can_get:
-            if self._outstanding_actions.get(op.op_uid, None):
-                self._outstanding_actions.pop(op.op_uid)
-            else:
+            if not self._outstanding_actions.pop(op.op_uid, None):
                 raise RuntimeError(f'Complated op not found in outstanding op list (action UID {op.op_uid}')
 
             # I. SRC Node
