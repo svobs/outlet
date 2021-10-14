@@ -66,7 +66,7 @@ class OpGraph(HasLifecycle):
         graph_line_list = self._graph_root.print_recursively()
 
         op_set = set()
-        line_list = []
+        qd_line_list = []
         queue_count = 0
         for device_uid, node_dict in self._node_q_dict.items():
             queue_count += len(node_dict)
@@ -75,18 +75,18 @@ class OpGraph(HasLifecycle):
                 for node in deque:
                     op_set.add(node.op.op_uid)
                     node_repr_list.append(node.op.get_tag())
-                line_list.append(f'NodeUID {node_uid}:')
+                qd_line_list.append(f'$$ NodeUID {node_uid}:')
                 for i, node_repr in enumerate(node_repr_list):
-                    line_list.append(f'  {i}. {node_repr}')
+                    qd_line_list.append(f'$$  {i}. {node_repr}')
 
-        logger.debug(f'CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
-        for line in graph_line_list:
-            logger.debug(line)
+        logger.debug(f'## CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
+        for graph_line in graph_line_list:
+            logger.debug(f'## {graph_line}')
 
-        logger.debug(f'CURRENT EXECUTION STATE: NodeQueueDict has {queue_count} queues for {len(self._node_q_dict)} devices '
-                     f'({len(op_set)} total ops):')
-        for line in line_list:
-            logger.debug(line)
+        logger.debug(f'$$ CURRENT EXECUTION STATE: NodeQueueDict has {queue_count} queues for {len(self._node_q_dict)} devices, '
+                     f'{len(op_set)} total ops:')
+        for qd_line in qd_line_list:
+            logger.debug(qd_line)
 
     def _get_lowest_priority_op_node(self, device_uid: UID, node_uid: UID):
         node_dict = self._node_q_dict.get(device_uid, None)

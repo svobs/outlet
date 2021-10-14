@@ -93,20 +93,30 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         if node:
             self.node = node
         elif SUPER_DEBUG_ENABLED:
-            logger.debug(f'upsert_single_node() returned None for input node: {self.node}')
+            logger.debug(f'UpsertSingleNodeOp: upsert_single_node() returned None for input node: {self.node}')
 
     def update_diskstore(self, cache: LocalDiskDatabase):
         if not self.node.is_live():
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Skipping disk save because node does not exist: {self.node}')
-        elif self.was_updated:
+                logger.debug(f'UpsertSingleNodeOp: node is not live; skipping save to disk: {self.node}')
+            return
+
+        if not self.was_updated:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Upserting LocalNode to disk cache: {self.node}')
-            cache.upsert_single_node(self.node, commit=False)
+                logger.debug(f'UpsertSingleNodeOp: node was not updated in memstore; skipping save to disk: {self.node}')
+            return
+
+        logger.debug(f'UpsertSingleNodeOp: upserting LocalNode to disk cache: {self.node}')
+        cache.upsert_single_node(self.node, commit=False)
 
     def send_signals(self):
-        if self.was_updated and self.node.is_live():
+        if self.was_updated:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'UpsertSingleNodeOp: sending upsert signal for {self.node.node_identifier}')
             dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
+        else:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Skipping upsert signal for {self.node.node_identifier}: was_updated={self.was_updated}')
 
     def __repr__(self):
         return f'UpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
@@ -160,6 +170,10 @@ class LocalDiskMultiNodeOp(LocalWriteThroughOp, ABC):
 
     @abstractmethod
     def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
+        """
+            Only nodes which were updated in the memstore and for which is_live()==true should be written to disk.
+            However, any nodes which were updated (whether live or not) should have signals sent for them.
+        """
         pass
 
 
@@ -193,20 +207,22 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
                     memstore.remove_single_node(node)
 
             if subtree.upsert_node_list:
-                new_upsert_list = []
+                reduced_upsert_list = []
 
-                for node_index, node in enumerate(subtree.upsert_node_list):
+                # Only nodes which were updated in the memstore and for which is_live()==true should be written to disk.
+                # However, any nodes which were updated (whether live or not) should have signals sent for them.
+                for node in subtree.upsert_node_list:
                     master_node, was_updated = memstore.upsert_single_node(node)
                     if TRACE_ENABLED:
                         logger.debug(f'Node {node.uid} was updated: {was_updated}')
-                    if was_updated and node.is_live():
+                    if was_updated:
                         if master_node:
                             node = master_node
-                        new_upsert_list.append(node)
+                        reduced_upsert_list.append(node)
                     elif TRACE_ENABLED:
                         logger.debug(f'Node was not updated in memcache and will be omitted from disk save: {node}')
 
-                subtree.upsert_node_list = new_upsert_list
+                subtree.upsert_node_list = reduced_upsert_list
 
     def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         if SUPER_DEBUG_ENABLED:
@@ -219,7 +235,10 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
                 logger.debug(f'No nodes to remove from diskstore')
 
         if subtree.upsert_node_list:
-            cache.upsert_files_and_dirs(subtree.upsert_node_list, commit=False)
+            # do not write non-live nodes to disk
+            live_node_list = list(filter(lambda n: n.is_live(), subtree.upsert_node_list))
+            if live_node_list:
+                cache.upsert_files_and_dirs(live_node_list, commit=False)
         else:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'No nodes to upsert to diskstore')

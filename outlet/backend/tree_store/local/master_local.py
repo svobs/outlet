@@ -240,6 +240,10 @@ class LocalDiskMasterStore(TreeStore):
         requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{tree_id}] Entered _load_subtree_from_disk(): cache_info={cache_info}, requested_subtree_root={requested_subtree_root}')
+
         stopwatch_total = Stopwatch()
 
         self._ensure_uid_consistency(cache_info.subtree_root)
@@ -263,7 +267,8 @@ class LocalDiskMasterStore(TreeStore):
                     # Only set this once we are completely finished bringing the memstore up to date. Other tasks will depend on it
                     # to choose whether to query memory or disk
                     cache_info.is_loaded = True
-                    logger.debug(f'[{tree_id}] Updated memstore (device_uid={self.device_uid}) from disk. Tree size is now: {len(self._memstore.master_tree):n}')
+                    logger.debug(f'[{tree_id}] Updated memstore for device_uid={self.device_uid} from disk cache (subtree={cache_info.subtree_root}).'
+                                 f' Tree size is now: {len(self._memstore.master_tree):n}')
 
         # FS SYNC
         did_rescan = False
@@ -291,7 +296,7 @@ class LocalDiskMasterStore(TreeStore):
         elif not cache_info.needs_refresh:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
 
-        if not did_rescan:
+        if not was_loaded and not did_rescan:
             logger.debug(f'[{tree_id}] Disk scan was skipped; checking cached nodes for missing signatures')
             # Check whether any nodes still need their signatures filled in, and enqueue them if so:
             for node in self._memstore.master_tree.get_subtree_bfs_node_list(requested_subtree_root.node_uid):
@@ -443,15 +448,15 @@ class LocalDiskMasterStore(TreeStore):
 
         # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_read_single_node_for(): Memcache not loaded; reading diskcache for UID {node_uid}"')
+            logger.debug(f'_read_single_node_for(): Memcache not loaded; reading diskcache for UID {node_uid}')
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             node = cache.get_file_or_dir_for_uid(node_uid)
         if node:
             if TRACE_ENABLED:
-                logger.debug(f'_read_single_node_for(): found node in disk cache: {node}')
+                logger.debug(f'_read_single_node_for(): Found node in disk cache: {node}')
             return node
 
-        if TRACE_ENABLED:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'_read_single_node_for(): Not found in memory or disk cache (will try disk scan): {node_uid}')
 
         # 3. Disk scan?
@@ -460,10 +465,10 @@ class LocalDiskMasterStore(TreeStore):
         else:
             node = self.build_local_file_node(full_path)
         if node:
-            logger.debug(f'_read_single_node_for(): scanned node from disk: {node}')
+            logger.debug(f'_read_single_node_for(): Scanned node from disk: {node}')
             self.upsert_single_node(node)
         else:
-            logger.debug(f'_read_single_node_for(): failed to scan node from disk: {node_uid}')
+            logger.debug(f'_read_single_node_for(): Failed to scan node from disk: {node_uid}')
         return node
 
     def upsert_single_node(self, node: LocalNode) -> LocalNode:

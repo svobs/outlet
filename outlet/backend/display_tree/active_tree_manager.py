@@ -15,7 +15,7 @@ from backend.realtime.live_monitor import LiveMonitor
 from constants import DIFF_DEBUG_ENABLED, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
     SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
     TreeID, TreeLoadState, TreeType
-from error import CacheNotLoadedError, GDriveItemNotFoundError
+from error import CacheNotFoundError, CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
@@ -465,6 +465,8 @@ class ActiveTreeManager(HasLifecycle):
                 # If we started from a persister, continue persisting:
                 root_path_persister = display_tree_meta.root_path_config_persister
 
+        # Ensure cache is at least init'd for the root node, so that read_node_for_spid() doesn't error out:
+        self.backend.cacheman.get_cache_info_for_subtree(subtree_root=spid, create_if_not_found=True)
         # Try to retrieve the root node from the cache:
         try:
             node: Optional[Node] = self.backend.cacheman.read_node_for_spid(spid)

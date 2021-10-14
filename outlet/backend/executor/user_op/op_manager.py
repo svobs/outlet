@@ -66,7 +66,7 @@ class OpManager(HasLifecycle):
         self.backend = None
         self._cmd_builder = None
 
-    def _update_nodes_in_memstore(self, op: UserOp):
+    def _upsert_nodes_in_memstore(self, op: UserOp):
         """Looks at the given UserOp and notifies cacheman so that it can send out update notifications. The nodes involved may not have
         actually changed (i.e., only their statuses have changed).
 
@@ -261,7 +261,7 @@ class OpManager(HasLifecycle):
                 big_node_list.append(user_op.dst_node)
         return big_node_list
 
-    def append_new_pending_op_batch(self, batch_op_list: Iterable[UserOp]):
+    def append_new_pending_op_batch(self, batch_op_list: List[UserOp]):
         """
         Call this after the user requests a new set of ops.
 
@@ -276,6 +276,8 @@ class OpManager(HasLifecycle):
         # Validate batch_uid
         batch_uid: UID = self._validate_batch_uid_consistency(batch_op_list)
 
+        logger.debug(f'append_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch_op_list)} ops )')
+
         # Simplify and remove redundancies in op_list
         reduced_batch: Iterable[UserOp] = self._reduce_and_validate_ops(batch_op_list)
 
@@ -285,6 +287,8 @@ class OpManager(HasLifecycle):
         reduced_batch = sorted(reduced_batch, key=get_op_uid)
 
         self._append_batch(None, batch_uid, reduced_batch, save_to_disk=True)
+
+        logger.debug(f'append_new_pending_op_batch(): Successfully added batch {batch_uid}')
 
     @staticmethod
     def _validate_batch_uid_consistency(batch_op_list) -> UID:
@@ -316,8 +320,9 @@ class OpManager(HasLifecycle):
 
         # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).
         # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
+        logger.debug(f'Upserting affected nodes in memstore for {len(inserted_op_list)} ops')
         for op in inserted_op_list:
-            self._update_nodes_in_memstore(op)
+            self._upsert_nodes_in_memstore(op)
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(device_uid, node_uid)

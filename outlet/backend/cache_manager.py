@@ -115,6 +115,9 @@ class CacheManager(HasLifecycle):
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
 
+        if not self.sync_from_local_disk_on_cache_load:
+            logger.warning('sync_from_local_disk_on_cache_load is set to false. This should only be set to false for internal testing!')
+
         # Instantiate but do not start submodules yet, to avoid entangled dependencies:
 
         self._active_tree_manager = ActiveTreeManager(self.backend)
@@ -571,7 +574,7 @@ class CacheManager(HasLifecycle):
             else:
                 assert False
 
-            logger.info(f'{stopwatch} Done loading cache: {cache_num}/{total_cache_count}: id={existing_disk_cache.subtree_root}')
+            logger.info(f'{stopwatch} Init cache done: {cache_num}/{total_cache_count}: id={existing_disk_cache.subtree_root}')
         except RuntimeError:
             logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
 
@@ -1237,7 +1240,7 @@ class CacheManager(HasLifecycle):
         assert file_conflict_policy is not None and isinstance(file_conflict_policy, FileConflictPolicy), \
             f'Invalid file_conflict_policy: {file_conflict_policy}'
         logger.info(f'Got drop: {drag_operation.name} {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}"'
-                    f' dst_guid={dst_guid} is_into={is_into}')
+                    f' dst_guid={dst_guid} is_into={is_into} dir_policy={dir_conflict_policy.name} file_policy={file_conflict_policy.name}')
 
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
         dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
@@ -1287,7 +1290,7 @@ class CacheManager(HasLifecycle):
             else:
                 raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
             # This should fire listeners which ultimately populate the tree:
-            op_list: Iterable[UserOp] = transfer_maker.get_all_op_list()
+            op_list: List[UserOp] = transfer_maker.get_all_op_list()
             self.enqueue_op_batch(op_list)
             return True
 
@@ -1398,7 +1401,7 @@ class CacheManager(HasLifecycle):
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_manager.get_last_pending_op_for_node(device_uid, node_uid)
 
-    def enqueue_op_batch(self, op_list: Iterable[UserOp]):
+    def enqueue_op_batch(self, op_list: List[UserOp]):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
          the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""

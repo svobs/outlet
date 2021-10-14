@@ -70,16 +70,18 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             logger.debug(f'Node has no parents; assuming it is a root node: {self.node}')
 
     def update_diskstore(self, cache: GDriveDatabase):
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Upserting GDriveNode to disk cache: {self.node}')
-
         if not self.was_updated:
-            logger.debug(f'Node does not need disk update; skipping save to disk: {self.node}')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Node does not need disk update; skipping save to disk: {self.node}')
             return
 
         if not self.node.is_live():
-            logger.debug(f'Node is not live; skipping save to disk: {self.node}')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Node is not live; skipping save to disk: {self.node}')
             return
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'UpsertSingleNodeOp: upserting GDriveNode to disk cache: {self.node}')
 
         parent_mappings = []
         parent_uids = self.node.get_parent_uids()
@@ -234,10 +236,10 @@ class BatchChangesOp(GDriveWriteThroughOp):
                     mappings_list_list.append(parent_mapping_list)
 
                 if change.node.is_dir():
-                    assert isinstance(change.node, GDriveFolder)
+                    assert isinstance(change.node, GDriveFolder) and change.node.is_live(), f'Bad: {change.node}'
                     folders_to_upsert.append(change.node)
                 else:
-                    assert isinstance(change.node, GDriveFile)
+                    assert isinstance(change.node, GDriveFile) and change.node.is_live(), f'Bad: {change.node}'
                     files_to_upsert.append(change.node)
 
         if mappings_list_list:
@@ -298,6 +300,11 @@ class RefreshFolderOp(GDriveWriteThroughOp):
         folders_to_upsert: List[GDriveFolder] = []
 
         for node in self._upserted_node_list:
+            if not node.is_live():
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Skipping save to disk for node because it is not live: {node.node_identifier}')
+                continue
+
             parent_mapping_list = []
             parent_uids = node.get_parent_uids()
             if parent_uids:
