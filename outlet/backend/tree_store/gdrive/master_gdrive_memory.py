@@ -85,7 +85,7 @@ class GDriveMemoryStore:
         return node, True
 
     def remove_single_node(self, node: GDriveNode, to_trash: bool = False):
-        """Note: this is not allowed for non-empty directories. TODO: should it be?"""
+        """Note: this is not allowed for non-empty directories."""
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Removing GDriveNode from memory cache: {node}')
 

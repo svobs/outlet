@@ -14,7 +14,7 @@ from constants import DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, File
     TRACE_ENABLED, TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.local_disk_node import LocalFileNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
@@ -41,7 +41,7 @@ class OneSide:
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
         self.tree_id_src: Optional[TreeID] = tree_id_src
-        self._added_folders: Dict[str, SPIDNodePair] = {}
+        self._dict_added_dirs_by_path: Dict[str, SPIDNodePair] = {}
 
     @property
     def tree_id(self) -> TreeID:
@@ -57,7 +57,6 @@ class OneSide:
     def add_node_and_new_op(self, op_type: UserOpType, sn_src: SPIDNodePair, sn_dst: SPIDNodePair = None):
         """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a UserOp
         of the given type"""
-        assert not sn_src.node.is_dir() and not sn_dst.node.is_dir(), f'Cannot operate on dirs: src={sn_src.node}, dst={sn_dst.node}'
 
         if sn_dst:
             target_sn = sn_dst
@@ -112,26 +111,38 @@ class OneSide:
             raise RuntimeError(f'Invalid tree_type: {dst_tree_type}')
 
         # Now build the node:
-        node_identifier = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
-                                                                          device_uid=dst_device_uid)
+        nid = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
+                                                              device_uid=dst_device_uid)
         src_node: Node = sn_src.node
         if dst_tree_type == TreeType.LOCAL_DISK:
-            assert isinstance(node_identifier, LocalNodeIdentifier)
+            assert isinstance(nid, LocalNodeIdentifier)
             dst_parent_path = self.backend.cacheman.derive_parent_path(dst_path)
             dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
-            dst_node: Node = LocalFileNode(node_identifier, dst_parent_uid, src_node.md5, src_node.sha256, src_node.get_size_bytes(),
-                                           sync_ts=None, modify_ts=None, change_ts=None, trashed=TrashStatus.NOT_TRASHED, is_live=False)
+            if src_node.is_dir():
+                node_dst: Node = LocalDirNode(nid, dst_parent_uid, trashed=TrashStatus.NOT_TRASHED, is_live=False,
+                                              all_children_fetched=False)
+            else:
+                node_dst: Node = LocalFileNode(nid, dst_parent_uid, src_node.md5, src_node.sha256, src_node.get_size_bytes(),
+                                               sync_ts=None, modify_ts=None, change_ts=None, trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
-            dst_node: Node = GDriveFile(node_identifier=node_identifier, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
-                                        mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=src_node.md5,
-                                        is_shared=False, create_ts=None, modify_ts=None, size_bytes=src_node.get_size_bytes(),
-                                        owner_uid=None, shared_by_user_uid=None, sync_ts=None)
+            if src_node.is_dir():
+                node_dst: Node = GDriveFolder(node_identifier=nid, goog_id=dst_node_goog_id, node_name=src_node.name,
+                                              trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None, drive_id=None,
+                                              is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=False)
+            else:
+                node_dst: Node = GDriveFile(node_identifier=nid, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
+                                            mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=src_node.md5,
+                                            is_shared=False, create_ts=None, modify_ts=None, size_bytes=src_node.get_size_bytes(),
+                                            owner_uid=None, shared_by_user_uid=None, sync_ts=None)
         else:
-            raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={node_identifier}")
+            raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={nid}")
 
         spid = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
                                                                device_uid=dst_device_uid, must_be_single_path=True)
-        sn_dst: SPIDNodePair = SPIDNodePair(spid, dst_node)
+        sn_dst: SPIDNodePair = SPIDNodePair(spid, node_dst)
+
+        if node_dst.is_dir():
+            self._dict_added_dirs_by_path[dst_path] = sn_dst
 
         # ANCESTORS:
         self._add_needed_ancestors(sn_dst)
@@ -181,7 +192,7 @@ class OneSide:
                 break
 
             # AddedFolder already generated and added?
-            prev_added_ancestor: Optional[SPIDNodePair] = self._added_folders.get(parent_path, None)
+            prev_added_ancestor: Optional[SPIDNodePair] = self._dict_added_dirs_by_path.get(parent_path, None)
             if prev_added_ancestor:
                 child.set_parent_uids(prev_added_ancestor.node.uid)
                 break
@@ -213,7 +224,7 @@ class OneSide:
             spid = self.backend.node_identifier_factory.for_values(uid=new_ancestor_node.uid, device_uid=device_uid, tree_type=tree_type,
                                                                    path_list=parent_path, must_be_single_path=True)
             new_ancestor_sn: SPIDNodePair = SPIDNodePair(spid, new_ancestor_node)
-            self._added_folders[parent_path] = new_ancestor_sn
+            self._dict_added_dirs_by_path[parent_path] = new_ancestor_sn
             ancestor_stack.append(new_ancestor_sn)
 
             child.set_parent_uids(new_ancestor_sn.node.uid)
@@ -234,7 +245,6 @@ class ChangeMaker:
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
                  tree_id_left_src: TreeID, tree_id_right_src: TreeID,
                  tree_id_left: TreeID = 'ChangeTreeLeft', tree_id_right: TreeID = 'ChangeTreeRight'):
-
         self.backend = backend
         # both trees share batch_uid:
         batch_uid: UID = self.backend.uid_generator.next_uid()

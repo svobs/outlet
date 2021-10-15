@@ -176,7 +176,6 @@ class GDriveMasterStore(TreeStore):
         # 2. Update memory store
         operation.update_memstore(self._memstore)
 
-    @ensure_locked
     def _execute_write_op(self, operation: GDriveWriteThroughOp):
         """Executes a single GDriveWriteThroughOp ({start}->memory->disk->UI)"""
 
@@ -313,7 +312,6 @@ class GDriveMasterStore(TreeStore):
         # very easy: either our whole cache is loaded or it is not
         return self._memstore.master_tree is not None
 
-    @ensure_locked
     def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered generate_dir_stats(): locked={self._struct_lock.locked()}')
@@ -322,7 +320,6 @@ class GDriveMasterStore(TreeStore):
     def populate_filter(self, filter_state: FilterState):
         filter_state.ensure_cache_populated(self._memstore.master_tree)
 
-    @ensure_locked
     def submit_batch_of_changes(self, subtree_root: GDriveIdentifier,  upsert_node_list: List[GDriveNode] = None,
                                 remove_node_list: List[GDriveNode] = None):
         self._execute_write_op(BatchChangesOp(self.backend, upsert_node_list))
@@ -682,8 +679,8 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.get_gdrive_user_for_permission_id(permission_id)
 
     def get_gdrive_user_for_user_uid(self, uid: UID) -> GDriveUser:
-        # if SUPER_DEBUG_ENABLED:
-        #     logger.debug(f'Entered get_gdrive_user_for_user_uid()')
+        if TRACE_ENABLED:
+            logger.debug(f'Entered get_gdrive_user_for_user_uid()')
         return self._memstore.get_gdrive_user_for_user_uid(uid)
 
     def create_gdrive_user(self, user: GDriveUser):

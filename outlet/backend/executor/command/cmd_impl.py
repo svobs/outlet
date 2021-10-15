@@ -177,8 +177,11 @@ class CreatLocalDirCommand(Command):
         assert isinstance(self.op.src_node, LocalDirNode)
 
         # Verify dst was created:
-        new_dir_node: LocalDirNode = cxt.cacheman.build_local_dir_node(full_path=self.op.dst_node.get_single_path(),
+        new_dir_node: LocalDirNode = cxt.cacheman.build_local_dir_node(full_path=self.op.src_node.get_single_path(),
                                                                        is_live=True, all_children_fetched=True)
+
+        # TODO: induce a failure here to test to make sure that a CP of dir properly cascades a failure
+
         if not new_dir_node:
             raise RuntimeError(f'Dir not found after MKDIR: {self.op.src_node.get_single_path()}')
         assert new_dir_node.uid == self.op.src_node.uid

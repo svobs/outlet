@@ -596,7 +596,7 @@ class LocalDiskMasterStore(TreeStore):
         return self._memstore.master_tree.get_subtree_bfs_node_list(subtree_root.node_uid)
 
     def get_subtree_bfs_sn_list(self, subtree_root_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
-        return [self.to_sn(x) for x in self._memstore.master_tree.get_subtree_bfs_sn_list(subtree_root_spid)]
+        return [self.to_sn(x) for x in self.get_subtree_bfs_node_list(subtree_root_spid)]
 
     @ensure_locked
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:

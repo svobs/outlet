@@ -206,12 +206,11 @@ class ChangeTree(DisplayTree):
         change_spid = ChangeTreeSPID(path_uid=from_sn.spid.path_uid, device_uid=from_sn.spid.device_uid,
                                      full_path=from_sn.spid.get_single_path(), op_type=op.op_type)
         if change_spid.op_type == UserOpType.MKDIR:
+            assert from_sn.node.is_dir(), f'Should be a dir: {from_sn.node}'
             # For display purposes, group "mkdir" with "copy":
             change_spid.op_type = UserOpType.CP
         change_node = copy.deepcopy(from_sn.node)
-        change_icon = OpTypeMeta.get_icon_for(change_node.device_uid, change_node.uid, op)
-        if change_icon:
-            change_node.set_icon(change_icon)
+        change_node.set_icon(OpTypeMeta.get_icon_for(change_node.device_uid, change_node.uid, op))
         return SPIDNodePair(change_spid, change_node)
 
     def add_sn_and_op(self, sn: SPIDNodePair, op: UserOp):

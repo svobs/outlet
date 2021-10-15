@@ -457,7 +457,7 @@ class CacheManager(HasLifecycle):
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).get_subtree_bfs_node_list(subtree_root)
 
     def get_subtree_bfs_sn_list(self, subtree_root_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
-        return self._cache_registry.get_store_for_device_uid(subtree_root_spid.device_uid).get_subtree_bfs_sn_list()
+        return self._cache_registry.get_store_for_device_uid(subtree_root_spid.device_uid).get_subtree_bfs_sn_list(subtree_root_spid)
 
     def remove_subtree(self, node: Node, to_trash: bool):
         """NOTE: this is only called for tests currently."""
