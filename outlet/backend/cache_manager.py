@@ -163,11 +163,11 @@ class CacheManager(HasLifecycle):
             # Finally, add or cancel any queued changes (asynchronously)
             if self.cancel_all_pending_ops_on_startup:
                 logger.debug(f'User configuration specifies cancelling all pending ops on startup')
-                pending_ops_task = self._op_manager.cancel_all_pending_ops
+                pending_ops_func = self._op_manager.cancel_all_pending_ops
             else:
-                pending_ops_task = self._op_manager.resume_pending_ops_from_disk
+                pending_ops_func = self._op_manager.resume_pending_ops_from_disk
             # This is a lower priority, so will not execute until after caches are all loaded
-            self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, pending_ops_task))
+            self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, pending_ops_func))
 
         finally:
             dispatcher.send(Signal.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -559,53 +559,6 @@ class CacheManager(HasLifecycle):
     def get_parent_list_for_node(self, node: Node) -> List[Node]:
         return self._cache_registry.get_store_for_device_uid(node.device_uid).get_parent_list_for_node(node)
 
-    # TODO: DEPRECATED: We can just use get_parent_for_sn() now
-    def _find_parent_matching_path(self, child_node: Node, parent_path: str) -> Optional[Node]:
-        """Note: this can return multiple results if two parents with the same name and path contain the same child
-        (cough, cough, GDrive, cough). Although possible, I cannot think of a valid reason for that scenario."""
-        logger.debug(f'Looking for parent with path "{parent_path}" (child: {child_node.node_identifier})')
-        filtered_list: List[Node] = []
-        if parent_path == ROOT_PATH:
-            return None
-
-        parent_node_list: List[Node] = self.get_parent_list_for_node(child_node)
-        for node in parent_node_list:
-            if node.node_identifier.has_path(parent_path):
-                filtered_list.append(node)
-
-        # FIXME: audit tree to prevent this case
-        # FIXME: submit to adjudicator
-        if not filtered_list:
-            return None
-        if len(filtered_list) > 1:
-            raise RuntimeError(f'Expected exactly 1 but found {len(filtered_list)} parents which matched parent path "{parent_path}"')
-        logger.debug(f'Matched path "{parent_path}" with node {filtered_list[0]}')
-        return filtered_list[0]
-
-    # TODO: DEPRECATED: We can just use get_parent_for_sn() now
-    def get_parent_sn_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
-        """Given a single SPIDNodePair, we should be able to guarantee that we get no more than 1 SPIDNodePair as its parent.
-        Having more than one path indicates that not just the node, but also any of its ancestors has multiple parents."""
-        path_list = sn.node.get_path_list()
-        parent_path: str = self.derive_parent_path(sn.spid.get_single_path())
-        if len(path_list) == 1 and path_list[0] == sn.spid.get_single_path():
-            # only one parent -> easy
-            parent_list: List[Node] = self._cache_registry.get_store_for_device_uid(sn.spid.device_uid).get_parent_list_for_node(sn.node)
-            if parent_list:
-                if len(parent_list) > 1:
-                    raise RuntimeError(f'Expected exactly 1 but found {len(parent_list)} parents for node: "{sn.node}"')
-                parent_node = parent_list[0]
-            else:
-                return None
-        else:
-            parent_node = self._find_parent_matching_path(sn.node, parent_path)
-        if not parent_node:
-            return None
-        parent_spid = self.backend.node_identifier_factory.for_values(uid=parent_node.uid, device_uid=parent_node.device_uid,
-                                                                      tree_type=parent_node.tree_type, path_list=parent_path,
-                                                                      must_be_single_path=True)
-        return SPIDNodePair(parent_spid, parent_node)
-
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
         return self._cache_registry.get_store_for_device_uid(sn.spid.device_uid).get_parent_for_sn(sn)
 
@@ -932,7 +885,7 @@ class CacheManager(HasLifecycle):
          the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
         try:
-            self._op_manager.append_new_pending_op_batch(op_list)
+            self._op_manager.append_new_pending_op_batch(op_list)  # this now returns asynchronously
         except RuntimeError as err:
             self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to enqueue batch of operations', error=err)
 
