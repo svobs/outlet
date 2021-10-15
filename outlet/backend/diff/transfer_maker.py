@@ -211,7 +211,7 @@ class TransferMaker(ChangeMaker):
         while len(queue) > 0:
             sn_dir_src, sn_dir_dst_existing = queue.popleft()
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Merge: examining dir: {sn_dir_src.spid}')
+                logger.debug(f'DirMerge: examining dir: {sn_dir_src.spid}')
 
             if sn_dir_dst_existing.node.is_file():
                 # TODO: maybe just follow the file conflict policy in this case?
@@ -223,6 +223,9 @@ class TransferMaker(ChangeMaker):
                 for sn_src_child in self.backend.cacheman.get_child_list(sn_dir_src.spid, self.left_side.tree_id_src):
                     # see if there is a corresponding dst node:
                     list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name)
+
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'DirMerge: found {len(list_sn_dst_conflicting)} conflicts for child dir: {sn_src_child.spid}')
 
                     if len(list_sn_dst_conflicting) == 0:
                         # No conflicts? Just transfer the file or dir subtree:
@@ -244,7 +247,7 @@ class TransferMaker(ChangeMaker):
                                 raise RuntimeError(f'For item "{sn_src.node.name}": found {len(list_sn_dst_conflicting) > 1} items '
                                                    f'at the destination with the same name, and cannot determine which to replace!')
 
-                            self._handle_replace_with_file(dd_meta, sn_src, list_sn_dst_conflicting[0])
+                            self._handle_replace_with_file(dd_meta, sn_src_child, list_sn_dst_conflicting[0])
 
     def _delete_subtree(self, sn_dst_subtree_root: SPIDNodePair):
         if sn_dst_subtree_root.node.is_dir():
@@ -340,7 +343,7 @@ class TransferMaker(ChangeMaker):
             sn_dst = copy.deepcopy(sn_dst_conflicting)
             sn_dst.node.set_is_live(False)
             sn_dst.node.sync_ts = None
-            sn_dst.node.update_signature_and_timestamps_from(sn_src)
+            sn_dst.node.update_signature_and_timestamps_from(sn_src.node)
 
             if dd_meta.drag_op == DragOperation.COPY:
                 self.right_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_src, sn_dst=sn_dst)

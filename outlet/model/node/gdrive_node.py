@@ -93,7 +93,8 @@ class GDriveNode(Node, ABC):
     def sync_ts(self):
         return self._sync_ts
 
-    def set_sync_ts(self, sync_ts: int):
+    @sync_ts.setter
+    def sync_ts(self, sync_ts: int):
         self._sync_ts = sync_ts
 
     @property

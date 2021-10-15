@@ -99,7 +99,7 @@ class GDriveWholeTree(BaseTree):
         if existing_node:
             if node == existing_node:
                 logger.debug(f'upsert_node(): identical to existing; updating node {node.uid} sync_ts to {node.sync_ts}')
-                existing_node.set_sync_ts(node.sync_ts)
+                existing_node.sync_ts = node.sync_ts
                 return existing_node
 
             is_name_changed = existing_node.name != node.name

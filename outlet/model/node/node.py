@@ -170,9 +170,12 @@ class Node(BaseNode, HasParentList, ABC):
         pass
 
     @property
-    @abstractmethod
     def sync_ts(self):
-        raise RuntimeError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
+        raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
+
+    @sync_ts.setter
+    def sync_ts(self, sync_ts: int):
+        raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
 
     @property
     def modify_ts(self):

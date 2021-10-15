@@ -207,6 +207,10 @@ class LocalFileNode(LocalNode):
     def sync_ts(self):
         return self._sync_ts
 
+    @sync_ts.setter
+    def sync_ts(self, sync_ts: int):
+        self._sync_ts = sync_ts
+
     @property
     def modify_ts(self):
         return self._modify_ts
@@ -262,6 +266,7 @@ class LocalFileNode(LocalNode):
         return False
 
     def update_signature_and_timestamps_from(self, other):
+        assert isinstance(other, Node), f'Not a node: {other}'
         self.md5 = other.md5
         self.set_size_bytes(other.get_size_bytes())
         self.modify_ts = other.modify_ts

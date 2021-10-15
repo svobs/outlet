@@ -115,7 +115,7 @@ class OpManager(HasLifecycle):
         # Load from disk
         op_list: List[UserOp] = self._disk_store.load_all_pending_ops()
         if not op_list:
-            logger.debug(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
+            logger.info(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
             return
 
         logger.info(f'resume_pending_ops_from_disk(): Found {len(op_list)} pending ops from the disk cache')
