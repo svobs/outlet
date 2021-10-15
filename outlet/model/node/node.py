@@ -236,6 +236,7 @@ class Node(BaseNode, HasParentList, ABC):
         HasParentList.update_from(self, other_node)
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
+        self._icon = other_node._icon
 
     def update_signature_and_timestamps_from(self, other):
         raise InvalidOperationError('update_signature_and_timestamps_from')

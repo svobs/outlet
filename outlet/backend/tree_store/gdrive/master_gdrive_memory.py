@@ -48,6 +48,10 @@ class GDriveMemoryStore:
                                f'{uid_from_mapper}). Changing UID of node (was: {node.uid}) to match and overwrite previous node')
                 node.uid = uid_from_mapper
 
+        self.backend.cacheman.update_node_icon(node)
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Node {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
+
         existing_node = self.master_tree.get_node_for_uid(node.uid)
         if existing_node:
             # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced

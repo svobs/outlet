@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class BatchBuilder:
+    """Support class for OpManager. For reducing and validating a batch of UserOps, and generating a detached OpGraph from them."""
     def __init__(self, backend):
         self.backend = backend
 
@@ -330,6 +331,8 @@ class BatchBuilder:
                 raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP from a node ({tgt_node.dn_uid}) '
                                    f'which is being removed')
 
+        # The OpGraph keeps track of the largest op UID it has added to its graph.
+        # Refuse to create commands if the UIDs are too small, as a sanity check against running commands repeatedly
         max_added_op_uid = op_manager.get_max_added_op_uid()
         if max_added_op_uid != NULL_UID and max_added_op_uid >= min_op_uid:
             raise RuntimeError(f'Cannot add batch: it appears to contain operation(s) which which are older than those already processed '

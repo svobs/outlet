@@ -20,6 +20,7 @@ class LocalDiskMemoryStore:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, device_uid: UID):
+        self.backend = backend
         self.device_uid: UID = device_uid
         self.use_md5 = backend.get_config('cache.enable_md5_lookup')
         if self.use_md5:
@@ -64,9 +65,14 @@ class LocalDiskMemoryStore:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting to memstore: {node}')
 
-        # 1. Validate UID:
+        # Validate UID:
         if not node.uid:
             raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
+
+        # Update icon (this may be the only thing changed)
+        self.backend.cacheman.update_node_icon(node)
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Node {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
 
         cached_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:

@@ -79,12 +79,12 @@ class CopyFileLocallyCommand(CopyNodeCommand):
             except file_util.IdenticalFileExistsError:
                 # Not a real error. Nothing to do.
                 # However make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats:
-                dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
+                dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path, is_live=True)
                 to_upsert.append(dst_node)
                 return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=to_upsert)
 
         # update cache:
-        dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
+        dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path, is_live=True)
         assert dst_node.uid == self.op.dst_node.uid, f'LocalNode={dst_node}, DstNode={self.op.dst_node}'
         to_upsert.append(dst_node)
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert)
@@ -137,7 +137,7 @@ class MoveFileLocallyCommand(TwoNodeCommand):
         file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
 
         # Verify dst was created:
-        new_dst_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.get_single_path())
+        new_dst_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.get_single_path(), is_live=True)
         if not new_dst_node:
             raise RuntimeError(f'Dst node not found after move: {self.op.dst_node.get_single_path()}')
         assert new_dst_node.uid == self.op.dst_node.uid
@@ -148,7 +148,7 @@ class MoveFileLocallyCommand(TwoNodeCommand):
             raise RuntimeError(f'Src node still exists after move: {self.op.src_node.get_single_path()}')
 
         to_remove = [self.op.src_node]
-        to_upsert = [self.op.dst_node]
+        to_upsert = [new_dst_node]
 
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_remove=to_remove)
 
@@ -175,7 +175,14 @@ class CreatLocalDirCommand(Command):
 
         # Add to cache:
         assert isinstance(self.op.src_node, LocalDirNode)
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node])
+
+        # Verify dst was created:
+        new_dir_node: LocalDirNode = cxt.cacheman.build_local_dir_node(full_path=self.op.dst_node.get_single_path(),
+                                                                       is_live=True, all_children_fetched=True)
+        if not new_dir_node:
+            raise RuntimeError(f'Dir not found after MKDIR: {self.op.src_node.get_single_path()}')
+        assert new_dir_node.uid == self.op.src_node.uid
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dir_node])
 
 
 # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
@@ -300,7 +307,8 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         staging_path = os.path.join(cxt.staging_dir, self.op.src_node.md5)
 
         if os.path.exists(staging_path):
-            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path, must_scan_signature=True)
+            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path,
+                                                                     must_scan_signature=True, is_live=True)
             if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Found target node in staging dir; will move: ({staging_path} -> {dst_path})')
                 file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
@@ -313,7 +321,8 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
 
         # verify contents:
-        node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path, must_scan_signature=True)
+        node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path,
+                                                                 must_scan_signature=True, is_live=True)
         if node.md5 != self.op.src_node.md5:
             raise RuntimeError(f'Downloaded MD5 ({node.md5}) does not matched expected ({self.op.src_node.md5})!')
 

@@ -227,7 +227,6 @@ class ActiveTreeManager(HasLifecycle):
                 logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
             for sn in subtree_sn_list:
-                self.backend.cacheman.update_node_icon(sn.node)
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{tree_id}] Notifying tree of upserted node {sn.spid} parent_guid={sn.spid.parent_guid} icon={sn.node.get_icon()}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)

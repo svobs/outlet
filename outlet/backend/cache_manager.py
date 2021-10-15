@@ -529,10 +529,6 @@ class CacheManager(HasLifecycle):
 
         self._copy_dir_stats_into_sn_list(child_list, tree_meta)
 
-        # The node icon is also a global change:
-        for child_sn in child_list:
-            self.update_node_icon(child_sn.node)
-
         if TRACE_ENABLED:
             logger.debug(f'[{tree_id}] get_child_list(): Returning {len(child_list)} children for node: {parent_spid}')
         return child_list
@@ -853,12 +849,12 @@ class CacheManager(HasLifecycle):
         return self._row_state_tracking.get_rows_of_interest(tree_id)
 
     def update_node_icon(self, node: Node):
-        """Note: this should not be called for ChangeTree nodes. It will not consult a ChangeTree."""
+        """This is kind of a kludge, to make sure node icons are correct. Call this on all nodes we are sending to the client.
+        Note: this should not be called for ChangeTree nodes. It will not consult a ChangeTree."""
         icon_id: Optional[IconId] = self._op_manager.get_icon_for_node(node.device_uid, node.uid)
-        if icon_id:
-            node.set_icon(icon_id)
-        if TRACE_ENABLED:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
+        node.set_icon(icon_id)
 
     @staticmethod
     def derive_parent_path(child_path) -> Optional[str]:

@@ -105,7 +105,7 @@ class OpManager(HasLifecycle):
         reduced_batch: List[UserOp] = self._batch_builder.reduce_and_validate_ops(batch_op_list)
 
         # TODO: can we safely increase the priority of this task so that the user will see a quicker response?
-        add_batch_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._add_batch, batch_uid, reduced_batch, True)
+        add_batch_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._add_batch, reduced_batch, True)
         self.backend.executor.submit_async_task(add_batch_task)
         logger.debug(f'append_new_pending_op_batch(): Enqueued append_batch task for {batch_uid}')
 
@@ -199,8 +199,6 @@ class OpManager(HasLifecycle):
 
         # This will block until a op is ready:
         op: UserOp = self._op_graph.get_next_op()
-
-        # TODO: keep track of op UIDs, and refuse to create commands if the UIDs are too small, as a sanity check against running commands repeatedly
 
         if op:
             return self._cmd_builder.build_command(op)
