@@ -66,7 +66,7 @@ class CacheRegistry(HasLifecycle):
         self._uid_goog_id_mapper = UidGoogIdMapper(backend, uid_goog_id_cache_path)
         """Same deal with GoogID mapper. We init it here, so that we can load in all the cached GoogIDs ASAP"""
 
-        self._device_uuid: str = self.get_or_set_local_device_uuid()
+        self._device_uuid: str = self._get_or_set_local_device_uuid()
         logger.debug(f'LocalDisk device UUID is: {self._device_uuid}')
 
         self._store_dict: Dict[UID, TreeStore] = {}
@@ -136,6 +136,9 @@ class CacheRegistry(HasLifecycle):
                 self._store_dict = None
         except (AttributeError, NameError):
             pass
+
+    # Init
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _init_store_dict(self):
         logger.debug('Init store dict')
@@ -219,14 +222,14 @@ class CacheRegistry(HasLifecycle):
 
         # Write back to cache if we need to clean things up:
         if skipped_count > 0:
-            self.write_cache_registry_updates_to_disk()
+            self.save_all_cache_info_to_disk()
             caches = self._cache_info_dict.get_all()
             self._overwrite_all_caches_in_registry(caches)
 
         self._load_registry_done.set()
         logger.info(f'{stopwatch} Done loading registry. Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
 
-    def wait_for_load_registry_done(self, fail_on_timeout: bool = True):
+    def _wait_for_load_registry_done(self, fail_on_timeout: bool = True):
         if self._load_registry_done.is_set():
             return
 
@@ -357,19 +360,12 @@ class CacheRegistry(HasLifecycle):
         except RuntimeError:
             logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
 
-    def get_store_for_device_uid(self, device_uid: UID) -> TreeStore:
-        assert device_uid, f'get_store_for_device_uid(): device_uid not specified!'
-        store: TreeStore = self._store_dict.get(device_uid, None)
-        if not store:
-            raise RuntimeError(f'get_tree_type(): no store found for device_uid: {device_uid}')
-        return store
+    # Device stuff
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_this_disk_local_store(self) -> Optional[LocalDiskMasterStore]:
-        return self._this_disk_local_store
-
-    def get_or_set_local_device_uuid(self) -> str:
+    def _get_or_set_local_device_uuid(self) -> str:
         if IS_MACOS:
-            logger.debug(f'get_or_set_local_device_uuid(): looking for MacOS volume UUID...')
+            logger.debug(f'_get_or_set_local_device_uuid(): looking for MacOS volume UUID...')
             entry_list = subprocess.check_output('/usr/sbin/diskutil info /'.split(' ')).decode().split('\n')[1:]
             prefix = 'Volume UUID:'
             for entry in entry_list:
@@ -381,11 +377,11 @@ class CacheRegistry(HasLifecycle):
 
             raise RuntimeError('Could not find Volume UUID for local MacOS device!')
         elif IS_LINUX:
-            # logger.debug(f'get_or_set_local_device_uuid(): looking for Linux volume UUID...')
+            # logger.debug(f'_get_or_set_local_device_uuid(): looking for Linux volume UUID...')
             # TODO: https://stackoverflow.com/questions/4193514/how-to-get-hard-disk-serial-number-using-python
             pass
         elif IS_WINDOWS:
-            logger.debug(f'get_or_set_local_device_uuid(): looking for Windows disk serial number...')
+            logger.debug(f'_get_or_set_local_device_uuid(): looking for Windows disk serial number...')
             serial_list = subprocess.check_output('wmic diskdrive get SerialNumber'.split(' ')).decode().split('\n')[1:]
             serial_list = [s.strip() for s in serial_list if s.strip()]
             for entry in serial_list:
@@ -457,13 +453,13 @@ class CacheRegistry(HasLifecycle):
         Note that this will also occur if a cache file was deleted, because such caches are detected and purged from the registry
         at startup."""
 
-        self.wait_for_load_registry_done()
+        self._wait_for_load_registry_done()
 
         if subtree_root.tree_type == TreeType.GDRIVE:
             # there is only 1 GDrive cache per GDrive account:
             cache_info = self._cache_info_dict.get_single(subtree_root.device_uid, ROOT_PATH)
         elif subtree_root.tree_type == TreeType.LOCAL_DISK:
-            cache_info = self.find_existing_cache_info_for_local_subtree(subtree_root.device_uid, subtree_root.get_single_path())
+            cache_info = self.get_existing_cache_info_for_local_path(subtree_root.device_uid, subtree_root.get_single_path())
         else:
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
@@ -475,9 +471,9 @@ class CacheRegistry(HasLifecycle):
 
         return cache_info
 
-    def find_existing_cache_info_for_local_subtree(self, device_uid: UID, full_path: str) -> Optional[PersistedCacheInfo]:
+    def get_existing_cache_info_for_local_path(self, device_uid: UID, full_path: str) -> Optional[PersistedCacheInfo]:
         # Wait for registry to finish loading before attempting to read dict. Shouldn't take long.
-        self.wait_for_load_registry_done()
+        self._wait_for_load_registry_done()
 
         for existing_cache in list(self._cache_info_dict.get_second_dict(device_uid).values()):
             # Is existing_cache an ancestor of target tree?
@@ -486,7 +482,7 @@ class CacheRegistry(HasLifecycle):
         # Nothing in the cache contains subtree
         return None
 
-    def write_cache_registry_updates_to_disk(self):
+    def save_all_cache_info_to_disk(self):
         """Overrites all entries in the CacheInfoRegistry with the entries in memory"""
         caches = self._cache_info_dict.get_all()
         self._overwrite_all_caches_in_registry(caches)
@@ -533,7 +529,7 @@ class CacheRegistry(HasLifecycle):
                 needed_gdrive_device_uid_set.add(node.device_uid)
             else:
                 assert node.tree_type == TreeType.LOCAL_DISK, f'Not a LocalDisk node: {node}'
-                cache: Optional[PersistedCacheInfo] = self.find_existing_cache_info_for_local_subtree(node.device_uid,
+                cache: Optional[PersistedCacheInfo] = self.get_existing_cache_info_for_local_path(node.device_uid,
                                                                                                                       node.get_single_path())
                 if cache:
                     needed_localdisk_cache_dict[cache.cache_location] = cache
@@ -560,6 +556,19 @@ class CacheRegistry(HasLifecycle):
                     cache_load_task = this_task.create_child_task(store.load_subtree, cache.subtree_root, ID_GLOBAL_CACHE)
                     assert cache_load_task.priority == ExecPriority.P3_BACKGROUND_CACHE_LOAD
                     self.backend.executor.submit_async_task(cache_load_task)
+
+    # TreeStore getters
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def get_store_for_device_uid(self, device_uid: UID) -> TreeStore:
+        assert device_uid, f'get_store_for_device_uid(): device_uid not specified!'
+        store: TreeStore = self._store_dict.get(device_uid, None)
+        if not store:
+            raise RuntimeError(f'get_tree_type(): no store found for device_uid: {device_uid}')
+        return store
+
+    def get_this_disk_local_store(self) -> Optional[LocalDiskMasterStore]:
+        return self._this_disk_local_store
 
     # Path <-> PathUID
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

@@ -401,11 +401,11 @@ class CacheManager(HasLifecycle):
             -> Optional[PersistedCacheInfo]:
         return self._cache_registry.get_cache_info_for_subtree(subtree_root, create_if_not_found)
 
-    def find_existing_cache_info_for_local_subtree(self, device_uid: UID, full_path: str) -> Optional[PersistedCacheInfo]:
-        return self._cache_registry.find_existing_cache_info_for_local_subtree(device_uid, full_path)
+    def get_existing_cache_info_for_local_path(self, device_uid: UID, full_path: str) -> Optional[PersistedCacheInfo]:
+        return self._cache_registry.get_existing_cache_info_for_local_path(device_uid, full_path)
 
-    def write_cache_registry_updates_to_disk(self):
-        self._cache_registry.write_cache_registry_updates_to_disk()
+    def save_all_cache_info_to_disk(self):
+        self._cache_registry.save_all_cache_info_to_disk()
 
     def ensure_cache_loaded_for_node_list(self, this_task: Task, node_list: List[Node]):
         """Ensures that all the necessary caches are loaded for all of the given nodes.

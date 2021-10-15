@@ -283,7 +283,7 @@ class LocalDiskMasterStore(TreeStore):
             def _after_resync_complete(_this_task):
                 # Need to save changes to CacheInfo, but we don't have an API for a single line. Just overwrite all for now - shouldn't hurt
                 cache_info.is_complete = True
-                self.backend.cacheman.write_cache_registry_updates_to_disk()
+                self.backend.cacheman.save_all_cache_info_to_disk()
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{tree_id}] File system sync complete')
                 # We can only mark this as 'done' (False) if the entire cache contents has been refreshed:
@@ -433,7 +433,7 @@ class LocalDiskMasterStore(TreeStore):
         assert node_uid and full_path and self.get_path_for_uid(node_uid) == full_path, f'Invalid: node_uid={node_uid}, full_path={full_path}'
 
         # 1. Memory cache
-        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, full_path)
+        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, full_path)
         if not cache_info:
             logger.error(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
             return None
@@ -643,7 +643,7 @@ class LocalDiskMasterStore(TreeStore):
         assert self._struct_lock.locked()
 
         cache_info: Optional[PersistedCacheInfo] = \
-            self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
+            self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, parent_spid.get_single_path())
         if cache_info:
             if cache_info.is_loaded:
                 return self._memstore.master_tree.get_subtree_bfs_node_list(parent_spid.node_uid)
@@ -682,7 +682,7 @@ class LocalDiskMasterStore(TreeStore):
         """Searches in-memory cache, followed by disk cache, for children of the given SPID. Returns None if parent not found in either cache"""
 
         cache_info: Optional[PersistedCacheInfo] = \
-            self.backend.cacheman.find_existing_cache_info_for_local_subtree(self.device.uid, parent_spid.get_single_path())
+            self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, parent_spid.get_single_path())
         if cache_info:
             if cache_info.is_loaded:
                 # 1. Use in-memory cache if it exists:
