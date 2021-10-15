@@ -172,7 +172,7 @@ class OpTestBase(unittest.TestCase):
         app_config = AppConfig()
 
         # Delete ops cache, so that prev run doesn't contaminate us:
-        cache_dir_path = cache_manager.ensure_cache_dir_path(app_config)
+        cache_dir_path = cache_manager.ensure_cache_dir_exists(app_config)
         self.op_db_path = os.path.join(cache_dir_path, OPS_FILE_NAME)
         if os.path.exists(self.op_db_path):
             file_util.rm_file(self.op_db_path)

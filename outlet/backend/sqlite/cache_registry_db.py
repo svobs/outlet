@@ -31,10 +31,10 @@ def _tuple_to_device(a_tuple: Tuple) -> Device:
     return Device(a_tuple[0], a_tuple[1], a_tuple[2], a_tuple[3])
 
 
-class CacheRegistry(MetaDatabase):
+class CacheRegistryDatabase(MetaDatabase):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS CacheRegistry
+    CLASS CacheRegistryDatabase
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     TABLE_CACHE_REGISTRY = Table(name='cache_registry', cols=OrderedDict([
@@ -57,8 +57,8 @@ class CacheRegistry(MetaDatabase):
     def __init__(self, main_registry_path: str, node_identifier_factory):
         super().__init__(main_registry_path)
         self.node_identifier_factory = node_identifier_factory
-        self.table_cache_registry = LiveTable(CacheRegistry.TABLE_CACHE_REGISTRY, self.conn, _cache_info_to_tuple, _tuple_to_cache_info)
-        self.table_device = LiveTable(CacheRegistry.TABLE_DEVICE, self.conn, _device_to_tuple, _tuple_to_device)
+        self.table_cache_registry = LiveTable(CacheRegistryDatabase.TABLE_CACHE_REGISTRY, self.conn, _cache_info_to_tuple, _tuple_to_cache_info)
+        self.table_device = LiveTable(CacheRegistryDatabase.TABLE_DEVICE, self.conn, _device_to_tuple, _tuple_to_device)
 
     def has_cache_info(self):
         return self.table_cache_registry.has_rows()

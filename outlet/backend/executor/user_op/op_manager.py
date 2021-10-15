@@ -249,10 +249,11 @@ class OpManager(HasLifecycle):
             big_node_list: List[Node] = self._get_all_nodes(batch_op_list)
 
             # Make sure all relevant caches are loaded. Do this via executor tasks:
-            self.backend.cacheman.ensure_loaded(this_task, big_node_list)
+            self.backend.cacheman.ensure_cache_loaded_for_node_list(this_task, big_node_list)
 
-            # launch this with P7_USER_OP_EXECUTION priority so that it executes after the cache load tasks:
-            self.backend.executor.submit_async_task(Task(ExecPriority.P7_USER_OP_EXECUTION, self._append_batch, batch_uid, batch_op_list, False))
+            # Add the batch to the op graph only after the caches are loaded
+            append_batch_task = this_task.create_child_task(self._append_batch, batch_uid, batch_op_list, False)
+            self.backend.executor.submit_async_task(append_batch_task)
 
     @staticmethod
     def _get_all_nodes(batch_op_list: List[UserOp]) -> List[Node]:
@@ -303,6 +304,7 @@ class OpManager(HasLifecycle):
         return batch_uid
 
     def _append_batch(self, this_task: Optional[Task], batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):
+        assert this_task and this_task.priority == ExecPriority.P3_BACKGROUND_CACHE_LOAD, f'Bad: {this_task}'
 
         batch_root: RootNode = self._op_graph.make_graph_from_batch(batch_uid, batch_op_list)
 

@@ -448,7 +448,7 @@ class LocalDiskMasterStore(TreeStore):
 
         # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_read_single_node_for(): Memcache not loaded; reading diskcache for UID {node_uid}')
+            logger.debug(f'_read_single_node_for(): Memcache not loaded; reading diskcache for {node_uid}')
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             node = cache.get_file_or_dir_for_uid(node_uid)
         if node:
