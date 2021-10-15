@@ -398,8 +398,8 @@ class GDriveWholeTree(BaseTree):
         parent_uids = sn.node.get_parent_uids()
         if parent_uids:
             parent_path = sn.spid.get_single_parent_path()
-            for par_id in sn.node.get_parent_uids():
-                parent_node = self.get_node_for_uid(par_id)
+            for par_uid in sn.node.get_parent_uids():
+                parent_node = self.get_node_for_uid(par_uid)
                 if parent_node and parent_path in parent_node.get_path_list():
                     return self.to_sn(node=parent_node, single_path=parent_path)
         return None

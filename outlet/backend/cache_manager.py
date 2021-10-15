@@ -397,6 +397,11 @@ class CacheManager(HasLifecycle):
         # TODO: split this in P1_USER_LOAD and LOAD_1 tasks. Need to cross-reference each dir with the visible dirs indicated by tree_id's metadata
         self.backend.executor.submit_async_task(Task(ExecPriority.P1_USER_LOAD, self._refresh_subtree, node_identifier, tree_id))
 
+    def _refresh_subtree(self, this_task: Task, node_identifier: NodeIdentifier, tree_id: TreeID):
+        """Called asynchronously via task executor"""
+        logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
+        self._cache_registry.get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(this_task, node_identifier, tree_id)
+
     def get_cache_info_for_subtree(self, subtree_root: SinglePathNodeIdentifier, create_if_not_found: bool = False) \
             -> Optional[PersistedCacheInfo]:
         return self._cache_registry.get_cache_info_for_subtree(subtree_root, create_if_not_found)
@@ -551,34 +556,10 @@ class CacheManager(HasLifecycle):
                     key = sn.spid.guid
                 sn.node.dir_stats = dir_stats_dict.get(key, None)
 
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
-        """Saves the selected rows from the UI for the given tree"""
-        self._row_state_tracking.set_selected_rows(tree_id, selected)
-
-    def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
-        """AKA collapsing a row on the frontend"""
-        self._row_state_tracking.remove_expanded_row(row_guid, tree_id)
-
-    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
-        return self._row_state_tracking.get_rows_of_interest(tree_id)
-
-    def update_node_icon(self, node: Node):
-        """Note: this should not be called for ChangeTree nodes. It will not consult a ChangeTree."""
-        icon_id: Optional[IconId] = self._op_manager.get_icon_for_node(node.device_uid, node.uid)
-        if icon_id:
-            node.set_icon(icon_id)
-        if TRACE_ENABLED:
-            logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
-
-    @staticmethod
-    def derive_parent_path(child_path) -> Optional[str]:
-        if child_path == '/':
-            return None
-        return str(pathlib.Path(child_path).parent)
-
     def get_parent_list_for_node(self, node: Node) -> List[Node]:
         return self._cache_registry.get_store_for_device_uid(node.device_uid).get_parent_list_for_node(node)
 
+    # TODO: DEPRECATED: We can just use get_parent_for_sn() now
     def _find_parent_matching_path(self, child_node: Node, parent_path: str) -> Optional[Node]:
         """Note: this can return multiple results if two parents with the same name and path contain the same child
         (cough, cough, GDrive, cough). Although possible, I cannot think of a valid reason for that scenario."""
@@ -601,6 +582,7 @@ class CacheManager(HasLifecycle):
         logger.debug(f'Matched path "{parent_path}" with node {filtered_list[0]}')
         return filtered_list[0]
 
+    # TODO: DEPRECATED: We can just use get_parent_for_sn() now
     def get_parent_sn_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
         """Given a single SPIDNodePair, we should be able to guarantee that we get no more than 1 SPIDNodePair as its parent.
         Having more than one path indicates that not just the node, but also any of its ancestors has multiple parents."""
@@ -624,6 +606,9 @@ class CacheManager(HasLifecycle):
                                                                       must_be_single_path=True)
         return SPIDNodePair(parent_spid, parent_node)
 
+    def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        return self._cache_registry.get_store_for_device_uid(sn.spid.device_uid).get_parent_for_sn(sn)
+
     def get_ancestor_list_for_spid(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Deque[SPIDNodePair]:
         if not spid:
             raise RuntimeError('get_ancestor_list_for_spid(): SPID not provided!')
@@ -643,7 +628,7 @@ class CacheManager(HasLifecycle):
             if parent_path == stop_at_path:
                 return ancestor_deque
 
-            ancestor_sn = self.get_parent_sn_for_sn(ancestor_sn)
+            ancestor_sn = self.get_parent_for_sn(ancestor_sn)
 
             if ancestor_sn:
                 ancestor_deque.appendleft(ancestor_sn)
@@ -667,8 +652,40 @@ class CacheManager(HasLifecycle):
 
         return SPIDNodePair(spid, node)
 
-    def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
-        return self._cache_registry.get_store_for_device_uid(sn.spid.device_uid).get_parent_for_sn(sn)
+    def get_sn_for_guid(self, guid: GUID, tree_id: TreeID) -> Optional[SPIDNodePair]:
+        """Unlike get_sn_for(), this will also examine change trees, but requires a tree_id"""
+        sn_list = self.get_sn_list_for_guid_list(guid_list=[guid], tree_id=tree_id)
+        if sn_list:
+            return sn_list[0]
+        return None
+
+    def get_sn_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID) -> List[SPIDNodePair]:
+        """Unlike get_sn_for(), this will also examine change trees"""
+        assert tree_id, 'tree_id is required!'
+
+        sn_list = []
+        tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+        if not tree_meta:
+            logger.error(f'Could not find tree: "{tree_id}"')
+            return sn_list
+
+        if tree_meta.change_tree:
+            for guid in guid_list:
+                sn = tree_meta.change_tree.get_sn_for_guid(guid)
+                if sn:
+                    sn_list.append(sn)
+                else:
+                    logger.error(f'[{tree_id}] Could not find node for GUID (skipping): "{guid}"')
+        else:
+            for guid in guid_list:
+                spid = self.backend.node_identifier_factory.from_guid(guid)
+                sn = self.get_sn_for(node_uid=spid.node_uid, device_uid=spid.device_uid, full_path=spid.get_single_path())
+                if sn:
+                    sn_list.append(sn)
+                else:
+                    logger.error(f'[{tree_id}] Could not build SN for GUID (skipping): "{guid}"')
+
+        return sn_list
 
     # GDrive-specific
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -720,6 +737,10 @@ class CacheManager(HasLifecycle):
         # Launch as task with high priority:
         download_file_from_gdrive_task = Task(ExecPriority.P1_USER_LOAD, gdrive_store.download_file_from_gdrive, node_uid, requestor_id)
         self.backend.executor.submit_async_task(download_file_from_gdrive_task)
+
+    def build_gdrive_root_node(self, device_uid: UID, sync_ts: Optional[int] = None) -> GDriveNode:
+        store = self._get_gdrive_store_for_device_uid(device_uid)
+        return store.build_gdrive_root_node(sync_ts=sync_ts)
 
     # This local disk-specific
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -780,7 +801,7 @@ class CacheManager(HasLifecycle):
 
         if not is_into or (sn_dst and not sn_dst.node.is_dir()):
             # cannot drop into a file; just use parent in this case
-            sn_dst = self.get_parent_sn_for_sn(sn_dst)
+            sn_dst = self.get_parent_for_sn(sn_dst)
 
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
@@ -832,41 +853,6 @@ class CacheManager(HasLifecycle):
 
         return False
 
-    def get_sn_for_guid(self, guid: GUID, tree_id: TreeID) -> Optional[SPIDNodePair]:
-        """Unlike get_sn_for(), this will also examine change trees, but requires a tree_id"""
-        sn_list = self.get_sn_list_for_guid_list(guid_list=[guid], tree_id=tree_id)
-        if sn_list:
-            return sn_list[0]
-        return None
-
-    def get_sn_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID) -> List[SPIDNodePair]:
-        """Unlike get_sn_for(), this will also examine change trees"""
-        assert tree_id, 'tree_id is required!'
-
-        sn_list = []
-        tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
-        if not tree_meta:
-            logger.error(f'Could not find tree: "{tree_id}"')
-            return sn_list
-
-        if tree_meta.change_tree:
-            for guid in guid_list:
-                sn = tree_meta.change_tree.get_sn_for_guid(guid)
-                if sn:
-                    sn_list.append(sn)
-                else:
-                    logger.error(f'[{tree_id}] Could not find node for GUID (skipping): "{guid}"')
-        else:
-            for guid in guid_list:
-                spid = self.backend.node_identifier_factory.from_guid(guid)
-                sn = self.get_sn_for(node_uid=spid.node_uid, device_uid=spid.device_uid, full_path=spid.get_single_path())
-                if sn:
-                    sn_list.append(sn)
-                else:
-                    logger.error(f'[{tree_id}] Could not build SN for GUID (skipping): "{guid}"')
-
-        return sn_list
-
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -902,6 +888,31 @@ class CacheManager(HasLifecycle):
 
         logger.debug(f'[{tree_id}] visit_each_sn_in_subtree(): Visited {count_file_nodes} file nodes out of {count_total_nodes} total nodes')
 
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
+        """Saves the selected rows from the UI for the given tree"""
+        self._row_state_tracking.set_selected_rows(tree_id, selected)
+
+    def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
+        """AKA collapsing a row on the frontend"""
+        self._row_state_tracking.remove_expanded_row(row_guid, tree_id)
+
+    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
+        return self._row_state_tracking.get_rows_of_interest(tree_id)
+
+    def update_node_icon(self, node: Node):
+        """Note: this should not be called for ChangeTree nodes. It will not consult a ChangeTree."""
+        icon_id: Optional[IconId] = self._op_manager.get_icon_for_node(node.device_uid, node.uid)
+        if icon_id:
+            node.set_icon(icon_id)
+        if TRACE_ENABLED:
+            logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
+
+    @staticmethod
+    def derive_parent_path(child_path) -> Optional[str]:
+        if child_path == '/':
+            return None
+        return str(pathlib.Path(child_path).parent)
+
     def submit_batch_of_changes(self, subtree_root: NodeIdentifier, upsert_node_list: List[Node] = None,
                                 remove_node_list: List[Node] = None):
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).submit_batch_of_changes(subtree_root,
@@ -912,11 +923,6 @@ class CacheManager(HasLifecycle):
 
     def show_tree(self, subtree_root: NodeIdentifier) -> str:
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).show_tree(subtree_root)
-
-    def _refresh_subtree(self, this_task: Task, node_identifier: NodeIdentifier, tree_id: TreeID):
-        """Called asynchronously via task executor"""
-        logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
-        self._cache_registry.get_store_for_device_uid(node_identifier.device_uid).refresh_subtree(this_task, node_identifier, tree_id)
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_manager.get_last_pending_op_for_node(device_uid, node_uid)
@@ -945,13 +951,6 @@ class CacheManager(HasLifecycle):
     def get_pending_op_count(self) -> int:
         return self._op_manager.get_pending_op_count()
 
-    def build_gdrive_root_node(self, device_uid: UID, sync_ts: Optional[int] = None) -> GDriveNode:
-        store = self._get_gdrive_store_for_device_uid(device_uid)
-        return store.build_gdrive_root_node(sync_ts=sync_ts)
-
-    def read_node(self, node_uid: UID, device_uid: UID) -> Optional[Node]:
-        return self._cache_registry.get_store_for_device_uid(device_uid).read_node_for_uid(node_uid)
-
     # This is only called at startup (shh...)
     def read_node_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
         # ensure all paths are normalized:
@@ -963,4 +962,4 @@ class CacheManager(HasLifecycle):
                 path_list[index] = full_path
         spid.set_path_list(path_list)
 
-        return self.read_node(spid.node_uid, spid.device_uid)
+        return self.get_node_for_uid(spid.node_uid, spid.device_uid)
