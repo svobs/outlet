@@ -75,7 +75,7 @@ class GDriveClient(HasLifecycle):
         HasLifecycle.__init__(self)
         self.backend = backend
         self.gdrive_store = gdrive_store
-        self.tree_id: TreeID = None
+        self.tree_id: Optional[TreeID] = None
         self.page_size: int = self.backend.get_config('gdrive.page_size')
         self.service: Optional[Resource] = None
         self._converter = GDriveAPIConverter(self.gdrive_store)
@@ -382,13 +382,6 @@ class GDriveClient(HasLifecycle):
     # FILES
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_existing_file(self, node: GDriveNode) -> Optional[GDriveNode]:
-        if not node.goog_id:
-            raise RuntimeError(f'Cannot get existing file: node is missing goog_id: {node}')
-
-        found_node, found_raw = self.get_single_node_with_parent_and_name_and_criteria(node, lambda x: x.goog_id == node.goog_id)
-        return found_node
-
     def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
             -> Tuple[Optional[GDriveNode], Optional[Dict]]:
         """Important note: if the given node has several parents, the first one found in the cache will be used in the query"""
@@ -561,7 +554,7 @@ class GDriveClient(HasLifecycle):
 
         return gdrive_file
 
-    def update_existing_file(self, name: str, mime_type: str, goog_id: str, local_file_full_path: str) -> GDriveFile:
+    def upload_update_to_existing_file(self, name: str, mime_type: str, goog_id: str, local_file_full_path: str) -> GDriveFile:
         if not local_file_full_path:
             raise RuntimeError(f'No path specified for file!')
 

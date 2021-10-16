@@ -47,6 +47,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
   
 #### FUTURE / NON-ESSENTIAL
+* [3] Support for extra GDrive types (e.g. shortcuts, Google Docs files)
 * [3] Cascade failures and allow recovery
 * [1] Copy metadata when copying files (MAC times)
 * [1] Add modification dates for local dirs

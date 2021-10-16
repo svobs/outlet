@@ -177,7 +177,7 @@ def delete_empty_dir(tgt_path: str, to_trash: bool = False):
         os.rmdir(tgt_path)
 
 
-def move_file(src_path, dst_path):
+def move_file(src_path: str, dst_path: str):
     """This should be used to copy a single file. NOT a directory!"""
     # TODO: handle move across file systems
     assert not os.path.isdir(src_path)
@@ -199,10 +199,55 @@ def move_file(src_path, dst_path):
         else:
             raise FileNotFoundError(errno.EEXIST, os.strerror(errno.EEXIST), dst_path)
 
-    shutil.move(src_path, dst_path)
+    _move_file(src_path, dst_path)
 
 
-def _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify):
+def _move_file(src, dst):
+    """Copied from shutil.move(). But simplified to disallow recursive move"""
+    real_dst = dst
+    if os.path.isdir(dst):
+        raise RuntimeError(f'Cannot move: dst is a directory: {dst}')
+
+    try:
+        os.rename(src, real_dst)
+    except OSError:
+        if os.path.islink(src):
+            linkto = os.readlink(src)
+            os.symlink(linkto, real_dst)
+            os.unlink(src)
+        else:
+            shutil.copy2(src, real_dst)
+            os.unlink(src)
+    return real_dst
+
+
+def replace_file(src_path: str, dst_path: str):
+    """Move src_path onto dst_path, replacing it. Both src and dst should be files."""
+    if not os.path.exists(src_path):
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
+
+    if os.path.isdir(src_path):
+        raise RuntimeError(f'Cannot move: src is a directory: {src_path}')
+
+    if not os.path.exists(dst_path):
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), dst_path)
+
+    if os.path.isdir(dst_path):
+        raise RuntimeError(f'Cannot move: dst is a directory: {dst_path}')
+
+    _replace_file(src_path, dst_path)
+
+
+def _replace_file(src_path: str, dst_path: str):
+    try:
+        os.replace(src_path, dst_path)
+    except NotImplementedError:
+        # Not supported on this platform. Try in pieces:
+        os.remove(dst_path)
+        _move_file(src_path, dst_path)
+
+
+def _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify: bool):
     # (Staging) make parent directories if not exist
     staging_parent, staging_file = os.path.split(staging_path)
     try:
@@ -225,26 +270,31 @@ def _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify):
 
     if verify:
         # sha256 = fmeta.content_hasher.dropbox_hash(staging_path)
-        md5 = content_hasher.compute_md5(staging_path)
-        if md5_src != md5:
+        md5_new = content_hasher.compute_md5(staging_path)
+        if md5_src != md5_new:
             raise RuntimeError(f'MD5 of copied file does not match: src_path="{src_path}", '
-                               f'src_md5={md5_src}, dst_path="{dst_path}", dst_md5={md5}')
+                               f'src_md5={md5_src}, dst_path="{dst_path}", dst_md5={md5_new}')
 
 
-def move_to_dst(staging_path: str, dst_path: str):
+def move_to_dst(staging_path: str, dst_path: str, replace: bool):
     try:
         # (Destination) make parent directories if not exist
         dst_parent, dst_file_name = os.path.split(dst_path)
         os.makedirs(name=dst_parent, exist_ok=True)
 
         # Finally, move the file into its final destination
-        shutil.move(staging_path, dst_path)
+        if replace:
+            _replace_file(staging_path, dst_path)
+        else:
+            _move_file(staging_path, dst_path)
+
     except Exception as err:
         logger.error(f'Exception while moving file to dst: {dst_path}')
         raise
 
 
-def copy_file_new(src_path, staging_path, dst_path, md5_src, verify):
+# TODO: expand this to be agnostic of signature type
+def copy_file_new(src_path: str, staging_path: str, dst_path: str, md5_src: str, verify: bool):
     """Copies the src (src_path) to the destination path (dst_path), by first doing the copy to an
     intermediary location (staging_path) and then moving it to the destination once its signature
     has been verified.
@@ -252,22 +302,25 @@ def copy_file_new(src_path, staging_path, dst_path, md5_src, verify):
     Raises an error if a file is already present at the destination."""
     if os.path.exists(dst_path):
         # sha256 = fmeta.content_hasher.dropbox_hash(dst_path)
-        md5_encountered = content_hasher.compute_md5(dst_path)
-        if md5_src == md5_encountered:
+        md5_encountered_at_dst = content_hasher.compute_md5(dst_path)
+        if md5_src == md5_encountered_at_dst:
             # TODO: what about if stats are different?
-            msg = f'Identical file already exists at dst: {dst_path}'
+            msg = f'File with identical content already exists at dst: {dst_path}'
             logger.info(msg)
             # This will be caught and treated as a no-op
             raise IdenticalFileExistsError(msg)
         else:
-            raise FileExistsError(f'Found unexpected file at destination path ("{dst_path}") with MD5: {md5_encountered}')
+            msg = f'Found unexpected file at dst ("{dst_path}") with MD5: {md5_encountered_at_dst}'
+            logger.debug(f'Throwing FileExistsError: {msg}')
+            raise FileExistsError(msg)
 
     _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify)
 
-    move_to_dst(staging_path, dst_path)
+    move_to_dst(staging_path, dst_path, replace=False)
 
 
-def copy_file_update(src_path: str, md5_src: str, staging_path: str, dst_path: str, verify: bool):
+# TODO: expand this to be agnostic of signature type
+def copy_file_update(src_path: str, staging_path: str, dst_path: str, md5_src: str, md5_to_overwrite: str, verify: bool):
     """Copies the src (src_path) to the destination path (dst_path) via a staging dir, but first
     verifying that a file already exists there and it has the expected MD5; failing otherwise"""
 
@@ -276,22 +329,23 @@ def copy_file_update(src_path: str, md5_src: str, staging_path: str, dst_path: s
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), dst_path)
 
     # sha256 = fmeta.content_hasher.dropbox_hash(dst_path)
-    md5_encountered = content_hasher.compute_md5(dst_path)
-    if md5_encountered != md5_src:
-        raise RuntimeError(f'Expected MD5 ({md5_src}) does not match actual ({md5_encountered})')
+    md5_encountered_at_dst = content_hasher.compute_md5(dst_path)
+    if md5_src == md5_encountered_at_dst:
+        # TODO: what about if stats are different?
+        msg = f'Identical file already exists at dst: {dst_path}'
+        logger.info(msg)
+        msg = f'File with identical content already exists at dst: {dst_path}'
+        logger.info(msg)
+        # This will be caught and treated as a no-op
+        raise IdenticalFileExistsError(msg)
+    elif md5_to_overwrite != md5_encountered_at_dst:
+        msg = f'File to overwrite ("{dst_path}") has unexpected MD5: {md5_encountered_at_dst} (expected: {md5_encountered_at_dst})'
+        logger.debug(f'Throwing FileExistsError: {msg}')
+        raise FileExistsError(msg)
 
     _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify)
 
-    try:
-        # Finally, move the file into its final destination. Move the other file out of the way
-        # first to minimize potential loss of data
-        tmp_path = dst_path + '.tmp'
-        shutil.move(dst_path, tmp_path)
-        shutil.move(staging_path, dst_path)
-        os.remove(tmp_path)
-    except Exception as err:
-        logger.error(f'Exception while moving file to dst: {dst_path}')
-        raise
+    move_to_dst(staging_path, dst_path, replace=True)
 
 
 def get_valid_or_ancestor(dir_path):

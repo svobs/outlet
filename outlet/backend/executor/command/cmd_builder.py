@@ -1,12 +1,12 @@
 import logging
 from typing import Callable, Dict, Optional
 
-from backend.executor.command.cmd_impl import CopyFileGDriveCommand, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
+from backend.executor.command.cmd_impl import CopyGDriveFileWithinGDriveCommand, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveNodeCommand, DeleteLocalNodeCommand, \
-    DownloadFromGDriveCommand, \
-    MoveFileGDriveCommand, \
-    MoveFileLocallyCommand, \
-    UploadToGDriveCommand
+    CopyGDriveToLocalCommand, \
+    MoveFileWithinGDriveCommand, \
+    MoveFileLocalToLocalCommand, \
+    CopyLocalToGDriveCommand
 from backend.executor.command.cmd_interface import Command
 from constants import TreeType
 from model.node.node import Node
@@ -89,32 +89,31 @@ def _populate_build_dict():
         },
         UserOpType.CP: {
             LO_same_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=False),
-            GD_same_GD: lambda uid, change: CopyFileGDriveCommand(uid, change),
-            LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=False),
-            GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=False),
+            GD_same_GD: lambda uid, change: CopyGDriveFileWithinGDriveCommand(uid, change, overwrite=False),
+            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False),
+            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False),
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         },
         UserOpType.MV: {
-            LO_same_LO: lambda uid, change: MoveFileLocallyCommand(uid, change),
-            GD_same_GD: lambda uid, change: MoveFileGDriveCommand(uid, change),
-            LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=False),
-            GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=False),
+            LO_same_LO: lambda uid, change: MoveFileLocalToLocalCommand(uid, change, overwrite=False),
+            GD_same_GD: lambda uid, change: MoveFileWithinGDriveCommand(uid, change, overwrite=False),
+            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False),  # FIXME: this is not MOVE
+            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False),  # FIXME: this is not MOVE
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         },
         UserOpType.CP_ONTO: {
             LO_same_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=True),
-            GD_same_GD: lambda uid, change: CopyFileGDriveCommand(uid, change, overwrite=True),
-            LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=True),
-            GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=True),
+            GD_same_GD: lambda uid, change: CopyGDriveFileWithinGDriveCommand(uid, change, overwrite=True),
+            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=True),
+            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=True),
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         },
         UserOpType.MV_ONTO: {
-            # FIXME: Start coding these!
-            LO_same_LO: lambda uid, change: _fail(change, LO_same_LO),
-            GD_same_GD: lambda uid, change: _fail(change, GD_same_GD),
+            LO_same_LO: lambda uid, change: MoveFileLocalToLocalCommand(uid, change, overwrite=True),
+            GD_same_GD: lambda uid, change: MoveFileWithinGDriveCommand(uid, change, overwrite=True),
             LO_GD: lambda uid, change: _fail(change, LO_GD),
             GD_LO: lambda uid, change: _fail(change, GD_LO),
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),

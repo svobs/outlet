@@ -192,7 +192,7 @@ class TransferMaker(ChangeMaker):
                             # Multiple conflicting nodes with same name? Just delete all of them. Too rare an occurrence to optimize.
                             # If dst is dir, we simply delete it before replacing it (no need to consult ReplaceDirWithFilePolicy)
                             for sn_dst_conflicting in list_sn_dst_conflicting:
-                                self._delete_subtree(sn_dst_conflicting)
+                                self._add_ops_for_delete_subtree(sn_dst_conflicting)
                             # Now just transfer the src subtree as though the conflicts never existed:
                             self._handle_no_conflicts_found(dd_meta, sn_src_child)
                         else:
@@ -206,7 +206,7 @@ class TransferMaker(ChangeMaker):
                 # Remaining nodes in the dict must all be deleted:
                 for list_sn_dst_child in dict_sn_dst_existing_child_list.values():
                     for sn_dst_child in list_sn_dst_child:
-                        self._delete_subtree(sn_dst_child)
+                        self._add_ops_for_delete_subtree(sn_dst_child)
 
     def _handle_dir_merge(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, sn_dst_conflicting: SPIDNodePair):
         assert sn_src.node.is_dir()
@@ -258,7 +258,10 @@ class TransferMaker(ChangeMaker):
 
                             self._handle_replace_with_file(dd_meta, sn_src_child, list_sn_dst_conflicting[0])
 
-    def _delete_subtree(self, sn_dst_subtree_root: SPIDNodePair):
+    def _add_ops_for_delete_subtree(self, sn_dst_subtree_root: SPIDNodePair):
+        assert sn_dst_subtree_root.spid.has_path_in_subtree(self.right_side.root_sn.spid.get_single_path()), \
+            f'Node {sn_dst_subtree_root.spid} is not in right-side subtree ({self.right_side.root_sn.spid.get_single_path()})'
+
         if sn_dst_subtree_root.node.is_dir():
             for sn in self.backend.cacheman.get_subtree_bfs_sn_list(sn_dst_subtree_root.node.node_identifier):
                 self.right_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn)
@@ -345,14 +348,11 @@ class TransferMaker(ChangeMaker):
 
         if sn_dst_conflicting.node.is_dir():
             # Special handling for dir node
-            self._delete_subtree(sn_dst_conflicting)
+            self._add_ops_for_delete_subtree(sn_dst_conflicting)
             # Now just transfer the src subtree as though the conflicts never existed:
             self._handle_no_conflicts_found(dd_meta, sn_src)
         else:
-            sn_dst = copy.deepcopy(sn_dst_conflicting)
-            sn_dst.node.set_is_live(False)
-            sn_dst.node.sync_ts = None
-            sn_dst.node.update_signature_and_timestamps_from(sn_src.node)
+            sn_dst = sn_dst_conflicting
 
             if dd_meta.drag_op == DragOperation.COPY:
                 self.right_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_src, sn_dst=sn_dst)
