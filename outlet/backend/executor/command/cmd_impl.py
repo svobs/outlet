@@ -5,8 +5,7 @@ from typing import List
 from error import InvalidOperationError
 from util import file_util
 from model.user_op import UserOp, UserOpType
-from backend.executor.command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand, \
-    TwoNodeCommand
+from backend.executor.command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -64,7 +63,7 @@ def _ensure_up_to_date(node: LocalFileNode, cxt: CommandContext) -> LocalFileNod
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
 
-class CopyFileLocallyCommand(CopyNodeCommand):
+class CopyFileLocalToLocalCommand(CopyNodeCommand):
     """Local-to-local add or update"""
 
     def __init__(self, uid: UID, op: UserOp, overwrite: bool = False):
@@ -232,7 +231,7 @@ class CreatLocalDirCommand(Command):
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 # FIXME: Handle GDrive shortcuts & Google Docs nodes differently - will these commands even work for them?
 
-class CopyLocalToGDriveCommand(CopyNodeCommand):
+class CopyFileLocalToGDriveCommand(CopyNodeCommand):
     """
     Copy Local -> GDrive (AKA upload)
     """
@@ -317,7 +316,7 @@ class CopyLocalToGDriveCommand(CopyNodeCommand):
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[node_dst], to_remove=[node_src])
 
 
-class CopyGDriveToLocalCommand(CopyNodeCommand):
+class CopyFileGDriveToLocalCommand(CopyNodeCommand):
     """
     Copy GDrive -> Local (AKA download)
     """
@@ -524,7 +523,7 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node])
 
 
-class CopyGDriveFileWithinGDriveCommand(CopyNodeCommand):
+class CopyFileWithinGDriveCommand(CopyNodeCommand):
     """
     Copy GDrive -> GDrive, same account
     """
@@ -551,23 +550,26 @@ class CopyGDriveFileWithinGDriveCommand(CopyNodeCommand):
         if not existing_src:
             raise RuntimeError(f'Could not find src node for copy in Google Drive: "{self.op.src_node.name}" (goog_id={self.op.src_node.goog_id})')
 
-        existing_dst, raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node, lambda x:
-        x.md5 == self.op.src_node.md5 and x.mime_type_uid == self.op.src_node.mime_type_uid and x.name == self.op.src_node.name)
-        if existing_dst:
-            logger.info(
-                f'File with identical content and name already exists in Google Drive (goog_id={existing_dst.goog_id}); will update cache only')
+        existing_dst, raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(
+            self.op.dst_node, lambda x: x.md5 == self.op.src_node.md5 and x.mime_type_uid == self.op.src_node.mime_type_uid
+            and x.name == self.op.src_node.name)
+        if existing_dst and sorted(self.op.dst_node.get_parent_uids()) == sorted(existing_dst.get_parent_uids()):
+            logger.info(f'File with identical content and name already exists in Google Drive (goog_id={existing_dst.goog_id})')
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_dst], to_remove=[self.op.dst_node])
 
+        # Check whether node already exists at dst, and that it is as expected. Delete if specified.
         if self.overwrite:
             # Overwrite existing: dst_node must have a different goog_id
             if not self.op.dst_node.goog_id:
                 raise RuntimeError(f'Cannot overwrite file in GDrive: no goog_id provided in dst node: {self.op.dst_node}')
 
-            if USE_STRICT_STATE_ENFORCEMENT:
-                node_dst_updated = gdrive_client.get_existing_node_by_id(self.op.dst_node.goog_id)
-                if not node_dst_updated:
+            node_dst_updated = gdrive_client.get_existing_node_by_id(self.op.dst_node.goog_id)
+            if not node_dst_updated:
+                if USE_STRICT_STATE_ENFORCEMENT:
                     raise RuntimeError(
                         f'Cannot overwrite file in GDrive: target not found in Google Drive (maybe already deleted?): {self.op.dst_node}')
+                else:
+                    logger.info(f'Could not find expected dst node in Google Drive (goog_id={self.op.dst_node.goog_id}): will skip delete of it')
 
             # TODO: in future, let's find a create a new version of the existing file, rather than doing an explicit delete
             gdrive_client.hard_delete(self.op.dst_node.goog_id)
@@ -576,6 +578,7 @@ class CopyGDriveFileWithinGDriveCommand(CopyNodeCommand):
             if self.op.dst_node.goog_id:
                 raise RuntimeError(f'Internal error: trying to overwrite existing GDrive node when overwrite==false: {self.op.dst_node}')
 
+        # Do the copy
         new_node = gdrive_client.copy_existing_file(src_goog_id=self.op.src_node.goog_id, new_name=dst_name,
                                                     new_parent_goog_ids=dst_parent_goog_id_list, uid=self.op.dst_node.uid)
         if not new_node:

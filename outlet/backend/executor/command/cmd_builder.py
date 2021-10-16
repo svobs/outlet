@@ -1,12 +1,12 @@
 import logging
 from typing import Callable, Dict, Optional
 
-from backend.executor.command.cmd_impl import CopyGDriveFileWithinGDriveCommand, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
+from backend.executor.command.cmd_impl import CopyFileWithinGDriveCommand, CopyFileLocalToLocalCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveNodeCommand, DeleteLocalNodeCommand, \
-    CopyGDriveToLocalCommand, \
+    CopyFileGDriveToLocalCommand, \
     MoveFileWithinGDriveCommand, \
     MoveFileLocalToLocalCommand, \
-    CopyLocalToGDriveCommand
+    CopyFileLocalToGDriveCommand
 from backend.executor.command.cmd_interface import Command
 from constants import TreeType
 from model.node.node import Node
@@ -88,35 +88,35 @@ def _populate_build_dict():
             GD: lambda uid, change: DeleteGDriveNodeCommand(uid, change, to_trash=False)
         },
         UserOpType.CP: {
-            LO_same_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=False),
-            GD_same_GD: lambda uid, change: CopyGDriveFileWithinGDriveCommand(uid, change, overwrite=False),
-            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False, delete_src_node_after=False),
-            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False, delete_src_node_after=False),
-            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
-            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
+            LO_same_LO: lambda uid, change: CopyFileLocalToLocalCommand(uid, change, overwrite=False),
+            GD_same_GD: lambda uid, change: CopyFileWithinGDriveCommand(uid, change, overwrite=False),
+            LO_GD: lambda uid, change: CopyFileLocalToGDriveCommand(uid, change, overwrite=False, delete_src_node_after=False),
+            GD_LO: lambda uid, change: CopyFileGDriveToLocalCommand(uid, change, overwrite=False, delete_src_node_after=False),
+            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),  # TODO: support > 1 # of same tree type
+            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD), # TODO: support > 1 of same tree type
         },
         UserOpType.MV: {
             LO_same_LO: lambda uid, change: MoveFileLocalToLocalCommand(uid, change, overwrite=False),
             GD_same_GD: lambda uid, change: MoveFileWithinGDriveCommand(uid, change, overwrite=False),
-            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False, delete_src_node_after=True),
-            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False, delete_src_node_after=True),
-            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
-            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
+            LO_GD: lambda uid, change: CopyFileLocalToGDriveCommand(uid, change, overwrite=False, delete_src_node_after=True),
+            GD_LO: lambda uid, change: CopyFileGDriveToLocalCommand(uid, change, overwrite=False, delete_src_node_after=True),
+            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO), # TODO: support > 1 of same tree type
+            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD), # TODO: support > 1 of same tree type
         },
         UserOpType.CP_ONTO: {
-            LO_same_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=True),
-            GD_same_GD: lambda uid, change: CopyGDriveFileWithinGDriveCommand(uid, change, overwrite=True),
-            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=True),
-            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=True),
-            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
-            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
+            LO_same_LO: lambda uid, change: CopyFileLocalToLocalCommand(uid, change, overwrite=True),
+            GD_same_GD: lambda uid, change: CopyFileWithinGDriveCommand(uid, change, overwrite=True),
+            LO_GD: lambda uid, change: CopyFileLocalToGDriveCommand(uid, change, overwrite=True),
+            GD_LO: lambda uid, change: CopyFileGDriveToLocalCommand(uid, change, overwrite=True),
+            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO), # TODO: support > 1 of same tree type
+            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD), # TODO: support > 1 of same tree type
         },
         UserOpType.MV_ONTO: {
             LO_same_LO: lambda uid, change: MoveFileLocalToLocalCommand(uid, change, overwrite=True),
             GD_same_GD: lambda uid, change: MoveFileWithinGDriveCommand(uid, change, overwrite=True),
-            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=True, delete_src_node_after=True),
-            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=True, delete_src_node_after=True),
-            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
-            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
+            LO_GD: lambda uid, change: CopyFileLocalToGDriveCommand(uid, change, overwrite=True, delete_src_node_after=True),
+            GD_LO: lambda uid, change: CopyFileGDriveToLocalCommand(uid, change, overwrite=True, delete_src_node_after=True),
+            LO_different_LO: lambda uid, change: _fail(change, LO_different_LO), # TODO: support > 1 of same tree type
+            GD_different_GD: lambda uid, change: _fail(change, GD_different_GD), # TODO: support > 1 of same tree type
         }
     }
