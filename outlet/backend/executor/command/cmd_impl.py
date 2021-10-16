@@ -126,6 +126,7 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
             raise InvalidOperationError(f'to_trash==True not supported!')
 
         if self.op.src_node.is_file():
+            assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
             # make sure we are deleting the expected file:
             src_node = _ensure_up_to_date(self.op.src_node, cxt)
             file_util.delete_file(src_node.get_single_path(), self.to_trash)
@@ -236,8 +237,9 @@ class CopyLocalToGDriveCommand(CopyNodeCommand):
     Copy Local -> GDrive (AKA upload)
     """
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
+    def __init__(self, uid: UID, op: UserOp, overwrite: bool, delete_src_node_after: bool):
         super().__init__(uid, op, overwrite)
+        self.delete_src_node_after: bool = delete_src_node_after
         assert isinstance(self.op.dst_node, GDriveNode)
 
     def get_total_work(self) -> int:
@@ -256,9 +258,6 @@ class CopyLocalToGDriveCommand(CopyNodeCommand):
 
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.dst_node.device_uid)
 
-        to_upsert = [src_node]
-        to_remove = []
-
         if self.overwrite:
             assert self.op.dst_node.goog_id, f'Expected dst node to have non-null goog_id because overwrite=true: {self.op.dst_node}'
 
@@ -271,10 +270,9 @@ class CopyLocalToGDriveCommand(CopyNodeCommand):
             elif existing_dst_node.name == self.op.src_node.name and existing_dst_node.md5 == src_node.md5 \
                     and existing_dst_node.get_size_bytes() == src_node.get_size_bytes():
                 # Possibility #1: same exact node at dst -> no op
-                to_upsert.append(existing_dst_node)
                 logger.info(f'Identical node (uid={existing_dst_node.uid}) already exists in Google Drive with same name, '
                             f'md5={existing_dst_node.md5}, size={existing_dst_node.get_size_bytes()} as src node ({src_node})')
-                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=to_upsert, to_remove=to_remove)
+                return self._maybe_delete_src_node_and_finish(src_node, existing_dst_node, UserOpStatus.COMPLETED_NO_OP)
 
             # FIXME: we should not just be using the previous mime_type. We need to determine the mime_type from the local file
             mime_type = gdrive_client.gdrive_store.get_mime_type_for_uid(self.op.dst_node.mime_type_uid)
@@ -283,7 +281,7 @@ class CopyLocalToGDriveCommand(CopyNodeCommand):
             existing_dst_node = gdrive_client.upload_update_to_existing_file(name=self.op.src_node.name, mime_type=mime_type.type_string,
                                                                              goog_id=self.op.dst_node.goog_id,
                                                                              local_file_full_path=src_file_path)
-            to_upsert.append(existing_dst_node)
+            return self._maybe_delete_src_node_and_finish(src_node, existing_dst_node, UserOpStatus.COMPLETED_OK)
         else:
             assert not self.op.dst_node.goog_id, f'Expected dst node to have null goog_id because overwrite=false: {self.op.dst_node}'
 
@@ -294,12 +292,11 @@ class CopyLocalToGDriveCommand(CopyNodeCommand):
             if existing_dst_node:
                 if existing_dst_node.md5 == src_node.md5 and existing_dst_node.get_size_bytes() == src_node.get_size_bytes():
                     # Possibility #1: same exact node at dst -> no op
-                    to_upsert.append(existing_dst_node)
                     logger.info(f'Identical node (uid={existing_dst_node.uid}) already exists in Google Drive with same name and parent, '
                                 f'md5={src_node.md5}, size={src_node.get_size_bytes()} (orig dst node uid={self.op.dst_node.uid})')
-                    if existing_dst_node.uid != self.op.dst_node.uid:
-                        to_remove = [self.op.dst_node]
-                    return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=to_upsert, to_remove=to_remove)
+                    result: UserOpResult = self._maybe_delete_src_node_and_finish(src_node, existing_dst_node, UserOpStatus.COMPLETED_NO_OP)
+                    result.nodes_to_remove.append(self.op.dst_node)
+                    return result
                 else:
                     logger.info(f'Found existing node in Google Drive with same parent and name, but different content (overwrite={self.overwrite})')
                     # Possibility #3: different node at dst AND overwrite=False -> fail
@@ -307,11 +304,17 @@ class CopyLocalToGDriveCommand(CopyNodeCommand):
             else:
                 # Possibility #5: no node at dst -> OK to upload
                 parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.dst_node)
-                new_node: GDriveNode = gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id_list, uid=self.op.dst_node.uid)
-                assert new_node.uid == self.op.dst_node.uid
-                to_upsert.append(new_node)
+                dst_node: GDriveFile = gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id_list, uid=self.op.dst_node.uid)
+                assert dst_node.uid == self.op.dst_node.uid
+                return self._maybe_delete_src_node_and_finish(src_node, dst_node, UserOpStatus.COMPLETED_OK)
 
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_remove=to_remove)
+    def _maybe_delete_src_node_and_finish(self, node_src: LocalFileNode, node_dst: GDriveFile, status_up_to_now: UserOpStatus) -> UserOpResult:
+        if not self.delete_src_node_after:
+            return UserOpResult(status_up_to_now, to_upsert=[node_src, node_dst])
+
+        assert isinstance(node_src, LocalFileNode)
+        file_util.delete_file(node_src.get_single_path(), to_trash=False)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[node_dst], to_remove=[node_src])
 
 
 class CopyGDriveToLocalCommand(CopyNodeCommand):
@@ -319,8 +322,9 @@ class CopyGDriveToLocalCommand(CopyNodeCommand):
     Copy GDrive -> Local (AKA download)
     """
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
+    def __init__(self, uid: UID, op: UserOp, overwrite: bool, delete_src_node_after: bool):
         super().__init__(uid, op, overwrite)
+        self.delete_src_node_after: bool = delete_src_node_after
         assert isinstance(self.op.src_node, GDriveNode), f'For {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'For {self.op.dst_node}'
 
@@ -336,20 +340,21 @@ class CopyGDriveToLocalCommand(CopyNodeCommand):
         dst_path: str = self.op.dst_node.get_single_path()
 
         if os.path.exists(dst_path):
-            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=True, is_live=True)
-            if node and node.md5 == self.op.src_node.md5:
-                logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
-                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, node])
+            node_dst: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=True, is_live=True)
+            if node_dst and node_dst.md5 == self.op.src_node.md5:
+                logger.debug(f'Item already exists at path "{dst_path}" and appears valid: skipping download')
+                return self._maybe_delete_src_node_and_finish(cxt, node_dst, UserOpStatus.COMPLETED_NO_OP)
             elif not self.overwrite:
                 raise RuntimeError(f'A different node already exists at the destination path: {dst_path} '
-                                   f'(found size={node.get_size_bytes()}, MD5={node.md5}, '
+                                   f'(found size={node_dst.get_size_bytes()}, MD5={node_dst.md5}, '
                                    f'expected size={self.op.src_node.get_size_bytes()}, MD5={self.op.src_node.md5})')
         elif self.overwrite:
             if USE_STRICT_STATE_ENFORCEMENT:
                 raise RuntimeError(f'Cannot overwrite a file which does not exist: {dst_path}')
             else:
-                logger.warning(f'Doing an "overwrite" for a local file which does not exist: {dst_path}')
+                logger.warning(f'Cmd has "overwrite" specified for a local file which does not exist: {dst_path}')
 
+        # Set up staging vars:
         try:
             os.makedirs(name=cxt.staging_dir, exist_ok=True)
         except Exception:
@@ -357,17 +362,20 @@ class CopyGDriveToLocalCommand(CopyNodeCommand):
             raise
         staging_path = os.path.join(cxt.staging_dir, self.op.src_node.md5)
 
+        # File already exists in staging with the given content?
         if os.path.exists(staging_path):
-            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path,
-                                                                     must_scan_signature=True, is_live=True)
-            if node and node.md5 == self.op.src_node.md5:
+            node_dst: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path,
+                                                                         must_scan_signature=True, is_live=True)
+            if node_dst and node_dst.md5 == self.op.src_node.md5:
                 logger.debug(f'Found target node in staging dir; will move: ({staging_path} -> {dst_path})')
                 file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path, replace=self.overwrite)
-                return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node])
+                return self._maybe_delete_src_node_and_finish(cxt, node_dst, UserOpStatus.COMPLETED_OK)
             else:
+                # probably a half-completed download
                 logger.debug(f'Found unexpected file in the staging dir; removing: {staging_path}')
                 os.remove(staging_path)
 
+        # download into staging
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
         gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
 
@@ -380,7 +388,26 @@ class CopyGDriveToLocalCommand(CopyNodeCommand):
         # This will overwrite if the file already exists:
         file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path, replace=self.overwrite)
 
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node_dst])
+        return self._maybe_delete_src_node_and_finish(cxt, node_dst, UserOpStatus.COMPLETED_OK)
+
+    def _maybe_delete_src_node_and_finish(self, cxt: CommandContext, node_dst: LocalFileNode, status_up_to_now: UserOpStatus) -> UserOpResult:
+        if not self.delete_src_node_after:
+            return UserOpResult(status_up_to_now, to_upsert=[self.op.src_node, node_dst])
+
+        assert isinstance(self.op.src_node, GDriveFile)
+        gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
+
+        existing_src_node = gdrive_client.get_existing_node_by_id(self.op.src_node.goog_id)
+        if not existing_src_node:
+            if USE_STRICT_STATE_ENFORCEMENT:
+                raise RuntimeError(f'Could not find expected src node in Google Drive (goog_id={self.op.src_node.goog_id})')
+            else:
+                logger.info(f'Could not find expected src node in Google Drive (goog_id={self.op.src_node.goog_id}): will skip delete of it')
+                return UserOpResult(status_up_to_now, to_upsert=[node_dst], to_remove=[self.op.src_node])
+        else:
+            # TODO: in future, let's find a create a new version of the existing file, rather than doing an explicit delete
+            gdrive_client.hard_delete(self.op.src_node.goog_id)
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[node_dst], to_remove=[self.op.src_node])
 
 
 class CreateGDriveFolderCommand(Command):
@@ -584,7 +611,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
 
-        existing = gdrive_client.get_single_node_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == self.op.src_node.goog_id)
+        existing = gdrive_client.get_existing_node_by_id(self.op.src_node.goog_id)
         if not existing:
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_remove=[self.op.src_node])
 
@@ -593,24 +620,28 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
         if self.to_trash and existing.get_trashed_status() != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')
-            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_remove=[existing])
-
-        existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[existing])
 
         if self.to_trash:
+            node_updated = gdrive_client.trash(self.op.src_node.goog_id)
+            to_upsert = [node_updated]
+
+            # FIXME: need to download ALL DESCENDANTS, not just immediate children!
+            existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
             for child in existing_child_list:
                 if child.get_trashed_status() == TrashStatus.NOT_TRASHED:
                     raise RuntimeError(f'Found a child ("{child.name}", id={child.goog_id}) which was not already trashed')
 
-            gdrive_client.trash(self.op.src_node.goog_id)
-            self.op.src_node.set_trashed_status(TrashStatus.EXPLICITLY_TRASHED)
+                to_upsert.append(child)
+
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert)
         else:
+            existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
             if len(existing_child_list) > 0:
                 raise RuntimeError(f'Folder has {len(existing_child_list)} children; will not delete non-empty folder')
 
             gdrive_client.hard_delete(self.op.src_node.goog_id)
-
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # GOOGLE DRIVE COMMANDS end

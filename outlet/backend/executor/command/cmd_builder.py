@@ -90,16 +90,16 @@ def _populate_build_dict():
         UserOpType.CP: {
             LO_same_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=False),
             GD_same_GD: lambda uid, change: CopyGDriveFileWithinGDriveCommand(uid, change, overwrite=False),
-            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False),
-            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False),
+            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False, delete_src_node_after=False),
+            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False, delete_src_node_after=False),
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         },
         UserOpType.MV: {
             LO_same_LO: lambda uid, change: MoveFileLocalToLocalCommand(uid, change, overwrite=False),
             GD_same_GD: lambda uid, change: MoveFileWithinGDriveCommand(uid, change, overwrite=False),
-            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False),  # FIXME: this is not MOVE
-            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False),  # FIXME: this is not MOVE
+            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=False, delete_src_node_after=True),
+            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=False, delete_src_node_after=True),
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         },
@@ -114,8 +114,8 @@ def _populate_build_dict():
         UserOpType.MV_ONTO: {
             LO_same_LO: lambda uid, change: MoveFileLocalToLocalCommand(uid, change, overwrite=True),
             GD_same_GD: lambda uid, change: MoveFileWithinGDriveCommand(uid, change, overwrite=True),
-            LO_GD: lambda uid, change: _fail(change, LO_GD),
-            GD_LO: lambda uid, change: _fail(change, GD_LO),
+            LO_GD: lambda uid, change: CopyLocalToGDriveCommand(uid, change, overwrite=True, delete_src_node_after=True),
+            GD_LO: lambda uid, change: CopyGDriveToLocalCommand(uid, change, overwrite=True, delete_src_node_after=True),
             LO_different_LO: lambda uid, change: _fail(change, LO_different_LO),
             GD_different_GD: lambda uid, change: _fail(change, GD_different_GD),
         }
