@@ -58,26 +58,27 @@ class TransferMaker(ChangeMaker):
 
         for sn_src in sn_src_list:
             # In general, we will throw an error rather than attempt to replace or merge more than 1 node with the same name
-            conflicting_dst_sn_list: List[SPIDNodePair] = dst_existing_sn_dict.get(sn_src.node.name)
+            list_sn_dst_conflicting: List[SPIDNodePair] = dst_existing_sn_dict.get(sn_src.node.name)
 
-            if not conflicting_dst_sn_list:
+            if not list_sn_dst_conflicting:
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Node "{sn_src.node.name}": no name conflicts found')
                 self._handle_no_conflicts_found(dd_meta, sn_src)
 
             else:  # Conflict(s)
                 if sn_src.node.is_dir():
-                    self._handle_dir_conflict(dd_meta, sn_src, conflicting_dst_sn_list)
+                    self._handle_dir_conflict(dd_meta, sn_src, list_sn_dst_conflicting)
                 else:
-                    self._handle_file_conflict(dd_meta, sn_src, conflicting_dst_sn_list)
+                    self._handle_file_conflict(dd_meta, sn_src, list_sn_dst_conflicting)
 
-    def _handle_dir_conflict(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, conflicting_dst_sn_list):
+    def _handle_dir_conflict(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, list_sn_dst_conflicting):
         name_src = sn_src.node.name
         policy = dd_meta.dir_conflict_policy
-        has_multiple_name_conflicts: bool = len(conflicting_dst_sn_list) > 1
+        assert list_sn_dst_conflicting
+        has_multiple_name_conflicts: bool = len(list_sn_dst_conflicting) > 1
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Dir "{name_src}" has {len(conflicting_dst_sn_list)} conflicts: following policy {policy.name}')
+            logger.debug(f'Dir "{name_src}" has {len(list_sn_dst_conflicting)} conflicts: following policy {policy.name}')
 
         if policy == DirConflictPolicy.SKIP:
             # SKIP DIR: trivial
@@ -85,9 +86,9 @@ class TransferMaker(ChangeMaker):
         elif policy == DirConflictPolicy.REPLACE:
             # REPLACE DIR: similar to MERGE
             if has_multiple_name_conflicts:
-                raise RuntimeError(f'For folder "{name_src}": found {len(conflicting_dst_sn_list) > 1} items '
+                raise RuntimeError(f'For folder "{name_src}": found {len(list_sn_dst_conflicting) > 1} items '
                                    f'at the destination with the same name, and cannot determine which to replace!')
-            self._handle_dir_replace(dd_meta, sn_src, conflicting_dst_sn_list[0])
+            self._handle_dir_replace(dd_meta, sn_src, list_sn_dst_conflicting[0])
 
         elif policy == DirConflictPolicy.RENAME:
             # RENAME DIR
@@ -95,9 +96,9 @@ class TransferMaker(ChangeMaker):
         elif policy == DirConflictPolicy.MERGE:
             # MERGE DIR
             if has_multiple_name_conflicts:
-                raise RuntimeError(f'For folder "{sn_src}": found {len(conflicting_dst_sn_list) > 1} items '
+                raise RuntimeError(f'For folder "{sn_src}": found {len(list_sn_dst_conflicting) > 1} items '
                                    f'at the destination with the same name, and cannot determine which to merge with!')
-            self._handle_dir_merge(dd_meta, sn_src, conflicting_dst_sn_list[0])
+            self._handle_dir_merge(dd_meta, sn_src, list_sn_dst_conflicting[0])
 
         elif policy == DirConflictPolicy.PROMPT:
             # TODO
@@ -106,23 +107,31 @@ class TransferMaker(ChangeMaker):
         else:
             raise RuntimeError(f'Unrecognized DirConflictPolicy: {policy}')
 
-    def _handle_file_conflict(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, conflicting_dst_sn_list):
+    def _handle_file_conflict(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, list_sn_dst_conflicting: List[SPIDNodePair]):
         name_src = sn_src.node.name
         policy = dd_meta.file_conflict_policy
+        assert list_sn_dst_conflicting
+        has_multiple_name_conflicts: bool = len(list_sn_dst_conflicting) > 1
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'File "{name_src}" has {len(conflicting_dst_sn_list)} conflicts: following policy {policy.name}')
+            logger.debug(f'File "{name_src}" has {len(list_sn_dst_conflicting)} conflicts: following policy {policy.name}')
 
         if policy == FileConflictPolicy.SKIP:
             pass
 
         elif policy == FileConflictPolicy.REPLACE_ALWAYS:
             # REPLACE ALWAYS (FILE)
-            self._handle_replace_with_file(dd_meta, sn_src, conflicting_dst_sn_list)
+            if has_multiple_name_conflicts:
+                raise RuntimeError(f'For file "{name_src}": found {len(list_sn_dst_conflicting) > 1} items '
+                                   f'at the destination with the same name, and cannot determine which to replace!')
+            self._handle_replace_with_file(dd_meta, sn_src, list_sn_dst_conflicting[0])
 
         elif policy == FileConflictPolicy.REPLACE_IF_OLDER_AND_DIFFERENT:
             # REPLACE ALWAYS (FILE)
-            self._handle_replace_with_file(dd_meta, sn_src, conflicting_dst_sn_list, skip_condition_func=self._is_same_content_and_not_older)
+            if has_multiple_name_conflicts:
+                raise RuntimeError(f'For file "{name_src}": found {len(list_sn_dst_conflicting) > 1} items '
+                                   f'at the destination with the same name, and cannot determine which to replace!')
+            self._handle_replace_with_file(dd_meta, sn_src, list_sn_dst_conflicting[0], skip_condition_func=self._is_same_content_and_not_older)
 
         elif policy == FileConflictPolicy.RENAME_ALWAYS:
             # RENAME ALWAYS (FILE)
@@ -279,32 +288,32 @@ class TransferMaker(ChangeMaker):
                 sn.node = node_with_sigs
 
     # SKIP CONDITION:
-    def _is_same_content(self, sn_src_conflict: SPIDNodePair, sn_dst_conflicting: SPIDNodePair) -> bool:
-        if sn_src_conflict.node.is_dir() != sn_dst_conflicting.node.is_dir():
+    def _is_same_content(self, sn_src: SPIDNodePair, sn_dst: SPIDNodePair) -> bool:
+        if sn_src.node.is_dir() != sn_dst.node.is_dir():
             # If one is a file and one is a dir, obviously they don't have the same content
             return False
 
-        self._calculate_signatures_if_missing_and_local(sn_src_conflict)
-        self._calculate_signatures_if_missing_and_local(sn_dst_conflicting)
+        self._calculate_signatures_if_missing_and_local(sn_src)
+        self._calculate_signatures_if_missing_and_local(sn_dst)
 
         # TODO: decide how to handle GDrive non-file types which don't have signatures (e.g. shortcuts, Google Docs...)
-        return sn_src_conflict.node.is_signature_match(sn_dst_conflicting.node)
+        return sn_src.node.is_signature_match(sn_dst.node)
 
     # SKIP CONDITION:
-    def _is_same_content_and_not_older(self, sn_src_conflict: SPIDNodePair, sn_dst_conflicting: SPIDNodePair) -> bool:
-        if sn_src_conflict.node.is_dir() != sn_dst_conflicting.node.is_dir():
+    def _is_same_content_and_not_older(self, sn_src: SPIDNodePair, sn_dst: SPIDNodePair) -> bool:
+        if sn_src.node.is_dir() != sn_dst.node.is_dir():
             # If one is a file and one is a dir, obviously they don't have the same content
             return False
 
-        self._calculate_signatures_if_missing_and_local(sn_src_conflict)
-        self._calculate_signatures_if_missing_and_local(sn_dst_conflicting)
+        self._calculate_signatures_if_missing_and_local(sn_src)
+        self._calculate_signatures_if_missing_and_local(sn_dst)
 
         # TODO: decide how to handle GDrive non-file types which don't have signatures (e.g. shortcuts, Google Docs...)
-        if sn_src_conflict.node.modify_ts == 0 or sn_dst_conflicting.node.modify_ts == 0:
-            logger.error(f'One of these has modify_ts=0. Src: {sn_src_conflict.node}, Dst: {sn_dst_conflicting.node}')
+        if sn_src.node.modify_ts == 0 or sn_dst.node.modify_ts == 0:
+            logger.error(f'One of these has modify_ts=0. Src: {sn_src.node}, Dst: {sn_dst.node}')
             raise RuntimeError(f'Cannot compare modification times: at least one node is missing modify_ts')
-        return sn_src_conflict.node.is_signature_match(sn_dst_conflicting.node) and \
-               sn_src_conflict.node.modify_ts <= sn_dst_conflicting.node.modify_ts
+        return sn_src.node.is_signature_match(sn_dst.node) and \
+               sn_src.node.modify_ts <= sn_dst.node.modify_ts
 
     def _handle_replace_with_file(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, sn_dst_conflicting: SPIDNodePair,
                                   skip_condition_func: Optional[Callable[[SPIDNodePair, SPIDNodePair], bool]] = None):
