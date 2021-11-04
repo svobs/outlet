@@ -142,10 +142,15 @@ class CacheRegistry(HasLifecycle):
 
     def _init_store_dict(self):
         logger.debug('Init store dict')
-        has_super_root = False
 
+        # First create all devices, and note any singletons along the way.
+
+        has_super_root = False
+        has_any_local_disk = False
+        this_disk_local_store_candidate = None
         # TODO: add true support for multiple GDrives
         master_gdrive = None
+
         for device in self._read_device_list():
             if device.tree_type == TreeType.MIXED:
                 if device.uid != SUPER_ROOT_DEVICE_UID:
@@ -158,6 +163,12 @@ class CacheRegistry(HasLifecycle):
                     self._this_disk_local_store = store
 
                 self._store_dict[device.uid] = store
+
+                if not has_any_local_disk:
+                    has_any_local_disk = True
+                    this_disk_local_store_candidate = store
+                else:
+                    this_disk_local_store_candidate = None
             elif device.tree_type == TreeType.GDRIVE:
                 store = GDriveMasterStore(self.backend, self._uid_goog_id_mapper, device)
                 master_gdrive = store
@@ -166,6 +177,9 @@ class CacheRegistry(HasLifecycle):
             else:
                 raise RuntimeError(f'Invalid tree type: {device.tree_type} for device {device}')
 
+        # Now make sure we got all the singleton stores:
+
+        # I. SUPER ROOT
         if has_super_root:
             logger.debug(f'Found super-root in registry')
         else:
@@ -174,16 +188,45 @@ class CacheRegistry(HasLifecycle):
             device = Device(SUPER_ROOT_DEVICE_UID, "ROOT", TreeType.MIXED, "Super Root")
             self._write_new_device(device)
 
+        # II. THIS LOCAL DISK
         if self._this_disk_local_store:
             logger.info(f'Found this_local_disk in registry with UID {self._this_disk_local_store.device_uid}')
         else:
-            # Need to create new device for this disk (first run)
-            device = Device(NULL_UID, self._device_uuid, TreeType.LOCAL_DISK, "Local Disk")
-            self._write_new_device(device)
-            store = LocalDiskMasterStore(self.backend, self._uid_path_mapper, device)
-            self._store_dict[device.uid] = store
-            self._this_disk_local_store = store
+            needs_insert: bool = True
 
+            if has_any_local_disk:
+                # FIXME: display prompt to user
+                if this_disk_local_store_candidate:
+                    # This means we only found a single device, but it doesn't match the UUID we expected. For now let's assume it is the same disk,
+                    # but its UUID has changed.
+                    logger.warning(f'Found one LocalDisk device in registry but its UUID ("{this_disk_local_store_candidate.device.long_device_id}") '
+                                   f'does not match the expected UUID ("{self._device_uuid}") of this_local_disk. Will assume this is the correct '
+                                   f'device, and update its UUID with the found value.')
+                    self._this_disk_local_store = this_disk_local_store_candidate
+                    device = self._this_disk_local_store.device
+                    device.long_device_id = self._device_uuid
+                    needs_insert = False
+                    self._upsert_device(device)
+                else:
+                    # This means we found multiple local devices, but none match the UUID we expected.
+                    logger.warning(f'Registry contains multiple LocalDisk devices but found none matching the device UUID ("{self._device_uuid}") '
+                                   f'of this_local_disk. Will register a new device for this_local_disk.')
+                    logger.warning(f'This is possibly very bad. If the loading process later fails, this is probably the reason.')
+            else:
+                logger.info(f'Registry has no LocalDisk devices; assuming first run. Registering device with UUID "{self._device_uuid}" '
+                            f'for this_local_disk')
+
+            if needs_insert:
+                # Need to create new device for this disk (first run)
+                device = Device(NULL_UID, self._device_uuid, TreeType.LOCAL_DISK, "Local Disk")
+                self._write_new_device(device)
+                store = LocalDiskMasterStore(self.backend, self._uid_path_mapper, device)
+                self._store_dict[device.uid] = store
+                self._this_disk_local_store = store
+
+                logger.info(f'Created this_local_disk in registry with UID {self._this_disk_local_store.device_uid}')
+
+        # III. MASTER GDRIVE
         if master_gdrive:
             logger.info(f'Found master_gdrive in registry with device UID {master_gdrive.device_uid}')
         else:
@@ -404,13 +447,13 @@ class CacheRegistry(HasLifecycle):
                 reader.flush()
         return device_uuid
 
-    # TODO: when do we create a new device?
-    def upsert_device(self, device: Device):
+    def _upsert_device(self, device: Device):
         with CacheRegistryDatabase(self.main_registry_path, self.backend.node_identifier_factory) as db:
             db.upsert_device(device)
             logger.debug(f'Upserted device to DB: {device}')
 
-        dispatcher.send(signal=Signal.DEVICE_UPSERTED, device=device)
+        logger.debug(f'Sending signal {Signal.DEVICE_UPSERTED.name} for device {device}')
+        dispatcher.send(signal=Signal.DEVICE_UPSERTED, sender=ID_GLOBAL_CACHE, device=device)
 
     def get_device_list(self) -> List[Device]:
         # Cache this for better performance.

@@ -140,8 +140,7 @@ class RowStateTracking:
         logger.debug(f'[{tree_id}] Loading selected rows from app_config')
         try:
             selected_row_set: Set[GUID] = set()
-            selected_rows_unparsed: str = self.backend.get_config(self._make_selected_rows_config_key(tree_id), default_val='',
-                                                                  required=False)
+            selected_rows_unparsed: str = self.backend.get_config(self._make_selected_rows_config_key(tree_id), default_val='', required=False)
             if selected_rows_unparsed:
                 for guid in selected_rows_unparsed.split(CONFIG_DELIMITER):
                     selected_row_set.add(guid)

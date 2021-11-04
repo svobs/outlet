@@ -24,7 +24,7 @@ from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, Icon
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
-from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
+from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier
 from model.uid import UID
