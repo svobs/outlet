@@ -76,6 +76,7 @@ class CacheRegistry(HasLifecycle):
 
         self._cache_info_dict: CacheInfoByDeviceUid = CacheInfoByDeviceUid()
 
+        # Cache this for better performance.
         self._cached_device_list: List[Device] = []
 
         # (Optional) variables needed for producer/consumer behavior if Load All Caches needed
@@ -92,6 +93,7 @@ class CacheRegistry(HasLifecycle):
         self._uid_goog_id_mapper.start()
 
         self._init_store_dict()
+        self._update_cached_device_list()
 
         # Load registry first. Do validation along the way
         self._load_registry()
@@ -195,7 +197,7 @@ class CacheRegistry(HasLifecycle):
             needs_insert: bool = True
 
             if has_any_local_disk:
-                # FIXME: display prompt to user
+                # FIXME: display prompt to user instead, and let them decide which entry or whether to create new
                 if this_disk_local_store_candidate:
                     # This means we only found a single device, but it doesn't match the UUID we expected. For now let's assume it is the same disk,
                     # but its UUID has changed.
@@ -452,17 +454,20 @@ class CacheRegistry(HasLifecycle):
             db.upsert_device(device)
             logger.debug(f'Upserted device to DB: {device}')
 
+        self._update_cached_device_list()
+        self._send_device_upsert_signal(device)
+
+    @staticmethod
+    def _send_device_upsert_signal(device: Device):
         logger.debug(f'Sending signal {Signal.DEVICE_UPSERTED.name} for device {device}')
         dispatcher.send(signal=Signal.DEVICE_UPSERTED, sender=ID_GLOBAL_CACHE, device=device)
 
-    def get_device_list(self) -> List[Device]:
-        # Cache this for better performance.
-        # TODO: Need to update the cached list on change
-        if not self._cached_device_list:
-            device_list = list(filter(lambda x: x.uid != SUPER_ROOT_DEVICE_UID, self._read_device_list()))
-            logger.debug(f'Device list: {device_list}')
-            self._cached_device_list = device_list
+    def _update_cached_device_list(self):
+        device_list = list(filter(lambda x: x.uid != SUPER_ROOT_DEVICE_UID, self._read_device_list()))
+        self._cached_device_list = device_list
+        logger.debug(f'Updated cached device list: {device_list}')
 
+    def get_device_list(self) -> List[Device]:
         return self._cached_device_list
 
     def _read_device_list(self) -> List[Device]:
@@ -474,7 +479,9 @@ class CacheRegistry(HasLifecycle):
             db.insert_device(device)
             logger.debug(f'Wrote new device to DB: {device}')
 
-    # TODO: add this to backend API
+        self._update_cached_device_list()
+        self._send_device_upsert_signal(device)
+
     def get_tree_type_for_device_uid(self, device_uid: UID) -> TreeType:
         if device_uid == SUPER_ROOT_DEVICE_UID:
             return TreeType.MIXED

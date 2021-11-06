@@ -870,6 +870,10 @@ class CacheManager(HasLifecycle):
     def get_device_list(self):
         return self._cache_registry.get_device_list()
 
+    # TODO: add this to backend API
+    def get_tree_type_for_device_uid(self, device_uid: UID) -> TreeType:
+        return self._cache_registry.get_tree_type_for_device_uid(device_uid)
+
     def show_tree(self, subtree_root: NodeIdentifier) -> str:
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).show_tree(subtree_root)
 
