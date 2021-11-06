@@ -455,6 +455,8 @@ class GDriveWholeTree(BaseTree):
         """Identical to get_subtree_bfs_node_list(), but uses GDriveSPIDs / SPIDNodePairs"""
         if not subtree_root_spid:
             subtree_root_spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
+        if not subtree_root_spid.is_spid():
+            raise RuntimeError(f'get_subtree_bfs_sn_list(): subtree_root_spid ({subtree_root_spid}) is not a SPID!')
 
         subtree_root_node = self.get_node_for_identifier(subtree_root_spid.node_uid)
         if not subtree_root_node:

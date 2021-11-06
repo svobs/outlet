@@ -180,6 +180,8 @@ class GDriveMasterStore(TreeStore):
         """Executes a single GDriveWriteThroughOp ({start}->memory->disk->UI)"""
 
         # 1. Update memory store
+        if not self._memstore.is_loaded():
+            raise CacheNotLoadedError(f'_execute_write_op(): GDrive cache not loaded!')
         operation.update_memstore(self._memstore)
 
         # 2. Update disk store
@@ -266,7 +268,7 @@ class GDriveMasterStore(TreeStore):
     def _sync_latest_gdrive_changes(self, this_task: Task):
         logger.debug(f'Entered sync_latest_changes(): locked={self._struct_lock.locked()}')
 
-        if not self._memstore.master_tree:
+        if not self._memstore.is_loaded():
             logger.warning(f'GDrive master tree is not loaded! Aborting sync.')
             return
 
@@ -374,6 +376,8 @@ class GDriveMasterStore(TreeStore):
         return child_list
 
     def show_tree(self, subtree_root: GDriveIdentifier) -> str:
+        if not self._memstore.is_loaded():
+            raise CacheNotLoadedError(f'show_tree(): GDrive cache not loaded!')
         return self._memstore.master_tree.show_tree(subtree_root.node_uid)
 
     # Individual node cache updates
@@ -502,7 +506,7 @@ class GDriveMasterStore(TreeStore):
 
     def get_node_for_goog_id(self, goog_id: str) -> Optional[GDriveNode]:
         uid = self._uid_mapper.get_uid_for_goog_id(goog_id)
-        return self._memstore.master_tree.get_node_for_uid(uid)
+        return self.get_node_for_uid(uid)
 
     def get_node_for_domain_id(self, goog_id: str) -> Optional[GDriveNode]:
         return self.get_node_for_goog_id(goog_id)

@@ -263,7 +263,7 @@ class TransferMaker(ChangeMaker):
             f'Node {sn_dst_subtree_root.spid} is not in right-side subtree ({self.right_side.root_sn.spid.get_single_path()})'
 
         if sn_dst_subtree_root.node.is_dir():
-            for sn in self.backend.cacheman.get_subtree_bfs_sn_list(sn_dst_subtree_root.node.node_identifier):
+            for sn in self.backend.cacheman.get_subtree_bfs_sn_list(sn_dst_subtree_root.spid):
                 self.right_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn)
         else:
             self.right_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_dst_subtree_root)
@@ -433,7 +433,7 @@ class TransferMaker(ChangeMaker):
         The optional "name_new_dst" param, if supplied, will rename the target."""
         if sn_src.node.is_dir():
             # Need to get all the nodes in its whole subtree and add them individually:
-            list_sn_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.node.node_identifier)
+            list_sn_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.spid)
             logger.debug(f'Unpacking subtree with {len(list_sn_subtree)} nodes for {dd_meta.op_type.name}...')
 
             for sn_src_descendent in list_sn_subtree:

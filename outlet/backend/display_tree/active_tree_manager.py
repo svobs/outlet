@@ -471,6 +471,7 @@ class ActiveTreeManager(HasLifecycle):
         self.backend.cacheman.get_cache_info_for_subtree(subtree_root=spid, create_if_not_found=True)
         # Try to retrieve the root node from the cache:
         try:
+            # FIXME: if the GDrive cache hasn't been loaded, this falsely reports that subtree does not exist!
             node: Optional[Node] = self.backend.cacheman.read_node_for_spid(spid)
             if node:
                 logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
