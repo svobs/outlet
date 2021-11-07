@@ -37,17 +37,21 @@ class GDriveDiskStore(HasLifecycle):
         self._path_list_computer: GDrivePathListComputer = None
 
     def start(self):
-        logger.debug(f'Starting GDriveDiskStore')
+        logger.debug(f'[GDriveDiskStore(device_uid={self.device_uid})] Startup started')
         HasLifecycle.start(self)
         gdrive_db_path = self._get_gdrive_cache_path()
         self._db = GDriveDatabase(gdrive_db_path, self.backend, self.device_uid)
         self._path_list_computer = GDrivePathListComputer(get_node_for_uid_func=self._db.get_node_with_uid)
+        logger.debug(f'[GDriveDiskStore(device_uid={self.device_uid})] Startup done')
 
     def shutdown(self):
+        logger.debug(f'[GDriveDiskStore(device_uid={self.device_uid})] Shutdown started')
         HasLifecycle.shutdown(self)
         if self._db:
             self._db.close()
             self._db = None
+
+        logger.debug(f'[GDriveDiskStore(device_uid={self.device_uid})] Shutdown done')
 
     def _get_gdrive_cache_path(self) -> str:
         master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)

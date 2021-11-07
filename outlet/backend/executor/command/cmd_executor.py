@@ -29,13 +29,17 @@ class CommandExecutor(HasLifecycle):
         self.global_context: Optional[CommandContext] = None
 
     def start(self):
+        logger.debug('[CommandExecutor] Startup started')
         HasLifecycle.start(self)
 
         # TODO: optionally clean staging dir at startup
         self.global_context = CommandContext(self.staging_dir, self.backend.cacheman)
+        logger.debug('[CommandExecutor] Startup done')
 
     def shutdown(self):
+        logger.debug('[CommandExecutor] Shutdown started')
         self.global_context = None
+        logger.debug('[CommandExecutor] Shutdown done')
 
     def execute_command(self, this_task: Task, command: Command, context: CommandContext = None, start_stop_progress: bool = False):
         if not command:

@@ -1,7 +1,6 @@
 {
     "gdrive_dir_select": {
-        "expanded_row_set": "11215320",
-        "expanded_rows": "",
+        "expanded_rows": "3:14386143:12750308,3:14385973:11213631,3:14386135:12751194",
         "filter": {
             "ignore_case": true,
             "is_shared": 2,
@@ -9,14 +8,12 @@
             "search_query": "",
             "show_subtrees": false
         },
-        "selected_row_set": "2:11702626:12750112",
-        "selected_rows": "3:14387636:12750112"
+        "selected_rows": "3:14386135:12751194"
     },
     "global": {
-        "last_uid": 16585296
+        "last_uid": 16594314
     },
     "left_tree": {
-        "expanded_row_set": "1:12398663,1:12398667",
         "expanded_rows": "2:14870308,2:14868479,2:14867473,2:14867477,2:14868508,2:14867471,2:16557242,2:14868619,2:14867478,2:14867474,2:14867476",
         "expanded_state": {
             "CP": true,
@@ -35,24 +32,21 @@
         "offending_path": "",
         "root_device_uid": 2,
         "root_exists": true,
-        "root_path": "/Users/msvoboda/LocalDevel/outlet/test-resources/ChangeTest/Left-Root",
-        "root_uid": 16556305,
-        "selected_row_set": "1:13143646",
+        "root_path": "/Users/msvoboda/Downloads/CommercialVideo",
+        "root_uid": 16586300,
         "selected_rows": ""
     },
     "left_tree_diff": {
-        "expanded_row_set": "2:RM:12398665,2:RM:12408812,2:CP:12398665,2:CP:13163067,2:RM:12408811,2:CP:13163118,2:RM:12408807,2:CP:13163141,2:CP:13163098,2:CP:13163068",
         "expanded_rows": "2:RM:14868479,2:RM:14867471",
         "selected_rows": "2:CP:14867471"
     },
     "main_win": {
-        "height": "935",
-        "width": "1481",
-        "x": "165",
-        "y": "84"
+        "height": "1095",
+        "width": "1737",
+        "x": "55",
+        "y": "0"
     },
     "merge_tree": {
-        "expanded_row_set": "2:2,2:CP:12163491,2:CP:12164565,2:CP:12398665,2:CP:2,2:CP:12164566",
         "expanded_rows": "2:RM:14867471,2:2,2:RM:13358908,2:RM:14865467,2:RM:2,2:RM:14865468",
         "filter": {
             "ignore_case": true,
@@ -61,12 +55,10 @@
             "search_query": "",
             "show_subtrees": false
         },
-        "selected_row_set": "2:CP:13163068",
         "selected_rows": "2:2"
     },
     "right_tree": {
-        "expanded_row_set": "2:11702682:12750139,2:11702631:12750136,2:11702635:12750137,2:11702669:12750138,2:11702670:12750318,2:11702625:12750134,2:11702671:12750319",
-        "expanded_rows": "3:14385997:12751193,3:14385973:11213631,3:14387805:12752195,3:14430500:12752479,3:14429668:12752348,3:14429684:12752349,2:16574277,3:14387213:12751476,3:14386732:12751202,3:14387214:12751186,3:14387638:12750135,3:14387691:12750139,3:11702626:12750112,3:14386142:12751182",
+        "expanded_rows": "3:14386142:12751182,3:14429684:12752349,3:14387638:12750135,3:14429668:12752348,3:14385973:11213631,3:11702626:12750112,3:14386732:12751202,3:14385997:12751193,2:16574277,3:14387691:12750139,3:14430500:12752479,3:14387214:12751186,3:14387805:12752195,3:14387213:12751476",
         "expanded_state": {
             "CP": true,
             "MV": true,
@@ -83,22 +75,19 @@
         },
         "is_found": true,
         "offending_path": "",
-        "root_device_uid": 2,
+        "root_device_uid": 3,
         "root_exists": true,
-        "root_path": "/Users/msvoboda/LocalDevel/outlet/test-resources/ChangeTest/Right-Root",
-        "root_uid": 16558244,
-        "selected_row_set": "2:11702628:12750135",
-        "selected_rows": "2:16578346"
+        "root_path": "/My Drive/Media/Commercial-Video",
+        "root_uid": 14386135,
+        "selected_rows": "3:14387487:12752236"
     },
     "right_tree_diff": {
-        "expanded_row_set": "",
         "expanded_rows": "3:RM:12750309,3:CP:16393253,3:RM:12750112,3:CP:12750112,3:RM:12750135",
         "expanded_state": {
             "CP": true,
             "MV": true,
             "RM": true
         },
-        "selected_row_set": "3:CP:13162678,3:CP:12750112",
         "selected_rows": "3:CP:12750112"
     }
 }

@@ -517,13 +517,13 @@ class GDriveClient(HasLifecycle):
             done = False
             while done is False:
                 status, done = downloader.next_chunk()
-                logger.debug(f'Download {status.progress() * 100}%')
+                logger.debug(f'GDrive [goog_id={file_id}] download progress: {status.progress() * 100}%')
 
             with io.open(dest_path, 'wb') as f:
                 fh.seek(0)
                 f.write(fh.read())
 
-            logger.info(f'GDrive download successful: dest="{dest_path}"')
+            logger.info(f'GDrive [goog_id={file_id}] download successful: dest="{dest_path}"')
 
         GDriveClient._try_repeatedly(download)
 

@@ -50,13 +50,14 @@ class OpManager(HasLifecycle):
         self._batch_builder: BatchBuilder = BatchBuilder(self.backend)
 
     def start(self):
-        logger.debug(f'Starting OpManager')
+        logger.debug(f'[OpManager] Startup started')
         HasLifecycle.start(self)
         self._disk_store.start()
         self._op_graph.start()
+        logger.debug(f'[OpManager] Startup done')
 
     def shutdown(self):
-        logger.debug(f'Shutting down OpManager')
+        logger.debug(f'[OpManager] Shutdown started')
         HasLifecycle.shutdown(self)
 
         if self._disk_store:
@@ -68,6 +69,7 @@ class OpManager(HasLifecycle):
 
         self.backend = None
         self._cmd_builder = None
+        logger.debug(f'[OpManager] Shutdown done')
 
     def _upsert_nodes_in_memstore(self, op: UserOp):
         """Looks at the given UserOp and notifies cacheman so that it can send out update notifications. The nodes involved may not have

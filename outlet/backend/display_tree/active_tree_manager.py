@@ -66,7 +66,7 @@ class ActiveTreeManager(HasLifecycle):
         self.on_deregister_tree_hook: Optional[Callable] = None
 
     def start(self):
-        logger.debug('Starting ActiveTreeManager')
+        logger.debug('[ActiveTreeManager] Startup started')
         gdrive_live_monitor_enabled = self._is_live_monitoring_enabled and self._live_monitor.enable_gdrive_polling_thread
         if not gdrive_live_monitor_enabled and not self.backend.cacheman.sync_from_gdrive_on_cache_load:
             logger.warning(f'GDrive: live monitoring is disabled AND sync on cache load is disabled: GDrive cache will not be updated!')
@@ -83,9 +83,10 @@ class ActiveTreeManager(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, receiver=self._on_subtree_nodes_changed_in_cache)
 
         self._live_monitor.start()
+        logger.debug('[ActiveTreeManager] Startup done')
 
     def shutdown(self):
-        logger.debug('ActiveTreeManager.shutdown() entered')
+        logger.debug('[ActiveTreeManager] Shutdown started')
         HasLifecycle.shutdown(self)
 
         # Do this after destroying controllers, for a more orderly shutdown:
@@ -95,6 +96,8 @@ class ActiveTreeManager(HasLifecycle):
                 self._live_monitor = None
         except (AttributeError, NameError):
             pass
+
+        logger.debug('[ActiveTreeManager] Shutdown done')
 
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

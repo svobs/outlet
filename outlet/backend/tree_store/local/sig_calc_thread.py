@@ -49,23 +49,25 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             self._cv_can_get.notifyAll()
 
     def start(self):
+        logger.debug(f'[{self.name}] Startup started')
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=Signal.NODE_NEEDS_SIG_CALC, receiver=self._on_node_upserted_in_cache)
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED_IN_CACHE, receiver=self._on_node_upserted_in_cache)
         self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, receiver=self._on_subtree_nodes_changed_in_cache)
         threading.Thread.start(self)
+        logger.debug(f'[{self.name}] Startup done')
 
     def shutdown(self):
-        logger.debug(f'Shutting down {self.name}')
+        logger.debug(f'[{self.name}] Shutdown started')
         HasLifecycle.shutdown(self)
 
         with self._cv_can_get:
             # unblock thread:
             self._cv_can_get.notifyAll()
+        logger.debug(f'[{self.name}] Shutdown done')
 
     def _run(self):
         logger.info(f'[{self.name}] Starting thread...')
-
         while not self.was_shutdown:
             time.sleep(self.batch_interval_ms / 1000.0)  # allow some nodes to collect
 

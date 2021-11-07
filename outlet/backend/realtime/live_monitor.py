@@ -85,12 +85,13 @@ class LiveMonitor(HasLifecycle):
         self._watchdog_observer = Observer()
 
     def start(self):
-        logger.debug('Starting LiveMonitor')
+        logger.debug('[LiveMonitor] Startup started')
         HasLifecycle.start(self)
         self._watchdog_observer.start()
+        logger.debug('[LiveMonitor] Startup done')
 
     def shutdown(self):
-        logger.debug('Shutting down LiveMonitor')
+        logger.debug('[LiveMonitor] Shutdown started')
         HasLifecycle.shutdown(self)
         self._watchdog_observer.stop()
         self._stop_gdrive_capture()
@@ -98,6 +99,8 @@ class LiveMonitor(HasLifecycle):
         if self._local_change_batching_thread:
             self._local_change_batching_thread.shutdown()
             self._local_change_batching_thread = None
+
+        logger.debug('[LiveMonitor] Shutdown done')
 
     def _start_local_disk_capture(self, full_path: str, tree_id: TreeID):
         logger.debug(f'[{tree_id}] Starting disk capture for path="{full_path}"')

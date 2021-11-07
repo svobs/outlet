@@ -50,7 +50,9 @@ OP_EXECUTION_THREAD_NAME = 'OpExecutionThread'
 # and 1 is for all other requests to the backend.
 GRPC_SERVER_MAX_WORKER_THREADS = 4
 
-TASK_RUNNER_MAX_WORKERS = 1
+# Add these two together to get the total possible number of concurrent workers:
+TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS = 1  # number of ops running with P7_USER_OP_EXECUTION priority
+TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS = 1  # number of tasks running with P7_USER_OP_EXECUTION priority
 
 READ_CHUNK_SIZE = 1024 * 1024
 

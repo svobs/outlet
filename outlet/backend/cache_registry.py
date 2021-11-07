@@ -87,6 +87,8 @@ class CacheRegistry(HasLifecycle):
         self._load_registry_done: threading.Event = threading.Event()
 
     def start(self):
+        logger.debug(f'[CacheRegistry] Startup started')
+
         # Get paths loaded ASAP, so we won't worry about creating duplicate paths or UIDs for them
         self._uid_path_mapper.start()
         # same deal with GoogIDs
@@ -116,8 +118,10 @@ class CacheRegistry(HasLifecycle):
         else:
             logger.info('Configured not to load all caches on startup; will lazy load instead')
 
+        logger.debug(f'[CacheRegistry] Startup done')
+
     def shutdown(self):
-        logger.debug('CacheRegistryDatabase.shutdown() entered')
+        logger.debug(f'[CacheRegistry] Shutdown started')
 
         try:
             if self._uid_path_mapper:
@@ -138,6 +142,8 @@ class CacheRegistry(HasLifecycle):
                 self._store_dict = None
         except (AttributeError, NameError):
             pass
+
+        logger.debug(f'[CacheRegistry] Shutdown done')
 
     # Init
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -495,8 +501,7 @@ class CacheRegistry(HasLifecycle):
     # PersistedCacheInfo stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_cache_info_for_subtree(self, subtree_root: SinglePathNodeIdentifier, create_if_not_found: bool = False) \
-            -> Optional[PersistedCacheInfo]:
+    def get_cache_info_for_subtree(self, subtree_root: SinglePathNodeIdentifier, create_if_not_found: bool = False) -> Optional[PersistedCacheInfo]:
         """Finds the cache which contains the given subtree, if there is one.
         If create_if_not_found==True, then it will create & register a new cache and return that.
         If create_if_not_found==False, then it will raise CacheNotFoundError if no associated cache could be found.

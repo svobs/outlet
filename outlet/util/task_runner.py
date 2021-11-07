@@ -1,9 +1,9 @@
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 import logging
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
-from constants import SUPER_DEBUG_ENABLED, TASK_RUNNER_MAX_WORKERS
+from constants import SUPER_DEBUG_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC
 from util import time_util
@@ -95,9 +95,9 @@ class TaskRunner(HasLifecycle):
     Really just a wrapper for ThreadPoolExecutor.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self):
+    def __init__(self, max_workers: int):
         HasLifecycle.__init__(self)
-        self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
+        self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix='TaskRunner-')
 
     def enqueue_task(self, task: Task) -> Future:
         logger.debug(f'Submitting new task to executor: name="{task}')

@@ -3,7 +3,6 @@ import logging
 from typing import Dict, Iterable, List, Optional, Set
 
 from PIL import Image
-from zeroconf import ServiceBrowser, Zeroconf
 
 from backend.backend_interface import OutletBackend
 from backend.agent.client.signal_receiver_thread import SignalReceiverThread
@@ -60,7 +59,8 @@ class BackendGRPCClient(OutletBackend):
         self._converter = GRPCConverter(self)
         self.signal_thread: SignalReceiverThread = SignalReceiverThread(self, self._converter)
 
-        self._fe_task_runner = TaskRunner()
+        # TODO: confirm this hasn't broken
+        self._fe_task_runner = TaskRunner(max_workers=1)
         """Only needed to generate UIDs which are unique to drag & drop. Looking increasingly kludgey"""
 
         self._cached_device_list: List[Device] = []

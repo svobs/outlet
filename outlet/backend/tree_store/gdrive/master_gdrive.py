@@ -136,7 +136,7 @@ class GDriveMasterStore(TreeStore):
         self.download_dir = file_util.get_resource_path(self.backend.get_config('agent.local_disk.download_dir'))
 
     def start(self):
-        logger.debug(f'Starting GDriveMasterStore')
+        logger.debug(f'Starting GDriveMasterStore(device_uid={self.device_uid})')
         TreeStore.start(self)
         self._diskstore.start()
         self.gdrive_client.start()
@@ -145,7 +145,11 @@ class GDriveMasterStore(TreeStore):
         if self._diskstore.needs_full_reload:
             self.download_all_gdrive_data()
 
+        logger.debug(f'GDriveMasterStore(device_uid={self.device_uid}) started')
+
     def shutdown(self):
+        logger.debug(f'Shutting down GDriveMasterStore(device_uid={self.device_uid})')
+
         # disconnects all listeners:
         super(GDriveMasterStore, self).shutdown()
 
@@ -160,6 +164,8 @@ class GDriveMasterStore(TreeStore):
             self.backend = None
         except (AttributeError, NameError):
             pass
+
+        logger.debug(f'GDriveMasterStore(device_uid={self.device_uid}) shutdown done')
 
     def is_gdrive(self) -> bool:
         return True

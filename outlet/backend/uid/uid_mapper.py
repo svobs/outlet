@@ -40,10 +40,14 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
         self._write_timer = HoldOffTimer(holdoff_time_ms=CACHE_WRITE_HOLDOFF_TIME_MS, task_func=self._write_to_disk)
 
     def start(self):
+        logger.debug(f'[{self.__class__.__name__}] Startup started')
         self._load_cached_uids()
+        logger.debug(f'[{self.__class__.__name__}] Startup done')
 
     def shutdown(self):
+        logger.debug(f'[{self.__class__.__name__}] Shutdown started')
         self._write_to_disk()
+        logger.debug(f'[{self.__class__.__name__}] Shutdown done')
 
     def _add(self, value: MappingT, uid: UID):
         assert value and uid, f'Missing param: value={value}, uid={uid}'
@@ -91,7 +95,7 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
         return val
 
     def _load_cached_uids(self):
-        logger.debug(f'{self.__class__.__name__}: Loading UID mappings from disk cache')
+        logger.debug(f'[{self.__class__.__name__}] Loading UID mappings from disk cache')
 
         with self._uid_lock:
             sw = Stopwatch()
@@ -106,11 +110,11 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
 
             self.uid_generator.ensure_next_uid_greater_than(max_uid)
 
-            logger.debug(f'{self.__class__.__name__}: {sw} Loaded {len(mapping_list)} UID mappings from disk cache')
+            logger.debug(f'[{self.__class__.__name__}] {sw} Loaded {len(mapping_list)} UID mappings from disk cache')
 
     def _write_to_disk(self):
         with self._uid_lock:
-            logger.debug(f'Writing {len(self._to_write)} UID mappings to disk cache: {self.cache_path}')
+            logger.debug(f'[{self.__class__.__name__}] Writing {len(self._to_write)} UID mappings to disk cache: {self.cache_path}')
             to_write = self._to_write
             self._to_write = []
 
@@ -118,7 +122,7 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
                 with UidMapperDb(self.cache_path, self.backend, self.table) as db:
                     db.upsert_uid_str_mapping_list(to_write)
 
-                logger.info(f'Wrote {len(to_write)} UID-str mappings to disk cache ({self.cache_path})')
+                logger.info(f'[{self.__class__.__name__}] Wrote {len(to_write)} UID-str mappings to disk cache ({self.cache_path})')
 
 
 class UidPathMapper(UidPersistedMapper[str]):

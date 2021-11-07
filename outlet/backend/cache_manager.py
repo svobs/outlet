@@ -100,7 +100,7 @@ class CacheManager(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
     def shutdown(self):
-        logger.debug('CacheManager.shutdown() entered')
+        logger.debug(f'[CacheManager] Shutdown started')
         HasLifecycle.shutdown(self)
 
         try:
@@ -130,6 +130,8 @@ class CacheManager(HasLifecycle):
         except (AttributeError, NameError):
             pass
 
+        logger.debug(f'[CacheManager] Shutdown done')
+
     # Startup loading/maintenance
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -140,7 +142,7 @@ class CacheManager(HasLifecycle):
             logger.info(f'Caches already loaded. Ignoring start request.')
             return
 
-        logger.debug(f'Starting CacheManager')
+        logger.debug(f'[CacheManager] Startup started')
         HasLifecycle.start(self)
 
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
@@ -165,6 +167,7 @@ class CacheManager(HasLifecycle):
                 logger.debug(f'User configuration specifies cancelling all pending ops on startup')
                 pending_ops_func = self._op_manager.cancel_all_pending_ops
             else:
+                logger.debug(f'Configured to resume pending ops on startup')
                 pending_ops_func = self._op_manager.resume_pending_ops_from_disk
             # This is a lower priority, so will not execute until after caches are all loaded
             self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, pending_ops_func))
@@ -172,7 +175,7 @@ class CacheManager(HasLifecycle):
         finally:
             dispatcher.send(Signal.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
             self._startup_done.set()
-            logger.info('CacheManager startup done')
+            logger.debug(f'[CacheManager] Startup done')
 
     def wait_for_startup_done(self):
         if not self._startup_done.is_set():
