@@ -131,8 +131,7 @@ class BackendIntegrated(OutletBackend):
         """Starts the Diff Trees task async"""
         assert tree_id_left == ID_LEFT_TREE and tree_id_right == ID_RIGHT_TREE, f'Wrong tree IDs: {ID_LEFT_TREE}, {ID_RIGHT_TREE}'
         tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE)
-        # submit with UserOp priority:
-        self.executor.submit_async_task(Task(ExecPriority.P7_USER_OP_EXECUTION, TreeDiffTask.do_tree_diff,
+        self.executor.submit_async_task(Task(ExecPriority.P5_LONG_RUNNING_USER_TASK, TreeDiffTask.do_tree_diff,
                                         self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct))
         return tree_id_struct
 

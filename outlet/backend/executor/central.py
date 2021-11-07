@@ -23,18 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 class ExecPriority(IntEnum):
-    # Highest priority load requests: immediately visible nodes in UI tree.
-    # For user-initiated refresh requests, this queue will be used if the nodes are already visible (TODO: this is not currently true)
+    # Highest priority load requests: immediately visible nodes in UI tree, from disk if necessary
     P1_USER_LOAD = 1
 
     # Cache loads from disk into memory (such as during startup)
     P3_BACKGROUND_CACHE_LOAD = 4
 
-    # Updates to the cache based on disk monitoring, in batches:
+    # Updates to the cache based on disk monitoring, in batches.
     P4_LIVE_UPDATE = 4
 
-    # GDrive whole tree downloads (in chunks)
-    P5_GDRIVE_TREE_DOWNLOAD = 5
+    # GDrive whole tree downloads (in chunks), diffs, and other tasks which should be run after the caches have settled.
+    P5_LONG_RUNNING_USER_TASK = 5
 
     # Signature calculations: IO-dominant
     P6_SIGNATURE_CALC = 6
@@ -64,8 +63,11 @@ class CentralExecutor(HasLifecycle):
         self._struct_lock = threading.Lock()
         self._running_task_cv = threading.Condition()
 
-        self._PRIORITY_LIST_EXCEPT_USER_OP = [ExecPriority.P1_USER_LOAD, ExecPriority.P3_BACKGROUND_CACHE_LOAD, ExecPriority.P5_GDRIVE_TREE_DOWNLOAD,
-                                              ExecPriority.P4_LIVE_UPDATE, ExecPriority.P6_SIGNATURE_CALC]
+        self._PRIORITY_LIST = [ExecPriority.P1_USER_LOAD,
+                               ExecPriority.P3_BACKGROUND_CACHE_LOAD,
+                               ExecPriority.P4_LIVE_UPDATE,
+                               ExecPriority.P5_LONG_RUNNING_USER_TASK,
+                               ExecPriority.P6_SIGNATURE_CALC]
 
         # -- QUEUES --
         self._submitted_task_queue_dict: Dict[ExecPriority, Queue[Task]] = {
@@ -74,13 +76,11 @@ class CentralExecutor(HasLifecycle):
 
             ExecPriority.P3_BACKGROUND_CACHE_LOAD: Queue[Task](),
 
-            ExecPriority.P5_GDRIVE_TREE_DOWNLOAD: Queue[Task](),
-
             ExecPriority.P4_LIVE_UPDATE: Queue[Task](),
 
-            ExecPriority.P6_SIGNATURE_CALC: Queue[Task](),
+            ExecPriority.P5_LONG_RUNNING_USER_TASK: Queue[Task](),
 
-            ExecPriority.P7_USER_OP_EXECUTION: Queue[Task](),
+            ExecPriority.P6_SIGNATURE_CALC: Queue[Task](),
         }
 
         self._next_task_queue_dict: Dict[ExecPriority, Queue[Task]] = {
@@ -89,13 +89,11 @@ class CentralExecutor(HasLifecycle):
 
             ExecPriority.P3_BACKGROUND_CACHE_LOAD: Queue[Task](),
 
-            ExecPriority.P5_GDRIVE_TREE_DOWNLOAD: Queue[Task](),
+            ExecPriority.P5_LONG_RUNNING_USER_TASK: Queue[Task](),
 
             ExecPriority.P4_LIVE_UPDATE: Queue[Task](),
 
             ExecPriority.P6_SIGNATURE_CALC: Queue[Task](),
-
-            ExecPriority.P7_USER_OP_EXECUTION: Queue[Task](),
         }
 
         self._running_task_dict: Dict[UUID, Task] = {}
@@ -146,7 +144,7 @@ class CentralExecutor(HasLifecycle):
         with self._struct_lock:
             # FIXME: need to revisit these categories
             if self._submitted_task_queue_dict[ExecPriority.P3_BACKGROUND_CACHE_LOAD].qsize() > 0 \
-                    or self._submitted_task_queue_dict[ExecPriority.P5_GDRIVE_TREE_DOWNLOAD].qsize() > 0:
+                    or self._submitted_task_queue_dict[ExecPriority.P5_LONG_RUNNING_USER_TASK].qsize() > 0:
                 # still getting up to speed on the BE
                 return EngineSummaryState.RED
 
@@ -184,42 +182,86 @@ class CentralExecutor(HasLifecycle):
 
         try:
             while not self.was_shutdown:
-                task: Optional[Task] = None
-
-                with self._running_task_cv:
-                    # wait until we are notified of new task (assuming task queue is not full) or task finished (if task queue is full)
-                    if not self._running_task_cv.wait(TASK_EXEC_IMEOUT_SEC):
-                        if SUPER_DEBUG_ENABLED:
-                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV timeout!')
-
-                logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] run(): Entering lock')
-                with self._struct_lock:
-                    if self.was_shutdown:
-                        # check this again in case shutdown broke us out of our CV:
-                        break
-
-                    if len(self._running_task_dict) >= self._max_workers:
-                        # already at max capacity
-                        logger.debug('At max capacity')  # TODO
-                        self._print_current_state_of_pipeline()
-                    else:
-                        logger.debug('Getting next task to run')  # TODO
-                        task = self._get_next_task_to_run()
-                        if task:
-                            if SUPER_DEBUG_ENABLED:
-                                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority {task.priority.name}: '
-                                             f'"{task.task_func.__name__}" uuid={task.task_uuid}')
-                            self._running_task_dict[task.task_uuid] = task
-                        elif SUPER_DEBUG_ENABLED:
-                            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No tasks in queue ({len(self._running_task_dict)} currently running)')
-
-                logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] run(): Exit lock')
-
-                # Do this outside the CV:
-                if task and not self.was_shutdown:
+                task = self._do_one_loop()
+                if task:
                     self._enqueue_task(task)
+                else:
+                    with self._running_task_cv:
+                        # wait until we are notified of new task (assuming task queue is not full)
+                        # or task finished (if task queue is full)
+                        if not self._running_task_cv.wait(TASK_EXEC_IMEOUT_SEC):
+                            if SUPER_DEBUG_ENABLED:
+                                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV timeout!')
+
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
+
+    def _do_one_loop(self):
+        logger.debug('Doing one loop')
+        task: Optional[Task] = None
+
+        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] run(): Entering lock')
+        with self._struct_lock:
+            if self.was_shutdown:
+                # check this again in case shutdown broke us out of our CV:
+                return None
+
+            total_count = len(self._running_task_dict)
+            if total_count >= self._max_workers:
+                # already at max capacity
+                logger.debug('At max capacity')  # TODO
+                self._print_current_state_of_pipeline()
+                return None
+
+            # Count number of user ops already running:
+            user_op_count = 0
+            for running_task in self._running_task_dict.values():
+                if running_task.priority == ExecPriority.P7_USER_OP_EXECUTION:
+                    user_op_count += 1
+            non_user_op_count = total_count - user_op_count
+
+            if non_user_op_count < TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS:
+                logger.debug('Getting next task to run')  # TODO
+                task = self._get_next_task_to_run()
+                if task:
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority {task.priority.name}: '
+                                     f'"{task.task_func.__name__}" uuid={task.task_uuid}')
+                    self._running_task_dict[task.task_uuid] = task
+                    # fall through:
+                elif SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No non-user-op tasks in queue '
+                                 f'({len(self._running_task_dict)} currently running)')
+
+        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] run(): Exit lock')
+
+        if self.was_shutdown:
+            return None
+
+        # Do this outside the CV:
+        if task:
+            return task
+
+        # Now handle user ops:
+        if self.enable_op_execution and user_op_count < TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS:
+            try:
+                logger.debug(f'Getting next command')
+                command = self.backend.cacheman.get_next_command_nowait()
+                if command:
+                    if TRACE_ENABLED:
+                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
+                    task = Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command,
+                                self._command_executor.global_context, True)
+                    with self._struct_lock:
+                        self._running_task_dict[task.task_uuid] = task
+                    return task
+                elif SUPER_DEBUG_ENABLED:
+                    logger.debug(f'No commands to execute at this time')
+
+            except RuntimeError as e:
+                logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving command: halting execution pipeline')
+                self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error reteiving command', secondary_msg=f'{e}')
+                self._pause_op_execution(sender=ID_CENTRAL_EXEC)
 
     def _print_current_state_of_pipeline(self):
         running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()
@@ -235,10 +277,14 @@ class CentralExecutor(HasLifecycle):
         running_tasks_str_list = []
         problem_tasks_str_list = []
         for task in self._running_task_dict.values():
-            sec, ms = divmod(time_util.now_ms() - task.task_start_time_ms, 1000)
-            elapsed_time_str = f'{sec}.{ms}s'
-            if sec > TASK_TIME_WARNING_THRESHOLD_SEC:
-                problem_tasks_str_list.append(f'Task is taking a long time ({elapsed_time_str} so far): {task}')
+            task_start_time = task.task_start_time_ms
+            if task_start_time:
+                sec, ms = divmod(time_util.now_ms() - task.task_start_time_ms, 1000)
+                elapsed_time_str = f'{sec}.{ms}s'
+                if sec > TASK_TIME_WARNING_THRESHOLD_SEC:
+                    problem_tasks_str_list.append(f'Task is taking a long time ({elapsed_time_str} so far): {task}')
+            else:
+                elapsed_time_str = '(not started)'
             running_tasks_str_list.append(f'Task {task.task_uuid}: {elapsed_time_str}')
         running_tasks_str = '; '.join(running_tasks_str_list)
 
@@ -266,50 +312,10 @@ class CentralExecutor(HasLifecycle):
     def _get_next_task_to_run(self) -> Optional[Task]:
         assert self._struct_lock.locked()
 
-        # Count number of user ops already running:
-        user_op_count = 0
-        for task in self._running_task_dict.values():
-            if task.priority == ExecPriority.P7_USER_OP_EXECUTION:
-                user_op_count += 1
-
-        total_count = len(self._running_task_dict)
-        non_user_op_count = total_count - user_op_count
-
-        if non_user_op_count < TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS:
-            for priority in self._PRIORITY_LIST_EXCEPT_USER_OP:
-                task = self._get_from_queue(priority)
-                if task:
-                    return task
-
-        if self.enable_op_execution:
-            if user_op_count >= TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS:
-                logger.warning(f'Expected user_op_count ({user_op_count}) to be less than {TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS}; skipping')
-                return None
-
-            # Op execution is treated differently than other tasks: in addition to a queue, we also have the ledger.
-            # The queue takes higher precedence.
-
-            task = self._get_from_queue(ExecPriority.P7_USER_OP_EXECUTION)
+        for priority in self._PRIORITY_LIST:
+            task = self._get_from_queue(priority)
             if task:
                 return task
-
-            # FIXME: Need to put this outside of our lock! Deadlock potential!
-            # FIXME: re-engineer this into possibly a completely separate executor
-            # try:
-            #     logger.debug(f'Getting next command')
-            #     command = self.backend.cacheman.get_next_command_nowait()
-            #     if command:
-            #         if TRACE_ENABLED:
-            #             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got a command to execute: {command.__class__.__name__}')
-            #         return Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command,
-            #                     self._command_executor.global_context, True)
-            #     elif SUPER_DEBUG_ENABLED:
-            #         logger.debug(f'No commands to execute at this time')
-            #
-            # except RuntimeError as e:
-            #     logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving command: halting execution pipeline')
-            #     self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error reteiving command', secondary_msg=f'{e}')
-            #     self._pause_op_execution(sender=ID_CENTRAL_EXEC)
 
         return None
 
@@ -324,7 +330,6 @@ class CentralExecutor(HasLifecycle):
         logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] _on_task_done(): Entering lock')
         with self._struct_lock:
 
-            # Removing based on object identity should work for now, since we are in the same process:
             # Note: this is O(n). Best not to let the deque get too large
             self._running_task_dict.pop(done_task.task_uuid)
 
