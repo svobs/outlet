@@ -3,7 +3,8 @@ from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import GDRIVE_ROOT_UID, TreeID
+from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
+from constants import GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TreeID
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from error import CacheNotFoundError
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -33,12 +34,14 @@ class GDriveDiskStore(HasLifecycle):
         self._memstore: GDriveMemoryStore = memstore
         self._db: Optional[GDriveDatabase] = None
         self.needs_full_reload: bool = False
+        self._path_list_computer: GDrivePathListComputer = None
 
     def start(self):
         logger.debug(f'Starting GDriveDiskStore')
         HasLifecycle.start(self)
         gdrive_db_path = self._get_gdrive_cache_path()
         self._db = GDriveDatabase(gdrive_db_path, self.backend, self.device_uid)
+        self._path_list_computer = GDrivePathListComputer(get_node_for_uid_func=self._db.get_node_with_uid)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -174,7 +177,10 @@ class GDriveDiskStore(HasLifecycle):
         return None
 
     def get_single_node_with_uid(self, uid: UID) -> Optional[GDriveNode]:
-        return self._db.get_node_with_uid(uid)
+        """Note: this could be an expensive operation, since we are recursively looking up the node's parents in order to fill in paths."""
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Entered get_single_node_with_uid(): uid={uid}')
+        return self._path_list_computer.recompute_path_list_for_uid(uid=uid)
 
     def insert_gdrive_files_and_parents(self, file_list: List[GDriveFile], parent_mappings: List[Tuple],
                                         current_download: CurrentDownload, commit: bool = True):

@@ -3,6 +3,7 @@ import os
 from collections import Counter, defaultdict, deque
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
+from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
 from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeType
 from error import GDriveItemNotFoundError, NodeNotPresentError
 from model.gdrive_meta import GDriveUser
@@ -31,9 +32,6 @@ class GDriveWholeTree(BaseTree):
 
         self.backend = backend
 
-        self.node_identifier_factory: NodeIdentifierFactory = self.backend.node_identifier_factory
-        """This is sometimes needed for lookups"""
-
         self.device_uid: UID = device_uid
         """Uniquely identifies this GDrive account"""
 
@@ -45,6 +43,8 @@ class GDriveWholeTree(BaseTree):
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
 
         self.me: Optional[GDriveUser] = None
+
+        self._path_list_computer: GDrivePathListComputer = GDrivePathListComputer(get_node_for_uid_func=self.get_node_for_uid)
 
     def get_root_node(self) -> Optional[GDriveNode]:
         return self.uid_dict[GDRIVE_ROOT_UID]
@@ -130,16 +130,19 @@ class GDriveWholeTree(BaseTree):
             self._upsert_root(node)
 
         # Generate full_path for node, if not already done (we assume this is a newly created node)
-        self.recompute_path_list_for_uid(node.uid)
+        node = self._path_list_computer.recompute_path_list_for_uid(node.uid)
 
         # this may actually be an existing node (we favor that if it exists)
         return node
 
     def recompute_path_list_for_subtree(self, subtree_root_uid: UID):
         def action_func(visited_node):
-            self.recompute_path_list_for_uid(visited_node.uid)
+            self._path_list_computer.recompute_path_list_for_uid(visited_node.uid)
 
         self.for_each_node_breadth_first(action_func=action_func, subtree_root_identifier=subtree_root_uid)
+
+    def recompute_path_list_for_uid(self, uid: UID) -> GDriveNode:
+        return self._path_list_computer.recompute_path_list_for_uid(uid)
 
     def remove_node(self, node: GDriveNode, fail_if_children_present: bool = True) -> Optional[GDriveNode]:
         """Remove given node from all data structures in this tree. Returns the node which was removed (which may be a different object
@@ -153,7 +156,7 @@ class GDriveWholeTree(BaseTree):
 
         if not node.get_path_list():
             # (Kind of a kludge): we need the old path list so that downstream processes can work properly.
-            self.recompute_path_list_for_uid(node.uid)
+            node = self._path_list_computer.recompute_path_list_for_uid(node.uid)
 
         if node.is_dir():
             child_list = self.get_child_list_for_node(node)
@@ -332,8 +335,8 @@ class GDriveWholeTree(BaseTree):
                     logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}"'
                                  f' (target_path: "{target_path}", path_so_far="{path_so_far}")')
                 if error_if_not_found:
-                    err_node_identifier = self.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
-                                                                                  path_list=full_path)
+                    err_node_identifier = self.backend.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
+                                                                                          path_list=full_path)
                     raise GDriveItemNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
                 else:
                     return []
@@ -524,78 +527,6 @@ class GDriveWholeTree(BaseTree):
                 if not node.goog_id:
                     raise RuntimeError(f'Could not resolve goog_id for UID {uid}: node has no goog_id: {node}')
         return goog_ids
-
-    def recompute_path_list_for_uid(self, uid: UID) -> List[str]:
-        """Derives the list filesystem-like-paths for the node with the given UID, sets them, and returns them.
-        Stops when a parent cannot be found, or the root of the tree is reached."""
-        current_node: GDriveNode = self.get_node_for_uid(uid)
-        if not current_node:
-            raise RuntimeError(f'Cannot recompute path list: node not found in tree for UID {uid}')
-
-        logger.debug(f'Recomputing path for node {uid} ("{current_node.name}")')
-
-        # TODO: it's possible to optimize this by using the parent paths, if available
-
-        path_list: List[str] = []
-        # Iterate backwards (the given ID is the last segment in the path
-        current_segment_nodes: List[Tuple[GDriveNode, str]] = [(current_node, '')]
-        next_segment_nodes: List[Tuple[GDriveNode, str]] = []
-        while current_segment_nodes:
-            for node, path_so_far in current_segment_nodes:
-                if path_so_far == '':
-                    # first node (leaf)
-                    path_so_far = node.name
-                else:
-                    if node.name == ROOT_PATH:
-                        # special case for root path: don't add an extra slash
-                        path_so_far = '/' + path_so_far
-                    else:
-                        # Pre-pend parent name:
-                        path_so_far = node.name + '/' + path_so_far
-
-                parent_uids: List[UID] = node.get_parent_uids()
-                if parent_uids:
-                    if len(parent_uids) > 1:
-                        # Make sure they are not dead links:
-                        parent_uids: List[UID] = [x for x in parent_uids if self.get_node_for_uid(x)]
-                        if len(parent_uids) > 1:
-                            if SUPER_DEBUG_ENABLED:
-                                logger.debug(f'Multiple parents found for {node.uid} ("{node.name}").')
-                                for parent_index, parent_uid in enumerate(parent_uids):
-                                    logger.debug(f'Parent {parent_index}: {parent_uid}')
-                            # pass through
-                        elif SUPER_DEBUG_ENABLED:
-                            logger.warning(f'Found multiple parents for node but only one could be resolved: node={node.uid} ("{node.name}")')
-                    for parent_uid in parent_uids:
-                        parent_node: GDriveNode = self.get_node_for_uid(parent_uid)
-                        if parent_node:
-                            next_segment_nodes.append((parent_node, path_so_far))
-                        else:
-                            # Parent refs cannot be resolved == root of subtree
-                            if SUPER_DEBUG_ENABLED:
-                                logger.debug(f'Mapped ID "{uid}" to subtree path "{path_so_far}"')
-                            if path_so_far not in path_list:
-                                path_list.append(path_so_far)
-
-                else:
-                    # No parent refs. Root of Google Drive
-                    path_list.append(path_so_far)
-            current_segment_nodes = next_segment_nodes
-            next_segment_nodes = []
-
-        if TRACE_ENABLED:
-            logger.debug(f'Computed path list "{path_list}" for node_identifier: {current_node.node_identifier}')
-        elif SUPER_DEBUG_ENABLED:
-            if path_list != current_node.node_identifier.get_path_list():
-                logger.debug(f'Updating path_list for node_identifier ({current_node.node_identifier}) -> {path_list}')
-
-        current_node.node_identifier.set_path_list(path_list)
-
-        for path in path_list:
-            if path.startswith('//'):
-                logger.error(f'Generated invalid path ({path}) for node: {current_node}')
-
-        return path_list
 
     def find_duplicate_node_names(self):
         """Finds and builds a list of all nodes which have the same name inside the same folder"""

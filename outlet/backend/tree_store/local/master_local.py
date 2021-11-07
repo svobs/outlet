@@ -422,7 +422,7 @@ class LocalDiskMasterStore(TreeStore):
     def read_node_for_uid(self, node_uid: UID) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache if needed"""
         if TRACE_ENABLED:
-            logger.debug(f'read_node_for_uid() entered: "{node_uid}"')
+            logger.debug(f'read_node_for_uid() entered: uid={node_uid}')
         full_path = self.get_path_for_uid(node_uid)
 
         return self._read_single_node_for(node_uid, full_path)

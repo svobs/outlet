@@ -512,9 +512,11 @@ class GDriveMasterStore(TreeStore):
         return self.get_node_for_goog_id(goog_id)
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
-        if not self._memstore.is_loaded():
-            raise CacheNotLoadedError(f'Cannot retrieve node (UID={uid}): GDrive cache not loaded!')
-        return self._memstore.master_tree.get_node_for_uid(uid)
+        if TRACE_ENABLED:
+            logger.debug(f'get_node_for_uid() entered: uid={uid}')
+
+        # Delegate here to do a read-through of cache, disk, etc
+        return self.read_node_for_uid(uid)
 
     def read_node_for_uid(self, node_uid: UID) -> Optional[GDriveNode]:
         """This actually reads directly from the disk cache if needed.
@@ -531,7 +533,6 @@ class GDriveMasterStore(TreeStore):
             logger.debug(f'read_node_for_uid(): memstore not loaded; reading direct from disk: {node_uid}')
 
         # 2. Disk cache
-        # FIXME: we should find a way to populate its path.
         node = self._diskstore.get_single_node_with_uid(node_uid)
         if node:
             return node
@@ -669,9 +670,11 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
     def get_subtree_bfs_node_list(self, subtree_root: GDriveIdentifier) -> List[GDriveNode]:
+        """NODES!"""
         return self._memstore.master_tree.get_subtree_bfs_node_list(subtree_root.node_uid)
 
     def get_subtree_bfs_sn_list(self, subtree_root_spid: GDriveSPID) -> List[SPIDNodePair]:
+        """SPIDNodePairs!"""
         return self._memstore.master_tree.get_subtree_bfs_sn_list(subtree_root_spid)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
