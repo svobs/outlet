@@ -244,8 +244,9 @@ class CentralExecutor(HasLifecycle):
                     self._running_task_dict[task.task_uuid] = task
                     # fall through:
                 elif SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No non-user-op tasks in queue '
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No tasks in queue '
                                  f'({len(self._running_task_dict)} currently running)')
+                    self._print_current_state_of_pipeline()
 
         if self.was_shutdown:
             return
@@ -280,8 +281,8 @@ class CentralExecutor(HasLifecycle):
     def _print_current_state_of_pipeline(self):
         running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()
 
-        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] STATE: RunningTaskQueue count={len(self._running_task_dict)}/'
-                     f'{TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS} tasks='
+        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] STATE: RunningTaskQueue count={len(self._running_task_dict)} '
+                     f'(of {self._max_workers} max) tasks='
                      f'[{running_tasks_str}] ParentChildDict count={len(self._parent_child_task_dict)} '
                      f'DependentTasks count={len(self._dependent_task_dict)} tasks={self._dependent_task_dict.values()})')
         for problem_task_str in problem_tasks_str_list:
@@ -299,7 +300,7 @@ class CentralExecutor(HasLifecycle):
                     problem_tasks_str_list.append(f'Task is taking a long time ({elapsed_time_str} so far): {task}')
             else:
                 elapsed_time_str = '(not started)'
-            running_tasks_str_list.append(f'Task {task.task_uuid}: {elapsed_time_str}')
+            running_tasks_str_list.append(f'Task {task.task_uuid} ("{task.task_func}"): {elapsed_time_str}')
         running_tasks_str = '; '.join(running_tasks_str_list)
 
         return running_tasks_str, problem_tasks_str_list

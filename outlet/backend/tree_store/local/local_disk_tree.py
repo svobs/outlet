@@ -54,8 +54,13 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                 uid = self.backend.cacheman.get_uid_for_local_path(path_so_far)
                 child: LocalNode = self.get_node_for_uid(uid)
                 if not child:
+                    if not node.is_live():
+                        # Just fail. We don't have enough information to figure out which ancestors should be live and which not.
+                        # Also, the only time we ever will encounter this problem is via the OpManager, which should be inserting dirs first).
+                        raise RuntimeError(f'Could not find existing dir node in tree (with uid={uid} full_path="{path_so_far}") '
+                                           f'while inserting non-live node ({node.node_identifier})')
                     if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'Creating dir node: uid={uid} full_path={path_so_far}, all_children_fetched=False')
+                        logger.debug(f'Creating missing dir node: uid={uid} full_path="{path_so_far}", all_children_fetched=False')
                     node_identifier = LocalNodeIdentifier(full_path=path_so_far, uid=uid, device_uid=root_node_identifier.device_uid)
                     child = LocalDirNode(node_identifier=node_identifier,
                                          parent_uid=parent.uid, trashed=TrashStatus.NOT_TRASHED, is_live=True, all_children_fetched=False)

@@ -76,6 +76,8 @@ class OpManager(HasLifecycle):
         actually changed (i.e., only their statuses have changed).
 
         Note: we update our input nodes with the returned values, as GDrive node paths in particular may be filled in"""
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Upserting src [and dst] node[s] to CacheMan from op {op.op_uid}')
         src_node = self.backend.cacheman.upsert_single_node(op.src_node)
         assert src_node, f'What happened?! {op}'
         op.src_node = src_node
@@ -120,7 +122,11 @@ class OpManager(HasLifecycle):
             logger.info(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
             return
 
+        op_list.sort(key=lambda _op: _op.op_uid)
+
         logger.info(f'resume_pending_ops_from_disk(): Found {len(op_list)} pending ops from the disk cache')
+        if SUPER_DEBUG_ENABLED:
+            logger.info(f'resume_pending_ops_from_disk(): Pending op list UIDs = {",".join([str(op.op_uid) for op in op_list])}')
 
         # Sort into batches
         batch_dict: DefaultDict[UID, List[UserOp]] = defaultdict(lambda: list())
@@ -157,6 +163,7 @@ class OpManager(HasLifecycle):
 
     def _add_batch_after_cache_ready(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
         """Part 2 of multi-task procession of adding a batch. Do not call this directly. Call _add_batch(), which will call this."""
+
         batch_graph_root: RootNode = self._batch_builder.make_graph_from_batch(batch_op_list)
 
         # Reconcile ops against master op tree before adding nodes. This will raise an exception if invalid
@@ -167,6 +174,7 @@ class OpManager(HasLifecycle):
             self._disk_store.upsert_pending_op_list(batch_op_list)
 
         inserted_op_list, discarded_op_list = self._op_graph.enqueue_batch(batch_graph_root)
+        logger.debug(f'Got list of ops to insert: {",".join([str(op.op_uid) for op in inserted_op_list])}')
 
         if discarded_op_list:
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
@@ -176,6 +184,8 @@ class OpManager(HasLifecycle):
         # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
         logger.debug(f'Upserting affected nodes in memstore for {len(inserted_op_list)} ops')
         for op in inserted_op_list:
+            # NOTE: this REQUIRES that inserted_op_list is in the correct order:
+            # any directories which need to be made must come before their children
             self._upsert_nodes_in_memstore(op)
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
@@ -193,7 +203,7 @@ class OpManager(HasLifecycle):
 
         icon = OpTypeMeta.get_icon_for(device_uid, node_uid, op)
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
+            logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({op.op_uid}: {op.op_type.name}): returning icon')
         return icon
 
     def get_next_command(self) -> Optional[Command]:

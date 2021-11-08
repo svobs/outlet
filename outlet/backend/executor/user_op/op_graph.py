@@ -83,18 +83,18 @@ class OpGraph(HasLifecycle):
                 for node in deque:
                     op_set.add(node.op.op_uid)
                     node_repr_list.append(node.op.get_tag())
-                qd_line_list.append(f'$$ NodeUID {node_uid}:')
+                qd_line_list.append(f'NodeUID {node_uid}:')
                 for i, node_repr in enumerate(node_repr_list):
-                    qd_line_list.append(f'$$  {i}. {node_repr}')
+                    qd_line_list.append(f'{i}. {node_repr}')
 
-        logger.debug(f'## CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
+        logger.debug(f'[MainGraph] CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
         for graph_line in graph_line_list:
-            logger.debug(f'## {graph_line}')
+            logger.debug(f'[MainGraph] {graph_line}')
 
-        logger.debug(f'$$ CURRENT EXECUTION STATE: NodeQueueDict has {queue_count} queues for {len(self._node_q_dict)} devices, '
+        logger.debug(f'[MainGraph] CURRENT EXECUTION STATE: NodeQueueDict has {queue_count} queues for {len(self._node_q_dict)} devices, '
                      f'{len(op_set)} total ops:')
         for qd_line in qd_line_list:
-            logger.debug(qd_line)
+            logger.debug(f'[MainGraph] {qd_line}')
 
     def _get_lowest_priority_op_node(self, device_uid: UID, node_uid: UID):
         node_dict = self._node_q_dict.get(device_uid, None)
@@ -346,30 +346,30 @@ class OpGraph(HasLifecycle):
     def _try_get(self) -> Optional[UserOp]:
         # We can optimize this later
 
-        for op_node in self._graph_root.get_child_list():
+        for og_node in self._graph_root.get_child_list():
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'TryGet(): Examining {op_node}')
+                logger.debug(f'TryGet(): Examining {og_node}')
 
-            if op_node.op.has_dst():
+            if og_node.op.has_dst():
                 # If the UserOp has both src and dst nodes, *both* must be next in their queues, and also be just below root.
-                if op_node.is_dst():
+                if og_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
-                    is_other_node_ready = self._is_node_ready(op_node.op, op_node.op.src_node, 'src')
+                    is_other_node_ready = self._is_node_ready(og_node.op, og_node.op.src_node, 'src')
                 else:
                     # Src node is child of root. But verify corresponding dst node is also child of root
-                    is_other_node_ready = self._is_node_ready(op_node.op, op_node.op.dst_node, 'dst')
+                    is_other_node_ready = self._is_node_ready(og_node.op, og_node.op.dst_node, 'dst')
 
                 if not is_other_node_ready:
                     if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'TryGet(): Skipping node because other op graph node (is_dst={op_node.is_dst()}) is not ready')
+                        logger.debug(f'TryGet(): Skipping node because other op graph node (is_dst={og_node.is_dst()}) is not ready')
                     continue
 
             # Make sure the node has not already been checked out:
-            if not self._outstanding_actions.get(op_node.op.op_uid, None):
+            if not self._outstanding_actions.get(og_node.op.op_uid, None):
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'TryGet(): inserting node into OutstandingActionsDict: {op_node}')
-                self._outstanding_actions[op_node.op.op_uid] = op_node.op
-                return op_node.op
+                    logger.debug(f'TryGet(): inserting node into OutstandingActionsDict: {og_node}')
+                self._outstanding_actions[og_node.op.op_uid] = og_node.op
+                return og_node.op
             else:
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'TryGet(): Skipping node because it is already outstanding')
