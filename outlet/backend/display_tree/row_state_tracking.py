@@ -104,7 +104,8 @@ class RowStateTracking:
             logger.debug(f'[{tree_id}] Removing row from expanded_row_set: {row_guid}')
             display_tree_meta.expanded_row_set.remove(row_guid)
         except Exception as err:
-            self.backend.report_exception(sender=tree_id, msg=f'Failed to remove expanded row {row_guid}', error=err)
+            # We don't care too much about this. Dirs get removed all the time without our knowledge
+            logger.debug(f'Failed to remove expanded row {row_guid}: error={repr(err)}')
             return
 
         self._schedule_rows_of_interest_save(tree_id)
