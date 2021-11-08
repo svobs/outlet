@@ -258,7 +258,7 @@ class ChangeMaker:
 
     @staticmethod
     def _change_base_path(orig_target_path: str, orig_base: SPIDNodePair, new_base: SPIDNodePair, new_target_name: Optional[str] = None) -> str:
-        dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base.spid.get_single_parent_path())
+        dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base.spid.get_single_path())
         if new_target_name:
             # target is being renamed
             orig_target_name = os.path.basename(orig_target_path)

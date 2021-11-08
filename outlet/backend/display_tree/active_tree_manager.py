@@ -145,7 +145,7 @@ class ActiveTreeManager(HasLifecycle):
                 guid_set: Set[GUID] = set()
                 self._tree_stats_refresh_queue_dict[tree_id] = guid_set
             guid_set.add(dir_guid)
-            logger.debug(f'Added dir {dir_guid} to stats queue for tree_id "{tree_id}"; giving the stats refresh timer a kick')
+            logger.debug(f'[{tree_id}] Added dir {dir_guid} to stats queue; giving the stats refresh timer a kick')
         self._stats_refresh_timer.start_or_delay()
 
     def _process_queued_stats(self):
@@ -225,9 +225,13 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_node_upserted(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
+            if not tree_meta.is_first_order():
+                if TRACE_ENABLED:
+                    logger.debug(f'[{tree_id}] Tree is not first-order; ignoring upserted node {node.device_uid}:{node.uid}')
+                continue
             subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
             if TRACE_ENABLED:
-                logger.debug(f'Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
+                logger.debug(f'[{tree_id}] Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs')
 
             for sn in subtree_sn_list:
                 if SUPER_DEBUG_ENABLED:
@@ -236,6 +240,10 @@ class ActiveTreeManager(HasLifecycle):
 
     def _on_node_removed(self, sender: str, node: Node):
         for tree_id, tree_meta in self._display_tree_dict.items():
+            if not tree_meta.is_first_order():
+                if TRACE_ENABLED:
+                    logger.debug(f'[{tree_id}] Tree is not first-order; ignoring removed node {node.device_uid}:{node.uid}')
+                continue
             subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
             if TRACE_ENABLED:
                 logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
