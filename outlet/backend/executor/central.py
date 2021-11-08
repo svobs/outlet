@@ -185,9 +185,6 @@ class CentralExecutor(HasLifecycle):
         try:
             while not self.was_shutdown:
                 task = self._check_for_queued_task()
-                if not task:
-                    task = self._check_for_queued_command()
-
                 if task:
                     self._enqueue_in_task_runner(task)
                 else:
@@ -216,10 +213,10 @@ class CentralExecutor(HasLifecycle):
             logger.debug('_check_for_queued_task() entered')
         task: Optional[Task] = None
 
-        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] run(): Entering lock')
         with self._struct_lock:
             with self._running_task_cv:
                 self._was_notified = False
+
             if self.was_shutdown:
                 # check this again in case shutdown broke us out of our CV:
                 return None
@@ -233,7 +230,8 @@ class CentralExecutor(HasLifecycle):
                 return None
 
             # Count number of user ops already running:
-            non_user_op_count = total_count - self._get_user_op_count()
+            user_op_count = self._get_user_op_count()
+            non_user_op_count = total_count - user_op_count
 
             if non_user_op_count < TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS:
                 if TRACE_ENABLED:
@@ -249,20 +247,13 @@ class CentralExecutor(HasLifecycle):
                     logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No non-user-op tasks in queue '
                                  f'({len(self._running_task_dict)} currently running)')
 
-        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] run(): Exit lock')
-
         if self.was_shutdown:
             return
-        else:
+
+        if task:
             return task
 
-    def _check_for_queued_command(self) -> Optional[Task]:
-        """Do this outside the CV."""
-
-        with self._struct_lock:
-            user_op_count = self._get_user_op_count()
-
-        # Now handle user ops:
+        # Now handle user ops. Do this outside the CV:
         if self.enable_op_execution and user_op_count < TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS:
             try:
                 if TRACE_ENABLED:
@@ -284,7 +275,7 @@ class CentralExecutor(HasLifecycle):
                 self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error retreiving command', secondary_msg=f'{e}')
                 self._pause_op_execution(sender=ID_CENTRAL_EXEC)
 
-        return None
+            return task
 
     def _print_current_state_of_pipeline(self):
         running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()
@@ -350,7 +341,6 @@ class CentralExecutor(HasLifecycle):
             else:
                 logger.debug(f'Task done: "{done_task.task_func.__name__}" uuid={done_task.task_uuid}, priority={done_task.priority.name}')
 
-        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] _on_task_done(): Entering lock')
         with self._struct_lock:
 
             # Note: this is O(n). Best not to let the deque get too large
@@ -377,8 +367,6 @@ class CentralExecutor(HasLifecycle):
                     logger.debug(f'Enqueuing next task {next_task.task_uuid} with parent={next_task.parent_task_uuid} '
                                  f'(for completed task {done_task.task_uuid})')
                     self._next_task_queue_dict[next_task.priority].put_nowait(next_task)
-
-        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] _on_task_done(): Exit lock')
 
         # wake up main thread, and allow it to run next task in queue
         self.notify()
@@ -462,7 +450,6 @@ class CentralExecutor(HasLifecycle):
         logger.debug(f'Enqueuing task (priority: {priority.name}: func_name: "{task.task_func.__name__}" uuid: {task.task_uuid} '
                      f'parent: {task.parent_task_uuid})')
 
-        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] submit_async_task(): Entering lock')
         with self._struct_lock:
             if task.parent_task_uuid:
                 if not self._running_task_dict.get(task.parent_task_uuid, None) and not self._dependent_task_dict.get(task.parent_task_uuid):
@@ -475,10 +462,6 @@ class CentralExecutor(HasLifecycle):
             else:
                 # No parent: put in the regular queue:
                 self._submitted_task_queue_dict[priority].put_nowait(task)
-
-            # should_send_notify = len(self._running_task_dict) < self._max_workers
-
-        logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] submit_async_task(): Exit lock')
 
         # if should_send_notify:
         self.notify()
