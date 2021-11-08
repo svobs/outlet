@@ -1,7 +1,7 @@
 import collections
 import logging
 import threading
-from typing import Deque, Dict, Iterable, List, Optional, Tuple
+from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
 
 from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
 from constants import NULL_UID, SUPER_DEBUG_ENABLED, SUPER_ROOT_UID, TRACE_ENABLED
@@ -83,7 +83,7 @@ class OpGraph(HasLifecycle):
                 for node in deque:
                     op_set.add(node.op.op_uid)
                     node_repr_list.append(node.op.get_tag())
-                qd_line_list.append(f'NodeUID {node_uid}:')
+                qd_line_list.append(f'Node {device_uid}:{node_uid}:')
                 for i, node_repr in enumerate(node_repr_list):
                     qd_line_list.append(f'{i}. {node_repr}')
 
@@ -199,7 +199,7 @@ class OpGraph(HasLifecycle):
 
         return True
 
-    def _insert_non_rm_node_in_tree(self, node_to_insert: OpGraphNode, last_target_op, tgt_parent_uid_list: List[UID]) -> bool:
+    def _insert_non_rm_node_in_tree(self, node_to_insert: OpGraphNode, last_target_op, tgt_parent_uid_list: List[UID]):
         target_node: Node = node_to_insert.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
 
@@ -208,28 +208,30 @@ class OpGraph(HasLifecycle):
 
             if last_target_op and parent_last_op:
                 if last_target_op.get_level() > parent_last_op.get_level():
-                    logger.debug(f'Last target op (for node {target_node.dn_uid}) is lower level than last op for parent node ({parent_uid});'
-                                 f' adding new node as child of last target op')
+                    logger.debug(f'[OG {node_to_insert.node_uid}] Last target op (for node {target_node.dn_uid}) is lower level than last op '
+                                 f'for parent node ({parent_uid}); adding new node as child of last target op (OG node {last_target_op.node_uid})')
                     last_target_op.link_child(node_to_insert)
                 else:
-                    logger.debug(f'Last target op is >= level than last op for parent node; adding new node as child of last op for parent node')
+                    logger.debug(f'[OG {node_to_insert.node_uid}] Last target op is >= level than last op for parent node; adding new OG node '
+                                 f'as child of last op for parent node (OG node {parent_last_op.node_uid})')
                     parent_last_op.link_child(node_to_insert)
             elif last_target_op:
                 assert not parent_last_op
-                logger.debug(f'Found pending op(s) for target node {target_node.dn_uid}; adding new node as child dependency')
+                logger.debug(f'[OG {node_to_insert.node_uid}] Found pending op(s) for target node {target_node.dn_uid}; '
+                             f'adding new OG node as child dependency of OG node {last_target_op.node_uid}')
                 last_target_op.link_child(node_to_insert)
             elif parent_last_op:
                 assert not last_target_op
-                logger.debug(f'Found pending op(s) for parent node {parent_uid} (device {target_device_uid}); adding new node as child dependency')
+                logger.debug(f'[OG {node_to_insert.node_uid}] Found pending op(s) for parent {target_device_uid}:{parent_uid}; '
+                             f'adding new OG node as child dependency of OG node {parent_last_op.node_uid}')
                 parent_last_op.link_child(node_to_insert)
             else:
                 assert not parent_last_op and not last_target_op
-                logger.debug(f'Found no previous ops for either target node {target_node.dn_uid} or parent node {parent_uid}; adding to root')
+                logger.debug(f'[OG {node_to_insert.node_uid}] Found no pending ops for either target node {target_node.dn_uid} '
+                             f'or parent node {target_device_uid}:{parent_uid}; adding to root')
                 self._graph_root.link_child(node_to_insert)
 
-        return True
-
-    def _enqueue_single_node(self, node_to_insert: OpGraphNode) -> bool:
+    def _enqueue_single_og_node(self, node_to_insert: OpGraphNode) -> bool:
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
@@ -238,7 +240,7 @@ class OpGraph(HasLifecycle):
 
         Returns True if the node was successfully nq'd; returns False if discarded
         """
-        logger.debug(f'Enqueuing single op node: {node_to_insert}')
+        logger.debug(f'InsertOGNode called for: {node_to_insert}')
 
         # Need to clear out previous relationships before adding to main tree:
         node_to_insert.clear_relationships()
@@ -253,9 +255,11 @@ class OpGraph(HasLifecycle):
             insert_succeeded = self._insert_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
         else:
             # Not an RM node:
-            insert_succeeded = self._insert_non_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
+            self._insert_non_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
+            insert_succeeded = True
 
         if not insert_succeeded:
+            logger.info(f'InsertOGNode: failed to enqueue: {node_to_insert}')
             return False
 
         # Always add to node_queue_dict:
@@ -269,7 +273,7 @@ class OpGraph(HasLifecycle):
             node_dict[target_node.uid] = pending_op_queue
         pending_op_queue.append(node_to_insert)
 
-        logger.info(f'Enqueued single op node: {node_to_insert}')
+        logger.info(f'InsertOGNode: successfully enqueued: {node_to_insert}')
 
         return True
 
@@ -294,19 +298,27 @@ class OpGraph(HasLifecycle):
         logger.info(f'Adding batch {batch_uid} to OpGraph')
 
         breadth_first_list: List[OpGraphNode] = op_root.get_all_nodes_in_subtree()
-        inserted_op_dict: Dict[UID, UserOp] = {}
-        discarded_op_dict: Dict[UID, UserOp] = {}
+        processed_op_uid_set: Set[UID] = set()
+        inserted_op_list: List[UserOp] = []
+        discarded_op_list: List[UserOp] = []
         for graph_node in skip_root(breadth_first_list):
             with self._cv_can_get:
-                succeeded = self._enqueue_single_node(graph_node)
+                succeeded = self._enqueue_single_og_node(graph_node)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Enqueue of og_node {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded={succeeded}')
+
                 if succeeded:
-                    inserted_op_dict[graph_node.op.op_uid] = graph_node.op
+                    if graph_node.op.op_uid not in processed_op_uid_set:
+                        inserted_op_list.append(graph_node.op)
+                        processed_op_uid_set.add(graph_node.op.op_uid)
 
                     if self._max_added_op_uid < graph_node.op.op_uid:
                         self._max_added_op_uid = graph_node.op.op_uid
 
                 else:
-                    discarded_op_dict[graph_node.op.op_uid] = graph_node.op
+                    if graph_node.op.op_uid not in processed_op_uid_set:
+                        discarded_op_list.append(graph_node.op)
+                        processed_op_uid_set.add(graph_node.op.op_uid)
 
                 # notify consumers there is something to get:
                 self._cv_can_get.notifyAll()
@@ -318,7 +330,7 @@ class OpGraph(HasLifecycle):
             logger.debug(f'Done adding batch {batch_uid}')
             self._print_current_state()
 
-        return list(inserted_op_dict.values()), list(discarded_op_dict.values())
+        return inserted_op_list, discarded_op_list
 
     def _is_node_ready(self, op: UserOp, node: Node, node_type_str: str) -> bool:
         node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_q_dict.get(node.device_uid, None)

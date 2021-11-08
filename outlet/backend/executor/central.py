@@ -5,14 +5,15 @@ from concurrent.futures import Future
 from enum import IntEnum
 from functools import partial
 from queue import Empty, Queue
-from typing import Deque, Dict, List, Optional, Set, Tuple
+from typing import Deque, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from pydispatch import dispatcher
 
 from backend.executor.command.cmd_executor import CommandExecutor
 from constants import CENTRAL_EXEC_THREAD_NAME, EngineSummaryState, OP_EXECUTION_THREAD_NAME, SUPER_DEBUG_ENABLED, \
-    TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS, TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS, TASK_TIME_WARNING_THRESHOLD_SEC, TRACE_ENABLED
+    TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS, TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS, \
+    TASK_TIME_WARNING_THRESHOLD_SEC, TRACE_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util import time_util
@@ -282,7 +283,7 @@ class CentralExecutor(HasLifecycle):
         running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()
 
         logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] STATE: RunningTaskQueue count={len(self._running_task_dict)} '
-                     f'(of {self._max_workers} max) tasks='
+                     f'(max={self._max_workers}) tasks='
                      f'[{running_tasks_str}] ParentChildDict count={len(self._parent_child_task_dict)} '
                      f'DependentTasks count={len(self._dependent_task_dict)} tasks={self._dependent_task_dict.values()})')
         for problem_task_str in problem_tasks_str_list:

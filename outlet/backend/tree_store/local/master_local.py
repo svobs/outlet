@@ -21,7 +21,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
 from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
-from error import CacheNotLoadedError, NodeNotPresentError
+from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
@@ -432,23 +432,24 @@ class LocalDiskMasterStore(TreeStore):
         Params node_uid and full_path MUST correspond, or we'll really be in trouble"""
         assert node_uid and full_path and self.get_path_for_uid(node_uid) == full_path, f'Invalid: node_uid={node_uid}, full_path={full_path}'
 
-        # 1. Memory cache
+        # 1. Memory cache. This will also cover pending op nodes, which are not stored here but will be in memory:
+        node = self._memstore.master_tree.get_node_for_uid(node_uid)
+        if node:
+            return node
+
         cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, full_path)
         if not cache_info:
             logger.error(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
             # If the cache is marked as loaded, then its contents should be represented in the in-memory master tree:
-            node = self._memstore.master_tree.get_node_for_uid(node_uid)
-            if node:
-                return node
             if TRACE_ENABLED:
                 logger.debug(f'_read_single_node_for(): Memcache is loaded but node not found for: {node_uid}')
             return None
 
         # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_read_single_node_for(): Memcache not loaded; reading diskcache for {node_uid}')
+            logger.debug(f'_read_single_node_for(): Memcache miss; reading diskcache for {node_uid}')
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             node = cache.get_file_or_dir_for_uid(node_uid)
         if node:
@@ -678,28 +679,40 @@ class LocalDiskMasterStore(TreeStore):
     def _get_child_list_from_cache_for_spid(self, parent_spid: LocalNodeIdentifier) -> Optional[List[SPIDNodePair]]:
         """Searches in-memory cache, followed by disk cache, for children of the given SPID. Returns None if parent not found in either cache"""
 
+        # 1. Use in-memory cache if it exists. This will also allow pending op nodes to be handled
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memcache for: {parent_spid}')
+        parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
+        if parent_node:
+            if parent_node.is_dir() and parent_node.all_children_fetched:
+                try:
+                    return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
+                except NodeNotPresentError:
+                    # In-memory cache miss. Try seeing if the relevant cache is loaded:
+                    logger.debug(f'_get_child_list_from_cache_for_spid(): Could not find parent node in memcache: {parent_spid}')
+                    pass
+            else:
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memcache but it is wanting: {parent_node}')
+
+        # 2. Read from disk cache if it exists:
         cache_info: Optional[PersistedCacheInfo] = \
             self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, parent_spid.get_single_path())
         if cache_info:
             if cache_info.is_loaded:
-                # 1. Use in-memory cache if it exists:
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'_get_child_list_from_cache_for_spid(): Querying in-memory cache ({cache_info}) for: {parent_spid}')
-                parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
-                if parent_node and parent_node.is_dir() and parent_node.all_children_fetched:
-                    try:
-                        return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
-                    except NodeNotPresentError as e:
-                        # In-memory cache miss. Try seeing if the relevant cache is loaded:
-                        logger.debug(f'_get_child_list_from_cache_for_spid(): Could not find parent node in in-memory cache: {parent_spid}')
-                        pass
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Disk cache ({cache_info.cache_location}) is loaded but does not '
+                             f'contain parent: {parent_spid}')
+                return None
             else:
-                # 2. Read from disk cache if it exists:
                 logger.debug(f'_get_child_list_from_cache_for_spid(): In-memory cache miss; trying disk cache for: {parent_spid}')
                 with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
                     parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
-                    if parent_dir and parent_dir.is_dir() and parent_dir.all_children_fetched:
-                        return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
+                    if parent_dir:
+                        if parent_dir.is_dir() and parent_dir.all_children_fetched:
+                            return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
+                        else:
+                            logger.debug(f'_get_child_list_from_cache_for_spid(): Disk cache ({cache_info.cache_location}) contains parent but '
+                                         f'it is either not dir or not all children fetched: {parent_node}')
+
         else:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'_get_child_list_from_cache_for_spid(): Could not find cache in registry for: {parent_spid}')
@@ -745,7 +758,7 @@ class LocalDiskMasterStore(TreeStore):
         return None
 
     def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Entered get_node_for_uid(): uid={uid}')
         # Just delegate to read_node_for_uid() and do a read-through:
         return self.read_node_for_uid(uid)
@@ -866,7 +879,8 @@ class LocalDiskMasterStore(TreeStore):
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
-        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, is_live)
+        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts,
+                                 TrashStatus.NOT_TRASHED, is_live)
 
         if TRACE_ENABLED:
             logger.debug(f'Built: {new_node} with sync_ts: {sync_ts}')

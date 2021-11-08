@@ -174,10 +174,16 @@ class OpManager(HasLifecycle):
             self._disk_store.upsert_pending_op_list(batch_op_list)
 
         inserted_op_list, discarded_op_list = self._op_graph.enqueue_batch(batch_graph_root)
+        # The lists are returned in order of BFS of their op graph. However, when upserting to the cache we need them in BFS order of the tree
+        # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
+        inserted_op_list.sort(key=lambda op: op.op_uid)
+        discarded_op_list.sort(key=lambda op: op.op_uid)
         logger.debug(f'Got list of ops to insert: {",".join([str(op.op_uid) for op in inserted_op_list])}')
 
         if discarded_op_list:
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Discarded ops = {",".join([str(op.op_uid) for op in discarded_op_list])}')
             self._disk_store.delete_pending_op_list(discarded_op_list)
 
         # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).

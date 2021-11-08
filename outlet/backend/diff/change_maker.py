@@ -113,26 +113,26 @@ class OneSide:
         # Now build the node:
         nid = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
                                                               device_uid=dst_device_uid)
-        src_node: Node = sn_src.node
+        node_src: Node = sn_src.node
         if dst_tree_type == TreeType.LOCAL_DISK:
             assert isinstance(nid, LocalNodeIdentifier)
             dst_parent_path = self.backend.cacheman.derive_parent_path(dst_path)
             dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
-            if src_node.is_dir():
+            if node_src.is_dir():
                 node_dst: Node = LocalDirNode(nid, dst_parent_uid, trashed=TrashStatus.NOT_TRASHED, is_live=False,
-                                              all_children_fetched=False)
+                                              all_children_fetched=True)
             else:
-                node_dst: Node = LocalFileNode(nid, dst_parent_uid, src_node.md5, src_node.sha256, src_node.get_size_bytes(),
+                node_dst: Node = LocalFileNode(nid, dst_parent_uid, node_src.md5, node_src.sha256, node_src.get_size_bytes(),
                                                sync_ts=None, modify_ts=None, change_ts=None, trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
-            if src_node.is_dir():
-                node_dst: Node = GDriveFolder(node_identifier=nid, goog_id=dst_node_goog_id, node_name=src_node.name,
+            if node_src.is_dir():
+                node_dst: Node = GDriveFolder(node_identifier=nid, goog_id=dst_node_goog_id, node_name=node_src.name,
                                               trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None, drive_id=None,
-                                              is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=False)
+                                              is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             else:
                 node_dst: Node = GDriveFile(node_identifier=nid, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
-                                            mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=src_node.md5,
-                                            is_shared=False, create_ts=None, modify_ts=None, size_bytes=src_node.get_size_bytes(),
+                                            mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=node_src.md5,
+                                            is_shared=False, create_ts=None, modify_ts=None, size_bytes=node_src.get_size_bytes(),
                                             owner_uid=None, shared_by_user_uid=None, sync_ts=None)
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={nid}")

@@ -15,7 +15,7 @@ from backend.realtime.live_monitor import LiveMonitor
 from constants import DIFF_DEBUG_ENABLED, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
     SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
     TreeID, TreeLoadState, TreeType
-from error import CacheNotFoundError, CacheNotLoadedError, GDriveItemNotFoundError
+from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
@@ -145,7 +145,7 @@ class ActiveTreeManager(HasLifecycle):
                 guid_set: Set[GUID] = set()
                 self._tree_stats_refresh_queue_dict[tree_id] = guid_set
             guid_set.add(dir_guid)
-            logger.debug(f'Added dir {dir_guid} to tree_id {tree_id}; giving the stats refresh timer a kick')
+            logger.debug(f'Added dir {dir_guid} to stats queue for tree_id "{tree_id}"; giving the stats refresh timer a kick')
         self._stats_refresh_timer.start_or_delay()
 
     def _process_queued_stats(self):
