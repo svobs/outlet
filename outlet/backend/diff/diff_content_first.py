@@ -65,6 +65,7 @@ class ContentFirstDiffer(ChangeMaker):
     def _build_one_side_src_meta(self, side: OneSide) -> OneSideSourceMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
         for GDrive trees"""
+        logger.debug(f'[{side.tree_id}] Building diff src meta this side ({side.root_sn.spid})')
 
         # FIXME: this appears to be VERY slow for local disk trees. Investigate!
         sw = Stopwatch()
@@ -75,15 +76,22 @@ class ContentFirstDiffer(ChangeMaker):
         def on_file_found(sn: SPIDNodePair):
             on_file_found.count_file_nodes += 1
             if not sn.node.md5:
-                node_with_signature = content_hasher.try_calculating_signatures(sn.node)
-                if node_with_signature:
-                    node_list_signatures_calculated.append(node_with_signature)
-                else:
-                    # TODO: handle GDrive objects which don't have MD5s
-                    logger.warning(f'Unable to calculate signature for file, skipping: {sn.spid}')
-                    on_file_found.count_skipped_no_md5 += 1
-                return
-                
+                # could be stale node: get updated version from cachmman
+                updated_node = self.backend.cacheman.get_node_for_uid(device_uid=sn.node.device_uid, uid=sn.node.uid)
+                if updated_node:
+                    sn.node = updated_node
+                if not sn.node.md5:
+                    logger.debug(f'No signature found for file; attempting to calculate: {sn.spid} (size={sn.node.get_size_bytes()})')
+                    node_with_signature = content_hasher.try_calculating_signatures(sn.node)
+                    if node_with_signature:
+                        logger.debug(f'Calculated MD5 for file {sn.spid} = {node_with_signature.md5}')
+                        node_list_signatures_calculated.append(node_with_signature)
+                    else:
+                        # TODO: handle GDrive objects which don't have MD5s
+                        logger.warning(f'Unable to calculate signature for file, skipping: {sn.spid}')
+                        on_file_found.count_skipped_no_md5 += 1
+                    return
+
             path = sn.spid.get_single_path()
             if path in meta.path_dict:
                 on_file_found.count_duplicates += 1

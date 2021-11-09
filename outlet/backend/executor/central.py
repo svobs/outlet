@@ -190,6 +190,7 @@ class CentralExecutor(HasLifecycle):
                     self._enqueue_in_task_runner(task)
                 else:
                     if SUPER_DEBUG_ENABLED:
+                        self._print_current_state_of_pipeline()
                         logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No queued tasks. Waiting for running task CV')
                     with self._running_task_cv:
                         if not self._was_notified:  # could have been notified while run loop was doing other work
@@ -270,7 +271,7 @@ class CentralExecutor(HasLifecycle):
                         self._running_task_dict[task.task_uuid] = task
                     return task
                 elif SUPER_DEBUG_ENABLED:
-                    logger.debug(f'No commands to execute at this time')
+                    logger.debug(f'OpGraph has no ready operations at this time')
 
             except RuntimeError as e:
                 logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving command: halting execution pipeline')

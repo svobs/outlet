@@ -2,7 +2,7 @@ import logging
 import os
 from typing import List, Optional, Tuple
 
-from constants import SUPER_DEBUG_ENABLED, TrashStatus
+from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
@@ -59,7 +59,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                         # Also, the only time we ever will encounter this problem is via the OpManager, which should be inserting dirs first).
                         raise RuntimeError(f'Could not find existing dir node in tree (with uid={uid} full_path="{path_so_far}") '
                                            f'while inserting non-live node ({node.node_identifier})')
-                    if SUPER_DEBUG_ENABLED:
+                    if TRACE_ENABLED:
                         logger.debug(f'Creating missing dir node: uid={uid} full_path="{path_so_far}", all_children_fetched=False')
                     node_identifier = LocalNodeIdentifier(full_path=path_so_far, uid=uid, device_uid=root_node_identifier.device_uid)
                     child = LocalDirNode(node_identifier=node_identifier,
