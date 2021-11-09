@@ -72,7 +72,7 @@ class LocalDiskMemoryStore:
         # Update icon (this may be the only thing changed)
         self.backend.cacheman.update_node_icon(node)
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Node {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
+            logger.debug(f'Node {node.device_uid}:{node.uid} has icon={node.get_icon().name}, custom_icon={node.get_custom_icon()}')
 
         cached_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:

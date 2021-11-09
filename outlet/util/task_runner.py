@@ -83,7 +83,7 @@ class Task:
 
     def __repr__(self):
         next_task_uuid = self.next_task.task_uuid if self.next_task else 'None'
-        return f'Task(uuid={self.task_uuid} priority={self.priority} func={self.task_func.__name__} args={self._args} ' \
+        return f'Task(uuid={self.task_uuid} priority={self.priority.name} func={self.task_func.__name__} arg_count={len(self._args)} ' \
                f'parent_task={self.parent_task_uuid} next_task={next_task_uuid})'
 
 
@@ -100,7 +100,7 @@ class TaskRunner(HasLifecycle):
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix='TaskRunner-')
 
     def enqueue_task(self, task: Task) -> Future:
-        logger.debug(f'Submitting new task to executor: name="{task}')
+        logger.debug(f'Submitting new task to executor: {task.priority.name} {task.task_uuid} ("{task.task_func.__name__}")')
         future: Future = self._executor.submit(task.run)
         return future
 

@@ -106,7 +106,7 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
                 logger.debug(f'UpsertSingleNodeOp: node was not updated in memstore; skipping save to disk: {self.node}')
             return
 
-        logger.debug(f'UpsertSingleNodeOp: upserting LocalNode to disk cache: {self.node}')
+        logger.debug(f'UpsertSingleNodeOp: upserting LocalNode to diskstore: {self.node}')
         cache.upsert_single_node(self.node, commit=False)
 
     def send_signals(self):

@@ -32,7 +32,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         HasLifecycle.__init__(self)
         threading.Thread.__init__(self, target=self._run, name=f'SigCalcBatchingThread', daemon=True)
         self.backend = backend
-        self.device_uid = device_uid
+        self.device_uid = device_uid  # device_uid of local disk
         self._cv_can_get = threading.Condition()
         self.batch_interval_ms: int = ensure_int(self.backend.get_config('cache.local_disk.signatures.batch_interval_ms'))
         self.bytes_per_batch_high_watermark: int = ensure_int(self.backend.get_config('cache.local_disk.signatures.bytes_per_batch_high_watermark'))
@@ -92,7 +92,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                         bytes_to_scan += size_bytes
 
                 logger.debug(f'[{self.name}] Submitting batch task with {len(nodes_to_scan)} nodes and {bytes_to_scan} bytes total '
-                             f'({len(self._node_queue)} still in queue)')
+                             f'({len(self._node_queue)} nodes still enqueued)')
                 calc_task = Task(ExecPriority.P6_SIGNATURE_CALC, self.batch_calculate_signatures, nodes_to_scan)
                 self._running_task_set.add(calc_task.task_uuid)
             self.backend.executor.submit_async_task(calc_task)

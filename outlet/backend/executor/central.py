@@ -283,10 +283,10 @@ class CentralExecutor(HasLifecycle):
     def _print_current_state_of_pipeline(self):
         running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()
 
-        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] STATE: RunningTaskQueue count={len(self._running_task_dict)} '
-                     f'(max={self._max_workers}) tasks='
-                     f'[{running_tasks_str}] ParentChildDict count={len(self._parent_child_task_dict)} '
-                     f'DependentTasks count={len(self._dependent_task_dict)} tasks={self._dependent_task_dict.values()})')
+        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] STATE: RunningTaskQueue(count={len(self._running_task_dict)} max={self._max_workers}) tasks='
+                     f'[{running_tasks_str}] ParentChildDict(count={len(self._parent_child_task_dict)}) '
+                     f'DependentTasksDict(count={len(self._dependent_task_dict)} tasks={[t.task_uuid for t in self._dependent_task_dict.values()]})')
+
         for problem_task_str in problem_tasks_str_list:
             logger.warning(problem_task_str)
 
@@ -302,7 +302,7 @@ class CentralExecutor(HasLifecycle):
                     problem_tasks_str_list.append(f'Task is taking a long time ({elapsed_time_str} so far): {task}')
             else:
                 elapsed_time_str = '(not started)'
-            running_tasks_str_list.append(f'Task {task.task_uuid} ("{task.task_func}"): {elapsed_time_str}')
+            running_tasks_str_list.append(f'Task {task.priority.name} {task.task_uuid} ("{task.task_func}"): {elapsed_time_str}')
         running_tasks_str = '; '.join(running_tasks_str_list)
 
         return running_tasks_str, problem_tasks_str_list
@@ -377,14 +377,14 @@ class CentralExecutor(HasLifecycle):
         # TODO: DELETE task if completely done, to prevent memory leaks due to circular references
 
     def _find_next_task(self, done_task: Task) -> Optional[Task]:
-        logger.debug(f'Task {done_task.task_uuid} ({done_task.task_func}) has no children'
+        logger.debug(f'Task {done_task.priority.name} {done_task.task_uuid} has no children'
                      f'{": will run its" if done_task.next_task else " and no"} next task')
         # just set this here - will call it outside of lock
         next_task = done_task.next_task
 
         # Was this task a child of some other parent task?
         if done_task.parent_task_uuid:
-            logger.debug(f'Task {done_task.task_uuid} ({done_task.task_func}) was a child of parent task {done_task.parent_task_uuid}')
+            logger.debug(f'Task {done_task.priority.name} {done_task.task_uuid} was a child of parent task {done_task.parent_task_uuid}')
             child_deque: Deque[UUID] = self._parent_child_task_dict.get(done_task.parent_task_uuid, None)
             if child_deque is None:
                 raise RuntimeError(f'Serious internal error: state of parent & child tasks is inconsistent! '

@@ -855,7 +855,7 @@ class CacheManager(HasLifecycle):
         """This is kind of a kludge, to make sure node icons are correct. Call this on all nodes we are sending to the client.
         Note: this should not be called for ChangeTree nodes. It will not consult a ChangeTree."""
         icon_id: Optional[IconId] = self._op_manager.get_icon_for_node(node.device_uid, node.uid)
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'Setting custom icon for node {node.device_uid}:{node.uid} to {"None" if not icon_id else icon_id.name}')
         node.set_icon(icon_id)
 
