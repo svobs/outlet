@@ -5,7 +5,7 @@ from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
 from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeType
-from error import GDriveItemNotFoundError, NodeNotPresentError
+from error import GDriveNodePathNotFoundError, NodeNotPresentError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.node import Node, SPIDNodePair
@@ -288,7 +288,7 @@ class GDriveWholeTree(BaseTree):
                 identifiers = self._get_identifier_list_for_single_path(single_path, error_if_not_found)
                 if identifiers:
                     identifiers_found = identifiers_found + identifiers
-            except GDriveItemNotFoundError:
+            except GDriveNodePathNotFoundError:
                 logger.warning(f'No node identifier(s) found for path, skipping: "{single_path}"')
         return identifiers_found
 
@@ -337,7 +337,7 @@ class GDriveWholeTree(BaseTree):
                 if error_if_not_found:
                     err_node_identifier = self.backend.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
                                                                                           path_list=full_path)
-                    raise GDriveItemNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
+                    raise GDriveNodePathNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
                 else:
                     return []
 

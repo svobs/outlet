@@ -22,7 +22,7 @@ from backend.tree_store.gdrive.client.query_observer import GDriveQueryObserver,
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
     GDRIVE_MY_DRIVE_ROOT_GOOG_ID, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TreeID
-from error import GDriveError
+from error import GDriveError, GDriveItemNotFoundError, GDriveNodePathNotFoundError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
@@ -149,6 +149,8 @@ class GDriveClient(HasLifecycle):
                                 reason = error_json.get('reason')
                                 message = error_json.get('message')
                                 # TODO: something more slick
+                                if err.resp.status == 404:
+                                    raise GDriveItemNotFoundError(message)
                                 raise GDriveError(f'Google Drive returned HTTP {err.resp.status}: Reason: "{reason}": "{message}"')
                         except AttributeError as err2:
                             logger.error(f'Additional error: {err2}')
@@ -362,7 +364,11 @@ class GDriveClient(HasLifecycle):
             # Call the Drive v3 API
             return self.service.files().get(fileId=goog_id, fields=fields, supportsAllDrives=True).execute()
 
-        item: dict = GDriveClient._try_repeatedly(request)
+        try:
+            item: dict = GDriveClient._try_repeatedly(request)
+        except GDriveItemNotFoundError as err:
+            logger.error(f'Caught GDriveItemNotFoundError (will return None): {err}')
+            return None
 
         if not item:
             logger.debug('Request returned no files')

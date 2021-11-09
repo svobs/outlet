@@ -4,14 +4,19 @@ class GDriveError(RuntimeError):
         super(GDriveError, self).__init__(msg)
 
 
-# CLASS GDriveItemNotFoundError
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class GDriveItemNotFoundError(GDriveError):
+    def __init__(self, msg):
+        super(GDriveItemNotFoundError, self).__init__(msg)
+
+
+# CLASS GDriveNodePathNotFoundError
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class GDriveNodePathNotFoundError(GDriveError):
     def __init__(self, node_identifier, offending_path: str, msg: str = None):
         if msg is None:
             # Set some default useful error message
-            msg = f'Google Drive object not found: {offending_path}'
-        super(GDriveItemNotFoundError, self).__init__(msg)
+            msg = f'Google Drive node not found with path: {offending_path}'
+        super(GDriveNodePathNotFoundError, self).__init__(msg)
         self.node_identifier = node_identifier
         self.offending_path = offending_path
 

@@ -15,7 +15,7 @@ from backend.realtime.live_monitor import LiveMonitor
 from constants import DIFF_DEBUG_ENABLED, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
     SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
     TreeID, TreeLoadState, TreeType
-from error import CacheNotLoadedError, GDriveItemNotFoundError
+from error import CacheNotLoadedError, GDriveNodePathNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
@@ -560,7 +560,7 @@ class ActiveTreeManager(HasLifecycle):
             return tree
 
     def _resolve_root_meta_from_path(self, full_path: str, device_uid: UID) -> RootPathMeta:
-        """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
+        """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveNodePathNotFoundError,
         and returns a tuple of both"""
         logger.debug(f'resolve_root_from_path() called with device_uid={device_uid}, path="{full_path}"')
 
@@ -607,7 +607,7 @@ class ActiveTreeManager(HasLifecycle):
                                                                                 tree_type=tree_type, path_list=full_path, must_be_single_path=True)
 
             root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
-        except GDriveItemNotFoundError as ginf:
+        except GDriveNodePathNotFoundError as ginf:
             root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
             root_path_meta.offending_path = ginf.offending_path
         except FileNotFoundError as fnf:
