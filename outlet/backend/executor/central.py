@@ -450,8 +450,7 @@ class CentralExecutor(HasLifecycle):
         if not isinstance(priority, ExecPriority):
             raise RuntimeError(f'Bad arg: {priority}')
 
-        logger.debug(f'Enqueuing task (priority: {priority.name}: func_name: "{task.task_func.__name__}" uuid: {task.task_uuid} '
-                     f'parent: {task.parent_task_uuid})')
+        logger.debug(f'Enqueuing task "{task.task_func.__name__}" {priority.name} {task.task_uuid} parent={task.parent_task_uuid})')
 
         with self._struct_lock:
             if task.parent_task_uuid:

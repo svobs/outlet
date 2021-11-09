@@ -296,10 +296,13 @@ class ActiveTreeManager(HasLifecycle):
                 for node in removed_node_list:
                     removed_sn_list = removed_sn_list + self._to_subtree_sn_list(node, tree_meta)
 
-                logger.debug(f'[{tree_id}] Notifying tree of batch update at {subtree_root_spid} '
-                             f'with {len(upserted_sn_list)} upserts & {len(removed_sn_list)} removes')
-                dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED, sender=tree_id, subtree_root_spid=subtree_root_spid,
-                                upserted_sn_list=upserted_sn_list, removed_sn_list=removed_sn_list)
+                if upserted_sn_list or removed_sn_list:
+                    logger.debug(f'[{tree_id}] Notifying tree of batch update at {subtree_root_spid} '
+                                 f'with {len(upserted_sn_list)} upserts & {len(removed_sn_list)} removes')
+                    dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED, sender=tree_id, subtree_root_spid=subtree_root_spid,
+                                    upserted_sn_list=upserted_sn_list, removed_sn_list=removed_sn_list)
+                elif SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{tree_id}] Ignoring batch update at {subtree_root_spid}; it does not apply to this tree')
 
     def _on_merge_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')

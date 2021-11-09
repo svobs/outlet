@@ -445,8 +445,9 @@ class CacheManager(HasLifecycle):
             if node_to_delete.is_dir():
                 # Expand dir nodes. OpManager will not remove non-empty dirs
                 expanded_node_list = self.get_subtree_bfs_node_list(node_to_delete.node_identifier)
-                for node in expanded_node_list:
-                    # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
+                # Need to apply ops in reverse BFS order (we are removing each node from the bottom up)
+                for node in reversed(expanded_node_list):
+                    # The last node should be the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
                         op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
                                               op_type=UserOpType.RM, src_node=node))

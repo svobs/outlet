@@ -49,7 +49,7 @@ class Task:
             else:
                 self.task_func(self, *self._args)
         except Exception as err:
-            msg = f'Task failed during execution: "{self.task_func.__name__}" uuid={self.task_uuid}'
+            msg = f'Task failed during execution: "{self.task_func.__name__}", {self.task_uuid}'
             logger.exception(msg)
 
             if self.on_error:
@@ -60,7 +60,7 @@ class Task:
             GlobalActions.display_error_in_ui(ID_CENTRAL_EXEC, msg, repr(err))
             raise
         finally:
-            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" uuid={self.task_uuid}')
+            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}", {self.priority.name}, {self.task_uuid}')
 
     def add_next_task(self, next_task_func: Callable, *args):
         """Adds the given task to the end of the chain of tasks"""
@@ -83,7 +83,7 @@ class Task:
 
     def __repr__(self):
         next_task_uuid = self.next_task.task_uuid if self.next_task else 'None'
-        return f'Task(uuid={self.task_uuid} priority={self.priority.name} func={self.task_func.__name__} arg_count={len(self._args)} ' \
+        return f'Task(uuid={self.task_uuid} pri={self.priority.name} func={self.task_func.__name__} arg_count={len(self._args)} ' \
                f'parent_task={self.parent_task_uuid} next_task={next_task_uuid})'
 
 
@@ -100,7 +100,7 @@ class TaskRunner(HasLifecycle):
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix='TaskRunner-')
 
     def enqueue_task(self, task: Task) -> Future:
-        logger.debug(f'Submitting new task to executor: {task.priority.name} {task.task_uuid} ("{task.task_func.__name__}")')
+        logger.debug(f'Submitting new task to executor: "{task.task_func.__name__}" {task.priority.name} {task.task_uuid}')
         future: Future = self._executor.submit(task.run)
         return future
 

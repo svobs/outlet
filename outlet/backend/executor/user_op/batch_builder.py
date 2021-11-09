@@ -52,8 +52,8 @@ class BatchBuilder:
         batch_uid: UID = op_list[0].batch_uid
 
         for op in op_list:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'ReduceChanges(): examining op: {op}')
+            # if SUPER_DEBUG_ENABLED:
+            logger.debug(f'ReduceChanges(): examining op: {op}')
 
             if op.batch_uid != batch_uid:
                 raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {op.batch_uid} and {batch_uid})')
@@ -125,19 +125,19 @@ class BatchBuilder:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Validating src ancestor (UserOp={op_arg.op_uid}): {ancestor}')
             if ancestor.uid in mkdir_dict:
-                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created! (anscestor: {ancestor.node_identifier})')
             if ancestor.uid in rm_dict:
-                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being deleted!')
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being deleted! (anscestor: {ancestor.node_identifier})')
             if ancestor.uid in cp_dst_dict:
-                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to! (anscestor: {ancestor.node_identifier})')
 
         def validate_cp_dst_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Validating dst ancestor (op={op.op_uid}): {ancestor}')
             if ancestor.uid in rm_dict:
-                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
+                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted! (anscestor: {ancestor.node_identifier})')
             if ancestor.uid in cp_src_dict:
-                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
+                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from! (anscestor: {ancestor.node_identifier})')
 
         # For each element, traverse up the tree and compare each parent node to map
         for op in final_list:

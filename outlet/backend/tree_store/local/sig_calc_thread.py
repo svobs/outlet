@@ -15,6 +15,7 @@ from signal_constants import Signal
 from util.ensure import ensure_int
 from util.format import humanfriendlier_size
 from util.has_lifecycle import HasLifecycle
+from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                     self._cv_can_get.wait()
                     continue
                 elif len(self._running_task_set) > 0:
-                    logger.debug(f'[{self.name}] Prev batch still running. Will wait until notified')
+                    logger.debug(f'[{self.name}] Prev batch has not yet returned. Will wait until notified')
                     self._cv_can_get.wait()
                     continue
 
@@ -149,19 +150,21 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             return
 
         size_bytes = node.get_size_bytes()
-        if size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES:
+        is_large = size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES
+        if is_large:
             logger.info(f'[{self.name}] Calculating signature for node (note: this file is very large ({humanfriendlier_size(size_bytes)}) '
                         f'and may take a while: {node.node_identifier}')
         elif SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
 
+        sw = Stopwatch()
         node_with_signature = content_hasher.try_calculating_signatures(node)
         if not node_with_signature:
-            logger.info(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted from disk')
+            logger.info(f'[{self.name}] {sw} Failed to calculate signature for node {self.device_uid}:{node.uid}: assuming it was deleted from disk')
             return
 
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Calculated MD5: {node_with_signature.md5} for node: {node_with_signature.node_identifier.guid}')
+        if SUPER_DEBUG_ENABLED or is_large:
+            logger.debug(f'[{self.name}] {sw} Calculated MD5: {node_with_signature.md5} for node: {node_with_signature.node_identifier.guid}')
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:

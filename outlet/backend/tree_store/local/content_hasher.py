@@ -15,18 +15,35 @@ import hashlib
 import logging
 import os
 import pathlib
+import subprocess
 from typing import Optional, Tuple
-from constants import MAX_FS_LINK_DEPTH, READ_CHUNK_SIZE, TreeType
+from constants import IS_MACOS, MAX_FS_LINK_DEPTH, READ_CHUNK_SIZE, TreeType
 
 logger = logging.getLogger(__name__)
 
 
-def compute_md5(filename):
+def _compute_md5_in_python(filename):
     hash_md5 = hashlib.md5()
     with open(filename, "rb") as f:
         for chunk in iter(lambda: f.read(READ_CHUNK_SIZE), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+
+def compute_md5(filename):
+    if IS_MACOS:
+        try:
+            output = subprocess.check_output(['/sbin/md5', '-q', filename]).decode().split('\n')[0]
+        except RuntimeError as e:
+            logger.exception(f'While computing MD5 via MacOS tool for file "{filename}"')
+            output = None
+        if not output:
+            logger.warning(f'Failed to compute MD5 using Mac cmdlkne tool; falling back to Python')
+            return _compute_md5_in_python(filename)
+
+        return output
+    else:
+        return _compute_md5_in_python(filename)
 
 
 def compute_dropbox_hash(filename):
