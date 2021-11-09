@@ -278,8 +278,8 @@ class BatchBuilder:
         omitted from a subtree (e.g. if A is the parent of B which is the parent of C, you cannot copy A and C but exclude B).
 
         Rules:
-        1. Parent for MKDIR_SRC and all DST nodes must be present in memcache and not already scheduled for RM
-        2. Except for MKDIR, SRC nodes must all be present in memcache (OK if is_live==False due to pending operation)
+        1. Parent for MKDIR_SRC and all DST nodes must be present in memstore and not already scheduled for RM
+        2. Except for MKDIR, SRC nodes must all be present in memstore (OK if is_live==False due to pending operation)
         and not already scheduled for RM
         """
 

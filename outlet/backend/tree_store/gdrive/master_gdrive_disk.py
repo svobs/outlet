@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
 from constants import GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TreeID
 from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
-from error import CacheNotFoundError
+from error import CacheNotFoundError, NodeNotPresentError
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -184,7 +184,10 @@ class GDriveDiskStore(HasLifecycle):
         """Note: this could be an expensive operation, since we are recursively looking up the node's parents in order to fill in paths."""
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_single_node_with_uid(): uid={uid}')
-        return self._path_list_computer.recompute_path_list_for_uid(uid=uid)
+        try:
+            return self._path_list_computer.recompute_path_list_for_uid(uid=uid)
+        except NodeNotPresentError:
+            return None
 
     def insert_gdrive_files_and_parents(self, file_list: List[GDriveFile], parent_mappings: List[Tuple],
                                         current_download: CurrentDownload, commit: bool = True):

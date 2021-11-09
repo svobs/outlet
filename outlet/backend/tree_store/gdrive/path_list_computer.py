@@ -2,6 +2,7 @@ import logging
 from typing import Callable, List, Tuple
 
 from constants import ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from error import NodeNotPresentError
 from model.node.gdrive_node import GDriveNode
 from model.uid import UID
 
@@ -20,7 +21,7 @@ class GDrivePathListComputer:
         to be populated."""
         current_node: GDriveNode = self._get_node_for_uid_func(uid)
         if not current_node:
-            raise RuntimeError(f'Cannot recompute path list: node not found in tree for UID {uid}')
+            raise NodeNotPresentError(f'Cannot recompute path list: node not found in tree for UID {uid}')
 
         logger.debug(f'Recomputing path for node {uid} ("{current_node.name}")')
 

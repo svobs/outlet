@@ -449,7 +449,7 @@ class LocalDiskMasterStore(TreeStore):
 
         # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_read_single_node_for(): Memcache miss; reading diskcache for {node_uid}')
+            logger.debug(f'_read_single_node_for(): Memcache miss; reading diskstore for {node_uid}')
         with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
             node = cache.get_file_or_dir_for_uid(node_uid)
         if node:
@@ -681,7 +681,7 @@ class LocalDiskMasterStore(TreeStore):
 
         # 1. Use in-memory cache if it exists. This will also allow pending op nodes to be handled
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memcache for: {parent_spid}')
+            logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memstore for: {parent_spid}')
         parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
         if parent_node:
             if parent_node.is_dir() and parent_node.all_children_fetched:
@@ -689,10 +689,10 @@ class LocalDiskMasterStore(TreeStore):
                     return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
                 except NodeNotPresentError:
                     # In-memory cache miss. Try seeing if the relevant cache is loaded:
-                    logger.debug(f'_get_child_list_from_cache_for_spid(): Could not find parent node in memcache: {parent_spid}')
+                    logger.debug(f'_get_child_list_from_cache_for_spid(): Could not find parent node in memstore: {parent_spid}')
                     pass
             else:
-                logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memcache but it is wanting: {parent_node}')
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memstore but it is wanting: {parent_node}')
 
         # 2. Read from disk cache if it exists:
         cache_info: Optional[PersistedCacheInfo] = \

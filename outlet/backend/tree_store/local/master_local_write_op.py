@@ -219,7 +219,7 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
 
     def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Removing {len(subtree.remove_node_list)} & upserting {len(subtree.upsert_node_list)} nodes in diskstore"')
+            logger.debug(f'Removing {len(subtree.remove_node_list)} & upserting {len(subtree.upsert_node_list)} nodes in diskstore')
 
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)

@@ -676,6 +676,12 @@ class GDriveClient(HasLifecycle):
             if is_removed:
                 # Fill in node for removal change;
                 node = self.gdrive_store.get_node_for_goog_id(goog_id)
+                if not node:
+                    # TODO: keep a list of recently deleted goog_ids in our database, so we can be sure.
+                    logger.warning(f'GDrive changelist shows node with goog_id {goog_id} was removed from GDrive, but cannot find in our cache '
+                                   f'(Did we delete it?) Skipping.')
+                    continue
+
                 change: GDriveRM = GDriveRM(change_ts, goog_id, node)
             else:
                 if item['changeType'] == 'file':
