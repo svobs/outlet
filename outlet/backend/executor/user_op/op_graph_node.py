@@ -130,11 +130,11 @@ class OpGraphNode(BaseNode, ABC):
 
         if coverage_dict.get(self.node_uid, None):
             # already printed this node
-            return [f'{OP_TREE_INDENT_STR * current_level}[L{self.get_level()}] {self.print_me(full=False)} [see above]']
+            return [f'{OP_TREE_INDENT_STR * current_level}[L{current_level}] {self.print_me(full=False)} [see above]']
 
         coverage_dict[self.node_uid] = self
 
-        blocks = [f'{OP_TREE_INDENT_STR * current_level}[L{self.get_level()}] {self.print_me()}']
+        blocks = [f'{OP_TREE_INDENT_STR * current_level}[L{current_level}] {self.print_me()}']
 
         for child in self.get_child_list():
             blocks += child.print_recursively(current_level + 1, coverage_dict)

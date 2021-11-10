@@ -83,7 +83,7 @@ class Task:
 
     def __repr__(self):
         next_task_uuid = self.next_task.task_uuid if self.next_task else 'None'
-        return f'Task(uuid={self.task_uuid} pri={self.priority.name} func={self.task_func.__name__} arg_count={len(self._args)} ' \
+        return f'Task({self.task_uuid} {self.priority.name} "{self.task_func.__name__}" arg_count={len(self._args)} ' \
                f'parent_task={self.parent_task_uuid} next_task={next_task_uuid})'
 
 

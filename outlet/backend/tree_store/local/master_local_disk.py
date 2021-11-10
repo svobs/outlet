@@ -91,9 +91,9 @@ class LocalDiskDiskStore(HasLifecycle):
         if not cache_info:
             raise RuntimeError(f'Could not find a cache associated with node: {operation.node.node_identifier}')
 
-        cache = self._get_or_open_db(cache_info)
-        operation.update_diskstore(cache)
-        cache.commit()
+        db = self._get_or_open_db(cache_info)
+        operation.update_diskstore(db)
+        db.commit()
 
     def _ensure_uid_consistency(self, subtree_root: SinglePathNodeIdentifier):
         """Since the UID of the subtree root node is stored in 3 different locations (registry, cache file, and memory),

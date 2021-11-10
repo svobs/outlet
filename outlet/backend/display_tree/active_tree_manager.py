@@ -145,6 +145,8 @@ class ActiveTreeManager(HasLifecycle):
                 guid_set: Set[GUID] = set()
                 self._tree_stats_refresh_queue_dict[tree_id] = guid_set
             guid_set.add(dir_guid)
+
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{tree_id}] Added dir {dir_guid} to stats queue; giving the stats refresh timer a kick')
         self._stats_refresh_timer.start_or_delay()
 
@@ -286,8 +288,8 @@ class ActiveTreeManager(HasLifecycle):
                 upserted_sn_list = []
                 removed_sn_list = []
 
-                logger.debug(f'[{tree_id}] Converting {len(upserted_node_list)} upserts and {len(removed_node_list)} removes at {subtree_root_spid}'
-                             f' to SNs')
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{tree_id}] Examining {len(upserted_node_list)} upserts & {len(removed_node_list)} removes at {subtree_root_spid}')
 
                 # Just do the easiest and least-error prone thing for now:
                 for node in upserted_node_list:

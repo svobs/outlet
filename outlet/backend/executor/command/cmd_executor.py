@@ -8,6 +8,7 @@ from util import file_util
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal
 from util.has_lifecycle import HasLifecycle
+from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
@@ -56,12 +57,13 @@ class CommandExecutor(HasLifecycle):
             if command.get_status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.get_status()}')
             else:
-                status_str: str = f'Executing command: {repr(command)}'
+                status_str: str = f'[CommandExecutor] Executing command: {repr(command)}'
                 logger.info(status_str)
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Command(uid={command.uid}): src={command.op.src_node}) dst={command.op.dst_node}')
+                cmd_sw = Stopwatch()
                 command.op.result = command.execute(context)
-                logger.info(f'Command completed with status {command.get_status().name}: {command.get_description()}')
+                logger.info(f'[CommandExecutor] {cmd_sw} Cmd completed with status {command.get_status().name}: {command.get_description()}')
         except Exception as err:
             description = f'Error executing {command.get_description()}'
             logger.exception(description)

@@ -166,7 +166,7 @@ class LocalDiskMasterStore(TreeStore):
         # Get children of target parent, and sort into dirs and nondirs:
         # Files can be removed in the main RefreshDirEntriesOp op, but dirs represent tress so we will create a DeleteSubtreeOp for each.
         file_node_remove_list = []
-        existing_child_list = self._get_child_list_from_cache_for_spid(parent_spid)
+        existing_child_list = self._get_child_list_from_cache_for_spid(parent_spid, only_if_all_children_fetched=False)
         if existing_child_list:
             existing_child_dict: Dict[UID, LocalNode] = {}
             for existing_child_sn in existing_child_list:
@@ -174,7 +174,11 @@ class LocalDiskMasterStore(TreeStore):
                 existing_child_dict[existing_child_sn.node.uid] = existing_child_sn.node
 
             for new_child in child_list:
-                existing_child_dict.pop(new_child.uid, None)
+                existing_child = existing_child_dict.pop(new_child.uid, None)
+                # attempt to avoid signature recalculations by checking one against the other and merging old into new:
+                if existing_child and existing_child.is_file() and new_child.is_file():
+                    assert isinstance(new_child, LocalFileNode), f'Bad: {new_child}'
+                    new_child.copy_signature_if_meta_matches(existing_child)
 
             dir_node_remove_list = []
             for node_to_remove in existing_child_dict.values():
@@ -188,7 +192,9 @@ class LocalDiskMasterStore(TreeStore):
                 logger.debug(f'overwrite_dir_entries_list(): removing subtree: {dir_node.node_identifier}')
                 self.remove_subtree(dir_node, to_trash=False)
 
-        self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=child_list, remove_node_list=file_node_remove_list))
+        to_upsert_list = child_list
+        to_upsert_list.append(parent_dir)  # Need to update all_children_fetched to True!
+        self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=to_upsert_list, remove_node_list=file_node_remove_list))
 
     def _resync_with_file_system(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
@@ -268,7 +274,7 @@ class LocalDiskMasterStore(TreeStore):
                     # to choose whether to query memory or disk
                     cache_info.is_loaded = True
                     logger.debug(f'[{tree_id}] Updated memstore for device_uid={self.device_uid} from disk cache (subtree={cache_info.subtree_root}).'
-                                 f' Tree size is now: {len(self._memstore.master_tree):n}')
+                                 f' Tree size is now: {len(self._memstore.master_tree):n} nodes')
 
         # FS SYNC
         did_rescan = False
@@ -676,15 +682,21 @@ class LocalDiskMasterStore(TreeStore):
         # both caches miss
         return None
 
-    def _get_child_list_from_cache_for_spid(self, parent_spid: LocalNodeIdentifier) -> Optional[List[SPIDNodePair]]:
-        """Searches in-memory cache, followed by disk cache, for children of the given SPID. Returns None if parent not found in either cache"""
+    def _get_child_list_from_cache_for_spid(self, parent_spid: LocalNodeIdentifier, only_if_all_children_fetched: bool) \
+            -> Optional[List[SPIDNodePair]]:
+        """Searches in-memory cache, followed by disk cache, for children of the given SPID. Returns None if parent not found in either cache.
+        If only_if_all_children_fetched=True, then we will only return a non-None value if we are certain that the list of children is complete;
+        if False, then we are ok with returning a partial list."""
 
         # 1. Use in-memory cache if it exists. This will also allow pending op nodes to be handled
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memstore for: {parent_spid}')
         parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
         if parent_node:
-            if parent_node.is_dir() and parent_node.all_children_fetched:
+            if not parent_node.is_dir():
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memstore but it is not a dir: {parent_node}')
+                return None
+            elif not only_if_all_children_fetched or parent_node.all_children_fetched:
                 try:
                     return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
                 except NodeNotPresentError:
@@ -692,7 +704,9 @@ class LocalDiskMasterStore(TreeStore):
                     logger.debug(f'_get_child_list_from_cache_for_spid(): Could not find parent node in memstore: {parent_spid}')
                     pass
             else:
-                logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memstore but it is wanting: {parent_node}')
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memstore but not all children are fetched: {parent_node}')
+                # we can probably just return None at this point, but this should be such a rare case that there should b be little harm
+                # in trying the disk store...
 
         # 2. Read from disk cache if it exists:
         cache_info: Optional[PersistedCacheInfo] = \
@@ -705,13 +719,16 @@ class LocalDiskMasterStore(TreeStore):
             else:
                 logger.debug(f'_get_child_list_from_cache_for_spid(): In-memory cache miss; trying disk cache for: {parent_spid}')
                 with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-                    parent_dir = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
-                    if parent_dir:
-                        if parent_dir.is_dir() and parent_dir.all_children_fetched:
+                    parent_node = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
+                    if parent_node:
+                        if not parent_node.is_dir():
+                            logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in diskstore but it is not a dir: {parent_node}')
+                            return None
+                        elif not only_if_all_children_fetched or parent_node.all_children_fetched:
                             return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
                         else:
                             logger.debug(f'_get_child_list_from_cache_for_spid(): Disk cache ({cache_info.cache_location}) contains parent but '
-                                         f'it is either not dir or not all children fetched: {parent_node}')
+                                         f'not all children fetched: {parent_node}')
 
         else:
             if SUPER_DEBUG_ENABLED:
@@ -731,10 +748,10 @@ class LocalDiskMasterStore(TreeStore):
 
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
 
-        child_list = self._get_child_list_from_cache_for_spid(parent_spid)
+        child_list = self._get_child_list_from_cache_for_spid(parent_spid, only_if_all_children_fetched=True)
         if child_list is None:
             # 3. No cache hits. Must do a live scan:
-            logger.debug(f'Could not find cache containing path: "{parent_spid.get_single_path()}"; will attempt a disk scan')
+            logger.debug(f'Caches are missing or only partial for children of parent: "{parent_spid.get_single_path()}"; will attempt disk scan')
             return self._scan_and_cache_dir(parent_spid)
         else:
             return child_list

@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC
 from typing import Optional, Tuple
 
-from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, SUPER_DEBUG_ENABLED, TrashStatus
+from constants import IconId, IS_MACOS, OBJ_TYPE_DIR, OBJ_TYPE_FILE, SUPER_DEBUG_ENABLED, TrashStatus
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
@@ -260,6 +260,9 @@ class LocalFileNode(LocalNode):
                         logger.debug(f'Copying SHA256 from node: {other.node_identifier}')
 
                 self._sha256 = other._sha256
+
+            if SUPER_DEBUG_ENABLED:
+                _check_update_sanity(other, self)
             return True
 
         return False
@@ -297,3 +300,55 @@ class LocalFileNode(LocalNode):
         return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} md5={self._md5} sha256={self.sha256} ' \
                f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts} ' \
                f'change_ts={self._change_ts})'
+
+
+def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
+    try:
+        if not old_node:
+            raise RuntimeError(f'old_node is empty!')
+
+        if not isinstance(old_node, LocalFileNode):
+            # Internal error; try to recover
+            logger.error(f'Invalid node type for old_node: {type(old_node)}. Will overwrite cache entry')
+            return
+
+        if not new_node:
+            raise RuntimeError(f'new_node is empty!')
+
+        if not isinstance(new_node, LocalFileNode):
+            raise RuntimeError(f'Invalid node type for new_node: {type(new_node)}')
+
+        if not old_node.modify_ts:
+            logger.debug(f'old_node has no modify_ts. Skipping modify_ts comparison (Old={old_node} New={new_node}')
+        elif not new_node.modify_ts:
+            raise RuntimeError(f'new_node is missing modify_ts!')
+        elif new_node.modify_ts < old_node.modify_ts:
+            if IS_MACOS:
+                # Known bug in MacOS
+                logger.debug(
+                    f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})'
+                    f'(probably MacOS bug)')
+            else:
+                logger.warning(
+                    f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
+
+        if not old_node.change_ts:
+            logger.debug(f'old_node has no change_ts. Skipping change_ts comparison (Old={old_node} New={new_node}')
+        elif not new_node.change_ts:
+            raise RuntimeError(f'new_node is missing change_ts!')
+        elif new_node.change_ts < old_node.change_ts:
+            if IS_MACOS:
+                # Known bug in MacOS
+                logger.debug(
+                    f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})'
+                    f'(probably MacOS bug)')
+            else:
+                logger.warning(
+                    f'File {new_node.node_identifier}: update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
+
+        if new_node.get_size_bytes() != old_node.get_size_bytes() and new_node.md5 == old_node.md5 and old_node.md5:
+            logger.warning(f'File {new_node.node_identifier}: update has same MD5 ({new_node.md5}) ' +
+                           f'but different size: (old={old_node.get_size_bytes()}, new={new_node.get_size_bytes()})')
+    except Exception as e:
+        logger.error(f'Error checking update sanity! Old={old_node} New={new_node}: {repr(e)}')
+        raise
