@@ -568,6 +568,9 @@ class CacheManager(HasLifecycle):
         if not isinstance(spid, SinglePathNodeIdentifier):
             raise RuntimeError(f'get_ancestor_list_for_spid(): not a SPID (type={type(spid)}): {spid}')
 
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Entered get_ancestor_list_for_spid() for spid={spid}, stop_at_path={stop_at_path}')
+
         ancestor_deque: Deque[SPIDNodePair] = deque()
         ancestor_node: Node = self.get_node_for_uid(spid.node_uid, device_uid=spid.device_uid)
         if not ancestor_node:
@@ -581,6 +584,8 @@ class CacheManager(HasLifecycle):
             if parent_path == stop_at_path:
                 return ancestor_deque
 
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'get_ancestor_list_for_spid(): getting parent for {ancestor_sn.spid}')
             ancestor_sn = self.get_parent_for_sn(ancestor_sn)
 
             if ancestor_sn:
@@ -732,22 +737,22 @@ class CacheManager(HasLifecycle):
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
         dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
         if not src_tree:
-            logger.error(f'Aborting drop: could not find src tree: "{src_tree_id}"')
+            logger.error(f'[{dst_tree_id}] Aborting drop: could not find src tree: "{src_tree_id}"')
             return False
         if not dst_tree:
-            logger.error(f'Aborting drop: could not find dst tree: "{dst_tree_id}"')
+            logger.error(f'[{dst_tree_id}] Aborting drop: could not find dst tree: "{dst_tree_id}"')
             return False
 
         if not src_tree.root_exists:
-            logger.error(f'Aborting drop: src tree root does not exist: "{src_tree_id}"')
+            logger.error(f'[{dst_tree_id}] Aborting drop: src tree root does not exist: "{src_tree_id}"')
             return False
         if not dst_tree.root_exists:
-            logger.error(f'Aborting drop: dst tree root does not exist: "{dst_tree_id}"')
+            logger.error(f'[{dst_tree_id}] Aborting drop: dst tree root does not exist: "{dst_tree_id}"')
             return False
 
         sn_src_list = self.get_sn_list_for_guid_list(src_guid_list, src_tree_id)
         if not sn_src_list:
-            logger.error(f'Aborting drop: could not resolve GUIDs into any nodes: {src_guid_list}')
+            logger.error(f'[{dst_tree_id}] Aborting drop: could not resolve GUIDs into any nodes: {src_guid_list}')
             return False
 
         sn_dst: SPIDNodePair = self.get_sn_for_guid(dst_guid, dst_tree_id)
@@ -756,10 +761,13 @@ class CacheManager(HasLifecycle):
 
         if not is_into or (sn_dst and not sn_dst.node.is_dir()):
             # cannot drop into a file; just use parent in this case
-            logger.debug(f'Getting parent for original drop dst ({sn_dst.spid}')
+            logger.debug(f'[{dst_tree_id}] Getting parent for original drop dst ({sn_dst.spid}, from tree_id={src_tree_id})')
+            assert sn_dst.spid.node_uid == sn_dst.node.uid, f'SPID ({sn_dst.spid}) does not match node ({sn_dst.node})'
             sn_dst = self.get_parent_for_sn(sn_dst)
             if not sn_dst:
                 raise RuntimeError(f'Pareent is null for: ({sn_dst.spid})')
+            elif SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{dst_tree_id}] Got parent: {sn_dst.spid}')
 
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
@@ -795,20 +803,22 @@ class CacheManager(HasLifecycle):
         for sn_src in sn_src_list:
             logger.debug(f'[{dst_tree_id}] DestNode="{sn_dst.spid}", DroppedNode="{sn_src.node}"')
 
-            # Same node onto itself?
             if sn_dst.node.node_identifier == sn_src.node.node_identifier:
+                logger.debug(f'[{dst_tree_id}] Source node ({sn_src.spid}) was dropped onto itself -> no op')
                 return True
 
-            # Dropping into its parent (essentially a no-op)
             if sn_dst.node.is_parent_of(sn_src.node):
+                logger.debug(f'[{dst_tree_id}] Source node ({sn_src.spid}) was dropped into its own parent ({sn_dst.spid}) -> no op')
                 return True
 
             # Dropping an ancestor onto its descendant:
             for dst_ancestor in dst_ancestor_list:
                 if sn_src.node.node_identifier == dst_ancestor.node.node_identifier:
-                    logger.debug(f'[{dst_tree_id}] Source node ({sn_src.spid}) is ancestor of dest ({sn_dst.spid}): no bueno')
+                    logger.debug(f'[{dst_tree_id}] Source node ({sn_src.spid}) is ancestor of dest ({sn_dst.spid}) -> not allowed')
                     return True
 
+        if TRACE_ENABLED:
+            logger.debug(f'[{dst_tree_id}] is_dropping_on_self = false')
         return False
 
     # Various public methods

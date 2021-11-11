@@ -20,7 +20,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import IS_MACOS, MAX_FS_LINK_DEPTH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
+from constants import IS_MACOS, MAX_FS_LINK_DEPTH, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
@@ -790,20 +790,24 @@ class LocalDiskMasterStore(TreeStore):
         """LocalNodes are guaranteed to have at most 1 parent."""
         if TRACE_ENABLED:
             logger.debug(f'Entered get_single_parent_for_node(); node={node}, required_subtree_path={required_subtree_path}')
+
+        if node.get_single_path() == ROOT_PATH:
+            logger.debug(f'get_single_parent_for_node(): mode ({node}) is already root (required_path={required_subtree_path}))')
+            return None
+
         try:
             # easiest and fastest if the tree is already in memory:
-            parent: LocalNode = self._memstore.master_tree.get_parent(node.identifier)
+            parent: LocalNode = self._memstore.master_tree.get_parent(node.uid)
             if not parent:
                 # parent not found in memory tree. Let's check everywhere now:
                 parent_path: str = node.derive_parent_path()
                 parent_uid: UID = self.get_uid_for_path(parent_path)
                 parent = self.get_node_for_uid(parent_uid)
                 if not parent:
-                    logger.debug(f'Parent not found for node ({node.uid})')
+                    logger.debug(f'get_single_parent_for_node(): Could not find parent for node {node.node_identifier.guid}')
                     return None
-                logger.debug(f'Parent not found for node ({node.uid}) but found parent at path: {parent.get_single_path()}')
 
-            if required_subtree_path and not parent.get_single_path().startswith(required_subtree_path):
+            if parent and required_subtree_path and not parent.get_single_path().startswith(required_subtree_path):
                 logger.debug(f'get_single_parent_for_node(): parent path ({parent.get_single_path()}) '
                              f'does not contain required subtree path ({required_subtree_path}) (orig node: {node}')
                 return None

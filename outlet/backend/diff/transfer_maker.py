@@ -7,7 +7,7 @@ from typing import Callable, Deque, Dict, List, Optional, Tuple
 
 from backend.diff.change_maker import ChangeMaker
 from backend.tree_store.local import content_hasher
-from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, ReplaceDirWithFilePolicy, SrcNodeMovePolicy, \
+from constants import DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, FileConflictPolicy, ReplaceDirWithFilePolicy, SrcNodeMovePolicy, \
     SUPER_DEBUG_ENABLED, \
     TRACE_ENABLED, TreeID
 from model.node.node import SPIDNodePair
@@ -61,7 +61,7 @@ class TransferMaker(ChangeMaker):
             list_sn_dst_conflicting: List[SPIDNodePair] = dst_existing_sn_dict.get(sn_src.node.name)
 
             if not list_sn_dst_conflicting:
-                if SUPER_DEBUG_ENABLED:
+                if DIFF_DEBUG_ENABLED:
                     logger.debug(f'Node "{sn_src.node.name}": no name conflicts found')
                 self._handle_no_conflicts_found(dd_meta, sn_src)
 
@@ -77,7 +77,7 @@ class TransferMaker(ChangeMaker):
         assert list_sn_dst_conflicting
         has_multiple_name_conflicts: bool = len(list_sn_dst_conflicting) > 1
 
-        if SUPER_DEBUG_ENABLED:
+        if DIFF_DEBUG_ENABLED:
             logger.debug(f'Dir "{name_src}" has {len(list_sn_dst_conflicting)} conflicts: following policy {policy.name}')
 
         if policy == DirConflictPolicy.SKIP:
@@ -113,7 +113,7 @@ class TransferMaker(ChangeMaker):
         assert list_sn_dst_conflicting
         has_multiple_name_conflicts: bool = len(list_sn_dst_conflicting) > 1
 
-        if SUPER_DEBUG_ENABLED:
+        if DIFF_DEBUG_ENABLED:
             logger.debug(f'File "{name_src}" has {len(list_sn_dst_conflicting)} conflicts: following policy {policy.name}')
 
         if policy == FileConflictPolicy.SKIP:
@@ -165,11 +165,11 @@ class TransferMaker(ChangeMaker):
 
         while len(queue) > 0:
             sn_dir_src, sn_dir_dst_existing = queue.popleft()
-            if SUPER_DEBUG_ENABLED:
+            if DIFF_DEBUG_ENABLED:
                 logger.debug(f'Replace: examining dir: {sn_dir_src.spid}')
 
             if sn_dir_dst_existing.node.is_file():
-                if SUPER_DEBUG_ENABLED:
+                if DIFF_DEBUG_ENABLED:
                     logger.debug(f'Replacing {sn_dir_dst_existing.spid} with dir {sn_dir_src.spid}')
                 # Remove file:
                 self.right_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_dir_dst_existing)
@@ -217,10 +217,18 @@ class TransferMaker(ChangeMaker):
         # assume this dir has already been validated and has exactly 1 conflict
         queue.append((sn_src, sn_dst_conflicting))
 
+        queue_rm_dir: Deque[SPIDNodePair] = collections.deque()
+
         while len(queue) > 0:
             sn_dir_src, sn_dir_dst_existing = queue.popleft()
-            if SUPER_DEBUG_ENABLED:
+            if DIFF_DEBUG_ENABLED:
                 logger.debug(f'DirMerge: examining dir: {sn_dir_src.spid}')
+
+            if dd_meta.drag_op == DragOperation.MOVE:
+                # When all nodes in a dir have been moved, the src dir itself should be deleted.
+                # We need to do the RMs in reverse. So push them to a separate queue and then pop from that at the end.
+                logger.debug(f'DirMerge: DragOperation is MOVE; queuing RM op for dir: {sn_dir_src.spid}')
+                queue_rm_dir.append(sn_dir_src)
 
             if sn_dir_dst_existing.node.is_file():
                 # TODO: maybe just follow the file conflict policy in this case?
@@ -233,7 +241,7 @@ class TransferMaker(ChangeMaker):
                     # see if there is a corresponding dst node:
                     list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name)
 
-                    if SUPER_DEBUG_ENABLED:
+                    if DIFF_DEBUG_ENABLED:
                         logger.debug(f'DirMerge: found {len(list_sn_dst_conflicting)} conflicts for child dir: {sn_src_child.spid}')
 
                     if len(list_sn_dst_conflicting) == 0:
@@ -257,6 +265,14 @@ class TransferMaker(ChangeMaker):
                                                    f'at the destination with the same name, and cannot determine which to replace!')
 
                             self._handle_replace_with_file(dd_meta, sn_src_child, list_sn_dst_conflicting[0])
+
+        if queue_rm_dir:
+            if DIFF_DEBUG_ENABLED:
+                logger.debug(f'DirMerge: adding RMIR ops for {len(queue_rm_dir)} queued MOVE SRC dirs')
+
+            while len(queue_rm_dir) > 0:
+                sn_dir_src = queue_rm_dir.pop()  # LIFO order
+                self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_dir_src)
 
     def _add_ops_for_delete_subtree(self, sn_dst_subtree_root: SPIDNodePair):
         assert sn_dst_subtree_root.spid.has_path_in_subtree(self.right_side.root_sn.spid.get_single_path()), \
