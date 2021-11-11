@@ -92,11 +92,10 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                     if size_bytes:
                         bytes_to_scan += size_bytes
 
-                logger.debug(f'[{self.name}] Submitting batch task with {len(nodes_to_scan)} nodes and {bytes_to_scan} bytes total '
+                logger.debug(f'[{self.name}] Submitting batch task with {len(nodes_to_scan)} nodes and {bytes_to_scan:n} bytes total '
                              f'({len(self._node_queue)} nodes still enqueued)')
                 calc_task = Task(ExecPriority.P6_SIGNATURE_CALC, self.batch_calculate_signatures, nodes_to_scan)
                 self._running_task_set.add(calc_task.task_uuid)
-                self._cv_can_get.wait()
             self.backend.executor.submit_async_task(calc_task)
 
     def batch_calculate_signatures(self, this_task: Task, nodes_to_scan: List[LocalFileNode]):
