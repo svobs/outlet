@@ -789,25 +789,25 @@ class LocalDiskMasterStore(TreeStore):
     def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None) -> Optional[LocalNode]:
         """LocalNodes are guaranteed to have at most 1 parent."""
         if TRACE_ENABLED:
-            logger.debug(f'Entered get_single_parent_for_node({node.node_identifier}): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_single_parent_for_node(); node={node}, required_subtree_path={required_subtree_path}')
         try:
-            # logger.warning('LOCK ON!')
-            try:
-                parent: LocalNode = self._memstore.master_tree.get_parent(node.identifier)
-            except KeyError:
-                # parent not found in tree... maybe we can derive it however
+            # easiest and fastest if the tree is already in memory:
+            parent: LocalNode = self._memstore.master_tree.get_parent(node.identifier)
+            if not parent:
+                # parent not found in memory tree. Let's check everywhere now:
                 parent_path: str = node.derive_parent_path()
                 parent_uid: UID = self.get_uid_for_path(parent_path)
-                parent = self._memstore.master_tree.get_node_for_uid(parent_uid)
+                parent = self.get_node_for_uid(parent_uid)
                 if not parent:
                     logger.debug(f'Parent not found for node ({node.uid})')
-                    # logger.warning('LOCK off')
                     return None
                 logger.debug(f'Parent not found for node ({node.uid}) but found parent at path: {parent.get_single_path()}')
+
             if not required_subtree_path or parent.get_single_path().startswith(required_subtree_path):
-                # logger.warning('LOCK off')
+                logger.debug(f'get_single_parent_for_node(): parent path ({parent.get_single_path()}) '
+                             f'does not contain required subtree path ({required_subtree_path}) (orig node: {node}')
                 return parent
-            # logger.warning('LOCK off')
+
             return None
         except NodeNotPresentError:
             return None

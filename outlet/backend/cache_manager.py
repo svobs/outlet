@@ -751,10 +751,15 @@ class CacheManager(HasLifecycle):
             return False
 
         sn_dst: SPIDNodePair = self.get_sn_for_guid(dst_guid, dst_tree_id)
+        if not sn_dst:
+            raise RuntimeError(f'Could not resolve drop destination ({sn_dst.spid})')
 
         if not is_into or (sn_dst and not sn_dst.node.is_dir()):
             # cannot drop into a file; just use parent in this case
+            logger.debug(f'Getting parent for original drop dst ({sn_dst.spid}')
             sn_dst = self.get_parent_for_sn(sn_dst)
+            if not sn_dst:
+                raise RuntimeError(f'Pareent is null for: ({sn_dst.spid})')
 
         if not dst_guid:
             logger.error(f'[{dst_tree_id}] Cancelling drop: no dst given for dropped location!')
