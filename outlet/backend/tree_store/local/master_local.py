@@ -803,12 +803,12 @@ class LocalDiskMasterStore(TreeStore):
                     return None
                 logger.debug(f'Parent not found for node ({node.uid}) but found parent at path: {parent.get_single_path()}')
 
-            if not required_subtree_path or parent.get_single_path().startswith(required_subtree_path):
+            if required_subtree_path and not parent.get_single_path().startswith(required_subtree_path):
                 logger.debug(f'get_single_parent_for_node(): parent path ({parent.get_single_path()}) '
                              f'does not contain required subtree path ({required_subtree_path}) (orig node: {node}')
-                return parent
+                return None
 
-            return None
+            return parent
         except NodeNotPresentError:
             return None
         except Exception:
