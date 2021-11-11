@@ -213,21 +213,21 @@ class TransferMaker(ChangeMaker):
 
         logger.debug(f'Merging {sn_dst_conflicting.spid} with dir {sn_src.spid}...')
 
-        queue: Deque[Tuple[SPIDNodePair, SPIDNodePair]] = collections.deque()
+        queue_dir: Deque[Tuple[SPIDNodePair, SPIDNodePair]] = collections.deque()
         # assume this dir has already been validated and has exactly 1 conflict
-        queue.append((sn_src, sn_dst_conflicting))
+        queue_dir.append((sn_src, sn_dst_conflicting))
 
         queue_rm_dir: Deque[SPIDNodePair] = collections.deque()
 
-        while len(queue) > 0:
-            sn_dir_src, sn_dir_dst_existing = queue.popleft()
+        while len(queue_dir) > 0:
+            sn_dir_src, sn_dir_dst_existing = queue_dir.popleft()
             if DIFF_DEBUG_ENABLED:
-                logger.debug(f'DirMerge: examining dir: {sn_dir_src.spid}')
+                logger.debug(f'DirMerge: examining src dir {sn_dir_src.spid} and dst {sn_dir_dst_existing.node}')
 
             if dd_meta.drag_op == DragOperation.MOVE:
                 # When all nodes in a dir have been moved, the src dir itself should be deleted.
                 # We need to do the RMs in reverse. So push them to a separate queue and then pop from that at the end.
-                logger.debug(f'DirMerge: DragOperation is MOVE; queuing RM op for dir: {sn_dir_src.spid}')
+                logger.debug(f'DirMerge: DragOperation is MOVE; queuing RM op for src dir: {sn_dir_src.spid}')
                 queue_rm_dir.append(sn_dir_src)
 
             if sn_dir_dst_existing.node.is_file():
@@ -256,7 +256,7 @@ class TransferMaker(ChangeMaker):
                                                    f'at the destination with the same name, and cannot determine which to merge with!')
 
                             # DIR with exactly 1 conflict: dive in deeper
-                            queue.append((sn_src_child, list_sn_dst_conflicting[0]))
+                            queue_dir.append((sn_src_child, list_sn_dst_conflicting[0]))
                         else:
                             # SRC is FILE: replace
                             if len(list_sn_dst_conflicting) > 1:

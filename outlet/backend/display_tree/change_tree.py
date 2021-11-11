@@ -4,7 +4,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -161,7 +161,7 @@ class ChangeTree(DisplayTree):
         return cat_sn
 
     def _get_or_create_ancestors(self, sn: SPIDNodePair, parent_sn: SPIDNodePair):
-        stack: Deque[SPIDNodePair] = deque()
+        dummy_stack: Deque[SPIDNodePair] = deque()
         full_path = sn.spid.get_single_path()
         if not full_path:
             raise RuntimeError(f'SPID does not have a path: {sn.spid}')
@@ -189,15 +189,15 @@ class ChangeTree(DisplayTree):
                 # create ancestor & push to stack for later insertion in correct order
                 ancestor_dir = ContainerNode(ancestor_spid)
                 ancestor_dir.set_icon(OpTypeMeta.icon_src_dir(ancestor_spid.op_type))
-                stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
+                dummy_stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
 
         # Walk down the ancestor list and create a node for each ancestor dir:
-        while len(stack) > 0:
-            child_sn = stack.pop()
+        while len(dummy_stack) > 0:
+            dummy_child_sn = dummy_stack.pop()
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.tree_id}] Inserting new dummy ancestor: {child_sn.spid} under parent: {parent_sn.spid}')
-            self._category_tree.add_node(node=child_sn, parent=parent_sn)
-            parent_sn = child_sn
+                logger.debug(f'[{self.tree_id}] Inserting new dummy ancestor: {dummy_child_sn.spid} under parent: {parent_sn.spid}')
+            self._category_tree.add_node(node=dummy_child_sn, parent=parent_sn)
+            parent_sn = dummy_child_sn
 
         return parent_sn
 
@@ -230,39 +230,53 @@ class ChangeTree(DisplayTree):
         self._append_op(sn, op)
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
-        parent_sn: SPIDNodePair = self._category_tree.get_node_for_identifier(identifier=sn.spid.guid)
-        if parent_sn:
-            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent_sn.spid}')
+        existing_sn: SPIDNodePair = self._category_tree.get_node_for_identifier(identifier=sn.spid.guid)
+        if existing_sn:
+            logger.debug(f'[{self.tree_id}] Already present in tree ({existing_sn}')
+            if not existing_sn.node.is_container_node():
+                raise RuntimeError(f'Node already exists in the tree and is not a dummy node: {sn.spid}')
+
+            self._category_tree.swap_with_existing_node(sn)
+            logger.debug(f'[{self.tree_id}] Replaced dummy node with real change node: ({existing_sn.spid}')
         else:
             parent_sn = self._get_or_create_pre_ancestors(sn)
 
-        parent_sn = self._get_or_create_ancestors(sn, parent_sn)
+            parent_sn = self._get_or_create_ancestors(sn, parent_sn)
 
-        try:
-            # Finally add the node itself.
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.tree_id}] Adding change node: {sn.spid} to parent {parent_sn.spid}')
+            try:
+                if sn.spid.guid == parent_sn.spid.guid:
+                    logger.error(f'Something is wrong: these should not have the same identifiers: sn={sn}, parent_sn={parent_sn}')
+                    raise RuntimeError(f'Internal error: got a bad parent node while inserting: {sn.spid}')
 
-            self._category_tree.add_node(node=sn, parent=parent_sn)
-        except NodeAlreadyPresentError:
-            # TODO: does this error still occur?
-            # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
-            conflict_sn: SPIDNodePair = self._category_tree.get_node_for_identifier(sn.spid.guid)
-            if conflict_sn.node.md5 == sn.node.md5:
-                self.count_conflict_warnings += 1
+                # Finally add the node itself.
                 if SUPER_DEBUG_ENABLED:
-                    logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, nodes have same MD5, so we will just ignore the new'
-                                   f' node: existing={conflict_sn.node} new={sn.node}')
-            else:
-                self.count_conflict_errors += 1
-                if SUPER_DEBUG_ENABLED:
-                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & different content: existing={conflict_sn.node} new={sn.node}')
+                    logger.debug(f'[{self.tree_id}] Adding change node: {sn.spid} to parent {parent_sn.spid}')
 
-        if TRACE_ENABLED:
+                self._category_tree.add_node(node=sn, parent=parent_sn)
+            except NodeAlreadyPresentError:
+                # TODO: does this error still occur?
+                # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
+                conflict_sn: SPIDNodePair = self._category_tree.get_node_for_identifier(sn.spid.guid)
+                if conflict_sn.node.is_dir() or sn.node.is_dir():
+                    self.count_conflict_errors += 1
+                    if SUPER_DEBUG_ENABLED:
+                        logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & at least 1 is a dir: old={conflict_sn.node} new={sn.node}')
+                elif conflict_sn.node.md5 == sn.node.md5:
+                    self.count_conflict_warnings += 1
+                    if SUPER_DEBUG_ENABLED:
+                        logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, nodes have same MD5, so we will just ignore the new'
+                                       f' node: old={conflict_sn.node} new={sn.node}')
+                else:
+                    self.count_conflict_errors += 1
+                    if SUPER_DEBUG_ENABLED:
+                        logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & different content: old={conflict_sn.node} new={sn.node}')
+
+        if DIFF_DEBUG_ENABLED:
             self.print_tree_contents_debug()
 
     def __repr__(self):
-        return f'ChangeTree(state=[{self.state}], {len(self._category_tree)} nodes)'
+        return f'ChangeTree(state=[{self.state}], {len(self._category_tree)} nodes, ' \
+               f'errors={self.count_conflict_errors}, warnings={self.count_conflict_warnings})'
 
     def generate_dir_stats(self) -> Dict[GUID, DirectoryStats]:
         return self._category_tree.generate_dir_stats(self.tree_id)

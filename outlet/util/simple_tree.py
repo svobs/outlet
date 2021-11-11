@@ -56,6 +56,36 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
 
         self._node_dict[node_identifier] = node
 
+    def swap_with_existing_node(self, node: NodeT) -> NodeT:
+        """Swaps just the given node with an existing node in the tree with the same identifier. The previous node's children become the new node's
+        children, and the prev's parent becomes its parent. Raises exception if something unexpected happens."""
+        node_identifier = self.extract_id(node)
+        existing_node = self._node_dict.get(node_identifier, None)
+        if not existing_node:
+            raise NodeAlreadyPresentError(f'Cannot replace add node: it is not present in this tree: {node}')
+
+        self._node_dict[node_identifier] = node
+
+        parent = self._child_parent_dict.get(node_identifier, None)
+        if not parent:
+            if self.extract_id(self._root_node) == node_identifier:
+                # node is root
+                self._root_node = node
+                return existing_node
+            else:
+                raise RuntimeError(f'Bad state: node is not root but has no parent: {existing_node}')
+        else:
+            parent_identifier = self.extract_id(parent)
+            sibling_list: List[NodeT] = self._parent_child_list_dict.get(parent_identifier, [])
+            if not sibling_list:
+                raise RuntimeError(f'Bad state: no children for parent node: {parent_identifier}')
+            for index, sibling in enumerate(sibling_list):
+                if sibling == existing_node:
+                    sibling_list[index] = node
+                    return existing_node
+            # should not get here
+            raise RuntimeError(f'Bad state: no children for parent node: {parent_identifier}')
+
     def _remove_node_with_identifier(self, node_list: List[NodeT], identifier: IdentifierT):
         for node in node_list:
             if self.extract_id(node) == identifier:

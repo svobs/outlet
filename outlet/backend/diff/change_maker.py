@@ -1,17 +1,11 @@
-import collections
-import copy
 import logging
 import os
 import pathlib
-import re
 from collections import deque
-from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple
+from typing import Deque, Dict, List, Optional
 
 from backend.display_tree.change_tree import ChangeTree
-from backend.tree_store.local import content_hasher
-from constants import DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, FileConflictPolicy, ReplaceDirWithFilePolicy, SrcNodeMovePolicy, \
-    SUPER_DEBUG_ENABLED, \
-    TRACE_ENABLED, TrashStatus, TreeID, TreeType
+from constants import DIFF_DEBUG_ENABLED, TrashStatus, TreeID, TreeType
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
