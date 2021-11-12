@@ -37,7 +37,7 @@ class TreeDiffMergeTask:
         if op:
             merged_tree.add_sn_and_op(sn, op)
         else:
-            if sn and sn.node.is_display_only():
+            if sn and sn.node.is_container_node():
                 logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
             else:
                 logger.error(f'merge_change_trees(): Skipping node because no associated UserOp found: {guid}')

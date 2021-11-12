@@ -264,8 +264,8 @@ class ChangeTree(DisplayTree):
                 elif conflict_sn.node.md5 == sn.node.md5:
                     self.count_conflict_warnings += 1
                     if SUPER_DEBUG_ENABLED:
-                        logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, nodes have same MD5, so we will just ignore the new'
-                                       f' node: old={conflict_sn.node} new={sn.node}')
+                        logger.warning(f'[{self.tree_id}] Duplicate file nodes for the same path! However, both have same MD5, '
+                                       f'so new node will be ignored: old={conflict_sn.node} new={sn.node}')
                 else:
                     self.count_conflict_errors += 1
                     if SUPER_DEBUG_ENABLED:

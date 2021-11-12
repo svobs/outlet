@@ -97,11 +97,6 @@ class Node(BaseNode, HasParentList, ABC):
     def get_obj_type(cls):
         return None
 
-    # TODO: get rid of this
-    @classmethod
-    def is_decorator(cls):
-        return False
-
     @classmethod
     def is_file(cls):
         return False
@@ -109,11 +104,6 @@ class Node(BaseNode, HasParentList, ABC):
     @classmethod
     @abstractmethod
     def is_dir(cls):
-        return False
-
-    # TODO: get rid of this
-    @classmethod
-    def is_display_only(cls):
         return False
 
     @classmethod

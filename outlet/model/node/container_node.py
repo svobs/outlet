@@ -127,10 +127,6 @@ class CategoryNode(ContainerNode):
     def get_default_icon(self) -> IconId:
         return OpTypeMeta.icon_cat_node(op_type=self.op_type)
 
-    @classmethod
-    def is_display_only(cls):
-        return True
-
 
 class RootTypeNode(ContainerNode):
     """
@@ -165,7 +161,3 @@ class RootTypeNode(ContainerNode):
         elif self.node_identifier.tree_type == TreeType.GDRIVE:
             return IconId.ICON_GDRIVE
         return IconId.ICON_GENERIC_DIR
-
-    @classmethod
-    def is_display_only(cls):
-        return True
