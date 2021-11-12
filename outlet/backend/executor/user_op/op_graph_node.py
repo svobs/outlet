@@ -254,7 +254,8 @@ class HasSingleChild(ABC):
     def link_child(self, child: OpGraphNode):
         if self._child:
             if self._child.node_uid != child.node_uid:
-                raise RuntimeError('Only a single child allowed!')
+                raise RuntimeError(f'Cannot link child: only a single child allowed! (existing child={self._child}; requested child={child}; '
+                                   f'self={self})')
         else:
             self._child = child
             child.link_parent(self)
@@ -265,7 +266,7 @@ class HasSingleChild(ABC):
                 self._child = None
                 child.unlink_parent(self)
             else:
-                raise RuntimeError(f'unlink_child(): given child ({child}) does not match actual child ({self._child})')
+                raise RuntimeError(f'unlink_child(): given child ({child}) does not match actual child ({self._child}) (self={self})')
 
     def clear_relationships(self):
         self._child = None

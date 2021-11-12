@@ -422,7 +422,7 @@ class CentralExecutor(HasLifecycle):
                 if not done_parent_task:
                     raise RuntimeError(f'Serious internal error: failed to find expected parent task '
                                        f'({done_task.parent_task_uuid}) in waiting_parent_dict!)')
-                logger.debug(f'Parent task {done_parent_task.task_uuid} ({done_parent_task.task_func}) has no children left; recursing')
+                logger.debug(f'Parent task {done_parent_task.task_uuid} ("{done_parent_task.task_func.__name__}") has no children left; recursing')
 
                 # Go up next level in the tree and repeat logic:
                 return self._find_next_task(done_parent_task)

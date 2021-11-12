@@ -3,7 +3,9 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import APP_NAME, DEFAULT_MAIN_WIN_HEIGHT, DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_X, DEFAULT_MAIN_WIN_Y, H_PAD, IconId, \
+from constants import APP_NAME, DEFAULT_MAIN_WIN_HEIGHT, DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_X, DEFAULT_MAIN_WIN_Y, DirConflictPolicy, \
+    DragOperation, FileConflictPolicy, H_PAD, \
+    IconId, \
     WIN_SIZE_STORE_DELAY_MS
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
@@ -45,6 +47,9 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         # Restore previous width/height:
         self.width_cfg_path = f'ui_state.{self.win_id}.width'
         self.height_cfg_path = f'ui_state.{self.win_id}.height'
+        self.drag_mode_cfg_path = f'ui_state.{self.win_id}.drag_mode'
+        self.dir_conflict_policy_cfg_path = f'ui_state.{self.win_id}.dir_conflict_policy'
+        self.file_conflict_policy_cfg_path = f'ui_state.{self.win_id}.file_conflict_policy'
 
         width = ensure_int(self.backend.get_config(self.width_cfg_path, DEFAULT_MAIN_WIN_WIDTH))
         height = ensure_int(self.backend.get_config(self.height_cfg_path, DEFAULT_MAIN_WIN_HEIGHT))
@@ -54,6 +59,12 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         self.size_allocate(allocation)
         # i.e. "minimum" window size allowed:
         self.set_size_request(DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_HEIGHT)
+
+        self.current_drag_mode = DragOperation(ensure_int(self.backend.get_config(self.drag_mode_cfg_path, DragOperation.COPY.value)))
+        self.current_dir_conflict_policy = DirConflictPolicy(ensure_int(self.backend.get_config(self.dir_conflict_policy_cfg_path,
+                                                                                                DirConflictPolicy.MERGE.value)))
+        self.current_file_conflict_policy = FileConflictPolicy(ensure_int(self.backend.get_config(self.file_conflict_policy_cfg_path,
+                                                                          FileConflictPolicy.RENAME_IF_DIFFERENT.value)))
 
         self.set_border_width(H_PAD)
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.VERTICAL)

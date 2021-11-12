@@ -13,6 +13,13 @@ from util.file_util import get_resource_path
 logger = logging.getLogger(__name__)
 
 
+class ConfigRequest:
+    def __init__(self, cfg_path: str, default_val: Any = None, is_required: bool = True):
+        self.cfg_path: str = cfg_path
+        self.default_val: Any = default_val
+        self.is_required: bool = is_required
+
+
 class AppConfig:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -28,14 +35,14 @@ class AppConfig:
 
         try:
             print(f'Reading config file: "{config_file_path}"')
-            self.cfg = config.Config(config_file_path)
+            self._cfg = config.Config(config_file_path)
             # Cache JSON in memory rather than risk loading a corrupted JSON file later while we're about
             # to write something
             with self._lock:
                 with open(self._get_ui_state_filename()) as f:
                     self._ui_state_json = json.load(f)
 
-            self.read_only = self.get('read_only_config', False, required=False)
+            self.read_only = self.get_config('read_only_config', False, is_required=False)
         except Exception as err:
             raise RuntimeError(f'Could not read config file ({config_file_path})') from err
 
@@ -43,9 +50,16 @@ class AppConfig:
         if self.read_only:
             logger.info('Config is set to read-only')
 
-    def get(self, cfg_path, default_val=None, required: bool = True):
+    def get_config_from_request(self, request: ConfigRequest):
+        return self.get(cfg_path=request.cfg_path, default_val=request.default_val, required=request.is_required)
+
+    def get_config(self, cfg_path: str, default_val=None, is_required: bool = True):
+        return self.get(cfg_path=cfg_path, default_val=default_val, required=is_required)
+
+    # TODO: Deprecate this! use get_config (better name for searches)
+    def get(self, cfg_path: str, default_val=None, required: bool = True):
         try:
-            val = self.cfg[cfg_path]
+            val = self._cfg[cfg_path]
             if val is None and default_val is None and required:
                 raise RuntimeError(f'Config entry not found but is required: "{cfg_path}"')
 
@@ -62,8 +76,8 @@ class AppConfig:
         return default_val
 
     def _get_ui_state_filename(self):
-        filename = self.get('ui_state_filename')
-        return os.path.join(self.cfg.rootdir, filename)
+        filename = self.get_config('ui_state_filename')
+        return os.path.join(self._cfg.rootdir, filename)
 
     def write(self, json_path: str, value: Any, insert_new_ok=True):
         if self.read_only:

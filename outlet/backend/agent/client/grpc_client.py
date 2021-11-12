@@ -51,7 +51,7 @@ class BackendGRPCClient(OutletBackend):
     def __init__(self, cfg):
         OutletBackend.__init__(self)
         self._app_config = cfg
-        self.connection_timeout_sec = int(self._app_config.get('thin_client.connection_timeout_sec'))
+        self.connection_timeout_sec = int(self._app_config.get_config('thin_client.connection_timeout_sec'))
 
         self._started = False
         self.channel = None
@@ -84,14 +84,14 @@ class BackendGRPCClient(OutletBackend):
         self.forward_signal_to_server(signal=Signal.EXIT_DIFF_MODE)
 
         # TODO: make these into cmd line args
-        use_fixed_address = ensure_bool(self._app_config.get('agent.grpc.use_fixed_address'))
+        use_fixed_address = ensure_bool(self._app_config.get_config('agent.grpc.use_fixed_address'))
         if use_fixed_address:
-            address = self._app_config.get('agent.grpc.fixed_address')
-            port = ensure_int(self._app_config.get('agent.grpc.fixed_port'))
+            address = self._app_config.get_config('agent.grpc.fixed_address')
+            port = ensure_int(self._app_config.get_config('agent.grpc.fixed_port'))
             logger.info(f'Config specifies fixed server address = {address}:{port}')
             self.connect(address, port)
         else:
-            zeroconf_timeout_sec = int(self._app_config.get('thin_client.zeroconf_discovery_timeout_sec'))
+            zeroconf_timeout_sec = int(self._app_config.get_config('thin_client.zeroconf_discovery_timeout_sec'))
 
             with OutletZeroconfListener(self) as listener:
                 if not listener.wait_for_successful_connect(zeroconf_timeout_sec):
@@ -115,7 +115,7 @@ class BackendGRPCClient(OutletBackend):
             self.channel.close()
             self.channel = None
 
-        if ensure_bool(self._app_config.get('thin_client.kill_server_on_client_shutdown')):
+        if ensure_bool(self._app_config.get_config('thin_client.kill_server_on_client_shutdown')):
             logger.debug('Configured to kill backend agent: looking for processes to kill...')
             daemon_util.terminate_daemon_if_found()
 
@@ -135,6 +135,7 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=signal, receiver=_forward_signal, weak=False)
 
     def _on_ui_task_requested(self, sender, task_func, *args):
+        # FIXME: need to revisit Linux frontend...
         raise RuntimeError("FIXME! This is broken")  # personal note
         task = Task(None, task_func, args)
         self._fe_task_runner.enqueue_task(task)

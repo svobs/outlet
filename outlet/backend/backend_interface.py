@@ -49,6 +49,7 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
+        """NOTE: 'default_val' and 'required' args are not supported for this operation presently..."""
         pass
 
     @abstractmethod

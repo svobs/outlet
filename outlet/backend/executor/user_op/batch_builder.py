@@ -62,7 +62,7 @@ class BatchBuilder:
             if op.op_type == UserOpType.MKDIR:
                 # remove dup MKDIRs (easy)
                 if mkdir_dict.get(op.src_node.uid, None):
-                    logger.info(f'ReduceChanges(): Removing duplicate MKDIR for node: {op.src_node}')
+                    logger.warning(f'ReduceChanges(): Removing duplicate MKDIR for node: {op.src_node}')
                 else:
                     logger.info(f'ReduceChanges(): Adding MKDIR-type: {op}')
                     final_list.append(op)
@@ -70,7 +70,7 @@ class BatchBuilder:
             elif op.op_type == UserOpType.RM:
                 # remove dups
                 if rm_dict.get(op.src_node.uid, None):
-                    logger.info(f'ReduceChanges(): Removing duplicate RM for node: {op.src_node}')
+                    logger.warning(f'ReduceChanges(): Removing duplicate RM for node: {op.src_node}')
                 else:
                     logger.info(f'ReduceChanges(): Adding RM-type: {op}')
                     final_list.append(op)
@@ -126,8 +126,10 @@ class BatchBuilder:
                 logger.debug(f'Validating src ancestor (UserOp={op_arg.op_uid}): {ancestor}')
             if ancestor.uid in mkdir_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created! (anscestor: {ancestor.node_identifier})')
-            if ancestor.uid in rm_dict:
-                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being deleted! (anscestor: {ancestor.node_identifier})')
+            rm_op = rm_dict.get(ancestor.uid, None)
+            if rm_op and rm_op.op_uid < op_arg.op_uid:
+                # we allow a delete of src node AFTER the move, but not before
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node which is deleted! (anscestor: {ancestor.node_identifier})')
             if ancestor.uid in cp_dst_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to! (anscestor: {ancestor.node_identifier})')
 
