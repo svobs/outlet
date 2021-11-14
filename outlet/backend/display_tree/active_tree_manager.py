@@ -133,7 +133,7 @@ class ActiveTreeManager(HasLifecycle):
         # FIXME: almost certainly a race condition here. Low-priority high-effort: user can work around for now
         if sn.spid.parent_guid != tree_meta.root_sn.spid.guid and sn.spid.parent_guid not in tree_meta.expanded_row_set:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{tree_meta.tree_id}] Parent ({sn.spid.parent_guid}) is not expanded in FE; will discard notification for {sn.spid}')
+                logger.debug(f'[{tree_meta.tree_id}] Parent {sn.spid.parent_guid} is not expanded in FE; will discard notification for {sn.spid}')
             return None
 
         return sn

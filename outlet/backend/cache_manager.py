@@ -796,7 +796,10 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
         # This should fire listeners which ultimately populate the tree:
         op_list: List[UserOp] = transfer_maker.get_all_op_list()
-        logger.debug(f'[{dst_tree_id}] Generated {len(op_list)} ops from drop')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{dst_tree_id}] Generated {len(op_list)} ops from drop: {op_list}')
+        else:
+            logger.debug(f'[{dst_tree_id}] Generated {len(op_list)} ops from drop')
         self.enqueue_op_batch(op_list)
         logger.debug(f'[{dst_tree_id}] {sw} Returning TRUE for drop')
         return True

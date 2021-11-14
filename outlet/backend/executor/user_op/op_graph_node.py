@@ -99,6 +99,10 @@ class OpGraphNode(BaseNode, ABC):
     def is_reentrant(self) -> bool:
         return False
 
+    @classmethod
+    def is_rm_node(cls) -> bool:
+        return False
+
     def is_remove_type(self) -> bool:
         return False
 
@@ -347,6 +351,10 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def is_create_type(self) -> bool:
         return self.op.op_type == UserOpType.MKDIR
 
+    def is_remove_type(self) -> bool:
+        # remember, the src node of a MV gets removed
+        return self.op.op_type == UserOpType.MV or self.op.op_type == UserOpType.MV_ONTO
+
     def clear_relationships(self):
         HasSingleParent.clear_relationships(self)
         HasMultiChild.clear_relationships(self)
@@ -414,6 +422,10 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
         HasMultiParent.__init__(self)
         HasSingleChild.__init__(self)
 
+    @classmethod
+    def is_rm_node(cls) -> bool:
+        return True
+
     def is_remove_type(self) -> bool:
         return True
 
@@ -428,7 +440,7 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
         HasSingleChild.clear_relationships(self)
 
     def print_me(self, full=True) -> str:
-        string = f'RM uid={self.node_uid}'
+        string = f'RM og_uid={self.node_uid}'
         if full:
             return f'{string}: {self.op}'
         else:

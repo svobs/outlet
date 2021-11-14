@@ -2,16 +2,16 @@ import collections
 import logging
 from collections import defaultdict
 from enum import IntEnum
-from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
+from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional, Set, Tuple
 
 from backend.executor.central import ExecPriority
 from backend.executor.user_op.batch_builder import BatchBuilder
-from backend.executor.user_op.op_graph import OpGraph
+from backend.executor.user_op.op_graph import OpGraph, skip_root
 from constants import IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from backend.executor.command.cmd_builder import CommandBuilder
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_disk_store import OpDiskStore
-from backend.executor.user_op.op_graph_node import RootNode
+from backend.executor.user_op.op_graph_node import OpGraphNode, RootNode
 from model.node.node import Node
 from model.user_op import OpTypeMeta, UserOp, UserOpType
 from model.uid import UID
@@ -44,7 +44,7 @@ class OpManager(HasLifecycle):
         self.backend = backend
         self._cmd_builder: CommandBuilder = CommandBuilder(self.backend.uid_generator)
         self._disk_store: OpDiskStore = OpDiskStore(self.backend, op_db_path=op_db_path)
-        self._op_graph: OpGraph = OpGraph(self.backend)
+        self._op_graph: OpGraph = OpGraph('MainGraph')
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
         self._batch_builder: BatchBuilder = BatchBuilder(self.backend)
@@ -103,14 +103,14 @@ class OpManager(HasLifecycle):
             return
 
         batch_uid = batch_op_list[0].batch_uid
-        logger.debug(f'append_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch_op_list)} ops )')
+        logger.debug(f'append_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch_op_list)} ops')
 
         # Simplify and remove redundancies in op_list, then sort by ascending op_uid:
         reduced_batch: List[UserOp] = self._batch_builder.reduce_and_validate_ops(batch_op_list)
 
         # TODO: can we safely increase the priority of this task so that the user will see a quicker response?
-        add_batch_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._add_batch, reduced_batch, True)
-        self.backend.executor.submit_async_task(add_batch_task)
+        batch_intake_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._start_batch_intake, reduced_batch, True)
+        self.backend.executor.submit_async_task(batch_intake_task)
         logger.debug(f'append_new_pending_op_batch(): Enqueued append_batch task for {batch_uid}')
 
     def resume_pending_ops_from_disk(self, this_task: Task):
@@ -121,8 +121,6 @@ class OpManager(HasLifecycle):
         if not op_list:
             logger.info(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
             return
-
-        op_list.sort(key=lambda _op: _op.op_uid)
 
         logger.info(f'resume_pending_ops_from_disk(): Found {len(op_list)} pending ops from the disk cache')
         if SUPER_DEBUG_ENABLED:
@@ -139,32 +137,35 @@ class OpManager(HasLifecycle):
         sorted_keys = sorted(batch_dict_keys)
 
         for batch_uid in sorted_keys:
-            # Assume batch has already been reduced and reconciled against master tree.
+            # Assume batch has already been reduced and reconciled against master tree; no need to call reduce_and_validate_ops()
             batch_op_list: List[UserOp] = batch_dict[batch_uid]
 
             logger.debug(f'Resuming pending batch uid={batch_uid} with {len(batch_op_list)} ops')
 
             # Add the batch to the op graph only after the caches are loaded
-            add_batch_task = this_task.create_child_task(self._add_batch, batch_op_list, False)
-            self.backend.executor.submit_async_task(add_batch_task)
+            batch_intake_task = this_task.create_child_task(self._start_batch_intake, batch_op_list, False)
+            self.backend.executor.submit_async_task(batch_intake_task)
 
-    def _add_batch(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
+    def _start_batch_intake(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
         """Adds the given batch of UserOps to the graph, which will lead to their eventual execution. Optionally also saves the ops to disk,
         which should only be done if they haven't already been saved.
         This method should only be called via the Executor."""
         assert this_task and this_task.priority == ExecPriority.P3_BACKGROUND_CACHE_LOAD, f'Bad task: {this_task}'
 
+        batch_op_list.sort(key=lambda _op: _op.op_uid)
+
         # Make sure all relevant caches are loaded. Do this via child tasks:
         big_node_list: List[Node] = BatchBuilder.get_all_nodes_in_batch(batch_op_list)
+        logger.debug(f'Batch {batch_op_list[0].batch_uid} contains {len(big_node_list)} affected nodes. Adding task to ensure they are in memory')
         self.backend.cacheman.ensure_cache_loaded_for_node_list(this_task, big_node_list)
 
         # Need to make sure we do the rest AFTER any needed cache loads complete
-        this_task.add_next_task(self._add_batch_after_cache_ready, batch_op_list, save_to_disk)
+        this_task.add_next_task(self._build_batch_graph_and_append_to_main_graph, batch_op_list, save_to_disk)
 
-    def _add_batch_after_cache_ready(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
-        """Part 2 of multi-task procession of adding a batch. Do not call this directly. Call _add_batch(), which will call this."""
+    def _build_batch_graph_and_append_to_main_graph(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
+        """Part 2 of multi-task procession of adding a batch. Do not call this directly. Start _start_batch_intake(), which will start this."""
 
-        batch_graph_root: RootNode = self._batch_builder.make_graph_from_batch(batch_op_list)
+        batch_graph_root: RootNode = self._batch_builder.build_batch_graph(batch_op_list)
 
         # Reconcile ops against master op tree before adding nodes. This will raise an exception if invalid
         self._batch_builder.validate_batch_graph(batch_graph_root, self)
@@ -173,7 +174,7 @@ class OpManager(HasLifecycle):
             # Save ops and their planning nodes to disk
             self._disk_store.upsert_pending_op_list(batch_op_list)
 
-        inserted_op_list, discarded_op_list = self._op_graph.enqueue_batch(batch_graph_root)
+        inserted_op_list, discarded_op_list = self._enqueue_batch_in_main_graph(batch_graph_root)
         # The lists are returned in order of BFS of their op graph. However, when upserting to the cache we need them in BFS order of the tree
         # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
         inserted_op_list.sort(key=lambda op: op.op_uid)
@@ -193,6 +194,50 @@ class OpManager(HasLifecycle):
             # NOTE: this REQUIRES that inserted_op_list is in the correct order:
             # any directories which need to be made must come before their children
             self._upsert_nodes_in_memstore(op)
+
+    def _enqueue_batch_in_main_graph(self, op_root: RootNode) -> Tuple[List[UserOp], List[UserOp]]:
+        """Returns a tuple of [inserted user ops, discarded user ops]
+        Algo:
+        1. Discard root
+        2. Examine each child of root. Each shall be treated as its own subtree.
+        3. For each subtree, look up all its nodes in the master dict. Level...?
+
+        Disregard the kind of op when building the tree; they are all equal for now (except for RM; see below):
+        Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
+
+        Note: it is assumed that the given batch has already been reduced, and stored in the pending ops tree.
+        Every op node in the supplied graph must be accounted for.
+        """
+        if not op_root.get_child_list():
+            raise RuntimeError(f'Batch has no nodes!')
+
+        batch_uid: UID = op_root.get_first_child().op.batch_uid
+
+        logger.info(f'Adding batch {batch_uid} to OpGraph')
+
+        breadth_first_list: List[OpGraphNode] = op_root.get_all_nodes_in_subtree()
+        processed_op_uid_set: Set[UID] = set()
+        inserted_op_list: List[UserOp] = []
+        discarded_op_list: List[UserOp] = []
+        for graph_node in skip_root(breadth_first_list):
+            succeeded = self._op_graph.enqueue_single_og_node(graph_node)
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Enqueue of OGNode {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded={succeeded}')
+
+            if succeeded:
+                if graph_node.op.op_uid not in processed_op_uid_set:
+                    inserted_op_list.append(graph_node.op)
+                    processed_op_uid_set.add(graph_node.op.op_uid)
+
+            else:
+                if graph_node.op.op_uid not in processed_op_uid_set:
+                    discarded_op_list.append(graph_node.op)
+                    processed_op_uid_set.add(graph_node.op.op_uid)
+
+            # Wake Central Executor for each graph node:
+            self.backend.executor.notify()
+
+        return inserted_op_list, discarded_op_list
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(device_uid, node_uid)
@@ -244,3 +289,6 @@ class OpManager(HasLifecycle):
         # Ensure command is one that we are expecting.
         # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
         self._op_graph.pop_op(command.op)
+
+        # Wake Central Executor in case it is in the waiting state:
+        self.backend.executor.notify()

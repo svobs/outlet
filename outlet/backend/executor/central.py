@@ -190,14 +190,14 @@ class CentralExecutor(HasLifecycle):
                     self._enqueue_in_task_runner(task)
                 else:
                     if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No tasks or commands. Waiting for running task CV')
+                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No tasks or UserOps from queue. Waiting to be notified by CV')
                     with self._running_task_cv:
                         if not self._was_notified:  # could have been notified while run loop was doing other work
                             # wait until we are notified of new task (assuming task queue is not full)
                             # or task finished (if task queue is full)
                             if not self._running_task_cv.wait(TASK_EXEC_IMEOUT_SEC):
                                 if SUPER_DEBUG_ENABLED:
-                                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Running task CV timeout!')
+                                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CV timeout! Looping')
 
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
@@ -211,7 +211,7 @@ class CentralExecutor(HasLifecycle):
 
     def _check_for_queued_task(self) -> Optional[Task]:
         if TRACE_ENABLED:
-            logger.debug('_check_for_queued_task() entered')
+            logger.debug('CheckForQueuedTasks() entered')
         task: Optional[Task] = None
 
         with self._struct_lock:
@@ -225,7 +225,7 @@ class CentralExecutor(HasLifecycle):
             total_count = len(self._running_task_dict)
             if total_count >= self._max_workers:
                 # already at max capacity
-                logger.debug(f'Already running max number of tasks ({self._max_workers}); will not pull more at this time')
+                logger.debug(f'CheckForQueuedTasks(): Already running max number of workers ({self._max_workers}); will wait for one to complete')
                 return None
 
             # Count number of user ops already running:
@@ -243,7 +243,7 @@ class CentralExecutor(HasLifecycle):
                     self._running_task_dict[task.task_uuid] = task
                     # fall through:
                 else:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): no tasks in queues, {non_user_op_count} running')
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): No tasks enqueued; {non_user_op_count} running')
             else:
                 logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of concurrent regular tasks '
                              f'({TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS}) ')
@@ -258,10 +258,10 @@ class CentralExecutor(HasLifecycle):
         if self.enable_op_execution and user_op_count < TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS:
             try:
                 if TRACE_ENABLED:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Getting next task from OpGraph')
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Checking OpGraph for any new tasks')
                 command = self.backend.cacheman.get_next_command_nowait()
                 if command:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): returning task for UserOp ({command.op}, '
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Got new task from OpGraph ({command.op}, '
                                  f'cmd = {command.__class__.__name__})')
                     task = Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command,
                                 self._command_executor.global_context, True)
@@ -269,16 +269,16 @@ class CentralExecutor(HasLifecycle):
                         self._running_task_dict[task.task_uuid] = task
                     return task
                 elif SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] OpGraph has no tasks for us at this time')
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): No new tasks ready in OpGraph')
 
             except RuntimeError as e:
-                logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving command: halting execution pipeline')
+                logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving OpGraph cmd: halting execution pipeline')
                 self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error retreiving command', secondary_msg=f'{e}')
                 self._pause_op_execution(sender=ID_CENTRAL_EXEC)
 
             return task
         else:
-            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of concurrent UserOp tasks '
+            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of concurrent OpGraph tasks '
                          f'({TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS}) ')
 
     def _print_current_state_of_pipeline(self):

@@ -3,11 +3,11 @@ import logging
 import threading
 from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
 
-from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
+from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from constants import NULL_UID, SUPER_DEBUG_ENABLED, SUPER_ROOT_UID, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import UserOp
+from model.user_op import UserOp, UserOpType
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -27,24 +27,26 @@ class OpGraph(HasLifecycle):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS OpGraph
 
-    Flow graph for user ops
+    Flow graph for user ops.
+    Note: an OpGraph is built out of "OpGraph nodes", which I may also refer to as "graph nodes", which have class OpGraphNode.
+    These should be distinguished from regular file nodes, dir nodes, etc, which I'll refer to as simply "nodes", with class Node.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
+    def __init__(self, name):
         HasLifecycle.__init__(self)
-        self.backend = backend
+        self.name = name
 
         self._cv_can_get = threading.Condition()
         """Used to help consumers block"""
 
         self._node_q_dict: Dict[UID, Dict[UID, Deque[OpGraphNode]]] = {}
-        """Contains entries for all nodes have pending ops. Each entry has a queue of pending ops for that target node"""
+        """Contains entries for all nodes associated with UserOps. Each entry contains a queue of all UserOps for that target node"""
 
-        self._graph_root: OpGraphNode = RootNode()
+        self.root: RootNode = RootNode()
         """Root of graph. Has no useful internal data; we value it for its children"""
 
         self._outstanding_actions: Dict[UID, UserOp] = {}
-        """Contains entries for all Ops which have running operations. Keyed by action UID"""
+        """Contains entries for all UserOps which have running operations. Keyed by action UID"""
 
         self._max_added_op_uid: UID = NULL_UID
         """Sanity check. Keep track of what's been added to the graph, and disallow duplicate or past inserts"""
@@ -59,6 +61,9 @@ class OpGraph(HasLifecycle):
             # unblock any get() task which is waiting
             self._cv_can_get.notifyAll()
 
+    # Misc.
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     def __len__(self):
         with self._cv_can_get:
             op_set = set()
@@ -71,7 +76,7 @@ class OpGraph(HasLifecycle):
             return len(op_set)
 
     def _print_current_state(self):
-        graph_line_list = self._graph_root.print_recursively()
+        graph_line_list = self.root.print_recursively()
 
         op_set = set()
         qd_line_list = []
@@ -114,27 +119,34 @@ class OpGraph(HasLifecycle):
         return None
 
     def get_max_added_op_uid(self) -> UID:
-        return self._max_added_op_uid
+        with self._cv_can_get:
+            return self._max_added_op_uid
 
-    def _find_child_nodes_in_tree_for_rm(self, op_node: OpGraphNode) -> List[OpGraphNode]:
+    # INSERT logic
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def _find_og_nodes_for_children_of_rm_target_node(self, og_node: OpGraphNode) -> List[OpGraphNode]:
+        """When adding an RM OGnode, we need to locate its OGnode parents (which are the child nodes of its target node.
+        We must make sure that all the child nodes are going to be removed """
         # TODO: probably could optimize a bit more...
         sw_total = Stopwatch()
 
-        assert isinstance(op_node, RmOpNode)
-        potential_parent: Node = op_node.get_tgt_node()
+        assert isinstance(og_node, RmOpNode), f'Unepxected type: {og_node}'
+        potential_parent: Node = og_node.get_tgt_node()
 
         child_nodes = []
 
         for node_dict in self._node_q_dict.values():
             for node_queue in node_dict.values():
                 if node_queue:
-                    existing_op_node = node_queue[-1]
-                    potential_child: Node = existing_op_node.get_tgt_node()
+                    existing_og_node = node_queue[-1]
+                    potential_child: Node = existing_og_node.get_tgt_node()
                     if potential_parent.is_parent_of(potential_child):
-                        if not existing_op_node.is_remove_type():
+                        # We found a parent OG node for
+                        if not existing_og_node.is_remove_type():
                             # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
-                            raise RuntimeError(f'Found child node for RM-type node which is not RM type: {existing_op_node}')
-                        child_nodes.append(existing_op_node)
+                            raise RuntimeError(f'Found child node for RM-type node which is not RM type: {existing_og_node}')
+                        child_nodes.append(existing_og_node)
 
         logger.debug(f'{sw_total} Found {len(child_nodes):n} child nodes in tree for op node')
         return child_nodes
@@ -142,60 +154,67 @@ class OpGraph(HasLifecycle):
     def _insert_rm_node_in_tree(self, node_to_insert: OpGraphNode, last_target_op, tgt_parent_uid_list: List[UID]) -> bool:
         # Special handling for RM-type nodes.
         # We want to find the lowest RM node in the tree.
-        assert node_to_insert.is_remove_type()
+        assert node_to_insert.is_rm_node()
         target_node: Node = node_to_insert.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
 
-        # First, see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
-        op_for_child_node_list: List[OpGraphNode] = self._find_child_nodes_in_tree_for_rm(node_to_insert)
-        if op_for_child_node_list:
-            logger.debug(f'Found {len(op_for_child_node_list)} ops for children of node being removed ({target_node.uid});'
+        # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
+        og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(node_to_insert)
+        if og_nodes_for_child_nodes_list:
+            # Possibility 1: children
+            logger.debug(f'Found {len(og_nodes_for_child_nodes_list)} existing ops for children of node being removed ({target_node.dn_uid});'
                          f' adding as child dependency of each')
 
-            existing_child_count = 0
-            for op_for_child_node in op_for_child_node_list:
-                existing_child: Optional[OpGraphNode] = op_for_child_node.get_first_child()
+            ok_child_count = 0
+            for og_node_for_child_node in og_nodes_for_child_nodes_list:
+                existing_child: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
                 if existing_child:
-                    assert existing_child.is_remove_type()
+                    if not existing_child.is_remove_type():
+                        raise RuntimeError(f'Found unexpected node which is blocking insert of our RM operation: {existing_child} '
+                                           f'(while trying to insert: {node_to_insert})')
                     if existing_child.get_tgt_node().device_uid != target_device_uid or existing_child.get_tgt_node().uid != target_node.uid:
-                        raise RuntimeError(f'Found unexpected child node: {existing_child} (attempting to insert: {node_to_insert})')
-                    existing_child_count += 1
+                        raise RuntimeError(f'Found unexpected child node: {existing_child} (while trying to insert: {node_to_insert})')
+                    ok_child_count += 1
                 else:
-                    op_for_child_node.link_child(node_to_insert)
+                    og_node_for_child_node.link_child(node_to_insert)
 
-            # Logically, either no children, *or* all child nodes have already been attached to parent
-            if not (existing_child_count == 0 or existing_child_count == len(op_for_child_node_list)):
-                raise RuntimeError(f'Inconsistency detected in op tree! Only {existing_child_count} of {len(op_for_child_node_list)}'
+            # Logically, either no children, *or* all child nodes must have already been attached to parent
+            if not (ok_child_count == 0 or ok_child_count == len(og_nodes_for_child_nodes_list)):
+                raise RuntimeError(f'Inconsistency detected in op tree! Only {ok_child_count} of {len(og_nodes_for_child_nodes_list)}'
                                    f'RM nodes in dir have an RM child (attempting to insert: {node_to_insert})')
 
-            if existing_child_count > 0:
-                logger.debug(f'All parent ops already have child op attached with correct node UID. Discarding op {node_to_insert.node_uid}')
+            if ok_child_count > 0:
+                logger.info(f'All parent ops already have child op attached with correct node UID. Discarding op {node_to_insert.node_uid}')
                 return False
 
         elif last_target_op:
-            # If existing op is found for the target node, add below that.
-            if last_target_op.is_remove_type():
-                logger.info(f'UserOp node being enqueued (UID {node_to_insert.op.src_node.dn_uid}, tgt {target_node.dn_uid}) is an RM type which is '
-                            f'a dup of already enqueued RM ({last_target_op.op.src_node.dn_uid}); discarding!')
+            # Possibility 2: If existing op is found for the target node, add below that.
+            if last_target_op.is_rm_node():
+                logger.warning(f'UserOp node being enqueued (UID {node_to_insert.op.src_node.dn_uid}, tgt {target_node.dn_uid}) is an RM '
+                               f'which is a dup of already enqueued RM ({last_target_op.op.src_node.dn_uid}); discarding!')
                 return False
 
             # The node's children MUST be removed first. It is invalid to RM a node which has children.
+            # (if the children being added are later scheduled for removal, then they should should up in Possibility 1
             if last_target_op.get_child_list():
                 raise RuntimeError(f'While trying to add RM op: did not expect existing op for node to have children! (Node={last_target_op})')
             logger.debug(f'Found pending op(s) for target node {target_node.dn_uid} for RM op; adding as child dependency')
             last_target_op.link_child(node_to_insert)
         else:
+            # Possibility 3: no previous ops for node or its children
             logger.debug(f'Found no previous ops for target node {target_node.dn_uid} or its children; adding to root')
-            self._graph_root.link_child(node_to_insert)
+            self.root.link_child(node_to_insert)
 
-        for parent_uid in tgt_parent_uid_list:
-            # Sometimes the nodes are not inserted in exactly the right order. Link any nodes which fell through cuz their child
-            # was inserted first (do this after we have a chance to return False):
-            last_parent_op = self._get_lowest_priority_op_node(target_device_uid, parent_uid)
-            if last_parent_op and last_parent_op.is_remove_type():
-                logger.debug(f'Found potentially unlinked op for parent: {last_parent_op}; linking as child to node being inserted'
-                             f' ({node_to_insert})')
-                last_parent_op.link_parent(node_to_insert)
+        # TODO: this should no longer be required. Confirm then delete
+        if False:
+            for parent_uid in tgt_parent_uid_list:
+                # Sometimes the nodes are not inserted in exactly the right order. Link any nodes which fell through cuz their child
+                # was inserted first (do this after we have a chance to return False):
+                last_parent_op = self._get_lowest_priority_op_node(target_device_uid, parent_uid)
+                if last_parent_op and last_parent_op.is_rm_node():
+                    logger.debug(f'Found potentially unlinked op for parent: {last_parent_op}; linking as child to node being inserted'
+                                 f' ({node_to_insert})')
+                    last_parent_op.link_parent(node_to_insert)
 
         return True
 
@@ -229,9 +248,9 @@ class OpGraph(HasLifecycle):
                 assert not parent_last_op and not last_target_op
                 logger.debug(f'[OG {node_to_insert.node_uid}] Found no pending ops for either target node {target_node.dn_uid} '
                              f'or parent node {target_device_uid}:{parent_uid}; adding to root')
-                self._graph_root.link_child(node_to_insert)
+                self.root.link_child(node_to_insert)
 
-    def _enqueue_single_og_node(self, node_to_insert: OpGraphNode) -> bool:
+    def enqueue_single_og_node(self, node_to_insert: OpGraphNode) -> bool:
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
@@ -240,7 +259,7 @@ class OpGraph(HasLifecycle):
 
         Returns True if the node was successfully nq'd; returns False if discarded
         """
-        logger.debug(f'InsertOGNode called for: {node_to_insert}')
+        logger.debug(f'[{self.name}] InsertOGNode called for: {node_to_insert}')
 
         # Need to clear out previous relationships before adding to main tree:
         node_to_insert.clear_relationships()
@@ -248,89 +267,44 @@ class OpGraph(HasLifecycle):
         target_node: Node = node_to_insert.get_tgt_node()
         tgt_parent_uid_list: List[UID] = target_node.get_parent_uids()
 
-        # First check whether the target node is known and has pending operations
-        last_target_op = self._get_lowest_priority_op_node(target_node.device_uid, target_node.uid)
+        with self._cv_can_get:
+            # First check whether the target node is known and has pending operations
+            last_target_op = self._get_lowest_priority_op_node(target_node.device_uid, target_node.uid)
 
-        if node_to_insert.is_remove_type():
-            insert_succeeded = self._insert_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
-        else:
-            # Not an RM node:
-            self._insert_non_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
-            insert_succeeded = True
+            if node_to_insert.is_rm_node():
+                insert_succeeded = self._insert_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
+            else:
+                # Not an RM node:
+                self._insert_non_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
+                insert_succeeded = True
 
-        if not insert_succeeded:
-            logger.info(f'InsertOGNode: failed to enqueue: {node_to_insert}')
-            return False
+            if not insert_succeeded:
+                logger.info(f'[{self.name}] InsertOGNode: failed to enqueue: {node_to_insert}')
+                return False
 
-        # Always add to node_queue_dict:
-        node_dict = self._node_q_dict.get(target_node.device_uid, None)
-        if not node_dict:
-            node_dict = dict()
-            self._node_q_dict[target_node.device_uid] = node_dict
-        pending_op_queue = node_dict.get(target_node.uid)
-        if not pending_op_queue:
-            pending_op_queue = collections.deque()
-            node_dict[target_node.uid] = pending_op_queue
-        pending_op_queue.append(node_to_insert)
+            # Always add to node_queue_dict:
+            node_dict = self._node_q_dict.get(target_node.device_uid, None)
+            if not node_dict:
+                node_dict = dict()
+                self._node_q_dict[target_node.device_uid] = node_dict
+            pending_op_queue = node_dict.get(target_node.uid)
+            if not pending_op_queue:
+                pending_op_queue = collections.deque()
+                node_dict[target_node.uid] = pending_op_queue
+            pending_op_queue.append(node_to_insert)
 
-        logger.info(f'InsertOGNode: successfully enqueued: {node_to_insert}')
+            if self._max_added_op_uid < node_to_insert.op.op_uid:
+                self._max_added_op_uid = node_to_insert.op.op_uid
+
+            # notify consumers there is something to get:
+            self._cv_can_get.notifyAll()
+
+        logger.info(f'[{self.name}] InsertOGNode: successfully enqueued: {node_to_insert}')
 
         return True
 
-    def enqueue_batch(self, op_root: RootNode) -> Tuple[List[UserOp], List[UserOp]]:
-        """Returns a tuple of [inserted user ops, discarded user ops]
-        Algo:
-        1. Discard root
-        2. Examine each child of root. Each shall be treated as its own subtree.
-        3. For each subtree, look up all its nodes in the master dict. Level...?
-
-        Disregard the kind of op when building the tree; they are all equal for now (except for RM; see below):
-        Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
-
-        Note: it is assumed that the given batch has already been reduced, and stored in the pending ops tree.
-        Every op node in the supplied graph must be accounted for.
-        """
-        if not op_root.get_child_list():
-            raise RuntimeError(f'Batch has no nodes!')
-
-        batch_uid: UID = op_root.get_first_child().op.batch_uid
-
-        logger.info(f'Adding batch {batch_uid} to OpGraph')
-
-        breadth_first_list: List[OpGraphNode] = op_root.get_all_nodes_in_subtree()
-        processed_op_uid_set: Set[UID] = set()
-        inserted_op_list: List[UserOp] = []
-        discarded_op_list: List[UserOp] = []
-        for graph_node in skip_root(breadth_first_list):
-            with self._cv_can_get:
-                succeeded = self._enqueue_single_og_node(graph_node)
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Enqueue of og_node {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded={succeeded}')
-
-                if succeeded:
-                    if graph_node.op.op_uid not in processed_op_uid_set:
-                        inserted_op_list.append(graph_node.op)
-                        processed_op_uid_set.add(graph_node.op.op_uid)
-
-                    if self._max_added_op_uid < graph_node.op.op_uid:
-                        self._max_added_op_uid = graph_node.op.op_uid
-
-                else:
-                    if graph_node.op.op_uid not in processed_op_uid_set:
-                        discarded_op_list.append(graph_node.op)
-                        processed_op_uid_set.add(graph_node.op.op_uid)
-
-                # notify consumers there is something to get:
-                self._cv_can_get.notifyAll()
-
-        # Wake Central Executor:
-        self.backend.executor.notify()
-
-        with self._cv_can_get:
-            logger.debug(f'Done adding batch {batch_uid}')
-            self._print_current_state()
-
-        return inserted_op_list, discarded_op_list
+    # GET logic
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _is_node_ready(self, op: UserOp, node: Node, node_type_str: str) -> bool:
         node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_q_dict.get(node.device_uid, None)
@@ -358,7 +332,7 @@ class OpGraph(HasLifecycle):
     def _try_get(self) -> Optional[UserOp]:
         # We can optimize this later
 
-        for og_node in self._graph_root.get_child_list():
+        for og_node in self.root.get_child_list():
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'TryGet(): Examining {og_node}')
 
@@ -426,9 +400,12 @@ class OpGraph(HasLifecycle):
 
         return None
 
+    # POP logic
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     def pop_op(self, op: UserOp):
         """Ensure that we were expecting this op to be copmleted, and remove it from the tree."""
-        logger.debug(f'Entered pop_op() for op {op}')
+        logger.debug(f'[{self.name}] Entered pop_op() for op {op}')
 
         with self._cv_can_get:
             if not self._outstanding_actions.pop(op.op_uid, None):
@@ -469,14 +446,14 @@ class OpGraph(HasLifecycle):
                 raise RuntimeError(f'Src node for completed op is not a parent of root (instead found parent op node {parent_uid})')
 
             # unlink from its parent
-            self._graph_root.unlink_child(src_op_node)
+            self.root.unlink_child(src_op_node)
 
             # unlink its children also. If the child then has no other parents, it moves up to become child of root
             for child in src_op_node.get_child_list():
                 child.unlink_parent(src_op_node)
 
                 if not child.get_parent_list():
-                    self._graph_root.link_child(child)
+                    self.root.link_child(child)
                 else:
                     # Sanity check:
                     for par in child.get_parent_list():
@@ -520,23 +497,20 @@ class OpGraph(HasLifecycle):
                     raise RuntimeError(f'Dst node for completed op is not a parent of root (instead found parent {parent_uid})')
 
                 # unlink from its parent
-                self._graph_root.unlink_child(dst_op_node)
+                self.root.unlink_child(dst_op_node)
 
                 # unlink its children also. If the child then has no other parents, it moves up to become child of root
                 for child in dst_op_node.get_child_list():
                     child.unlink_parent(dst_op_node)
 
                     if not child.get_parent_list():
-                        self._graph_root.link_child(child)
+                        self.root.link_child(child)
 
                 # II-3. Delete dst node
                 del dst_op_node
 
-            logger.debug(f'Done with pop_op() for op: {op}')
+            logger.debug(f'[{self.name}] Done with pop_op() for op: {op}')
             self._print_current_state()
 
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
-
-        # Wake Central Executor in case it is in the waiting state:
-        self.backend.executor.notify()
