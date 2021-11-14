@@ -73,6 +73,10 @@ class OneSide:
     def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str) -> SPIDNodePair:
         dst_device_uid: UID = self.root_sn.spid.device_uid
         dst_tree_type: TreeType = self.root_sn.spid.tree_type
+        assert not dst_path.endswith('/')
+
+        if DIFF_DEBUG_ENABLED:
+            logger.debug(f'[{self.change_tree.tree_id}] Migrating single node: {sn_src.spid} -> {dst_path}')
 
         # First figure out UID and other identifying info for dst node.
         if dst_tree_type == TreeType.LOCAL_DISK:
@@ -142,7 +146,7 @@ class OneSide:
         self._add_needed_ancestors(sn_dst)
 
         if DIFF_DEBUG_ENABLED:
-            logger.debug(f'[{self.change_tree.tree_id}] Migrated single node: {sn_src.spid} -> {spid}')
+            logger.debug(f'[{self.change_tree.tree_id}] Done migrating single node: {sn_src.spid} -> {spid}')
         return sn_dst
 
     @staticmethod
@@ -169,17 +173,21 @@ class OneSide:
         tree_type: int = new_sn.spid.tree_type
         device_uid: UID = new_sn.spid.device_uid
         ancestor_stack: Deque[SPIDNodePair] = deque()
+        stop_at_path: str = self.root_sn.spid.get_single_path()
 
         child_path: str = new_sn.spid.get_single_path()
         child: Node = new_sn.node
+
+        assert not stop_at_path.startswith(child_path), f'Should not be inserting at or above root: {child_path}'
         if DIFF_DEBUG_ENABLED:
-            logger.debug(f'[{self.change_tree.tree_id}] Checking for missing ancestors for node with path: "{child_path}"')
+            logger.debug(f'[{self.change_tree.tree_id}] Checking for missing ancestors between node with path: "{child_path}" '
+                         f'and tree root "{stop_at_path}"')
 
         # Determine ancestors:
         while True:
             parent_path = str(pathlib.Path(child_path).parent)
 
-            if parent_path == self.root_sn.spid.get_single_path():
+            if parent_path == stop_at_path:
                 if DIFF_DEBUG_ENABLED:
                     logger.debug(f'[{self.change_tree.tree_id}] Parent of new node has the same path as tree root; no more ancestors to create')
                 child.set_parent_uids(self.root_sn.node.uid)
@@ -253,18 +261,27 @@ class ChangeMaker:
     @staticmethod
     def _change_base_path(orig_target_path: str, orig_base: SPIDNodePair, new_base: SPIDNodePair, new_target_name: Optional[str] = None) -> str:
         dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base.spid.get_single_path())
+        logger.debug(f'change_base_path(): new_base_path="{new_base.spid.get_single_path()}", dst_rel_path1="{dst_rel_path}"')
         if new_target_name:
             # target is being renamed
             orig_target_name = os.path.basename(orig_target_path)
             dst_rel_path_minus_name = dst_rel_path.removesuffix(orig_target_name)
-            assert dst_rel_path_minus_name != dst_rel_path, f'Not equal: "{dst_rel_path_minus_name}" and "{orig_target_name}"'
+            assert dst_rel_path_minus_name != dst_rel_path, f'Should not be equal: "{dst_rel_path_minus_name}" and "{orig_target_name}"'
             dst_rel_path = dst_rel_path_minus_name + new_target_name
-        return os.path.join(new_base.spid.get_single_path(), dst_rel_path)
+            logger.debug(f'change_base_path(): new_target_name="{new_target_name}", dst_rel_path2="{dst_rel_path}"')
+        if dst_rel_path:
+            result = os.path.join(new_base.spid.get_single_path(), dst_rel_path)
+        else:
+            # do not use os.path.join() here, or we will end up with a '/' at the end which we don't want
+            result = new_base.spid.get_single_path()
+        logger.info(f'change_base_path(): OrigTarget="{orig_target_path}", NewTarget="{result}"')
+        return result
 
     @staticmethod
-    def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier) -> str:
+    def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier, new_target_name: Optional[str] = None) \
+            -> str:
         return ChangeMaker._change_base_path(orig_target_path=spid_from_src_tree.get_single_path(), orig_base=src_side.root_sn,
-                                             new_base=dst_side.root_sn)
+                                             new_base=dst_side.root_sn, new_target_name=new_target_name)
 
     def migrate_rel_path_to_right_tree(self, spid_left: SinglePathNodeIdentifier) -> str:
         return ChangeMaker._change_tree_path(self.left_side, self.right_side, spid_left)

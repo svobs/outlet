@@ -4,7 +4,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import DIFF_DEBUG_ENABLED, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -133,6 +133,8 @@ class ChangeTree(DisplayTree):
             return cat_sn
 
         # else we need to create pre-ancestors...
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.tree_id}] Creating pre-ancestors for {sn.spid}')
 
         parent_sn: SPIDNodePair = self.get_root_node()
 
@@ -161,8 +163,8 @@ class ChangeTree(DisplayTree):
         return cat_sn
 
     def _get_or_create_ancestors(self, sn: SPIDNodePair, parent_sn: SPIDNodePair):
-        dummy_stack: Deque[SPIDNodePair] = deque()
         full_path = sn.spid.get_single_path()
+        existing_ancestor_path = parent_sn.spid.get_single_path()
         if not full_path:
             raise RuntimeError(f'SPID does not have a path: {sn.spid}')
         if not full_path.startswith(self.root_path):
@@ -170,26 +172,45 @@ class ChangeTree(DisplayTree):
 
         # Walk up the source tree and compose a list of ancestors:
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.tree_id}] Looking for ancestors for path "{full_path}"')
+            logger.debug(f'[{self.tree_id}] Looking for ancestors to fill in for path "{full_path}", stopping before "{existing_ancestor_path}"')
+
         ancestor_spid: ChangeTreeSPID = sn.spid
+        dummy_stack: Deque[SPIDNodePair] = deque()
+
         while True:
             # Go up one dir:
             full_path: str = str(pathlib.Path(ancestor_spid.get_single_path()).parent)
             if full_path == self.root_path:
                 break
+
+            if full_path == ROOT_PATH:
+                # This indicates a gap in our logic somewhere
+                raise RuntimeError(f'While checking ancestors: somehow we skipped existing ancestor "{existing_ancestor_path}" '
+                                   f'(while inserting node with path "{sn.spid.get_single_path()}")')
+
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{self.tree_id}] Checking for ancestor with path: "{full_path}"')
+
             # Need some work to assemble the GUID to look up the ancestor:
             ancestor_path_uid = self.backend.cacheman.get_uid_for_local_path(full_path)  # TODO: take "_local" out of this
             ancestor_spid: ChangeTreeSPID = ChangeTreeSPID(ancestor_path_uid, ancestor_spid.device_uid, full_path, ancestor_spid.op_type)
             ancestor_sn = self._category_tree.get_node_for_identifier(ancestor_spid.guid)
             if ancestor_sn:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.tree_id}] Ancestor already exists: {ancestor_spid.guid}; will start adding descendents to this"')
                 # already added ancestor to tree
                 parent_sn = ancestor_sn
                 break
             else:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.tree_id}] Ancestor not found: {ancestor_spid.guid}; creating dummy node"')
                 # create ancestor & push to stack for later insertion in correct order
                 ancestor_dir = ContainerNode(ancestor_spid)
                 ancestor_dir.set_icon(OpTypeMeta.icon_src_dir(ancestor_spid.op_type))
                 dummy_stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.tree_id}] Need to add {len(dummy_stack)} ancestors"')
 
         # Walk down the ancestor list and create a node for each ancestor dir:
         while len(dummy_stack) > 0:
@@ -197,8 +218,12 @@ class ChangeTree(DisplayTree):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.tree_id}] Inserting new dummy ancestor: {dummy_child_sn.spid} under parent: {parent_sn.spid}')
             self._category_tree.add_node(node=dummy_child_sn, parent=parent_sn)
+
             parent_sn = dummy_child_sn
 
+        # Walk up the source tree and compose a list of ancestors:
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.tree_id}] Done adding ancestors. Returning parent: {parent_sn.spid}')
         return parent_sn
 
     @staticmethod
@@ -245,7 +270,7 @@ class ChangeTree(DisplayTree):
 
             try:
                 if sn.spid.guid == parent_sn.spid.guid:
-                    logger.error(f'Something is wrong: these should not have the same identifiers: sn={sn}, parent_sn={parent_sn}')
+                    logger.error(f'[{self.tree_id}] Something is wrong: these should not have the same identifiers: sn={sn}, parent_sn={parent_sn}')
                     raise RuntimeError(f'Internal error: got a bad parent node while inserting: {sn.spid}')
 
                 # Finally add the node itself.

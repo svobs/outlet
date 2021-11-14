@@ -40,6 +40,7 @@ from util import file_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
+from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
@@ -731,8 +732,9 @@ class CacheManager(HasLifecycle):
             f'Invalid dir_conflict_policy: {dir_conflict_policy}'
         assert file_conflict_policy is not None and isinstance(file_conflict_policy, FileConflictPolicy), \
             f'Invalid file_conflict_policy: {file_conflict_policy}'
-        logger.info(f'Got drop: {drag_operation.name} {len(src_guid_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}"'
-                    f' dst_guid={dst_guid} is_into={is_into} dir_policy={dir_conflict_policy.name} file_policy={file_conflict_policy.name}')
+        sw = Stopwatch()
+        logger.info(f'[{dst_tree_id}] Got drop: {drag_operation.name} {len(src_guid_list)} nodes from "{src_tree_id}"->"{dst_tree_id}"'
+                    f' dst_guid="{dst_guid}" is_into={is_into} dir_policy={dir_conflict_policy.name} file_policy={file_conflict_policy.name}')
 
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
         dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
@@ -794,14 +796,16 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
         # This should fire listeners which ultimately populate the tree:
         op_list: List[UserOp] = transfer_maker.get_all_op_list()
+        logger.debug(f'[{dst_tree_id}] Generated {len(op_list)} ops from drop')
         self.enqueue_op_batch(op_list)
+        logger.debug(f'[{dst_tree_id}] {sw} Returning TRUE for drop')
         return True
 
     def _is_dropping_on_self(self, sn_src_list: List[SPIDNodePair], sn_dst: SPIDNodePair, dst_tree_id: TreeID):
         dst_ancestor_list = self.get_ancestor_list_for_spid(sn_dst.spid)
 
         for sn_src in sn_src_list:
-            logger.debug(f'[{dst_tree_id}] DestNode="{sn_dst.spid}", DroppedNode="{sn_src.node}"')
+            logger.debug(f'[{dst_tree_id}] Validating drop: DestNode="{sn_dst.spid}", DroppedNode="{sn_src.node}"')
 
             if sn_dst.node.node_identifier == sn_src.node.node_identifier:
                 logger.debug(f'[{dst_tree_id}] Source node ({sn_src.spid}) was dropped onto itself -> no op')

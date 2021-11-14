@@ -144,11 +144,18 @@ class ActiveTreeManager(HasLifecycle):
             if not guid_set:
                 guid_set: Set[GUID] = set()
                 self._tree_stats_refresh_queue_dict[tree_id] = guid_set
-            guid_set.add(dir_guid)
+            is_new: bool = dir_guid not in guid_set
+            if is_new:
+                guid_set.add(dir_guid)
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{tree_id}] Added dir {dir_guid} to stats queue; giving the stats refresh timer a kick')
-        self._stats_refresh_timer.start_or_delay()
+            if is_new:
+                logger.debug(f'[{tree_id}] Added dir {dir_guid} to stats queue; giving the stats refresh timer a kick')
+            else:
+                logger.debug(f'[{tree_id}] Dir {dir_guid} already present in stats queue')
+
+        if is_new:
+            self._stats_refresh_timer.start_or_delay()
 
     def _process_queued_stats(self):
         with self._stat_dict_lock:

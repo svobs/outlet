@@ -54,7 +54,7 @@ class TransferMaker(ChangeMaker):
         dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = self._get_dict_of_name_to_child_list(sn_dst_parent.spid, self.right_side.tree_id_src)
         dd_meta = TransferMeta(drag_op, dir_conflict_policy, file_conflict_policy, sn_dst_parent, dst_existing_sn_dict)
 
-        logger.debug(f'Preparing {len(sn_src_list)} nodes for {drag_op.name}...')
+        logger.debug(f'[{self.right_side.tree_id_src}] Preparing {len(sn_src_list)} nodes for {drag_op.name}...')
 
         for sn_src in sn_src_list:
             # In general, we will throw an error rather than attempt to replace or merge more than 1 node with the same name
@@ -268,7 +268,7 @@ class TransferMaker(ChangeMaker):
 
         if queue_rm_dir:
             if DIFF_DEBUG_ENABLED:
-                logger.debug(f'DirMerge: adding RMIR ops for {len(queue_rm_dir)} queued MOVE SRC dirs')
+                logger.debug(f'DirMerge: adding RM DIR ops for {len(queue_rm_dir)} queued MOVE SRC dirs')
 
             while len(queue_rm_dir) > 0:
                 sn_dir_src = queue_rm_dir.pop()  # LIFO order
@@ -447,21 +447,24 @@ class TransferMaker(ChangeMaker):
         """COPY or MOVE where target does not already exist. Source node can either be a file or dir (in which case all its descendants will
         also be handled.
         The optional "name_new_dst" param, if supplied, will rename the target."""
+        queue_rm_dir: Deque[SPIDNodePair] = collections.deque()
+
         if sn_src.node.is_dir():
             # Need to get all the nodes in its whole subtree and add them individually:
             list_sn_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.spid)
-            logger.debug(f'Unpacking subtree with {len(list_sn_subtree)} nodes for {dd_meta.op_type.name}...')
+            logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for {dd_meta.op_type.name}')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'NoConflicts: src subtree nodes: {", ".join([str(sn.spid) for sn in list_sn_subtree])}')
 
             for sn_src_descendent in list_sn_subtree:
-                dst_path = self._change_base_path(orig_target_path=sn_src_descendent.spid.get_single_path(), orig_base=sn_src,
-                                                  new_base=dd_meta.sn_dst_parent, new_target_name=name_new_dst)
+                dst_path = self._change_tree_path(src_side=self.left_side, dst_side=self.right_side, spid_from_src_tree=sn_src_descendent.spid,
+                                                  new_target_name=name_new_dst)
                 sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path)
 
                 if sn_src_descendent.node.is_dir():
                     if dd_meta.drag_op == DragOperation.MOVE:
                         # When all nodes in a dir have been moved, the src dir itself should be deleted.
-                        # TODO: test MOVE of a subtree. Do we need to add this in reverse?
-                        self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_src_descendent)
+                        queue_rm_dir.append(sn_src_descendent)
 
                     # Add explicit MKDIR here, so that we don't omit empty dirs
                     self.right_side.add_node_and_new_op(op_type=UserOpType.MKDIR, sn_src=sn_dst_descendent)
@@ -472,6 +475,14 @@ class TransferMaker(ChangeMaker):
             # Src node is file: easy case:
             sn_dst: SPIDNodePair = self._migrate_sn_to_right(sn_src, dd_meta.sn_dst_parent, name_new_dst)
             self.right_side.add_node_and_new_op(op_type=dd_meta.op_type, sn_src=sn_src, sn_dst=sn_dst)
+
+        if queue_rm_dir:
+            if DIFF_DEBUG_ENABLED:
+                logger.debug(f'NoConflicts: adding RM DIR ops for {len(queue_rm_dir)} queued MOVE SRC dirs')
+
+            while len(queue_rm_dir) > 0:
+                sn_dir_src = queue_rm_dir.pop()  # LIFO order
+                self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_dir_src)
 
     def _migrate_sn_to_right(self, sn_src: SPIDNodePair, sn_dst_parent: SPIDNodePair, sn_dst_name: Optional[str] = None) -> SPIDNodePair:
         # note: sn_dst_parent should be on right side

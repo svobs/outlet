@@ -243,7 +243,7 @@ class CentralExecutor(HasLifecycle):
                     self._running_task_dict[task.task_uuid] = task
                     # fall through:
                 else:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): task queues are empty ({non_user_op_count} still running)')
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): no tasks in queues, {non_user_op_count} running')
             else:
                 logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of concurrent regular tasks '
                              f'({TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS}) ')
