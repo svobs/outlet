@@ -4,7 +4,7 @@ import threading
 from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
 
 from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
-from constants import NULL_UID, SUPER_DEBUG_ENABLED, SUPER_ROOT_UID, TRACE_ENABLED
+from constants import NULL_UID, OP_GRAPH_VALIDATE_AFTER_EVERY_INSERTED_OG_NODE, SUPER_DEBUG_ENABLED, SUPER_ROOT_UID, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
@@ -90,16 +90,16 @@ class OpGraph(HasLifecycle):
                     node_repr_list.append(node.op.get_tag())
                 qd_line_list.append(f'Node {device_uid}:{node_uid}:')
                 for i, node_repr in enumerate(node_repr_list):
-                    qd_line_list.append(f'{i}. {node_repr}')
+                    qd_line_list.append(f'  [{i}] {node_repr}')
 
-        logger.debug(f'[MainGraph] CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
+        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
         for graph_line in graph_line_list:
-            logger.debug(f'[MainGraph] {graph_line}')
+            logger.debug(f'[{self.name}] {graph_line}')
 
-        logger.debug(f'[MainGraph] CURRENT EXECUTION STATE: NodeQueueDict has {queue_count} queues for {len(self._node_q_dict)} devices, '
+        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: NodeQueueDict has {queue_count} queues for {len(self._node_q_dict)} devices, '
                      f'{len(op_set)} total ops:')
         for qd_line in qd_line_list:
-            logger.debug(f'[MainGraph] {qd_line}')
+            logger.debug(f'[{self.name}] {qd_line}')
 
     def _get_lowest_priority_op_node(self, device_uid: UID, node_uid: UID):
         node_dict = self._node_q_dict.get(device_uid, None)
@@ -121,6 +121,139 @@ class OpGraph(HasLifecycle):
     def get_max_added_op_uid(self) -> UID:
         with self._cv_can_get:
             return self._max_added_op_uid
+
+    def _validate_graph(self):
+        """The caller is responsible for locking the graph before calling this."""
+        logger.debug(f'[{self.name}] Validating graph...')
+        error_count = 0
+        coverage_dict: Dict[UID, OpGraphNode] = {self.root.node_uid: self.root}
+        unrecognized_og_node_dict : Dict[UID, str] = {}
+
+        # Iterate through graph using a queue, using coverage_dict to avoid doing duplicate analysis:
+        og_node_queue: Deque[OpGraphNode] = collections.deque()
+
+        for child_of_root in self.root.get_child_list():
+            if not child_of_root.is_child_of_root():
+                error_count += 1
+                logger.error(f'[{self.name}] ValidateGraph: OG node is a child of root but is_child_of_root()==False: {child_of_root}')
+            og_node_queue.append(child_of_root)
+
+        while len(og_node_queue) > 0:
+            og_node: OpGraphNode = og_node_queue.popleft()
+            logger.debug(f'[{self.name}] ValidateGraph: Examining OGN from graph: {og_node}')
+
+            if coverage_dict.get(og_node.node_uid, None):
+                # already processed this node
+                continue
+
+            coverage_dict[og_node.node_uid] = og_node
+
+            # Verify parents:
+            parent_og_node_list = og_node.get_parent_list()
+            if not parent_og_node_list:
+                error_count += 1
+                logger.error(f'ValidateGraph: OG node has no parents: {og_node}')
+            else:
+                parent_uid_set: Set[UID] = set()
+                for parent_og_node in parent_og_node_list:
+                    if parent_og_node.node_uid in parent_uid_set:
+                        error_count += 1
+                        logger.error(f'[{self.name}] ValidateGraph: Duplicate parent listed in OG node! OGN uid={og_node.node_uid}, '
+                                     f'parent_uid={parent_og_node.node_uid}')
+                        continue
+                    else:
+                        parent_uid_set.add(parent_og_node.node_uid)
+
+                    if not coverage_dict.get(parent_og_node.node_uid, None):
+                        unrecognized_og_node_dict[parent_og_node.node_uid] = \
+                            'Unrecognized parent listed in OG node! OGN uid={og_node.node_uid}, ' \
+                            'parent_OGN={parent_og_node}'
+
+                has_multiple_parents = len(parent_og_node_list) > 1
+                tgt_node: Node = og_node.get_tgt_node()
+
+                if not og_node.is_child_of_root():
+                    if og_node.is_rm_node():
+                        all_parents_must_be_remove_type = False
+                        if has_multiple_parents:
+                            all_parents_must_be_remove_type = True
+                        child_node_uid_set = set()
+                        for parent_og_node in parent_og_node_list:
+                            if parent_og_node.is_remove_type():
+                                all_parents_must_be_remove_type = True
+                                parent_tgt_node: Node = parent_og_node.get_tgt_node()
+                                if not tgt_node.is_parent_of(parent_tgt_node):
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: Parent of RM OG node is remove-type, but its target node is not '
+                                                 f'a child of its child"s target node! OG node={og_node}, parent={parent_og_node}')
+                                if parent_tgt_node.uid in child_node_uid_set:
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: Parents of RM OG node have duplicate target node! OG node={og_node}, '
+                                                 f'parent={parent_og_node}, offending node UID={parent_tgt_node.uid}')
+                                child_node_uid_set.add(parent_tgt_node.uid)
+                            else:
+                                # Parent is not remove-type
+
+                                if all_parents_must_be_remove_type:
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: Some parents of RM OG node are remove-type, but this one is not! '
+                                                 f'OG node={og_node}, offending OG parent={parent_og_node}')
+                                else:
+                                    # Parent's tgt node must be an ancestor of tgt node (or same node).
+                                    # Check all paths and confirm that at least one path in parent tgt contains the path of tgt
+                                    if not og_node.is_tgt_an_ancestor_of_og_node_tgt(parent_og_node):
+                                        error_count += 1
+                                        logger.error(f'[{self.name}] ValidateGraph: Parent of RM OG node is not remove-type, and its '
+                                                     f'target node is not an ancestor of its child OG\'s target! OG node={og_node}, '
+                                                     f'offending OG parent={parent_og_node}')
+
+                    else:  # NOT og_node.is_rm_node()
+                        assert not has_multiple_parents, \
+                            f'Non-RM OG node should not be allowed to have multiple parents: {og_node}, parents={parent_og_node_list}'
+                        for parent_og_node in parent_og_node_list:
+                            if not parent_og_node.is_tgt_an_ancestor_of_og_node_tgt(og_node):
+                                error_count += 1
+                                logger.error(f'[{self.name}] ValidateGraph: Parent of OGN has target node which is not an ancestor '
+                                             f'of its child\'s target! OG node={og_node}, offending parent={parent_og_node}')
+
+            # Verify children:
+            child_og_node_list = og_node.get_child_list()
+            if child_og_node_list:
+                for child_og_node in child_og_node_list:
+                    parent_found = False
+                    for parent_of_child in child_og_node.get_parent_list():
+                        if parent_of_child.node_uid == og_node.node_uid:
+                            parent_found = True
+
+                    if not parent_found:
+                        error_count += 1
+                        logger.error(f'[{self.name}] ValidateGraph: Child of OG node does not list it as parent! OG node={og_node}, '
+                                     f'child={child_og_node}')
+
+                    if coverage_dict.get(child_og_node.node_uid, None):
+                        logger.debug(f'[{self.name}] ValidateGraph: Already encountered child of OG node; skipping: {child_og_node}')
+                    else:
+                        og_node_queue.append(child_og_node)
+
+        for og_node_uid, error_msg in unrecognized_og_node_dict.items():
+            if not coverage_dict.get(og_node_uid, None):
+                # still missing: raise original error
+                error_count += 1
+                logger.error(f'[{self.name}] ValidateGraph: {error_msg}')
+
+        # Check NodeQueueDict against graph entries:
+        for device_uid, node_dict in self._node_q_dict.items():
+            for node_uid, deque in node_dict.items():
+                for og_node in deque:
+                    if not coverage_dict.get(og_node.node_uid, None):
+                        error_count += 1
+                        logger.error(f'[{self.name}] ValidateGraph: OG node found in NodeQueueDict which is not in the graph! OG node={og_node}')
+
+        logger.debug(f'[{self.name}] ValidateGraph: encountered {len(coverage_dict)} OGNs')
+        if error_count > 0:
+            raise RuntimeError(f'Validation for OpGraph failed with {error_count} errors!')
+        else:
+            logger.info(f'[{self.name}] ValidateGraph: completed with no errors for {len(coverage_dict)} OGNs')
 
     # INSERT logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -148,62 +281,65 @@ class OpGraph(HasLifecycle):
                             raise RuntimeError(f'Found child node for RM-type node which is not RM type: {existing_og_node}')
                         child_nodes.append(existing_og_node)
 
-        logger.debug(f'{sw_total} Found {len(child_nodes):n} child nodes in tree for op node')
+        logger.debug(f'[{self.name}] {sw_total} Found {len(child_nodes):,} child nodes in graph for RM node')
         return child_nodes
 
-    def _insert_rm_node_in_tree(self, node_to_insert: OpGraphNode, last_target_op, tgt_parent_uid_list: List[UID]) -> bool:
+    def _insert_rm_node_in_tree(self, new_og_node: OpGraphNode, prev_og_node_for_target, tgt_parent_uid_list: List[UID]) -> bool:
         # Special handling for RM-type nodes.
         # We want to find the lowest RM node in the tree.
-        assert node_to_insert.is_rm_node()
-        target_node: Node = node_to_insert.get_tgt_node()
+        assert new_og_node.is_rm_node()
+        target_node: Node = new_og_node.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
 
         # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
-        og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(node_to_insert)
+        og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_og_node)
         if og_nodes_for_child_nodes_list:
             # Possibility 1: children
-            logger.debug(f'Found {len(og_nodes_for_child_nodes_list)} existing ops for children of node being removed ({target_node.dn_uid});'
-                         f' adding as child dependency of each')
+            logger.debug(f'[{self.name}] Found {len(og_nodes_for_child_nodes_list)} existing OG nodes for children of node being removed '
+                         f'({target_node.dn_uid}); examining whether to add as child dependency of each')
 
             ok_child_count = 0
             for og_node_for_child_node in og_nodes_for_child_nodes_list:
-                existing_child: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
-                if existing_child:
-                    if not existing_child.is_remove_type():
-                        raise RuntimeError(f'Found unexpected node which is blocking insert of our RM operation: {existing_child} '
-                                           f'(while trying to insert: {node_to_insert})')
-                    if existing_child.get_tgt_node().device_uid != target_device_uid or existing_child.get_tgt_node().uid != target_node.uid:
-                        raise RuntimeError(f'Found unexpected child node: {existing_child} (while trying to insert: {node_to_insert})')
+                logger.debug(f'[{self.name}] Examining {og_node_for_child_node}')
+
+                child_og_node: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
+                if child_og_node:
+                    if not child_og_node.is_remove_type():
+                        raise RuntimeError(f'Found unexpected node which is blocking insert of our RM operation: {child_og_node} '
+                                           f'(while trying to insert: {new_og_node})')
+                    if child_og_node.get_tgt_node().device_uid != target_device_uid or child_og_node.get_tgt_node().uid != target_node.uid:
+                        raise RuntimeError(f'Found unexpected child node: {child_og_node} (while trying to insert: {new_og_node})')
                     ok_child_count += 1
                 else:
-                    og_node_for_child_node.link_child(node_to_insert)
+                    logger.debug(f'[{self.name}] Adding OGN {new_og_node.node_uid} as child dependency of OGN {og_node_for_child_node.node_uid}')
+                    og_node_for_child_node.link_child(new_og_node)
 
             # Logically, either no children, *or* all child nodes must have already been attached to parent
             if not (ok_child_count == 0 or ok_child_count == len(og_nodes_for_child_nodes_list)):
                 raise RuntimeError(f'Inconsistency detected in op tree! Only {ok_child_count} of {len(og_nodes_for_child_nodes_list)}'
-                                   f'RM nodes in dir have an RM child (attempting to insert: {node_to_insert})')
+                                   f'RM nodes in dir have an RM child (attempting to insert: {new_og_node})')
 
             if ok_child_count > 0:
-                logger.info(f'All parent ops already have child op attached with correct node UID. Discarding op {node_to_insert.node_uid}')
+                logger.info(f'[{self.name}] All parent OGNs already have child attached with correct node UID. Discarding OGN {new_og_node.node_uid}')
                 return False
 
-        elif last_target_op:
+        elif prev_og_node_for_target:
             # Possibility 2: If existing op is found for the target node, add below that.
-            if last_target_op.is_rm_node():
-                logger.warning(f'UserOp node being enqueued (UID {node_to_insert.op.src_node.dn_uid}, tgt {target_node.dn_uid}) is an RM '
-                               f'which is a dup of already enqueued RM ({last_target_op.op.src_node.dn_uid}); discarding!')
+            if prev_og_node_for_target.is_rm_node():
+                logger.warning(f'[{self.name}] UserOp node being enqueued (UID {new_og_node.op.src_node.dn_uid}, tgt {target_node.dn_uid}) is an RM '
+                               f'which is a dup of already enqueued RM ({prev_og_node_for_target.op.src_node.dn_uid}); discarding!')
                 return False
 
             # The node's children MUST be removed first. It is invalid to RM a node which has children.
             # (if the children being added are later scheduled for removal, then they should should up in Possibility 1
-            if last_target_op.get_child_list():
-                raise RuntimeError(f'While trying to add RM op: did not expect existing op for node to have children! (Node={last_target_op})')
-            logger.debug(f'Found pending op(s) for target node {target_node.dn_uid} for RM op; adding as child dependency')
-            last_target_op.link_child(node_to_insert)
+            if prev_og_node_for_target.get_child_list():
+                raise RuntimeError(f'While trying to add RM op: did not expect existing op for node to have children! (Node={prev_og_node_for_target})')
+            logger.debug(f'[{self.name}] Found pending op(s) for target node {target_node.dn_uid} for RM op; adding as child dependency')
+            prev_og_node_for_target.link_child(new_og_node)
         else:
             # Possibility 3: no previous ops for node or its children
-            logger.debug(f'Found no previous ops for target node {target_node.dn_uid} or its children; adding to root')
-            self.root.link_child(node_to_insert)
+            logger.debug(f'[{self.name}] Found no previous ops for target node {target_node.dn_uid} or its children; adding to root')
+            self.root.link_child(new_og_node)
 
         # TODO: this should no longer be required. Confirm then delete
         if False:
@@ -213,44 +349,48 @@ class OpGraph(HasLifecycle):
                 last_parent_op = self._get_lowest_priority_op_node(target_device_uid, parent_uid)
                 if last_parent_op and last_parent_op.is_rm_node():
                     logger.debug(f'Found potentially unlinked op for parent: {last_parent_op}; linking as child to node being inserted'
-                                 f' ({node_to_insert})')
-                    last_parent_op.link_parent(node_to_insert)
+                                 f' ({new_og_node})')
+                    last_parent_op.link_parent(new_og_node)
 
         return True
 
-    def _insert_non_rm_node_in_tree(self, node_to_insert: OpGraphNode, last_target_op, tgt_parent_uid_list: List[UID]):
-        target_node: Node = node_to_insert.get_tgt_node()
+    def _insert_non_rm_node_in_tree(self, new_og_node: OpGraphNode, prev_og_node_for_target: OpGraphNode, tgt_parent_uid_list: List[UID]):
+        target_node: Node = new_og_node.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
 
-        for parent_uid in tgt_parent_uid_list:
-            parent_last_op = self._get_lowest_priority_op_node(target_device_uid, parent_uid)
+        # FIXME: I seem to be checking the op graph for pending ops on the target's parent, but what about further up in its ancestors?
 
-            if last_target_op and parent_last_op:
-                if last_target_op.get_level() > parent_last_op.get_level():
-                    logger.debug(f'[OG {node_to_insert.node_uid}] Last target op (for node {target_node.dn_uid}) is lower level than last op '
-                                 f'for parent node ({parent_uid}); adding new node as child of last target op (OG node {last_target_op.node_uid})')
-                    last_target_op.link_child(node_to_insert)
+        for tgt_node_parent_uid in tgt_parent_uid_list:
+            prev_og_node_for_tgt_node_parent = self._get_lowest_priority_op_node(target_device_uid, tgt_node_parent_uid)
+
+            if prev_og_node_for_target and prev_og_node_for_tgt_node_parent:
+                if prev_og_node_for_target.get_level() > prev_og_node_for_tgt_node_parent.get_level():
+                    logger.debug(f'[OGN {new_og_node.node_uid}] Last target op (for node {target_node.dn_uid}) is lower level than last op '
+                                 f'for parent node ({tgt_node_parent_uid}); adding new OGN as child of last target op '
+                                 f'(OGN {prev_og_node_for_target.node_uid})')
+                    prev_og_node_for_target.link_child(new_og_node)
                 else:
-                    logger.debug(f'[OG {node_to_insert.node_uid}] Last target op is >= level than last op for parent node; adding new OG node '
-                                 f'as child of last op for parent node (OG node {parent_last_op.node_uid})')
-                    parent_last_op.link_child(node_to_insert)
-            elif last_target_op:
-                assert not parent_last_op
-                logger.debug(f'[OG {node_to_insert.node_uid}] Found pending op(s) for target node {target_node.dn_uid}; '
-                             f'adding new OG node as child dependency of OG node {last_target_op.node_uid}')
-                last_target_op.link_child(node_to_insert)
-            elif parent_last_op:
-                assert not last_target_op
-                logger.debug(f'[OG {node_to_insert.node_uid}] Found pending op(s) for parent {target_device_uid}:{parent_uid}; '
-                             f'adding new OG node as child dependency of OG node {parent_last_op.node_uid}')
-                parent_last_op.link_child(node_to_insert)
+                    logger.debug(f'[OGN {new_og_node.node_uid}] Last target op is >= level than last op for parent node; adding new OG node '
+                                 f'as child of last op for parent node (OG node {prev_og_node_for_tgt_node_parent.node_uid})')
+                    prev_og_node_for_tgt_node_parent.link_child(new_og_node)
+            elif prev_og_node_for_target:
+                assert not prev_og_node_for_tgt_node_parent
+                logger.debug(f'[OGN {new_og_node.node_uid}] Found pending op(s) for target node {target_node.dn_uid}; '
+                             f'adding new OGN as child dependency of OGN {prev_og_node_for_target.node_uid}')
+                prev_og_node_for_target.link_child(new_og_node)
+            elif prev_og_node_for_tgt_node_parent:
+                assert not prev_og_node_for_target
+                logger.debug(f'[OGN {new_og_node.node_uid}] Found pending op(s) for parent {target_device_uid}:{tgt_node_parent_uid}; '
+                             f'adding new OGN as child dependency of OGN {prev_og_node_for_tgt_node_parent.node_uid}')
+                # FIXME: what if this is a remove-type node? What about ancestors of target node? We need a way to look further up the node trees.
+                prev_og_node_for_tgt_node_parent.link_child(new_og_node)
             else:
-                assert not parent_last_op and not last_target_op
-                logger.debug(f'[OG {node_to_insert.node_uid}] Found no pending ops for either target node {target_node.dn_uid} '
-                             f'or parent node {target_device_uid}:{parent_uid}; adding to root')
-                self.root.link_child(node_to_insert)
+                assert not prev_og_node_for_tgt_node_parent and not prev_og_node_for_target
+                logger.debug(f'[OGN {new_og_node.node_uid}] Found no pending ops for either target node {target_node.dn_uid} '
+                             f'or parent node {target_device_uid}:{tgt_node_parent_uid}; adding to root')
+                self.root.link_child(new_og_node)
 
-    def enqueue_single_og_node(self, node_to_insert: OpGraphNode) -> bool:
+    def enqueue_single_og_node(self, new_og_node: OpGraphNode) -> bool:
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
@@ -259,27 +399,27 @@ class OpGraph(HasLifecycle):
 
         Returns True if the node was successfully nq'd; returns False if discarded
         """
-        logger.debug(f'[{self.name}] InsertOGNode called for: {node_to_insert}')
+        logger.debug(f'[{self.name}] InsertOGNode called for: {new_og_node}')
 
         # Need to clear out previous relationships before adding to main tree:
-        node_to_insert.clear_relationships()
+        new_og_node.clear_relationships()
 
-        target_node: Node = node_to_insert.get_tgt_node()
+        target_node: Node = new_og_node.get_tgt_node()
         tgt_parent_uid_list: List[UID] = target_node.get_parent_uids()
 
         with self._cv_can_get:
             # First check whether the target node is known and has pending operations
-            last_target_op = self._get_lowest_priority_op_node(target_node.device_uid, target_node.uid)
+            prev_og_node_for_target = self._get_lowest_priority_op_node(target_node.device_uid, target_node.uid)
 
-            if node_to_insert.is_rm_node():
-                insert_succeeded = self._insert_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
+            if new_og_node.is_rm_node():
+                insert_succeeded = self._insert_rm_node_in_tree(new_og_node, prev_og_node_for_target, tgt_parent_uid_list)
             else:
                 # Not an RM node:
-                self._insert_non_rm_node_in_tree(node_to_insert, last_target_op, tgt_parent_uid_list)
+                self._insert_non_rm_node_in_tree(new_og_node, prev_og_node_for_target, tgt_parent_uid_list)
                 insert_succeeded = True
 
             if not insert_succeeded:
-                logger.info(f'[{self.name}] InsertOGNode: failed to enqueue: {node_to_insert}')
+                logger.info(f'[{self.name}] InsertOGNode: failed to enqueue: {new_og_node}')
                 return False
 
             # Always add to node_queue_dict:
@@ -291,15 +431,18 @@ class OpGraph(HasLifecycle):
             if not pending_op_queue:
                 pending_op_queue = collections.deque()
                 node_dict[target_node.uid] = pending_op_queue
-            pending_op_queue.append(node_to_insert)
+            pending_op_queue.append(new_og_node)
 
-            if self._max_added_op_uid < node_to_insert.op.op_uid:
-                self._max_added_op_uid = node_to_insert.op.op_uid
+            if self._max_added_op_uid < new_og_node.op.op_uid:
+                self._max_added_op_uid = new_og_node.op.op_uid
+
+            if OP_GRAPH_VALIDATE_AFTER_EVERY_INSERTED_OG_NODE:
+                self._validate_graph()
 
             # notify consumers there is something to get:
             self._cv_can_get.notifyAll()
 
-        logger.info(f'[{self.name}] InsertOGNode: successfully enqueued: {node_to_insert}')
+        logger.info(f'[{self.name}] InsertOGNode: successfully enqueued: {new_og_node}')
 
         return True
 

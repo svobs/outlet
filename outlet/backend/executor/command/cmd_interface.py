@@ -99,11 +99,11 @@ class DeleteNodeCommand(Command, ABC):
         Command.__init__(self, uid, op)
         assert op.op_type == UserOpType.RM
         self.to_trash = to_trash
-        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} tgt={self.op.src_node.uid} to_trash={self.to_trash})'
+        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} tgt={self.op.src_node.dn_uid} to_trash={self.to_trash})'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()} ' \
-               f'to_trash={self.to_trash} tgt={self.op.src_node.node_identifier}'
+        return f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={self.op.op_uid} status={self.get_status()} ' \
+               f'total_work={self.get_total_work()} to_trash={self.to_trash} tgt={self.op.src_node.node_identifier}'
 
 
 class TwoNodeCommand(Command, ABC):

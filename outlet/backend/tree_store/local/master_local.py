@@ -743,6 +743,7 @@ class LocalDiskMasterStore(TreeStore):
 
         if filter_state and filter_state.has_criteria():
             # This only works if cache already loaded:
+            # FIXME: let's make this work even if the cache isn't loaded
             if not self.is_cache_loaded_for(parent_spid):
                 raise RuntimeError(f'Cannot load filtered child list: cache not yet loaded for: {parent_spid}')
 

@@ -238,7 +238,7 @@ class BatchBuilder:
 
         min_op_uid: UID = op_root.get_first_child().op.op_uid
 
-        for op_node in skip_root(op_root.get_all_nodes_in_subtree()):
+        for op_node in skip_root(op_root.get_subgraph_bfs_list()):
             tgt_node: Node = op_node.get_tgt_node()
             op_type: str = op_node.op.op_type.name
             if min_op_uid > op_node.op.op_uid:

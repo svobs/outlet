@@ -641,7 +641,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
         else:
             existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
             if len(existing_child_list) > 0:
-                raise RuntimeError(f'Folder has {len(existing_child_list)} children; will not delete non-empty folder')
+                raise RuntimeError(f'Folder has {len(existing_child_list)} children; will not delete non-empty folder ({self.op.src_node})')
 
             gdrive_client.hard_delete(self.op.src_node.goog_id)
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])

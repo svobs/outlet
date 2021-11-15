@@ -243,7 +243,7 @@ class CentralExecutor(HasLifecycle):
                     self._running_task_dict[task.task_uuid] = task
                     # fall through:
                 else:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): No tasks enqueued; {non_user_op_count} running')
+                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): No regular tasks enqueued; {non_user_op_count} running')
             else:
                 logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of concurrent regular tasks '
                              f'({TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS}) ')
@@ -278,7 +278,7 @@ class CentralExecutor(HasLifecycle):
 
             return task
         else:
-            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of concurrent OpGraph tasks '
+            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Running max OpGraph tasks '
                          f'({TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS}) ')
 
     def _print_current_state_of_pipeline(self):

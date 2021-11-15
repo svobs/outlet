@@ -119,7 +119,7 @@ class OpGraphNode(BaseNode, ABC):
         return max_parent + 1
 
     def print_me(self, full=True) -> str:
-        string = f'(?) op node UID={self.node_uid}'
+        string = f'(?) og_node_uid={self.node_uid}'
         if full:
             return f'{string}: {self.op}'
         else:
@@ -145,42 +145,59 @@ class OpGraphNode(BaseNode, ABC):
 
         return blocks
 
-    def get_all_nodes_in_subtree(self, coverage_dict: Dict[UID, Any] = None) -> List:
+    def get_subgraph_bfs_list(self, coverage_dict: Dict[UID, Any] = None) -> List:
         """
-        Returns: a list of all the nodes in this sutree (including this one) in breadth-first order
+        Returns: a list of all the nodes in this sutree (including this one) in breadth-first order.
+        Since this is a graph (with some nodes having multiple parents) and not a tree, we have the additional condition that
+        nodes which have multiple parents are not included until after all of its parents.
         """
+        og_node_list: List[OpGraphNode] = []
+
         if not coverage_dict:
-            coverage_dict = {}
+            coverage_dict = {self.node_uid: self}
 
-        node_list: List[OpGraphNode] = []
+        queue: Deque[OpGraphNode] = collections.deque()
+        queue.append(self)
 
-        current_queue: Deque[OpGraphNode] = collections.deque()
-        other_queue: Deque[OpGraphNode] = collections.deque()
-        current_queue.append(self)
+        while len(queue) > 0:
+            og_node: OpGraphNode = queue.popleft()
+            og_node_list.append(og_node)
 
-        while len(current_queue) > 0:
-            node: OpGraphNode = current_queue.popleft()
-            node_list.append(node)
+            for child in og_node.get_child_list():
+                all_parents_seen = True
+                for parent_of_child in child.get_parent_list():
+                    if not coverage_dict.get(parent_of_child.node_uid, None):
+                        assert parent_of_child.is_root() or parent_of_child.node_uid != og_node.node_uid,\
+                            f'Expected a new parent for {child} but found existing {og_node}'
+                        assert len(child.get_parent_list()) > 1, \
+                            f'Expected child OGN ({child}) to have multiple parents but found {child.get_parent_list()}'
+                        logger.debug(f'Child OG node {child.node_uid} has a parent we have not yet encountered ({parent_of_child.node_uid}); '
+                                     f'skipping for now')
+                        all_parents_seen = False
 
-            for child in node.get_child_list():
-                # avoid duplicates:
-                if not coverage_dict.get(child.node_uid, None):
-                    coverage_dict[child.node_uid] = child
+                if all_parents_seen:
+                    # avoid duplicates:
+                    if not coverage_dict.get(child.node_uid, None):
+                        coverage_dict[child.node_uid] = child
 
-                    other_queue.append(child)
+                        queue.append(child)
 
-            if len(current_queue) == 0:
-                temp_var = other_queue
-                other_queue = current_queue
-                current_queue = temp_var
+        return og_node_list
 
-        return node_list
+    def is_tgt_an_ancestor_of_og_node_tgt(self, other_og_node):
+        my_path_list = self.get_tgt_node().get_path_list()
+        for other_tgt_path in other_og_node.get_tgt_node().get_path_list():
+            for tgt_path in my_path_list:
+                if other_tgt_path.startswith(tgt_path):
+                    return True
+
+        return False
 
 
 class HasSingleParent(ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    TRAIT HasSingleParent
+    TRAIT HasSingleParent: An OpGraphNode which has exactly 1 parent (unless it's a RootNode).
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
