@@ -1,6 +1,6 @@
 import logging
 
-from constants import TreeID
+from constants import TreeID, UI_STATE_CFG_SEGMENT
 from model.node_identifier import SinglePathNodeIdentifier
 from util.ensure import ensure_bool, ensure_uid
 from util.root_path_meta import RootPathMeta
@@ -9,23 +9,23 @@ logger = logging.getLogger(__name__)
 
 
 def make_device_uid_config_key(tree_id: TreeID):
-    return f'ui_state.{tree_id}.root_device_uid'
+    return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.root_device_uid'
 
 
 def make_root_path_config_key(tree_id: TreeID):
-    return f'ui_state.{tree_id}.root_path'
+    return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.root_path'
 
 
 def make_root_uid_config_key(tree_id: TreeID):
-    return f'ui_state.{tree_id}.root_uid'
+    return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.root_uid'
 
 
 def make_root_exists_config_key(tree_id: TreeID):
-    return f'ui_state.{tree_id}.root_exists'
+    return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.root_exists'
 
 
 def make_root_offending_path_config_key(tree_id: TreeID):
-    return f'ui_state.{tree_id}.offending_path'
+    return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.offending_path'
 
 
 class RootPathConfigPersister:

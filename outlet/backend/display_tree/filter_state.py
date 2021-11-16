@@ -2,7 +2,7 @@ import logging
 from collections import deque
 from typing import Deque, Dict, List
 
-from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
+from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType, UI_STATE_CFG_SEGMENT
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair
@@ -226,23 +226,23 @@ class FilterState:
 
     @staticmethod
     def _make_search_query_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.filter.search_query'
+        return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.filter.search_query'
 
     @staticmethod
     def _make_ignore_case_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.filter.ignore_case'
+        return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.filter.ignore_case'
 
     @staticmethod
     def _make_is_trashed_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.filter.is_trashed'
+        return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.filter.is_trashed'
 
     @staticmethod
     def _make_is_shared_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.filter.is_shared'
+        return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.filter.is_shared'
 
     @staticmethod
     def _make_show_subtree_config_key(tree_id: TreeID) -> str:
-        return f'ui_state.{tree_id}.filter.show_subtrees'
+        return f'{UI_STATE_CFG_SEGMENT}.{tree_id}.filter.show_subtrees'
 
     def write_to_config(self, backend, tree_id: TreeID):
         search_query = self.filter.search_query

@@ -11,12 +11,13 @@ from uuid import UUID
 from pydispatch import dispatcher
 
 from backend.executor.command.cmd_executor import CommandExecutor
-from constants import CENTRAL_EXEC_THREAD_NAME, EngineSummaryState, OP_EXECUTION_THREAD_NAME, SUPER_DEBUG_ENABLED, \
+from constants import CENTRAL_EXEC_THREAD_NAME, CFG_ENABLE_OP_EXECUTION, EngineSummaryState, OP_EXECUTION_THREAD_NAME, SUPER_DEBUG_ENABLED, \
     TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS, TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS, \
     TASK_TIME_WARNING_THRESHOLD_SEC, TRACE_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util import time_util
+from util.ensure import ensure_bool
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task, TaskRunner
 
@@ -60,7 +61,7 @@ class CentralExecutor(HasLifecycle):
         self._global_actions = GlobalActions(self.backend)
         self._max_workers: int = TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS + TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS
         self._be_task_runner = TaskRunner(max_workers=self._max_workers)
-        self.enable_op_execution = backend.get_config('executor.enable_op_execution')
+        self.enable_op_execution = ensure_bool(backend.get_config(CFG_ENABLE_OP_EXECUTION))
         self._struct_lock = threading.Lock()
         self._running_task_cv = threading.Condition()
 
@@ -479,13 +480,15 @@ class CentralExecutor(HasLifecycle):
 
     def _start_op_execution(self, sender):
         logger.info(f'Received signal "{Signal.RESUME_OP_EXECUTION.name}" from {sender}')
-        self.enable_op_execution = True
+        self._change_op_execution(True)
         self.notify()
-        logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution})')
-        dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution)
 
     def _pause_op_execution(self, sender):
         logger.info(f'Received signal "{Signal.PAUSE_OP_EXECUTION.name}" from {sender}')
-        self.enable_op_execution = False
+        self._change_op_execution(False)
+
+    def _change_op_execution(self, enable: bool):
+        self.enable_op_execution = enable
+        self.backend.put_config(CFG_ENABLE_OP_EXECUTION, enable)
         logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution})')
         dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution)

@@ -81,7 +81,21 @@ PROJECT_DIR = '.'
 CONFIG_DIR = f'{PROJECT_DIR}/config'
 DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 
+UI_STATE_CFG_SEGMENT = 'ui_state'
+
 CFG_ENABLE_LOAD_FROM_DISK = 'cache.enable_cache_load'
+CFG_ENABLE_OP_EXECUTION = 'ui_state.executor.enable_op_execution'
+
+CFG_ENABLE_LAST_UID_PERSISTENCE = 'cache.enable_uid_lastval_persistence'
+"""If true, read and write the last allocated UID value to 'ui_state.global.last_uid' so that duplicate UIDs aren't assigned across startups"""
+
+CFG_UID_RESERVATION_BLOCK_SIZE = 'cache.uid_reservation_block_size'
+"""The number of sequential UIDs to reserve each time we persist to disk. Setting to a higher number will mean less disk access, but
+the UID numbers will get larger faster if there are a lot of program restarts, which is somewhere between annoying and inconvenient
+when debugging"""
+
+CFG_LAST_UID = f'{UI_STATE_CFG_SEGMENT}.global.last_uid'
+
 
 FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
 

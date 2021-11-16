@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from constants import APP_NAME, DEFAULT_MAIN_WIN_HEIGHT, DEFAULT_MAIN_WIN_WIDTH, DEFAULT_MAIN_WIN_X, DEFAULT_MAIN_WIN_Y, DirConflictPolicy, \
     DragOperation, FileConflictPolicy, H_PAD, \
     IconId, \
-    WIN_SIZE_STORE_DELAY_MS
+    UI_STATE_CFG_SEGMENT, WIN_SIZE_STORE_DELAY_MS
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
 from model.node_identifier import GUID
@@ -36,8 +36,8 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         # Set minimum width and height
 
         # Restore previous window location:
-        self.x_loc_cfg_path = f'ui_state.{self.win_id}.x'
-        self.y_loc_cfg_path = f'ui_state.{self.win_id}.y'
+        self.x_loc_cfg_path = f'{UI_STATE_CFG_SEGMENT}.{self.win_id}.x'
+        self.y_loc_cfg_path = f'{UI_STATE_CFG_SEGMENT}.{self.win_id}.y'
         self.x_loc = ensure_int(self.backend.get_config(self.x_loc_cfg_path, DEFAULT_MAIN_WIN_X))
         self.y_loc = ensure_int(self.backend.get_config(self.y_loc_cfg_path, DEFAULT_MAIN_WIN_Y))
         self.move(x=self.x_loc, y=self.y_loc)
@@ -45,11 +45,11 @@ class TwoPaneWindow(Gtk.ApplicationWindow, BaseDialog):
         self.set_hide_titlebar_when_maximized(True)
 
         # Restore previous width/height:
-        self.width_cfg_path = f'ui_state.{self.win_id}.width'
-        self.height_cfg_path = f'ui_state.{self.win_id}.height'
-        self.drag_mode_cfg_path = f'ui_state.{self.win_id}.drag_mode'
-        self.dir_conflict_policy_cfg_path = f'ui_state.{self.win_id}.dir_conflict_policy'
-        self.file_conflict_policy_cfg_path = f'ui_state.{self.win_id}.file_conflict_policy'
+        self.width_cfg_path = f'{UI_STATE_CFG_SEGMENT}.{self.win_id}.width'
+        self.height_cfg_path = f'{UI_STATE_CFG_SEGMENT}.{self.win_id}.height'
+        self.drag_mode_cfg_path = f'{UI_STATE_CFG_SEGMENT}.{self.win_id}.drag_mode'
+        self.dir_conflict_policy_cfg_path = f'{UI_STATE_CFG_SEGMENT}.{self.win_id}.dir_conflict_policy'
+        self.file_conflict_policy_cfg_path = f'{UI_STATE_CFG_SEGMENT}.{self.win_id}.file_conflict_policy'
 
         width = ensure_int(self.backend.get_config(self.width_cfg_path, DEFAULT_MAIN_WIN_WIDTH))
         height = ensure_int(self.backend.get_config(self.height_cfg_path, DEFAULT_MAIN_WIN_HEIGHT))

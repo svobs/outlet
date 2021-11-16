@@ -3,20 +3,10 @@ from abc import ABC, abstractmethod
 
 import logging
 
-from constants import MIN_FREE_UID, NULL_UID
+from constants import CFG_ENABLE_LAST_UID_PERSISTENCE, CFG_LAST_UID, CFG_UID_RESERVATION_BLOCK_SIZE, MIN_FREE_UID, NULL_UID
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
-
-CONFIG_KEY_ENABLE_LAST_UID = 'cache.enable_uid_lastval_persistence'
-"""If true, read and write the last allocated UID value to 'ui_state.global.last_uid' so that duplicate UIDs aren't assigned across startups"""
-
-CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE = 'cache.uid_reservation_block_size'
-"""The number of sequential UIDs to reserve each time we persist to disk. Setting to a higher number will mean less disk access, but
-the UID numbers will get larger faster if there are a lot of program restarts, which is somewhere between annoying and inconvenient
-when debugging"""
-
-CONFIG_KEY_LAST_UID = 'ui_state.global.last_uid'
 
 
 class UidGenerator(ABC):
@@ -90,11 +80,11 @@ class PersistentAtomicIntUidGenerator(SimpleUidGenerator):
     """
     def __init__(self, app_config):
         self._app_config = app_config
-        self._enable_uid_persistence: bool = self._app_config.get(CONFIG_KEY_ENABLE_LAST_UID)
+        self._enable_uid_persistence: bool = self._app_config.get(CFG_ENABLE_LAST_UID_PERSISTENCE)
         self._last_uid_written = MIN_FREE_UID
         if self._enable_uid_persistence:
-            self._last_uid_written = self._app_config.get(CONFIG_KEY_LAST_UID, MIN_FREE_UID)
-            self._uid_reservation_block_size = self._app_config.get(CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE)
+            self._last_uid_written = self._app_config.get(CFG_LAST_UID, MIN_FREE_UID)
+            self._uid_reservation_block_size = self._app_config.get(CFG_UID_RESERVATION_BLOCK_SIZE)
         super().__init__(self._last_uid_written + 1)
 
     def _set(self, new_value):
@@ -102,5 +92,5 @@ class PersistentAtomicIntUidGenerator(SimpleUidGenerator):
         if self._enable_uid_persistence and self._value > self._last_uid_written:
             # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
             self._last_uid_written = self._value + self._uid_reservation_block_size
-            self._app_config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
+            self._app_config.write(CFG_LAST_UID, self._last_uid_written)
         return self._value

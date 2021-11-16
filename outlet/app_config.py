@@ -7,7 +7,7 @@ import json
 import logging
 
 import logging_config
-from constants import DEFAULT_CONFIG_PATH, PROJECT_DIR, PROJECT_DIR_TOKEN
+from constants import DEFAULT_CONFIG_PATH, PROJECT_DIR, PROJECT_DIR_TOKEN, UI_STATE_CFG_SEGMENT
 from util.file_util import get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -36,15 +36,22 @@ class AppConfig:
         try:
             print(f'Reading config file: "{config_file_path}"')
             self._cfg = config.Config(config_file_path)
-            # Cache JSON in memory rather than risk loading a corrupted JSON file later while we're about
-            # to write something
-            with self._lock:
-                with open(self._get_ui_state_filename()) as f:
-                    self._ui_state_json = json.load(f)
 
             self.read_only = self.get_config('read_only_config', False, is_required=False)
         except Exception as err:
-            raise RuntimeError(f'Could not read config file ({config_file_path})') from err
+            raise RuntimeError(f'Could not read config file "{config_file_path}"') from err
+
+        ui_state_filename = self._get_ui_state_filename()
+        try:
+            # Cache JSON in memory rather than risk loading a corrupted JSON file later while we're about
+            # to write something
+            with self._lock:
+                print(f'Reading JSON config file: "{ui_state_filename}"')
+                with open(ui_state_filename) as f:
+                    self._ui_state_json = json.load(f)
+
+        except Exception as err:
+            raise RuntimeError(f'Could not read JSON config file "{ui_state_filename}"') from err
 
         logging_config.configure_logging(self, executing_script_name)
         if self.read_only:
@@ -81,7 +88,7 @@ class AppConfig:
 
     def write(self, json_path: str, value: Any, insert_new_ok=True):
         if self.read_only:
-            logger.debug(f'No change to config "{json_path}"; we are read-only')
+            logger.debug(f'Ignoring change to config "{json_path}"; we are read-only')
             return
 
         assert json_path is not None
@@ -92,8 +99,8 @@ class AppConfig:
         sub_dict = self._ui_state_json
         last = len(path_segments) - 1
         for num, segment in enumerate(path_segments):
-            if num == 0:
-                assert segment == 'ui_state', 'Only ui_state may be written to!'
+            if num == 0 and segment != UI_STATE_CFG_SEGMENT:
+                raise RuntimeError(f'Cannot write to path "{json_path}": Only paths starting with "{UI_STATE_CFG_SEGMENT}" may be written to!')
             else:
                 val = sub_dict.get(segment, None)
                 if num == last:
