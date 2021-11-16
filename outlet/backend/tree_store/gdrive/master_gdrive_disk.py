@@ -168,10 +168,10 @@ class GDriveDiskStore(HasLifecycle):
         self._db.commit()
 
     def create_or_update_download(self, download: CurrentDownload, commit: bool = True):
-        self._db.upsert_download(download, commit)
+        self._db.upsert_download(download, commit=commit)
 
     def update_changes_download_start_token(self, new_page_token, commit: bool = True):
-        self._db.update_changes_download_start_token(new_page_token, commit)
+        self._db.update_changes_download_start_token(new_page_token, commit=commit)
 
     def get_current_download(self, download_type: int):
         assert download_type
@@ -202,19 +202,19 @@ class GDriveDiskStore(HasLifecycle):
         self._db.upsert_download(current_download, commit=commit)
 
     def insert_gdrive_folder_list(self, folder_list: List[GDriveFolder], overwrite=False, commit=True):
-        self._db.insert_gdrive_folder_list(folder_list, overwrite, commit)
+        self._db.insert_gdrive_folder_list(folder_list, overwrite=overwrite, commit=commit)
 
     def update_folder_fetched_status(self, commit=True):
-        self._db.update_folder_fetched_status(commit)
+        self._db.update_folder_fetched_status(commit=commit)
 
     def get_id_parent_mappings(self) -> List[Tuple]:
         return self._db.get_id_parent_mappings()
 
     def insert_id_parent_mappings(self, id_parent_mappings: List[Tuple], overwrite=False, commit=True):
-        self._db.insert_id_parent_mappings(id_parent_mappings, overwrite, commit)
+        self._db.insert_id_parent_mappings(id_parent_mappings, overwrite=overwrite, commit=commit)
 
-    def delete_nodes(self, file_uid_list: List[UID], folder_uid_list: List[UID]):
-        self._db.delete_nodes(file_uid_list, folder_uid_list)
+    def delete_nodes(self, file_uid_list: List[UID], folder_uid_list: List[UID], commit=True):
+        self._db.delete_nodes(file_uid_list, folder_uid_list, commit=commit)
 
     def get_child_list_for_parent_uid(self, node_uid: UID) -> List[GDriveNode]:
         return self._db.get_child_list_for_parent_uid(node_uid)

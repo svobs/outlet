@@ -242,6 +242,8 @@ class CacheManager(HasLifecycle):
         - Finally all directories are loaded. We can now calculate stats and push those out
         - TreeState: COMPLETELY_LOADED
         - Calculate MD5s for all items, if local drive
+
+        In the future, let's merge this back into ActiveTreeManager.request_display_tree(), and remove the need for start_subtree_load() entirely.
         """
         logger.debug(f'[{tree_id}] Loading data for display tree (send_signals={send_signals})')
         tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)

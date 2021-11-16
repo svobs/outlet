@@ -539,7 +539,6 @@ class ActiveTreeManager(HasLifecycle):
 
         else:
             filter_state = FilterState.from_config(self.backend, sender_tree_id, root_sn)
-
             display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)
 
             # Store in dict here:

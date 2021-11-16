@@ -99,8 +99,10 @@ class AppConfig:
         sub_dict = self._ui_state_json
         last = len(path_segments) - 1
         for num, segment in enumerate(path_segments):
-            if num == 0 and segment != UI_STATE_CFG_SEGMENT:
-                raise RuntimeError(f'Cannot write to path "{json_path}": Only paths starting with "{UI_STATE_CFG_SEGMENT}" may be written to!')
+            if num == 0:
+                if segment != UI_STATE_CFG_SEGMENT:
+                    raise RuntimeError(f'Cannot write to path "{json_path}": Only paths starting with "{UI_STATE_CFG_SEGMENT}" may be written to!')
+                # otherwise just eat the first token: it is a shortcut to the JSON file
             else:
                 val = sub_dict.get(segment, None)
                 if num == last:

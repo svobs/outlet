@@ -49,7 +49,7 @@ class RootPathConfigPersister:
         self.root_path_meta = None
 
     def read_from_config(self) -> RootPathMeta:
-        logger.debug(f'Attempting to read root path info from app_config: {self._tree_id}')
+        logger.debug(f'[{self._tree_id}] Attempting to read root path info from app_config')
         device_uid = ensure_uid(self.backend.get_config(self._device_uid_config_key, required=True))
         root_path = self.backend.get_config(self._root_path_config_key, required=True)
         root_uid = ensure_uid(self.backend.get_config(self._root_uid_config_key, required=True))
@@ -70,7 +70,7 @@ class RootPathConfigPersister:
     def write_to_config(self, new_root_meta: RootPathMeta):
         if not self.root_path_meta or self.root_path_meta != new_root_meta:
             new_root = new_root_meta.root_spid
-            logger.debug(f'Root path changed. Saving root to app_config: {self._device_uid_config_key} '
+            logger.debug(f'[{self._tree_id}] Root path changed. Saving root to app_config: {self._device_uid_config_key} '
                          f'= {new_root.device_uid}, {self._root_path_config_key} = "{new_root.get_single_path()}", '
                          f'{self._root_uid_config_key} = "{new_root.node_uid}"')
             # Root changed. Invalidate the current tree contents

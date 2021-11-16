@@ -261,7 +261,7 @@ class GDriveDatabase(MetaDatabase):
         # just do this the easy way for now. Need to replace all mappings for this UID
         self.delete_parent_mappings_for_uid(uid=uid, commit=False)
 
-        self.insert_id_parent_mappings(id_parent_mappings, commit)
+        self.insert_id_parent_mappings(id_parent_mappings, overwrite=False, commit=commit)
 
     def get_id_parent_mappings(self) -> List[Tuple]:
         parent_uids = self.id_parent_mapping.get_all_rows()
@@ -356,7 +356,7 @@ class GDriveDatabase(MetaDatabase):
     def delete_single_node(self, node: GDriveNode, commit=True):
         self.delete_parent_mappings_for_uid(node.uid, commit=False)
         if node.is_dir():
-            self.delete_gdrive_folder_with_uid(node.uid, commit=False)
+            self.delete_gdrive_folder_with_uid(node.uid, commit=commit)
         else:
             self.delete_gdrive_file_with_uid(node.uid, commit=commit)
 

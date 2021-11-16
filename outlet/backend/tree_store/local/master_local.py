@@ -338,7 +338,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def consolidate_local_caches(self, this_task: Task, local_caches: List[PersistedCacheInfo], state):
 
-        def _merge_two_caches(supertree_cache, subtree_cache):
+        def _merge_two_caches(_this_task: Task, supertree_cache, subtree_cache):
             local_caches.remove(subtree_cache)
 
             if supertree_cache.sync_ts > subtree_cache.sync_ts:
@@ -370,14 +370,14 @@ class LocalDiskMasterStore(TreeStore):
 
                 # 6. This will resync with file system and re-save
                 supertree_cache.needs_save = True
-                load_subtree_child_task = this_task.create_child_task(self._load_subtree_from_disk, supertree_cache, ID_GLOBAL_CACHE)
+                load_subtree_child_task = _this_task.create_child_task(self._load_subtree_from_disk, supertree_cache, ID_GLOBAL_CACHE)
                 self.backend.executor.submit_async_task(load_subtree_child_task)
 
                 # 7. Now it is safe to delete the subtree cache:
-                def _delete_cache_file():
+                def _delete_cache_file(_this_task2: Task):
                     file_util.delete_file(subtree_cache.cache_location)
 
-                delete_cache_file_child_task = this_task.create_child_task(_delete_cache_file)
+                delete_cache_file_child_task = _this_task.create_child_task(_delete_cache_file)
                 self.backend.executor.submit_async_task(delete_cache_file_child_task)
 
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
@@ -387,6 +387,7 @@ class LocalDiskMasterStore(TreeStore):
                 if other_cache.subtree_root.get_single_path().startswith(cache.subtree_root.get_single_path()) and \
                         not cache.subtree_root.get_single_path() == other_cache.subtree_root.get_single_path():
                     # cache is a super-tree of other_cache
+                    logger.info(f'Cache {cache} represents a supertree of cache {other_cache}; will merge the latter into the former')
                     supertree_sets.append((cache, other_cache))
 
         for _supertree_cache, _subtree_cache in supertree_sets:

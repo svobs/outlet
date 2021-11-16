@@ -93,17 +93,19 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
 
         # Write new values:
         if parent_mappings:
-            logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
+            logger.debug(f'Writing {len(parent_mappings)} id-parent mappings to the GDrive master cache: {parent_mappings}')
             cache.upsert_parent_mappings_for_id(parent_mappings, self.node.uid, commit=False)
 
         if self.node.is_dir():
             logger.debug(f'Writing folder node to the GDrive master cache: {self.node}')
             assert isinstance(self.node, GDriveFolder)
-            cache.upsert_gdrive_folder_list([self.node])
+            cache.upsert_gdrive_folder_list([self.node], commit=False)
         else:
             logger.debug(f'Writing file node to the GDrive master cache: {self.node}')
             assert isinstance(self.node, GDriveFile)
-            cache.upsert_gdrive_file_list([self.node])
+            cache.upsert_gdrive_file_list([self.node], commit=False)
+
+        cache.commit()
 
     def send_signals(self):
         # Always send signals:
