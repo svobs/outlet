@@ -157,7 +157,7 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
 
             if not node_dst_old:
                 if USE_STRICT_STATE_ENFORCEMENT:
-                    raise RuntimeError(f'Node no longer found in cache: {self.op.dst_node.node_identifier}')
+                    raise RuntimeError(f'Node no longer found in cache (using strict=true): {self.op.dst_node.node_identifier}')
                 else:
                     file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
             else:
@@ -265,7 +265,8 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
 
             if not existing_dst_node:
                 if USE_STRICT_STATE_ENFORCEMENT:
-                    raise RuntimeError(f'Could not find target node to overwrite in Google Drive: {self.op.dst_node.node_identifier}')
+                    raise RuntimeError(f'Could not find target node to overwrite in Google Drive (using strict=true): '
+                                       f'{self.op.dst_node.node_identifier}')
             elif existing_dst_node.name == self.op.src_node.name and existing_dst_node.md5 == src_node.md5 \
                     and existing_dst_node.get_size_bytes() == src_node.get_size_bytes():
                 # Possibility #1: same exact node at dst -> no op
@@ -349,7 +350,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
                                    f'expected size={self.op.src_node.get_size_bytes()}, MD5={self.op.src_node.md5})')
         elif self.overwrite:
             if USE_STRICT_STATE_ENFORCEMENT:
-                raise RuntimeError(f'Cannot overwrite a file which does not exist: {dst_path}')
+                raise RuntimeError(f'Cannot overwrite a file which does not exist (using strict=true): {dst_path}')
             else:
                 logger.warning(f'Cmd has "overwrite" specified for a local file which does not exist: {dst_path}')
 
@@ -399,7 +400,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
         existing_src_node = gdrive_client.get_existing_node_by_id(self.op.src_node.goog_id)
         if not existing_src_node:
             if USE_STRICT_STATE_ENFORCEMENT:
-                raise RuntimeError(f'Could not find expected src node in Google Drive (goog_id={self.op.src_node.goog_id})')
+                raise RuntimeError(f'Could not find expected src node in Google Drive (using strict=true) with goog_id={self.op.src_node.goog_id}')
             else:
                 logger.info(f'Could not find expected src node in Google Drive (goog_id={self.op.src_node.goog_id}): will skip delete of it')
                 return UserOpResult(status_up_to_now, to_upsert=[node_dst], to_remove=[self.op.src_node])
@@ -495,7 +496,8 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
             existing_dst_node = gdrive_client.get_existing_node_by_id(self.op.dst_node.goog_id)
             if not existing_dst_node:
                 if USE_STRICT_STATE_ENFORCEMENT:
-                    raise RuntimeError(f'Could not find expected dst node in Google Drive (goog_id={self.op.dst_node.goog_id})')
+                    raise RuntimeError(f'Could not find expected dst node in Google Drive (using strict=true)'
+                                       f' with goog_id={self.op.dst_node.goog_id}')
                 else:
                     logger.info(f'Could not find expected dst node in Google Drive (goog_id={self.op.dst_node.goog_id}): will skip delete of it')
             else:
@@ -567,7 +569,8 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
             if not node_dst_updated:
                 if USE_STRICT_STATE_ENFORCEMENT:
                     raise RuntimeError(
-                        f'Cannot overwrite file in GDrive: target not found in Google Drive (maybe already deleted?): {self.op.dst_node}')
+                        f'Cannot overwrite file in GDrive: target not found in Google Drive (maybe already deleted?) (using strict=true):'
+                        f' {self.op.dst_node}')
                 else:
                     logger.info(f'Could not find expected dst node in Google Drive (goog_id={self.op.dst_node.goog_id}): will skip delete of it')
 
