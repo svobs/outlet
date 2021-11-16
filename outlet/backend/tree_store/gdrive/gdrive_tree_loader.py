@@ -7,9 +7,9 @@ from pydispatch import dispatcher
 
 from backend.sqlite.gdrive_db import CurrentDownload
 from backend.tree_store.gdrive.client.gdrive_client import GDriveClient
-from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
-from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
-from backend.tree_store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
+from backend.tree_store.gdrive.gdrive_tree import GDriveWholeTree
+from backend.tree_store.gdrive.gdrive_diskstore import GDriveDiskStore
+from backend.tree_store.gdrive.op_load import GDriveLoadAllMetaOp
 from backend.tree_store.gdrive.client.query_observer import FileMetaPersister, FolderMetaPersister
 from constants import GDRIVE_CHECK_FOR_BROKEN_NODES, GDRIVE_COUNT_MULTIPLE_PARENTS, GDRIVE_FIND_DUPLICATE_NODE_NAMES, GDRIVE_DOWNLOAD_STATE_COMPLETE, \
     GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, \

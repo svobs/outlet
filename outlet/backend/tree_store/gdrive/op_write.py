@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 from backend.sqlite.gdrive_db import GDriveDatabase
 from backend.tree_store.gdrive.client.change_observer import GDriveChange, GDriveNodeChange
-from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
+from backend.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
 from constants import SUPER_DEBUG_ENABLED, TreeType
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode

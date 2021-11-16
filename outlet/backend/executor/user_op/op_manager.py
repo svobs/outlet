@@ -110,7 +110,7 @@ class OpManager(HasLifecycle):
         reduced_batch: List[UserOp] = self._batch_builder.reduce_and_validate_ops(batch_op_list)
 
         # TODO: can we safely increase the priority of this task so that the user will see a quicker response?
-        batch_intake_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._start_batch_intake, reduced_batch, True)
+        batch_intake_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._batch_intake, reduced_batch, True)
         self.backend.executor.submit_async_task(batch_intake_task)
         logger.debug(f'append_new_pending_op_batch(): Enqueued append_batch task for {batch_uid}')
 
@@ -144,10 +144,10 @@ class OpManager(HasLifecycle):
             logger.debug(f'Resuming pending batch uid={batch_uid} with {len(batch_op_list)} ops')
 
             # Add the batch to the op graph only after the caches are loaded
-            batch_intake_task = this_task.create_child_task(self._start_batch_intake, batch_op_list, False)
+            batch_intake_task = this_task.create_child_task(self._batch_intake, batch_op_list, False)
             self.backend.executor.submit_async_task(batch_intake_task)
 
-    def _start_batch_intake(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
+    def _batch_intake(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
         """Adds the given batch of UserOps to the graph, which will lead to their eventual execution. Optionally also saves the ops to disk,
         which should only be done if they haven't already been saved.
         This method should only be called via the Executor."""
@@ -164,7 +164,7 @@ class OpManager(HasLifecycle):
         this_task.add_next_task(self._build_batch_graph_and_append_to_main_graph, batch_op_list, save_to_disk)
 
     def _build_batch_graph_and_append_to_main_graph(self, this_task: Optional[Task], batch_op_list: List[UserOp], save_to_disk: bool):
-        """Part 2 of multi-task procession of adding a batch. Do not call this directly. Start _start_batch_intake(), which will start this."""
+        """Part 2 of multi-task procession of adding a batch. Do not call this directly. Start _batch_intake(), which will start this."""
 
         try:
             batch_graph_root: RootNode = self._batch_builder.build_batch_graph(batch_op_list)

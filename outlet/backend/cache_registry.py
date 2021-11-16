@@ -10,8 +10,8 @@ from pydispatch import dispatcher
 
 from backend.executor.central import ExecPriority
 from backend.sqlite.cache_registry_db import CacheRegistryDatabase
-from backend.tree_store.gdrive.master_gdrive import GDriveMasterStore
-from backend.tree_store.local.master_local import LocalDiskMasterStore
+from backend.tree_store.gdrive.gdrive import GDriveMasterStore
+from backend.tree_store.local.locald import LocalDiskMasterStore
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, \
@@ -584,8 +584,7 @@ class CacheRegistry(HasLifecycle):
                 needed_gdrive_device_uid_set.add(node.device_uid)
             else:
                 assert node.tree_type == TreeType.LOCAL_DISK, f'Not a LocalDisk node: {node}'
-                cache: Optional[PersistedCacheInfo] = self.get_existing_cache_info_for_local_path(node.device_uid,
-                                                                                                                      node.get_single_path())
+                cache: Optional[PersistedCacheInfo] = self.get_existing_cache_info_for_local_path(node.device_uid, node.get_single_path())
                 if cache:
                     needed_localdisk_cache_dict[cache.cache_location] = cache
                 else:

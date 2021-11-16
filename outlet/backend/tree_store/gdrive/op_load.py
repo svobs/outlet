@@ -3,7 +3,7 @@ from typing import List, Optional
 import logging
 
 from model.gdrive_meta import GDriveUser, MimeType
-from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
+from backend.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
 from backend.sqlite.gdrive_db import GDriveDatabase
 
 logger = logging.getLogger(__name__)
@@ -43,4 +43,3 @@ class GDriveLoadAllMetaOp(GDriveDiskLoadOp):
         logger.debug(f'Replacing GDrive memstore meta with {len(self.users)} users and {len(self.mime_types)} MIME types...')
         memstore.replace_all_users(self.users)
         memstore.replace_all_mime_types(self.mime_types)
-

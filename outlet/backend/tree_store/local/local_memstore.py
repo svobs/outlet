@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Tuple
 
-from backend.tree_store.local.local_disk_tree import LocalDiskTree
+from backend.tree_store.local.locald_tree import LocalDiskTree
 from constants import LOCAL_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.container_node import RootTypeNode
 from model.node.local_disk_node import LocalFileNode, LocalNode

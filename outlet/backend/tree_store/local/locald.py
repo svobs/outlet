@@ -13,9 +13,9 @@ from pydispatch import dispatcher
 from backend.display_tree.filter_state import FilterState
 from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local import content_hasher
-from backend.tree_store.local.local_disk_scanner import LocalDiskScanner
-from backend.tree_store.local.local_disk_tree import LocalDiskTree
-from backend.tree_store.local.master_local_disk import LocalDiskDiskStore
+from backend.tree_store.local.locald_scanner import LocalDiskScanner
+from backend.tree_store.local.locald_tree import LocalDiskTree
+from backend.tree_store.local.local_diskstore import LocalDiskDiskStore
 from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
@@ -676,8 +676,6 @@ class LocalDiskMasterStore(TreeStore):
                                 assert isinstance(child_node, LocalDirNode)
                                 dir_queue.append(child_node)
 
-                # Bring in-memory cache up-to-date: [DISABLED]
-                # self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=subtree_node_list, remove_node_list=[]))
                 return subtree_node_list
 
         # both caches miss

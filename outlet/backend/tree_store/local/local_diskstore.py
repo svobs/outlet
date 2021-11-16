@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from pydispatch import dispatcher
 
 from backend.sqlite.local_db import LocalDiskDatabase
-from backend.tree_store.local.local_disk_tree import LocalDiskTree
+from backend.tree_store.local.locald_tree import LocalDiskTree
 from backend.tree_store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskMultiNodeOp
 from constants import TrashStatus, TreeType
 from model.cache_info import PersistedCacheInfo

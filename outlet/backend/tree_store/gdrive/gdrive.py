@@ -14,10 +14,10 @@ from backend.sqlite.gdrive_db import CurrentDownload
 from backend.tree_store.gdrive.client.change_observer import GDriveChange, PagePersistingChangeObserver
 from backend.tree_store.gdrive.client.gdrive_client import GDriveClient
 from backend.tree_store.gdrive.gdrive_tree_loader import GDriveTreeLoader
-from backend.tree_store.gdrive.master_gdrive_disk import GDriveDiskStore
-from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
-from backend.tree_store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
+from backend.tree_store.gdrive.gdrive_diskstore import GDriveDiskStore
+from backend.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
+from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
+from backend.tree_store.gdrive.op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper
@@ -539,7 +539,7 @@ class GDriveMasterStore(TreeStore):
             logger.debug(f'read_node_for_uid(): memstore not loaded; reading direct from disk: {node_uid}')
 
         # 2. Disk cache
-        node = self._diskstore.get_single_node_with_uid(node_uid)
+        node = self._diskstore.get_node_with_path_list(node_uid)
         if node:
             return node
 
@@ -607,7 +607,7 @@ class GDriveMasterStore(TreeStore):
         if not parent_node:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'get_child_list_for_spid(): parent node {parent_spid.node_uid} not found in memory cache; checking disk cache')
-            parent_node = self._diskstore.get_single_node_with_uid(parent_spid.node_uid)
+            parent_node = self._diskstore.get_node_with_path_list(parent_spid.node_uid)
 
         # 3. Consult GDrive
         if not parent_node:

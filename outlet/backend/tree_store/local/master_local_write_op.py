@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from backend.tree_store.local.master_local_memory import LocalDiskMemoryStore
+from backend.tree_store.local.local_memstore import LocalDiskMemoryStore
 from backend.sqlite.local_db import LocalDiskDatabase
 from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE

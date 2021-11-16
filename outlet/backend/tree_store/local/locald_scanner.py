@@ -9,9 +9,9 @@ from pydispatch import dispatcher
 from constants import DISK_SCAN_MAX_ITEMS_PER_TASK, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode, LocalNode
-from backend.tree_store.local.local_disk_tree import LocalDiskTree
+from backend.tree_store.local.locald_tree import LocalDiskTree
 from model.node_identifier import LocalNodeIdentifier
-from backend.tree_store.local.local_tree_recurser import LocalTreeRecurser
+from backend.tree_store.local.disk_tree_recurser import LocalTreeRecurser
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)

@@ -17,8 +17,8 @@ from backend.display_tree.row_state_tracking import RowStateTracking
 from backend.executor.central import ExecPriority
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_manager import OpManager
-from backend.tree_store.gdrive.master_gdrive import GDriveMasterStore
-from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
+from backend.tree_store.gdrive.gdrive import GDriveMasterStore
+from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
     OPS_FILE_NAME, ROOT_PATH, \

@@ -5,14 +5,14 @@ from pydispatch import dispatcher
 
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
 from constants import GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TreeID
-from backend.tree_store.gdrive.gdrive_whole_tree import GDriveWholeTree
+from backend.tree_store.gdrive.gdrive_tree import GDriveWholeTree
 from error import CacheNotFoundError, NodeNotPresentError
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from backend.tree_store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from backend.tree_store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
-from backend.tree_store.gdrive.master_gdrive_op_write import GDriveWriteThroughOp
+from backend.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
+from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
+from backend.tree_store.gdrive.op_write import GDriveWriteThroughOp
 from backend.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
@@ -180,10 +180,10 @@ class GDriveDiskStore(HasLifecycle):
                 return download
         return None
 
-    def get_single_node_with_uid(self, uid: UID) -> Optional[GDriveNode]:
+    def get_node_with_path_list(self, uid: UID) -> Optional[GDriveNode]:
         """Note: this could be an expensive operation, since we are recursively looking up the node's parents in order to fill in paths."""
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered get_single_node_with_uid(): uid={uid}')
+            logger.debug(f'Entered get_node_with_path_list(): uid={uid}')
         try:
             return self._path_list_computer.recompute_path_list_for_uid(uid=uid)
         except NodeNotPresentError:
