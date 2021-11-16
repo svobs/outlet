@@ -241,10 +241,6 @@ class OpManager(HasLifecycle):
         inserted_op_list: List[UserOp] = []
         discarded_op_list: List[UserOp] = []
         for graph_node in skip_root(breadth_first_list):
-            if inserted_op_list:
-                if inserted_op_list[-1].op_uid >= graph_node.op.op_uid:
-                    logger.warning(f'OGNode {graph_node.node_uid} does not appear be in the correct order!')
-
             succeeded = self._op_graph.enqueue_single_og_node(graph_node)
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Enqueue of OGNode {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded={succeeded}')

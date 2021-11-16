@@ -244,7 +244,7 @@ class ActiveTreeManager(HasLifecycle):
 
             for sn in subtree_sn_list:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Notifying tree of upserted node {sn.spid} parent_guid={sn.spid.parent_guid} icon={sn.node.get_icon()}')
+                    logger.debug(f'[{tree_id}] Notifying tree of upserted node {sn} parent_guid={sn.spid.parent_guid} icon={sn.node.get_icon()}')
                 dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
 
     def _on_node_removed(self, sender: str, node: Node):

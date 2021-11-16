@@ -67,6 +67,7 @@ class LocalDirNode(LocalNode):
         assert isinstance(other_node, LocalDirNode)
         LocalNode.update_from(self, other_node)
         self.dir_stats = other_node.dir_stats
+        self.set_is_live(ensure_bool(other_node.is_live()))
         self.all_children_fetched = other_node.all_children_fetched
 
     def is_parent_of(self, potential_child_node: Node):

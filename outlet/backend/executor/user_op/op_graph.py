@@ -1,13 +1,13 @@
 import collections
 import logging
 import threading
-from typing import Deque, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Deque, Dict, Iterable, List, Optional, Set
 
-from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
-from constants import NULL_UID, OP_GRAPH_VALIDATE_AFTER_EVERY_INSERTED_OG_NODE, SUPER_DEBUG_ENABLED, SUPER_ROOT_UID, TRACE_ENABLED
+from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
+from constants import NULL_UID, OP_GRAPH_VALIDATE_AFTER_EVERY_INSERTED_OG_NODE, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
