@@ -88,6 +88,7 @@ class TableMultiMap:
     CLASS TableMultiMap
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self):
         # lifecycle_state -> src_or_dst -> tree_type -> obj_type
         self.all_dict: Dict[str, Dict[str, Dict[TreeType, Dict[str, Any]]]] = {}
@@ -157,6 +158,7 @@ class TableListCollection:
     CLASS TableListCollection
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self):
         self.all_dict: TableMultiMap = TableMultiMap()
         """ {PENDING or ARCHIVE} -> {SRC or DST} -> {tree type} -> {obj type} -> """
@@ -201,7 +203,7 @@ class OpDatabase(MetaDatabase):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    TABLE_PENDING_CHANGE = Table(name='pending_op', cols=OrderedDict([
+    TABLE_PENDING_OP = Table(name='op_pending', cols=OrderedDict([
         ('uid', 'INTEGER PRIMARY KEY'),
         ('batch_uid', 'INTEGER'),
         ('op_type', 'INTEGER'),
@@ -210,18 +212,18 @@ class OpDatabase(MetaDatabase):
         ('create_ts', 'INTEGER')
     ]))
 
-    TABLE_COMPLETED_CHANGE = Table(name='completed_op',
-                                   cols=OrderedDict([
-                                       ('uid', 'INTEGER PRIMARY KEY'),
-                                       ('batch_uid', 'INTEGER'),
-                                       ('op_type', 'INTEGER'),
-                                       ('src_node_uid', 'INTEGER'),
-                                       ('dst_node_uid', 'INTEGER'),
-                                       ('create_ts', 'INTEGER'),
-                                       ('complete_ts', 'INTEGER')
-                                   ]))
+    TABLE_COMPLETED_OP = Table(name='op_completed',
+                               cols=OrderedDict([
+                                   ('uid', 'INTEGER PRIMARY KEY'),
+                                   ('batch_uid', 'INTEGER'),
+                                   ('op_type', 'INTEGER'),
+                                   ('src_node_uid', 'INTEGER'),
+                                   ('dst_node_uid', 'INTEGER'),
+                                   ('create_ts', 'INTEGER'),
+                                   ('complete_ts', 'INTEGER')
+                               ]))
 
-    TABLE_FAILED_CHANGE = Table(name='failed_op',
+    TABLE_FAILED_CHANGE = Table(name='op_failed',
                                 cols=OrderedDict([
                                     ('uid', 'INTEGER PRIMARY KEY'),
                                     ('batch_uid', 'INTEGER'),
@@ -239,8 +241,8 @@ class OpDatabase(MetaDatabase):
 
         self.table_lists: TableListCollection = TableListCollection()
         # We do not use UserOpRef to Tuple, because we convert UserOp to Tuple instead
-        self.table_pending_op = LiveTable(OpDatabase.TABLE_PENDING_CHANGE, self.conn, None, _tuple_to_op_ref)
-        self.table_completed_op = LiveTable(OpDatabase.TABLE_COMPLETED_CHANGE, self.conn, None, _tuple_to_op_ref)
+        self.table_pending_op = LiveTable(OpDatabase.TABLE_PENDING_OP, self.conn, None, _tuple_to_op_ref)
+        self.table_completed_op = LiveTable(OpDatabase.TABLE_COMPLETED_OP, self.conn, None, _tuple_to_op_ref)
         self.table_failed_op = LiveTable(OpDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_op_ref)
 
         # pending ...
@@ -288,8 +290,8 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFolder:
-        op_uid_int, device_uid, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id,\
-            is_shared, shared_by_user_uid, sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
+        op_uid_int, device_uid, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, \
+        is_shared, shared_by_user_uid, sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
         obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
                            goog_id=goog_id, node_name=node_name, trashed=item_trashed,
@@ -302,7 +304,7 @@ class OpDatabase(MetaDatabase):
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
         op_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, \
-            owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
+        owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
 
         obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
                          goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,

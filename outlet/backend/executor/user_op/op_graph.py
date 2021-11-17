@@ -101,7 +101,7 @@ class OpGraph(HasLifecycle):
         for qd_line in qd_line_list:
             logger.debug(f'[{self.name}] {qd_line}')
 
-    def _get_lowest_priority_op_node(self, device_uid: UID, node_uid: UID):
+    def _get_last_pending_ogn_for_node(self, device_uid: UID, node_uid: UID):
         node_dict = self._node_ogn_q_dict.get(device_uid, None)
         if node_dict:
             node_list = node_dict.get(node_uid, None)
@@ -113,7 +113,7 @@ class OpGraph(HasLifecycle):
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         """This is a public method."""
         with self._cv_can_get:
-            op_node: OpGraphNode = self._get_lowest_priority_op_node(device_uid, node_uid)
+            op_node: OpGraphNode = self._get_last_pending_ogn_for_node(device_uid, node_uid)
         if op_node:
             return op_node.op
         return None
@@ -326,7 +326,7 @@ class OpGraph(HasLifecycle):
         logger.debug(f'[{self.name}] {sw_total} Found {len(child_nodes):,} child nodes in graph for RM node')
         return child_nodes
 
-    def _insert_rm_node_in_tree(self, new_og_node: OpGraphNode, prev_og_node_for_target, tgt_parent_uid_list: List[UID]) -> bool:
+    def _insert_rm_in_graph(self, new_og_node: OpGraphNode, prev_og_node_for_target) -> bool:
         # Special handling for RM-type nodes.
         # We want to find the lowest RM node in the tree.
         assert new_og_node.is_rm_node()
@@ -386,14 +386,14 @@ class OpGraph(HasLifecycle):
 
         return True
 
-    def _insert_non_rm_node_in_tree(self, new_og_node: OpGraphNode, prev_og_node_for_target: OpGraphNode, tgt_parent_uid_list: List[UID]):
+    def _insert_non_rm_in_graph(self, new_og_node: OpGraphNode, prev_og_node_for_target: OpGraphNode, tgt_parent_uid_list: List[UID]):
         target_node: Node = new_og_node.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
 
         # FIXME: I seem to be checking the op graph for pending ops on the target's parent, but what about further up in its ancestors?
 
         for tgt_node_parent_uid in tgt_parent_uid_list:
-            prev_og_node_for_tgt_node_parent = self._get_lowest_priority_op_node(target_device_uid, tgt_node_parent_uid)
+            prev_og_node_for_tgt_node_parent = self._get_last_pending_ogn_for_node(target_device_uid, tgt_node_parent_uid)
 
             if prev_og_node_for_target and prev_og_node_for_tgt_node_parent:
                 if prev_og_node_for_target.get_level() > prev_og_node_for_tgt_node_parent.get_level():
@@ -441,13 +441,13 @@ class OpGraph(HasLifecycle):
 
         with self._cv_can_get:
             # First check whether the target node is known and has pending operations
-            prev_og_node_for_target = self._get_lowest_priority_op_node(target_node.device_uid, target_node.uid)
+            prev_og_node_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
 
             if new_og_node.is_rm_node():
-                insert_succeeded = self._insert_rm_node_in_tree(new_og_node, prev_og_node_for_target, tgt_parent_uid_list)
+                insert_succeeded = self._insert_rm_in_graph(new_og_node, prev_og_node_for_target)
             else:
                 # Not an RM node:
-                self._insert_non_rm_node_in_tree(new_og_node, prev_og_node_for_target, tgt_parent_uid_list)
+                self._insert_non_rm_in_graph(new_og_node, prev_og_node_for_target, tgt_parent_uid_list)
                 insert_succeeded = True
 
             if not insert_succeeded:
