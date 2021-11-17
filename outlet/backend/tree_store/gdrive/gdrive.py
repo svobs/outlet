@@ -548,6 +548,7 @@ class GDriveMasterStore(TreeStore):
         if not goog_id:
             logger.warning(f'read_node_for_uid(): no goog_id found for node_uid (returning null): {node_uid}')
             return None
+
         node = self.gdrive_client.get_existing_node_by_id(goog_id)
         if node:
             logger.debug(f'read_node_for_uid(): got node from GDrive API: {node}')

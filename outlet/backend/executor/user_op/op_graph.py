@@ -39,13 +39,13 @@ class OpGraph(HasLifecycle):
         self._cv_can_get = threading.Condition()
         """Used to help consumers block"""
 
-        self._node_q_dict: Dict[UID, Dict[UID, Deque[OpGraphNode]]] = {}
+        self._node_ogn_q_dict: Dict[UID, Dict[UID, Deque[OpGraphNode]]] = {}
         """Contains entries for all nodes associated with UserOps. Each entry contains a queue of all UserOps for that target node"""
 
         self.root: RootNode = RootNode()
         """Root of graph. Has no useful internal data; we value it for its children"""
 
-        self._outstanding_actions: Dict[UID, UserOp] = {}
+        self._outstanding_ogn_dict: Dict[UID, UserOp] = {}
         """Contains entries for all UserOps which have running operations. Keyed by action UID"""
 
         self._max_added_op_uid: UID = NULL_UID
@@ -67,8 +67,8 @@ class OpGraph(HasLifecycle):
     def __len__(self):
         with self._cv_can_get:
             op_set = set()
-            # '_node_q_dict' must contain the same number of nodes as the graph, but should be slightly more efficient to iterate over (maybe)
-            for device_uid, node_dict in self._node_q_dict.items():
+            # '_node_ogn_q_dict' must contain the same number of nodes as the graph, but should be slightly more efficient to iterate over (maybe)
+            for device_uid, node_dict in self._node_ogn_q_dict.items():
                 for node_uid, deque in node_dict.items():
                     for node in deque:
                         op_set.add(node.op.op_uid)
@@ -81,7 +81,7 @@ class OpGraph(HasLifecycle):
         op_set = set()
         qd_line_list = []
         queue_count = 0
-        for device_uid, node_dict in self._node_q_dict.items():
+        for device_uid, node_dict in self._node_ogn_q_dict.items():
             queue_count += len(node_dict)
             for node_uid, deque in node_dict.items():
                 node_repr_list: List[str] = []
@@ -92,17 +92,17 @@ class OpGraph(HasLifecycle):
                 for i, node_repr in enumerate(node_repr_list):
                     qd_line_list.append(f'  [{i}] {node_repr}')
 
-        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: OpGraph contains {len(graph_line_list)} nodes:')
+        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: OpGraph = {len(graph_line_list)} OGNs:')
         for graph_line in graph_line_list:
             logger.debug(f'[{self.name}] {graph_line}')
 
-        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: NodeQueueDict has {queue_count} queues for {len(self._node_q_dict)} devices, '
-                     f'{len(op_set)} total ops:')
+        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: NodeQueues = [#Ops: {len(op_set)} #Devices: {len(self._node_ogn_q_dict)} '
+                     '#Nodes: {queue_count}]:')
         for qd_line in qd_line_list:
             logger.debug(f'[{self.name}] {qd_line}')
 
     def _get_lowest_priority_op_node(self, device_uid: UID, node_uid: UID):
-        node_dict = self._node_q_dict.get(device_uid, None)
+        node_dict = self._node_ogn_q_dict.get(device_uid, None)
         if node_dict:
             node_list = node_dict.get(node_uid, None)
             if node_list:
@@ -122,14 +122,16 @@ class OpGraph(HasLifecycle):
         with self._cv_can_get:
             return self._max_added_op_uid
 
-    def _validate_graph(self):
+    def _validate_graph(self, last_ogn_added: OpGraphNode):
         """The caller is responsible for locking the graph before calling this."""
         logger.debug(f'[{self.name}] Validating graph...')
         error_count = 0
-        coverage_dict: Dict[UID, OpGraphNode] = {self.root.node_uid: self.root}
+        ogn_coverage_dict: Dict[UID, OpGraphNode] = {self.root.node_uid: self.root}  # OGN uid -> OGN
+        binary_op_src_coverage_dict: Dict[UID, OpGraphNode] = {}
+        binary_op_dst_coverage_dict: Dict[UID, OpGraphNode] = {}
         unrecognized_og_node_dict : Dict[UID, str] = {}
 
-        # Iterate through graph using a queue, using coverage_dict to avoid doing duplicate analysis:
+        # Iterate through graph using a queue, using ogn_coverage_dict to avoid doing duplicate analysis:
         og_node_queue: Deque[OpGraphNode] = collections.deque()
 
         for child_of_root in self.root.get_child_list():
@@ -142,11 +144,29 @@ class OpGraph(HasLifecycle):
             og_node: OpGraphNode = og_node_queue.popleft()
             logger.debug(f'[{self.name}] ValidateGraph: Examining OGN from graph: {og_node}')
 
-            if coverage_dict.get(og_node.node_uid, None):
+            if ogn_coverage_dict.get(og_node.node_uid, None):
                 # already processed this node
                 continue
 
-            coverage_dict[og_node.node_uid] = og_node
+            ogn_coverage_dict[og_node.node_uid] = og_node
+
+            # Verify its op:
+            if og_node.op.has_dst():
+                if og_node.is_src():
+                    prev_ogn = binary_op_src_coverage_dict.get(og_node.op.op_uid, None)
+                    if prev_ogn:
+                        error_count += 1
+                        logger.error(f'[{self.name}] ValidateGraph: Duplicate OGNs for src op! Prev={prev_ogn}, current={og_node}')
+                    else:
+                        binary_op_src_coverage_dict[og_node.op.op_uid] = og_node
+                else:
+                    assert og_node.is_dst(), f'Expected dst-type OGN but got: {og_node}'
+                    prev_ogn = binary_op_dst_coverage_dict.get(og_node.op.op_uid, None)
+                    if prev_ogn:
+                        error_count += 1
+                        logger.error(f'[{self.name}] ValidateGraph: Duplicate OGNs for dst op! Prev={prev_ogn}, current={og_node}')
+                    else:
+                        binary_op_dst_coverage_dict[og_node.op.op_uid] = og_node
 
             # Verify parents:
             parent_og_node_list = og_node.get_parent_list()
@@ -164,7 +184,7 @@ class OpGraph(HasLifecycle):
                     else:
                         parent_uid_set.add(parent_og_node.node_uid)
 
-                    if not coverage_dict.get(parent_og_node.node_uid, None):
+                    if not ogn_coverage_dict.get(parent_og_node.node_uid, None):
                         unrecognized_og_node_dict[parent_og_node.node_uid] = \
                             'Unrecognized parent listed in OG node! OGN uid={og_node.node_uid}, ' \
                             'parent_OGN={parent_og_node}'
@@ -230,30 +250,52 @@ class OpGraph(HasLifecycle):
                         logger.error(f'[{self.name}] ValidateGraph: Child of OG node does not list it as parent! OG node={og_node}, '
                                      f'child={child_og_node}')
 
-                    if coverage_dict.get(child_og_node.node_uid, None):
+                    if ogn_coverage_dict.get(child_og_node.node_uid, None):
                         logger.debug(f'[{self.name}] ValidateGraph: Already encountered child of OG node; skipping: {child_og_node}')
                     else:
                         og_node_queue.append(child_og_node)
 
         for og_node_uid, error_msg in unrecognized_og_node_dict.items():
-            if not coverage_dict.get(og_node_uid, None):
+            if not ogn_coverage_dict.get(og_node_uid, None):
                 # still missing: raise original error
                 error_count += 1
                 logger.error(f'[{self.name}] ValidateGraph: {error_msg}')
 
-        # Check NodeQueueDict against graph entries:
-        for device_uid, node_dict in self._node_q_dict.items():
-            for node_uid, deque in node_dict.items():
-                for og_node in deque:
-                    if not coverage_dict.get(og_node.node_uid, None):
-                        error_count += 1
-                        logger.error(f'[{self.name}] ValidateGraph: OG node found in NodeQueueDict which is not in the graph! OG node={og_node}')
+        logger.debug(f'[{self.name}] ValidateGraph: encountered {len(ogn_coverage_dict)} OGNs in graph')
 
-        logger.debug(f'[{self.name}] ValidateGraph: encountered {len(coverage_dict)} OGNs')
+        # Check for missing OGNs for binary ops:
+        for ogn_src in binary_op_src_coverage_dict.values():
+            if not binary_op_dst_coverage_dict.pop(ogn_src.op.op_uid, None):
+                # Make an exception for the last OGN added, because it may not have its accompanying node yet
+                if ogn_src.node_uid != last_ogn_added.node_uid:
+                    error_count += 1
+                    logger.error(f'[{self.name}] ValidateGraph: Dst OGN missing for op: {ogn_src.op} (found: {ogn_src})')
+
+        if len(binary_op_dst_coverage_dict) > 0:
+            for ogn_dst in binary_op_dst_coverage_dict.values():
+                # Make an exception for the last OGN added, because it may not have its accompanying node yet
+                if ogn_dst.node_uid != last_ogn_added.node_uid:
+                    error_count += 1
+                    logger.error(f'[{self.name}] ValidateGraph: Src OGN missing for op: {ogn_dst.op} (found: {ogn_dst})')
+
+        # Check NodeQueues against graph entries:
+        ogn_coverage_dict.pop(self.root.node_uid)
+        for device_uid, node_dict in self._node_ogn_q_dict.items():
+            for node_uid, deque in node_dict.items():
+                for ogn in deque:
+                    if not ogn_coverage_dict.pop(ogn.node_uid, None):
+                        error_count += 1
+                        logger.error(f'[{self.name}] ValidateGraph: OG node found in NodeQueues which is not in the graph: {ogn}')
+
+        if len(ogn_coverage_dict) > 0:
+            for ogn in ogn_coverage_dict.values():
+                error_count += 1
+                logger.error(f'[{self.name}] ValidateGraph: OGN found in graph which is not present in NodeQueues: {ogn}')
+
         if error_count > 0:
             raise RuntimeError(f'Validation for OpGraph failed with {error_count} errors!')
         else:
-            logger.info(f'[{self.name}] ValidateGraph: completed with no errors for {len(coverage_dict)} OGNs')
+            logger.info(f'[{self.name}] ValidateGraph: completed with no errors for {len(ogn_coverage_dict)} OGNs')
 
     # INSERT logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -269,7 +311,7 @@ class OpGraph(HasLifecycle):
 
         child_nodes = []
 
-        for node_dict in self._node_q_dict.values():
+        for node_dict in self._node_ogn_q_dict.values():
             for node_queue in node_dict.values():
                 if node_queue:
                     existing_og_node = node_queue[-1]
@@ -289,7 +331,8 @@ class OpGraph(HasLifecycle):
         # We want to find the lowest RM node in the tree.
         assert new_og_node.is_rm_node()
         target_node: Node = new_og_node.get_tgt_node()
-        target_device_uid: UID = target_node.device_uid
+
+        # FIXME: I seem to be checking the op graph for pending ops on the target's parent, but what about further up in its ancestors?
 
         # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
         og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_og_node)
@@ -297,31 +340,30 @@ class OpGraph(HasLifecycle):
             # Possibility 1: children
             logger.debug(f'[{self.name}] Found {len(og_nodes_for_child_nodes_list)} existing OG nodes for children of node being removed '
                          f'({target_node.dn_uid}); examining whether to add as child dependency of each')
+            assert new_og_node.get_tgt_node()
 
-            ok_child_count = 0
+            parent_ogn_list: List[OpGraphNode] = []  # Use this list to store parents to link to until we are done validating.
             for og_node_for_child_node in og_nodes_for_child_nodes_list:
                 logger.debug(f'[{self.name}] Examining {og_node_for_child_node}')
+                if not og_node_for_child_node.is_remove_type():
+                    raise RuntimeError(f'Cannot insert RM OGN: all children of its target must be scheduled for removal first,'
+                                       f'but found: {og_node_for_child_node} (while trying to insert OGN: {new_og_node})')
 
-                child_og_node: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
-                if child_og_node:
-                    if not child_og_node.is_remove_type():
-                        raise RuntimeError(f'Found unexpected node which is blocking insert of our RM operation: {child_og_node} '
+                # Check if there's an existing OGN which is child of parent OGN.
+                conflicting_ogn: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
+                if conflicting_ogn:
+                    if not conflicting_ogn.is_remove_type():
+                        raise RuntimeError(f'Found unexpected node which is blocking insert of our RM operation: {conflicting_ogn} '
                                            f'(while trying to insert: {new_og_node})')
-                    if child_og_node.get_tgt_node().device_uid != target_device_uid or child_og_node.get_tgt_node().uid != target_node.uid:
-                        raise RuntimeError(f'Found unexpected child node: {child_og_node} (while trying to insert: {new_og_node})')
-                    ok_child_count += 1
+                    else:
+                        # extremely rare for this to happen - likely indicates a hole in our logic somewhere
+                        raise RuntimeError(f'Found unexpected child OGN: {conflicting_ogn} (while trying to insert OGN: {new_og_node})')
                 else:
-                    logger.debug(f'[{self.name}] Adding OGN {new_og_node.node_uid} as child dependency of OGN {og_node_for_child_node.node_uid}')
-                    og_node_for_child_node.link_child(new_og_node)
+                    parent_ogn_list.append(og_node_for_child_node)
 
-            # Logically, either no children, *or* all child nodes must have already been attached to parent
-            if not (ok_child_count == 0 or ok_child_count == len(og_nodes_for_child_nodes_list)):
-                raise RuntimeError(f'Inconsistency detected in op tree! Only {ok_child_count} of {len(og_nodes_for_child_nodes_list)}'
-                                   f'RM nodes in dir have an RM child (attempting to insert: {new_og_node})')
-
-            if ok_child_count > 0:
-                logger.info(f'[{self.name}] All parent OGNs already have child attached with correct node UID. Discarding OGN {new_og_node.node_uid}')
-                return False
+            for parent_ogn in parent_ogn_list:
+                logger.debug(f'[{self.name}] Adding OGN {new_og_node.node_uid} as child dependency of OGN {parent_ogn.node_uid}')
+                parent_ogn.link_child(new_og_node)
 
         elif prev_og_node_for_target:
             # Possibility 2: If existing op is found for the target node, add below that.
@@ -333,24 +375,14 @@ class OpGraph(HasLifecycle):
             # The node's children MUST be removed first. It is invalid to RM a node which has children.
             # (if the children being added are later scheduled for removal, then they should should up in Possibility 1
             if prev_og_node_for_target.get_child_list():
-                raise RuntimeError(f'While trying to add RM op: did not expect existing op for node to have children! (Node={prev_og_node_for_target})')
+                raise RuntimeError(f'While trying to add RM op: did not expect existing OGN for target to have children! '
+                                   f'(tgt={prev_og_node_for_target})')
             logger.debug(f'[{self.name}] Found pending op(s) for target node {target_node.dn_uid} for RM op; adding as child dependency')
             prev_og_node_for_target.link_child(new_og_node)
         else:
             # Possibility 3: no previous ops for node or its children
             logger.debug(f'[{self.name}] Found no previous ops for target node {target_node.dn_uid} or its children; adding to root')
             self.root.link_child(new_og_node)
-
-        # TODO: this should no longer be required. Confirm then delete
-        if False:
-            for parent_uid in tgt_parent_uid_list:
-                # Sometimes the nodes are not inserted in exactly the right order. Link any nodes which fell through cuz their child
-                # was inserted first (do this after we have a chance to return False):
-                last_parent_op = self._get_lowest_priority_op_node(target_device_uid, parent_uid)
-                if last_parent_op and last_parent_op.is_rm_node():
-                    logger.debug(f'Found potentially unlinked op for parent: {last_parent_op}; linking as child to node being inserted'
-                                 f' ({new_og_node})')
-                    last_parent_op.link_parent(new_og_node)
 
         return True
 
@@ -423,10 +455,10 @@ class OpGraph(HasLifecycle):
                 return False
 
             # Always add to node_queue_dict:
-            node_dict = self._node_q_dict.get(target_node.device_uid, None)
+            node_dict = self._node_ogn_q_dict.get(target_node.device_uid, None)
             if not node_dict:
                 node_dict = dict()
-                self._node_q_dict[target_node.device_uid] = node_dict
+                self._node_ogn_q_dict[target_node.device_uid] = node_dict
             pending_op_queue = node_dict.get(target_node.uid)
             if not pending_op_queue:
                 pending_op_queue = collections.deque()
@@ -437,7 +469,7 @@ class OpGraph(HasLifecycle):
                 self._max_added_op_uid = new_og_node.op.op_uid
 
             if OP_GRAPH_VALIDATE_AFTER_EVERY_INSERTED_OG_NODE:
-                self._validate_graph()
+                self._validate_graph(last_ogn_added=new_og_node)
 
             # notify consumers there is something to get:
             self._cv_can_get.notifyAll()
@@ -450,7 +482,7 @@ class OpGraph(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _is_node_ready(self, op: UserOp, node: Node, node_type_str: str) -> bool:
-        node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_q_dict.get(node.device_uid, None)
+        node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(node.device_uid, None)
         if not node_dict:
             logger.error(f'Could not find entry in node dict for device_uid {node.device_uid} (from op {node_type_str} node); raising error')
             raise RuntimeError(f'Serious error: master dict has no entries for device_uid={node.device_uid} (op {node_type_str} node) !')
@@ -494,10 +526,10 @@ class OpGraph(HasLifecycle):
                     continue
 
             # Make sure the node has not already been checked out:
-            if not self._outstanding_actions.get(og_node.op.op_uid, None):
+            if not self._outstanding_ogn_dict.get(og_node.op.op_uid, None):
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'TryGet(): inserting node into OutstandingActionsDict: {og_node}')
-                self._outstanding_actions[og_node.op.op_uid] = og_node.op
+                self._outstanding_ogn_dict[og_node.op.op_uid] = og_node.op
                 return og_node.op
             else:
                 if SUPER_DEBUG_ENABLED:
@@ -551,14 +583,14 @@ class OpGraph(HasLifecycle):
         logger.debug(f'[{self.name}] Entered pop_op() for op {op}')
 
         with self._cv_can_get:
-            if not self._outstanding_actions.pop(op.op_uid, None):
+            if not self._outstanding_ogn_dict.pop(op.op_uid, None):
                 raise RuntimeError(f'Complated op not found in outstanding op list (action UID {op.op_uid}')
 
             # I. SRC Node
 
             # I-1. Remove src node from node dict
 
-            node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_q_dict.get(op.src_node.device_uid)
+            node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(op.src_node.device_uid)
             if not node_dict:
                 # very bad
                 raise RuntimeError(f'Completed op src node device_uid ({op.src_node.device_uid}) not found in master dict (for {op.src_node.dn_uid}')
@@ -578,7 +610,7 @@ class OpGraph(HasLifecycle):
                 node_dict.pop(op.src_node.uid, None)
             if not node_dict:
                 # Remove dict if it is empty:
-                self._node_q_dict.pop(op.src_node.uid, None)
+                self._node_ogn_q_dict.pop(op.src_node.uid, None)
 
             # I-2. Remove src node from op graph
 
@@ -610,7 +642,7 @@ class OpGraph(HasLifecycle):
             if op.has_dst():
                 # II-1. Remove dst node from node dict
 
-                node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_q_dict.get(op.dst_node.device_uid)
+                node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(op.dst_node.device_uid)
                 if not node_dict:
                     # very bad
                     raise RuntimeError(
@@ -629,7 +661,7 @@ class OpGraph(HasLifecycle):
                     node_dict.pop(op.dst_node.uid, None)
                 if not node_dict:
                     # Remove dict if it is empty:
-                    self._node_q_dict.pop(op.dst_node.uid, None)
+                    self._node_ogn_q_dict.pop(op.dst_node.uid, None)
 
                 # II-2. Remove dst node from op graph
 

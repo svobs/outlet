@@ -327,6 +327,8 @@ class GDriveTreeLoader:
 
     @staticmethod
     def _check_for_broken_nodes(tree: GDriveWholeTree):
+        if SUPER_DEBUG_ENABLED:
+            logger.debug('Checking for broken nodes in tree')
         error_count = 0
         broken_file_uid_list = []
         broken_folder_uid_list = []

@@ -367,7 +367,7 @@ class GDriveClient(HasLifecycle):
         try:
             item: dict = GDriveClient._try_repeatedly(request)
         except GDriveItemNotFoundError as err:
-            logger.error(f'Caught GDriveItemNotFoundError (will return None): {err}')
+            logger.debug(f'Caught GDriveItemNotFoundError (will return None): {err}')
             return None
 
         if not item:

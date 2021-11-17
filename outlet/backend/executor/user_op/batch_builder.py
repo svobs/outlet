@@ -196,7 +196,7 @@ class BatchBuilder:
 
         lines = batch_graph.root.print_recursively()
         # note: GDrive paths may not be present at this point; this is ok.
-        logger.debug(f'[Batch-{batch_uid}] MakeTreeToInsert: constructed tree with {len(lines)} items:')
+        logger.debug(f'[Batch-{batch_uid}] BuildBatchGraph: constructed graph with {len(lines)} OGNs:')
         for line in lines:
             logger.debug(f'[Batch-{batch_uid}] {line}')
         return batch_graph.root

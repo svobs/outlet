@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Deque, Dict, List, Optional
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
-from model.node.node import BaseNode
+from model.node.node import BaseNode, Node
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 
@@ -33,7 +33,7 @@ class OpGraphNode(BaseNode, ABC):
         return self.node_uid
 
     @abstractmethod
-    def get_tgt_node(self):
+    def get_tgt_node(self) -> Optional[Node]:
         pass
 
     def get_first_parent(self) -> Optional:
@@ -337,7 +337,7 @@ class RootNode(HasMultiChild, OpGraphNode):
     def is_reentrant(self) -> bool:
         return True
 
-    def get_tgt_node(self):
+    def get_tgt_node(self) -> Optional[Node]:
         return None
 
     def clear_relationships(self):
@@ -362,7 +362,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
         # Only CP src nodes are reentrant
         return self.op.op_type == UserOpType.CP
 
-    def get_tgt_node(self):
+    def get_tgt_node(self) -> Optional[Node]:
         return self.op.src_node
 
     def is_create_type(self) -> bool:
@@ -399,7 +399,7 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def is_reentrant(self) -> bool:
         return False
 
-    def get_tgt_node(self):
+    def get_tgt_node(self) -> Optional[Node]:
         return self.op.dst_node
 
     @classmethod
