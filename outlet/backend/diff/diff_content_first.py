@@ -324,7 +324,6 @@ class ContentFirstDiffer(ChangeMaker):
         existing_sn_r: Optional[SPIDNodePair] = state.src_meta_r.path_dict.get(left_on_right_path, None)
         if existing_sn_r:
             # Path match: NODE UPDATED
-            assert existing_sn_r.node.is_live(), f'non-existent nodes should have been pre-filtered: {existing_sn_r.node}'
             assert existing_sn_r.node.md5 != sn_s.node.md5, \
                 f'Expected different MD5 for left node ({sn_s.node}) and right node ({existing_sn_r.node})'
 

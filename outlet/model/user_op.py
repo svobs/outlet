@@ -27,7 +27,12 @@ class UserOpType(IntEnum):
     """Copy content of src node to dst node, where dst node does not yet exist"""
 
     CP_ONTO = 5
-    """Copy content of src node to existing dst node, overwriting the previous contents of dst"""
+    """AKA "Update".
+    Copy content of src node to existing dst node, overwriting the previous contents of dst.
+    
+    Implmeentation note: unlike its CP op counterpart, the dst node of this operation should stay the same as the node about to be removed
+    (which likely has is_live=true). We need to retain the information about the node being replaced. The UI will need to add special logic of
+    its own if it wants to display info about the node overwriting it."""
 
     MV = 6
     """Equivalent to CP followed by RM: copy src node to dst node, then delete src node.
@@ -35,7 +40,11 @@ class UserOpType(IntEnum):
     so let's honor that."""
 
     MV_ONTO = 7
-    """Similar to MV, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst, then delete src"""
+    """Similar to MV, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst, then delete src.
+    
+    Implmeentation note: unlike its MV op counterpart, the dst node of this operation should stay the same as the node about to be removed
+    (which likely has is_live=true). We need to retain the information about the node being replaced. The UI will need to add special logic of
+    its own if it wants to display info about the node overwriting it."""
 
     def has_dst(self) -> bool:
         return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.CP_ONTO or self == UserOpType.MV_ONTO

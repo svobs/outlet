@@ -358,7 +358,6 @@ class OpManager(HasLifecycle):
 
     def finish_command(self, command: Command):
         logger.debug(f'Archiving op: {command.op}')
-        # FIXME: need to save prev dst node for UPDATE op
         self._disk_store.archive_completed_op_list([command.op])
 
         # Ensure command is one that we are expecting.
