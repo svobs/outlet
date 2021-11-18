@@ -55,6 +55,13 @@ class OpDiskStore(HasLifecycle):
     def delete_pending_op_list(self, op_list: Iterable[UserOp]):
         self._db.delete_pending_ops(op_list)
 
+    def cancel_op_list(self, op_list: List[UserOp], reason_msg: str):
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Cancelling {len(op_list)} ops with reason="{reason_msg}"')
+
+        self._db.archive_failed_op_list(op_list, f'Cancelled: {reason_msg}')
+        logger.info(f'Cancelled and archived {len(op_list)} ops with reason={reason_msg}')
+
     def upsert_pending_op_list(self, op_list: Iterable[UserOp]):
         # This will save each of the planning nodes, if any:
         self._db.upsert_pending_op_list(op_list, overwrite=False)

@@ -577,5 +577,6 @@ class OpDatabase(MetaDatabase):
         self._upsert_completed_ops(entries)
 
     def archive_failed_op_list(self, entries: Iterable[UserOp], error_msg: str):
+        # TODO: ideally we would verify that the given ops are present while doing this, so that we don't have bogus op_failed entries
         self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_failed_ops(entries, error_msg)

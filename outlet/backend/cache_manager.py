@@ -738,6 +738,12 @@ class CacheManager(HasLifecycle):
         logger.info(f'[{dst_tree_id}] Got drop: {drag_operation.name} {len(src_guid_list)} nodes from "{src_tree_id}"->"{dst_tree_id}"'
                     f' dst_guid="{dst_guid}" is_into={is_into} dir_policy={dir_conflict_policy.name} file_policy={file_conflict_policy.name}')
 
+        if self._op_manager.has_pending_batches():
+            # TODO: should a D&D be allowed even if previous operations are not done being reflected in the OpGraph / caches? Think more about this...
+            logger.info(f'[{dst_tree_id}] Denying drop: OpManager has pending batches which have not yet been added to OpGraph!')
+            # FIXME: trigger an alert which informs the user why this was denied, and prompt them to fix any problems.
+            return False
+
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
         dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
         if not src_tree:

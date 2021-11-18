@@ -13,7 +13,7 @@ from backend.executor.user_op.batch_builder import BatchBuilder
 from backend.executor.user_op.op_disk_store import OpDiskStore
 from backend.executor.user_op.op_graph import OpGraph, skip_root
 from backend.executor.user_op.op_graph_node import OpGraphNode, RootNode
-from constants import IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import Batch, OpTypeMeta, UserOp
@@ -22,6 +22,8 @@ from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
+
+PAUSE_BATCH_SUBMISSION_WHEN_OP_EXECUTION_PAUSED = False
 
 
 class ErrorHandlingBehavior(IntEnum):
@@ -55,12 +57,17 @@ class OpManager(HasLifecycle):
 
         self._lock = threading.Lock()
         self._pending_batch_dict: Dict[UID, Batch] = {}
+        self._error_handling_batch_override_dict: Dict[UID, ErrorHandlingStrategy] = {}  # if a batch is not represented here, use default
+        self._default_error_handling_strategy: ErrorHandlingStrategy = DEFAULT_ERROR_HANDLING_STRATEGY
 
     def start(self):
         logger.debug(f'[OpManager] Startup started')
         HasLifecycle.start(self)
         self._disk_store.start()
         self._op_graph.start()
+
+        self.connect_dispatch_listener(signal=Signal.HANDLE_BATCH_FAILED, receiver=self._on_handle_batch_failed)
+        self.connect_dispatch_listener(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_execution_state_changed)
         logger.debug(f'[OpManager] Startup done')
 
     def shutdown(self):
@@ -77,6 +84,39 @@ class OpManager(HasLifecycle):
         self.backend = None
         self._cmd_builder = None
         logger.debug(f'[OpManager] Shutdown done')
+
+    def has_pending_batches(self) -> bool:
+        with self._lock:
+            return len(self._pending_batch_dict) > 0 or not self._are_batches_loaded_from_last_run
+
+    def _on_handle_batch_failed(self, sender, batch_uid: UID, error_handling_strategy: ErrorHandlingStrategy):
+        """This is triggered when the user indicated a strategy for handling any batch errors."""
+        with self._lock:
+            if not self._pending_batch_dict.get(batch_uid):
+                logger.warning(f'Received signal "{Signal.HANDLE_BATCH_FAILED.name}" with strategy "{error_handling_strategy.name}" '
+                               f'but batch {batch_uid} not found. Ignoring')
+                return
+
+            logger.info(f'Received signal "{Signal.HANDLE_BATCH_FAILED.name}": Setting error_handling_strategy = {error_handling_strategy} '
+                        f'for batch_uid {batch_uid}')
+            self._error_handling_batch_override_dict[batch_uid] = error_handling_strategy
+            # fall through
+
+        # At this point we know that the batch and all its prerequisites have been loaded:
+        self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._submit_next_batch))
+
+    def _on_op_execution_state_changed(self, sender: str, is_enabled: bool):
+        if not PAUSE_BATCH_SUBMISSION_WHEN_OP_EXECUTION_PAUSED:
+            return
+
+        logger.debug(f'Received signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED}" from {sender} with is_enabled={is_enabled}')
+        if is_enabled:
+            # Kick off task to submit batches, if any.
+            if not self.has_pending_batches():
+                logger.debug(f'Op execution was enabled but no pending batches in queue')
+                return
+            logger.debug(f'Op execution was enabled: submitting new task to start submitting queued batches')
+            self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._submit_next_batch))
 
     def _upsert_nodes_in_memstore(self, op: UserOp):
         """Looks at the given UserOp and notifies cacheman so that it can send out update notifications. The nodes involved may not have
@@ -95,9 +135,8 @@ class OpManager(HasLifecycle):
 
     def cancel_all_pending_ops(self, this_task: Task):
         """Call this at startup, to CANCEL pending ops which have not yet been applied (archive them on disk)."""
-        self._disk_store.cancel_all_pending_ops()
-
         with self._lock:
+            self._disk_store.cancel_all_pending_ops()
             self._are_batches_loaded_from_last_run = True
 
     def append_new_pending_op_batch(self, batch_op_list: List[UserOp]):
@@ -119,8 +158,9 @@ class OpManager(HasLifecycle):
         reduced_batch: List[UserOp] = self._batch_builder.reduce_and_validate_ops(batch_op_list)
 
         try:
-            # Save ops and their planning nodes to disk
-            self._disk_store.upsert_pending_op_list(reduced_batch)
+            with self._lock:
+                # Save ops and their planning nodes to disk
+                self._disk_store.upsert_pending_op_list(reduced_batch)
         except RuntimeError as err:
             self.backend.report_error(ID_OP_MANAGER, f'Failed to save pending ops for batch {batch_uid} to disk', repr(err))
             return
@@ -142,7 +182,8 @@ class OpManager(HasLifecycle):
         """Call this at startup, to RESUME pending ops which have not yet been applied."""
 
         # Load from disk
-        op_list: List[UserOp] = self._disk_store.load_all_pending_ops()
+        with self._lock:
+            op_list: List[UserOp] = self._disk_store.load_all_pending_ops()
         if not op_list:
             logger.info(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
             return
@@ -179,6 +220,10 @@ class OpManager(HasLifecycle):
         with self._lock:
             self._are_batches_loaded_from_last_run = True
 
+        # Call this just once.
+        # Need to make sure we do the rest AFTER any needed cache loads complete (this will happen because the cache_load tasks are child tasks
+        this_task.add_next_task(self._submit_next_batch)
+
     def _batch_intake(self, this_task: Task, batch: Batch):
         """Adds the given batch of UserOps to the graph, which will lead to their eventual execution. Optionally also saves the ops to disk,
         which should only be done if they haven't already been saved.
@@ -192,25 +237,30 @@ class OpManager(HasLifecycle):
         logger.debug(f'Batch {batch.batch_uid} contains {len(big_node_list)} affected nodes. Adding task to ensure they are in memory')
         self.backend.cacheman.ensure_cache_loaded_for_node_list(this_task, big_node_list)
 
-        # Need to make sure we do the rest AFTER any needed cache loads complete
-        this_task.add_next_task(self._submit_next_batch)
-
-    def _submit_next_batch(self, this_task: Optional[Task]):
-        """Part 2 of multi-task procession of adding a batch. Do not call this directly. Start _batch_intake(), which will start this."""
-
+    def _get_next_batch_in_queue(self) -> Optional[Batch]:
         with self._lock:
             if len(self._pending_batch_dict) == 0:
                 logger.debug(f'No pending batches to submit!.')
-                return
+                return None
             if not self._are_batches_loaded_from_last_run:
                 logger.info(f'Startup not finished. Returning for now')
-                return
+                return None
 
             min_batch_uid = 0
             for batch in self._pending_batch_dict.values():
                 if min_batch_uid == 0 or batch.batch_uid < min_batch_uid:
                     min_batch_uid = batch.batch_uid
-            next_batch = self._pending_batch_dict[min_batch_uid]
+            return self._pending_batch_dict[min_batch_uid]
+
+    def _submit_next_batch(self, this_task: Optional[Task]):
+        """Part 2 of multi-task procession of adding a batch. Do not call this directly. Start _batch_intake(), which will start this."""
+        if PAUSE_BATCH_SUBMISSION_WHEN_OP_EXECUTION_PAUSED and not self.backend.get_op_execution_play_state():
+            logger.info(f'Op execution disabled. Will not submit batches')
+            return
+
+        next_batch = self._get_next_batch_in_queue()
+        if not next_batch:
+            return
 
         logger.info(f'Got next batch to submit: batch_uid={next_batch.batch_uid} with {len(next_batch.op_list)} ops')
 
@@ -221,8 +271,7 @@ class OpManager(HasLifecycle):
             self._batch_builder.validate_batch_graph(batch_graph_root, self)
         except RuntimeError as err:
             logger.exception('Failed to build operation graph')
-            dispatcher.send(signal=Signal.BATCH_FAILED, sender=ID_OP_MANAGER, msg='Failed to build operation graph', secondary_msg=str(err),
-                            batch_uid=batch.batch_uid)
+            self._on_batch_error_fight_or_flight('Failed to build operation graph', str(err), batch=next_batch)
             return
 
         try:
@@ -234,7 +283,7 @@ class OpManager(HasLifecycle):
             logger.debug(f'Got list of ops to insert: {",".join([str(op.op_uid) for op in inserted_op_list])}')
         except RuntimeError as err:
             logger.exception('Failed to insert into op graph')
-            self.backend.report_error(ID_OP_MANAGER, 'Failed to insert into op graph!', str(err))
+            self._on_batch_error_fight_or_flight('Failed to insert into op graph', str(err), batch=next_batch)
             return
 
         with self._lock:
@@ -248,11 +297,13 @@ class OpManager(HasLifecycle):
                 logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Discarded ops = {",".join([str(op.op_uid) for op in discarded_op_list])}')
-                self._disk_store.delete_pending_op_list(discarded_op_list)
+                with self._lock:
+                    self._disk_store.delete_pending_op_list(discarded_op_list)
         except RuntimeError as err:
+            # this is a non-recoverable error and indicates something is very wrong. Alert user and return
             logger.exception('Failed to save discarded ops to disk')
             self.backend.report_error(ID_OP_MANAGER, 'Failed to save discarded ops to disk', str(err))
-            # fall through
+            return
 
         try:
             # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).
@@ -264,11 +315,39 @@ class OpManager(HasLifecycle):
                 self._upsert_nodes_in_memstore(op)
         except RuntimeError as err:
             logger.exception('Error while updating nodes in memory store for user ops')
-            self.backend.report_error(ID_OP_MANAGER, 'Error while updating nodes in memory store for user ops!', str(err))
+            self._on_batch_error_fight_or_flight('Error while updating nodes in memory store for user ops', str(err), batch=next_batch)
             return
 
         logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')
         this_task.add_next_task(self._submit_next_batch)
+
+    def _on_batch_error_fight_or_flight(self, msg: str, secondary_msg: str, batch: Batch):
+        with self._lock:
+            error_strategy: ErrorHandlingStrategy = self._error_handling_batch_override_dict.get(batch.batch_uid, None)
+            if error_strategy:
+                logger.debug(f'OnBatchError(): found error_strategy={error_strategy.name} for batch {batch.batch_uid}')
+            else:
+                logger.debug(f'OnBatchError(): falling back to default error_strategy ({self._default_error_handling_strategy.name}) '
+                             f'for batch {batch.batch_uid}')
+                error_strategy = self._default_error_handling_strategy
+
+        if error_strategy == ErrorHandlingStrategy.PROMPT:
+            dispatcher.send(signal=Signal.BATCH_FAILED, sender=ID_OP_MANAGER, msg=msg, secondary_msg=secondary_msg,
+                            batch_uid=batch.batch_uid)
+        elif error_strategy == ErrorHandlingStrategy.CANCEL_BATCH:
+            with self._lock:
+                self._disk_store.cancel_op_list(batch.op_list, reason_msg=f'{msg}: {batch.batch_uid}')
+
+            # There may be another batch in the queue: try to process that if applicable
+            self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._submit_next_batch))
+        elif error_strategy == ErrorHandlingStrategy.PAUSE_EXECUTION:
+            # TODO: determine if we ever want to support this. Now seems unnecessary and might just confuse the user
+            raise NotImplementedError(f'Cannot handle ErrorHandlingStrategy.PAUSE_EXECUTION')
+        elif error_strategy == ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_DEPENDENTS:
+            # TODO: implement ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_DEPENDENTS
+            raise NotImplementedError(f'Cannot handle ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_DEPENDENTS yet!')
+        else:
+            assert False, f'Unrecognized: {error_strategy.name}'
 
     def _add_batch_to_main_graph(self, op_root: RootNode) -> Tuple[List[UserOp], List[UserOp]]:
         """Returns a tuple of [inserted user ops, discarded user ops]
