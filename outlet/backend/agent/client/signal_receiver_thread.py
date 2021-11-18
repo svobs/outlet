@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
-from constants import TreeLoadState
+from constants import ErrorHandlingStrategy, TreeLoadState
 from model.display_tree.display_tree import DisplayTree
 from model.node.directory_stats import DirectoryStats
 from model.node_identifier import GUID
@@ -125,6 +125,9 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             self._convert_stats_and_status(signal_msg.tree_load_update.stats_update, kwargs)
         elif signal == Signal.DEVICE_UPSERTED:
             kwargs['device'] = self._converter.device_from_grpc(signal_msg.device)
+        elif signal == Signal.HANDLE_BATCH_FAILED:
+            kwargs['batch_uid'] = signal_msg.handle_batch_failed.batch_uid
+            kwargs['error_handling_strategy'] = ErrorHandlingStrategy(signal_msg.handle_batch_failed.error_handling_strategy)
         logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')
         kwargs['signal'] = signal
         kwargs['sender'] = signal_msg.sender

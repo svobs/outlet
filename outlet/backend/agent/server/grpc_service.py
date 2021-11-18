@@ -83,6 +83,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_stats_updated)
         self.connect_dispatch_listener(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
 
+        self.connect_dispatch_listener(signal=Signal.BATCH_FAILED, receiver=self._on_batch_failed)
+
         # simple:
         self.forward_signal_to_clients(signal=Signal.DIFF_TREES_FAILED)
         self.forward_signal_to_clients(signal=Signal.GENERATE_MERGE_TREE_FAILED)
@@ -305,6 +307,13 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._dir_stats_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.tree_load_update.stats_update)
         self._send_grpc_signal_to_all_clients(signal)
 
+    def _on_batch_failed(self, sender: str, msg: str, secondary_msg: str, batch_uid: UID):
+        signal = SignalMsg(sig_int=Signal.BATCH_FAILED, sender=sender)
+        signal.batch_failed.batch_uid = batch_uid
+        signal.batch_failed.msg = msg
+        signal.batch_failed.secondary_msg = secondary_msg
+        self._send_grpc_signal_to_all_clients(signal)
+
     def _on_gdrive_download_done(self, sender, filename: str):
         signal = SignalMsg(sig_int=Signal.DOWNLOAD_FROM_GDRIVE_DONE, sender=sender)
         signal.download_msg.filename = filename
@@ -334,7 +343,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
-        logger.warning(f'[{sender}] Relaying signal across gRPC: "{Signal.ERROR_OCCURRED.name}", msg="{msg}", secondary_msg="{secondary_msg}"')
+        # This may be a serious error, or it may be more informational. Just log at INFO:
+        logger.info(f'[{sender}] Relaying signal across gRPC: "{Signal.ERROR_OCCURRED.name}", msg="{msg}", secondary_msg="{secondary_msg}"')
         signal = SignalMsg(sig_int=Signal.ERROR_OCCURRED, sender=sender)
         signal.error_occurred.msg = msg
         if secondary_msg:

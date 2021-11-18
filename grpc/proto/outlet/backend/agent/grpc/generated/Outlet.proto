@@ -214,6 +214,17 @@ message SubtreeChangeData {
 	repeated SPIDNodePair removed_sn_list = 3;
 }
 
+message BatchFailed {
+	uint32 batch_uid = 1;
+	string msg = 2;
+	string secondary_msg = 3;
+}
+
+message HandleBatchFailed {
+	uint32 batch_uid = 1;
+	uint32 error_handling_strategy = 2;
+}
+
 message SignalMsg {
 	uint32 sig_int = 1;
 	string sender = 2;
@@ -231,6 +242,8 @@ message SignalMsg {
 		Device device = 20;
 		DualDisplayTree dual_display_tree = 21;
 		SubtreeChangeData subtree = 22;  // for SUBTREE_NODES_CHANGED
+		BatchFailed batch_failed = 23;  // for BATCH_FAILED
+		HandleBatchFailed handle_batch_failed = 24;  // for HANDLE_BATCH_FAILED
 	}
 }
 

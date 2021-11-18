@@ -28,7 +28,8 @@ class GlobalActions(HasLifecycle):
 
     @staticmethod
     def display_error_in_ui(sender: str, msg: str, secondary_msg: str = None):
-        logger.debug(f'Sender "{sender}" sent an error msg to display')
+        """Note: it is up to the sender to decide how & whetehr to log the error"""
+        logger.debug(f'Sender "{sender}" sent an error msg to display: "{msg}"')
         dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=sender, msg=msg, secondary_msg=secondary_msg)
 
     @staticmethod

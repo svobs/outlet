@@ -83,6 +83,9 @@ class Signal(IntEnum):
     RESUME_OP_EXECUTION = 91
     OP_EXECUTION_PLAY_STATE_CHANGED = 92
 
+    BATCH_FAILED = 93
+    HANDLE_BATCH_FAILED = 94  # User response
+
     # --- Progress bar ---
     START_PROGRESS_INDETERMINATE = 100
     START_PROGRESS = 101

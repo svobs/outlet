@@ -1,21 +1,20 @@
 import copy
 import itertools
 import logging
-import pathlib
 from collections import OrderedDict
 from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TreeType
 from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
 from backend.sqlite.gdrive_db import GDriveDatabase
 from backend.sqlite.local_db import LocalDiskDatabase
-from model.uid import UID
-from model.user_op import UserOp, UserOpType
-from model.node.node import Node
+from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TreeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
+from model.uid import UID
+from model.user_op import UserOp, UserOpType
 from util import time_util
 
 logger = logging.getLogger(__name__)

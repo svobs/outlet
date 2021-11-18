@@ -1,22 +1,23 @@
-import collections
 import logging
 import threading
 from collections import defaultdict
 from enum import IntEnum
-from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional, Set, Tuple
+from typing import DefaultDict, Dict, List, Optional, Set, Tuple
+
+from pydispatch import dispatcher
 
 from backend.executor.central import ExecPriority
-from backend.executor.user_op.batch_builder import BatchBuilder
-from backend.executor.user_op.op_graph import OpGraph, skip_root
-from constants import IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from backend.executor.command.cmd_builder import CommandBuilder
 from backend.executor.command.cmd_interface import Command
+from backend.executor.user_op.batch_builder import BatchBuilder
 from backend.executor.user_op.op_disk_store import OpDiskStore
+from backend.executor.user_op.op_graph import OpGraph, skip_root
 from backend.executor.user_op.op_graph_node import OpGraphNode, RootNode
+from constants import IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import Node
-from model.user_op import Batch, OpTypeMeta, UserOp, UserOpType
 from model.uid import UID
-from signal_constants import ID_OP_MANAGER
+from model.user_op import Batch, OpTypeMeta, UserOp
+from signal_constants import ID_OP_MANAGER, Signal
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task
 
@@ -219,8 +220,9 @@ class OpManager(HasLifecycle):
             # Reconcile ops against master op tree before adding nodes. This will raise an exception if invalid
             self._batch_builder.validate_batch_graph(batch_graph_root, self)
         except RuntimeError as err:
-            # TODO: TryAgain, CancelBatch, Skip
-            self.backend.report_error(ID_OP_MANAGER, 'Failed to build operation graph', repr(err))
+            logger.exception('Failed to build operation graph')
+            dispatcher.send(signal=Signal.BATCH_FAILED, sender=ID_OP_MANAGER, msg='Failed to build operation graph', secondary_msg=str(err),
+                            batch_uid=batch.batch_uid)
             return
 
         try:
@@ -231,7 +233,8 @@ class OpManager(HasLifecycle):
             discarded_op_list.sort(key=lambda op: op.op_uid)
             logger.debug(f'Got list of ops to insert: {",".join([str(op.op_uid) for op in inserted_op_list])}')
         except RuntimeError as err:
-            self.backend.report_error(ID_OP_MANAGER, 'Failed to insert into op graph!', repr(err))
+            logger.exception('Failed to insert into op graph')
+            self.backend.report_error(ID_OP_MANAGER, 'Failed to insert into op graph!', str(err))
             return
 
         with self._lock:
@@ -247,7 +250,8 @@ class OpManager(HasLifecycle):
                     logger.debug(f'Discarded ops = {",".join([str(op.op_uid) for op in discarded_op_list])}')
                 self._disk_store.delete_pending_op_list(discarded_op_list)
         except RuntimeError as err:
-            self.backend.report_error(ID_OP_MANAGER, 'Failed to save discarded ops to disk', repr(err))
+            logger.exception('Failed to save discarded ops to disk')
+            self.backend.report_error(ID_OP_MANAGER, 'Failed to save discarded ops to disk', str(err))
             # fall through
 
         try:
@@ -259,7 +263,8 @@ class OpManager(HasLifecycle):
                 # any directories which need to be made must come before their children
                 self._upsert_nodes_in_memstore(op)
         except RuntimeError as err:
-            self.backend.report_error(ID_OP_MANAGER, 'Error while updating nodes in memory store for user ops!', repr(err))
+            logger.exception('Error while updating nodes in memory store for user ops')
+            self.backend.report_error(ID_OP_MANAGER, 'Error while updating nodes in memory store for user ops!', str(err))
             return
 
         logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')

@@ -21,7 +21,8 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     PutConfig_Request, RefreshSubtree_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, \
     SetSelectedRowSet_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
-from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeID, ZEROCONF_SERVICE_TYPE
+from constants import DirConflictPolicy, DragOperation, ErrorHandlingStrategy, FileConflictPolicy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeID, \
+    ZEROCONF_SERVICE_TYPE
 from error import ResultsExceededError
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -75,6 +76,8 @@ class BackendGRPCClient(OutletBackend):
 
         # This is not a gRPC call, but I couldn't find a better place to put it:
         self.connect_dispatch_listener(signal=Signal.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
+
+        self.connect_dispatch_listener(signal=Signal.HANDLE_BATCH_FAILED, receiver=self._on_handle_batch_failed)
 
         # Some requests are so simple that they can be encapsulated by a single signal:
         self.forward_signal_to_server(signal=Signal.PAUSE_OP_EXECUTION)
@@ -139,6 +142,12 @@ class BackendGRPCClient(OutletBackend):
         raise RuntimeError("FIXME! This is broken")  # personal note
         task = Task(None, task_func, args)
         self._fe_task_runner.enqueue_task(task)
+
+    def _on_handle_batch_failed(self, sender, batch_uid: UID, error_handling_strategy: ErrorHandlingStrategy):
+        signal = SignalMsg(sig_int=Signal.HANDLE_BATCH_FAILED, sender=sender)
+        signal.handle_batch_failed.batch_uid = batch_uid
+        signal.handle_batch_failed.error_handling_strategy = error_handling_strategy
+        self.grpc_stub.send_signal(signal)
 
     def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = True) -> Optional[str]:
         """Note: params 'default_val' and 'required' are only enforced locally, not by the server"""

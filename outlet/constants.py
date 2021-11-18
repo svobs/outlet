@@ -276,6 +276,19 @@ class ReplaceDirWithFilePolicy(IntEnum):
     FOLLOW_FILE_POLICY_FOR_DIR = 3
     """Act like the dir is a file: go ahead and follow the FileConflictPolicy."""
 
+
+DEFAULT_SRC_NODE_MOVE_POLICY = SrcNodeMovePolicy.DELETE_SRC_IF_NOT_SKIPPED
+DEFAULT_REPLACE_DIR_WITH_FILE_POLICY = ReplaceDirWithFilePolicy.FAIL
+
+
+# For batch failures
+class ErrorHandlingStrategy(IntEnum):
+    PROMPT = 1
+    PAUSE_EXECUTION = 2
+    CANCEL_BATCH = 3
+    CANCEL_FAILED_OPS_AND_DEPENDENTS = 4
+
+
 # TODO: create new icon for directory which has descendant(s) which have pending operations
 
 
