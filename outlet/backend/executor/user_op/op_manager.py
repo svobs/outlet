@@ -87,7 +87,7 @@ class OpManager(HasLifecycle):
         with self._lock:
             logger.debug(f'has_pending_batches(): pending_batch_dict size={len(self._pending_batch_dict)}, '
                          f'startup_done={self._are_batches_loaded_from_last_run}')
-            return len(self._pending_batch_dict) > 0 or self._are_batches_loaded_from_last_run
+            return len(self._pending_batch_dict) > 0 or not self._are_batches_loaded_from_last_run
 
     def try_batch_submit(self):
         self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._submit_next_batch))
@@ -188,6 +188,9 @@ class OpManager(HasLifecycle):
             op_list: List[UserOp] = self._disk_store.load_all_pending_ops()
         if not op_list:
             logger.info(f'resume_pending_ops_from_disk(): No pending ops found in the disk cache')
+            with self._lock:
+                logger.debug(f'resume_pending_ops_from_disk(): setting startup_done=True')
+                self._are_batches_loaded_from_last_run = True
             return
 
         logger.info(f'resume_pending_ops_from_disk(): Found {len(op_list)} pending ops from the disk cache')
