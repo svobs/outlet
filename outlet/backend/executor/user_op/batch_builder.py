@@ -256,7 +256,7 @@ class BatchBuilder:
                 if not parent_found:
                     logger.error(f'Could not find parent(s) in cache with device_uid {tgt_node.device_uid} & UID(s) {tgt_parent_uid_list} '
                                  f'for "{op_type}" operation node: {tgt_node}')
-                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find any parents in cache with '
+                    raise RuntimeError(f'Could not find any parents in cache with '
                                        f'device_uid {tgt_node.device_uid} & UIDs {tgt_parent_uid_list} for "{op_type}"')
 
                 if op_node.op.op_type == UserOpType.MKDIR:
@@ -272,12 +272,12 @@ class BatchBuilder:
             most_recent_op = op_manager.get_last_pending_op_for_node(tgt_node.device_uid, tgt_node.uid)
             if most_recent_op and most_recent_op.op_type == UserOpType.RM and op_node.is_src() and op_node.op.has_dst():
                 # CP, MV, and UP ops cannot logically have a src node which is not present:
-                raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP from a node ({tgt_node.dn_uid}) '
-                                   f'which is being removed')
+                raise RuntimeError(f'Invalid operation: attempting to do a {op_node.op.op_type} '
+                                   f'from a node which is being removed ({tgt_node.dn_uid}, "{tgt_node.name}")')
 
         # The OpGraph keeps track of the largest op UID it has added to its graph.
         # Refuse to create commands if the UIDs are too small, as a sanity check against running commands repeatedly
         max_added_op_uid = op_manager.get_max_added_op_uid()
         if max_added_op_uid != NULL_UID and max_added_op_uid >= min_op_uid:
-            raise RuntimeError(f'Cannot add batch: it appears to contain operation(s) which which are older than those already processed '
+            raise RuntimeError(f'Batch appears to contain operation(s) which which are older than those already submitted '
                                f'(op_uid={min_op_uid} > {max_added_op_uid})')

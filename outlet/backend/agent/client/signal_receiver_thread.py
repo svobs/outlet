@@ -88,61 +88,6 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
 
     def _relay_signal_locally(self, signal_msg: SignalMsg):
         """Take the signal (received from server) and dispatch it to our UI process"""
-        signal = Signal(signal_msg.sig_int)
-        kwargs = {}
-        # TODO: convert this long conditional list into an action dict
-        if signal == Signal.DISPLAY_TREE_CHANGED or signal == Signal.GENERATE_MERGE_TREE_DONE:
-            display_tree_ui_state = self._converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
-            tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
-            kwargs['tree'] = tree
-        elif signal == Signal.DIFF_TREES_DONE or signal == Signal.DIFF_TREES_CANCELLED:
-            display_tree_ui_state = self._converter.display_tree_ui_state_from_grpc(signal.dual_display_tree.left_tree)
-            tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
-            kwargs['tree_left'] = tree
-            display_tree_ui_state = self._converter.display_tree_ui_state_from_grpc(signal.dual_display_tree.right_tree)
-            tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
-            kwargs['right_tree'] = tree
-        elif signal == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
-            kwargs['is_enabled'] = signal_msg.play_state.is_enabled
-        elif signal == Signal.TOGGLE_UI_ENABLEMENT:
-            kwargs['enable'] = signal_msg.ui_enablement.enable
-        elif signal == Signal.ERROR_OCCURRED:
-            kwargs['msg'] = signal_msg.error_occurred.msg
-            kwargs['secondary_msg'] = signal_msg.error_occurred.secondary_msg
-        elif signal == Signal.NODE_UPSERTED or signal == Signal.NODE_REMOVED:
-            kwargs['sn'] = self._converter.sn_from_grpc(signal_msg.sn)
-            kwargs['parent_guid'] = signal_msg.parent_guid
-        elif signal == Signal.SUBTREE_NODES_CHANGED:
-            kwargs['subtree_root_spid'] = self._converter.node_identifier_from_grpc(signal_msg.subtree.subtree_root_spid)
-            kwargs['upserted_sn_list'] = self._converter.sn_list_from_grpc(signal_msg.subtree.upserted_sn_list)
-            kwargs['removed_sn_list'] = self._converter.sn_list_from_grpc(signal_msg.subtree.removed_sn_list)
-        elif signal == Signal.STATS_UPDATED:
-            self._convert_stats_and_status(signal_msg.stats_update, kwargs)
-        elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
-            kwargs['filename'] = signal_msg.download_msg.filename
-        elif signal == Signal.TREE_LOAD_STATE_UPDATED:
-            kwargs['tree_load_state'] = TreeLoadState(signal_msg.tree_load_update.load_state_int)
-            self._convert_stats_and_status(signal_msg.tree_load_update.stats_update, kwargs)
-        elif signal == Signal.DEVICE_UPSERTED:
-            kwargs['device'] = self._converter.device_from_grpc(signal_msg.device)
-        elif signal == Signal.HANDLE_BATCH_FAILED:
-            kwargs['batch_uid'] = signal_msg.handle_batch_failed.batch_uid
-            kwargs['error_handling_strategy'] = ErrorHandlingStrategy(signal_msg.handle_batch_failed.error_handling_strategy)
-        logger.info(f'Relaying locally: signal="{signal.name}" sender="{signal_msg.sender}" args={kwargs}')
-        kwargs['signal'] = signal
-        kwargs['sender'] = signal_msg.sender
+        kwargs = self._converter.signal_from_grpc(signal_msg)
         # IMPORTANT: Do not be tempted to use PyDispatcher's "named" argument for kwargs. It seems to fail in unexpected ways
         dispatcher.send(**kwargs)
-
-    def _convert_stats_and_status(self, stats_update, kwargs):
-        kwargs['status_msg'] = stats_update.status_msg
-        dir_stats_dict_by_guid: Dict[GUID, DirectoryStats] = {}
-        dir_stats_dict_by_uid: Dict[UID, DirectoryStats] = {}
-        for dir_meta_grpc in stats_update.dir_meta_by_guid_list:
-            dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
-            dir_stats_dict_by_guid[dir_meta_grpc.guid] = dir_stats
-        for dir_meta_grpc in stats_update.dir_meta_by_uid_list:
-            dir_stats = self._converter.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
-            dir_stats_dict_by_uid[dir_meta_grpc.uid] = dir_stats
-        kwargs['dir_stats_dict_by_guid'] = dir_stats_dict_by_guid
-        kwargs['dir_stats_dict_by_uid'] = dir_stats_dict_by_uid

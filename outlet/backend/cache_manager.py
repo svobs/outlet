@@ -741,7 +741,8 @@ class CacheManager(HasLifecycle):
         if self._op_manager.has_pending_batches():
             # TODO: should a D&D be allowed even if previous operations are not done being reflected in the OpGraph / caches? Think more about this...
             logger.info(f'[{dst_tree_id}] Denying drop: OpManager has pending batches which have not yet been added to OpGraph!')
-            # FIXME: trigger an alert which informs the user why this was denied, and prompt them to fix any problems.
+            # Instead, try to submit the existing batches (possibly again). If it fails, it will prompt them to fix any problems.
+            self._op_manager.try_batch_submit()
             return False
 
         src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)

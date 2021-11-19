@@ -61,7 +61,7 @@ class GDriveMemoryStore:
 
             if existing_node.is_live() and not node.is_live():
                 # In the future, let's close this hole with more elegant logic
-                logger.debug(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
+                logger.info(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
                 return node, False
 
             if existing_node.is_dir() and not node.is_dir():

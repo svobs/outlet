@@ -182,11 +182,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     # Short-lived async (non-streaming) client requests
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def send_signal(self, request, context):
+    def send_signal(self, signal_msg, context):
         """This is a request from the CLIENT to relay a Signal to the server"""
-        sig = Signal(request.sig_int)
-        logger.info(f'Relaying signal from gRPC: "{sig.name}" from sender "{request.sender}"')
-        dispatcher.send(signal=sig, sender=request.sender)
+        kwargs = self._converter.signal_from_grpc(signal_msg)
+        dispatcher.send(**kwargs)
         return SendSignalResponse()
 
     def get_config(self, request: GetConfig_Request, context):
