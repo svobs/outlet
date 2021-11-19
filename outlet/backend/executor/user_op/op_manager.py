@@ -13,7 +13,8 @@ from backend.executor.user_op.batch_builder import BatchBuilder
 from backend.executor.user_op.op_disk_store import OpDiskStore
 from backend.executor.user_op.op_graph import OpGraph, skip_root
 from backend.executor.user_op.op_graph_node import OpGraphNode, RootNode
-from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId, OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT, \
+    SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import Batch, OpTypeMeta, UserOp
@@ -397,6 +398,9 @@ class OpManager(HasLifecycle):
 
             # Wake Central Executor for each graph node:
             self.backend.executor.notify()
+
+        if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
+            self._op_graph.validate_graph()
 
         return inserted_op_list, discarded_op_list
 

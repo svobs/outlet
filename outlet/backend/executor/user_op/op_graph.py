@@ -4,7 +4,7 @@ import threading
 from typing import Deque, Dict, Iterable, List, Optional, Set
 
 from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
-from constants import NULL_UID, OP_GRAPH_VALIDATE_AFTER_EVERY_INSERTED_OG_NODE, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import UserOp
@@ -122,7 +122,11 @@ class OpGraph(HasLifecycle):
         with self._cv_can_get:
             return self._max_added_op_uid
 
-    def _validate_graph(self, last_ogn_added: OpGraphNode):
+    def validate_graph(self):
+        with self._cv_can_get:
+            self._validate_graph()
+
+    def _validate_graph(self):
         """The caller is responsible for locking the graph before calling this."""
         logger.debug(f'[{self.name}] Validating graph...')
         error_count = 0
@@ -263,20 +267,16 @@ class OpGraph(HasLifecycle):
 
         logger.debug(f'[{self.name}] ValidateGraph: encountered {len(ogn_coverage_dict)} OGNs in graph')
 
-        # Check for missing OGNs for binary ops:
+        # Check for missing OGNs for binary ops.
         for ogn_src in binary_op_src_coverage_dict.values():
             if not binary_op_dst_coverage_dict.pop(ogn_src.op.op_uid, None):
-                # Make an exception for the last OGN added, because it may not have its accompanying node yet
-                if ogn_src.node_uid != last_ogn_added.node_uid:
-                    error_count += 1
-                    logger.error(f'[{self.name}] ValidateGraph: Dst OGN missing for op: {ogn_src.op} (found: {ogn_src})')
+                error_count += 1
+                logger.error(f'[{self.name}] ValidateGraph: Dst OGN missing for op: {ogn_src.op} (found: {ogn_src})')
 
         if len(binary_op_dst_coverage_dict) > 0:
             for ogn_dst in binary_op_dst_coverage_dict.values():
-                # Make an exception for the last OGN added, because it may not have its accompanying node yet
-                if ogn_dst.node_uid != last_ogn_added.node_uid:
-                    error_count += 1
-                    logger.error(f'[{self.name}] ValidateGraph: Src OGN missing for op: {ogn_dst.op} (found: {ogn_dst})')
+                error_count += 1
+                logger.error(f'[{self.name}] ValidateGraph: Src OGN missing for op: {ogn_dst.op} (found: {ogn_dst})')
 
         # Check NodeQueues against graph entries:
         ogn_coverage_dict.pop(self.root.node_uid)
@@ -467,9 +467,6 @@ class OpGraph(HasLifecycle):
 
             if self._max_added_op_uid < new_og_node.op.op_uid:
                 self._max_added_op_uid = new_og_node.op.op_uid
-
-            if OP_GRAPH_VALIDATE_AFTER_EVERY_INSERTED_OG_NODE:
-                self._validate_graph(last_ogn_added=new_og_node)
 
             # notify consumers there is something to get:
             self._cv_can_get.notifyAll()

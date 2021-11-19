@@ -199,6 +199,8 @@ class BatchBuilder:
         logger.debug(f'[Batch-{batch_uid}] BuildBatchGraph: constructed graph with {len(lines)} OGNs:')
         for line in lines:
             logger.debug(f'[Batch-{batch_uid}] {line}')
+
+        batch_graph.validate_graph()
         return batch_graph.root
 
     def insert_for_op(self, op: UserOp, graph: OpGraph):
