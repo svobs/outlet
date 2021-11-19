@@ -411,6 +411,7 @@ class OpManager(HasLifecycle):
         return self._op_graph.get_max_added_op_uid()
 
     def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
+        # TODO: expand this to check for descendants with pending ops and return ICON_DIR_PENDING_DOWNSTREAM_OP
         op: Optional[UserOp] = self.get_last_pending_op_for_node(device_uid, node_uid)
         if not op or op.is_completed():
             if TRACE_ENABLED:

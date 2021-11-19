@@ -361,6 +361,7 @@ ICON_DIR_MV_DST = 'dir-mv-dst'
 ICON_DIR_UP_DST = 'dir-up-dst'
 ICON_DIR_CP_DST = 'dir-cp-dst'
 ICON_DIR_TRASHED = 'dir-trashed'
+ICON_DIR_PENDING_DOWNSTREAM_OP = 'dir-pending-downstream-op'
 
 # Various icon names:
 ICON_ALERT = 'alert'
@@ -414,6 +415,7 @@ class IconId(IntEnum):
     ICON_DIR_UP_DST = 17
     ICON_DIR_CP_DST = 18
     ICON_DIR_TRASHED = 19
+    ICON_DIR_PENDING_DOWNSTREAM_OP = 130
 
     ICON_ALERT = 20
     ICON_WINDOW = 21

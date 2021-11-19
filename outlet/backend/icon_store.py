@@ -7,7 +7,7 @@ from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_FOLDER_TREE, 
     BTN_LOCAL_DISK_WINDOWS, \
     COMPOSITE_ICON_BASE_DIR, \
     ICON_ALERT, ICON_DIR_CP_DST, \
-    ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_RM, \
+    ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_PENDING_DOWNSTREAM_OP, ICON_DIR_RM, \
     ICON_DIR_TRASHED, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, ICON_FILE_MV_DST, \
     ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_FOLDER_TREE, ICON_GDRIVE, ICON_GENERIC_DIR, \
     ICON_GENERIC_FILE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_LOADING, ICON_LOCAL_DISK_LINUX, ICON_LOCAL_DISK_MACOS, ICON_LOCAL_DISK_WINDOWS, \
@@ -172,6 +172,9 @@ class IconStore(ABC):
             IconId.ICON_DIR_UP_DST: CompositeIcon(name=ICON_DIR_UP_DST, base_path=dir_base, badges=[badge_meta_dict[IconId.BADGE_UP_DST]]),
             IconId.ICON_DIR_CP_DST: CompositeIcon(name=ICON_DIR_CP_DST, base_path=dir_base, badges=[badge_meta_dict[IconId.BADGE_CP_DST]]),
             IconId.ICON_DIR_TRASHED: SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{tree_icon_size}px.png'),
+            IconId.ICON_DIR_PENDING_DOWNSTREAM_OP: CompositeIcon(name=ICON_DIR_PENDING_DOWNSTREAM_OP, base_path=dir_base,
+                                                                 badges=[badge_meta_dict[IconId.BADGE_REFRESH]]),
+
 
             # Categories
 
