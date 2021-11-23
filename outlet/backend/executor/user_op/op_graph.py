@@ -640,27 +640,29 @@ class OpGraph(HasLifecycle):
 
             # I-1. Remove src node from node dict
 
-            node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(op.src_node.device_uid)
-            if not node_dict:
+            node_dict_for_device: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(op.src_node.device_uid)
+            if not node_dict_for_device:
                 # very bad
                 raise RuntimeError(f'Completed op src node device_uid ({op.src_node.device_uid}) not found in master dict (for {op.src_node.dn_uid}')
 
-            src_node_list: Deque[OpGraphNode] = node_dict.get(op.src_node.uid)
+            src_node_list: Deque[OpGraphNode] = node_dict_for_device.get(op.src_node.uid)
             if not src_node_list:
                 # very bad
-                raise RuntimeError(f'Completed op for src node UID ({op.src_node.uid}) not found in master dict!')
+                self._print_current_state()
+                raise RuntimeError(f'Completed op for src node ({op.src_node.dn_uid}) not found in master dict!')
 
             src_ogn: OpGraphNode = src_node_list.popleft()
             if src_ogn.op.op_uid != op.op_uid:
                 # very bad
+                self._print_current_state()
                 raise RuntimeError(f'Completed op (UID {op.op_uid}) does not match first node popped from src queue '
                                    f'(UID {src_ogn.op.op_uid})')
             if not src_node_list:
                 # Remove queue if it is empty:
-                node_dict.pop(op.src_node.uid, None)
-            if not node_dict:
-                # Remove dict if it is empty:
-                self._node_ogn_q_dict.pop(op.src_node.uid, None)
+                node_dict_for_device.pop(op.src_node.uid, None)
+            if not node_dict_for_device:
+                # Remove device dict if it is empty:
+                self._node_ogn_q_dict.pop(op.src_node.device_uid, None)
 
             # I-2. Remove src node ancestor counts
 
@@ -696,15 +698,16 @@ class OpGraph(HasLifecycle):
             if op.has_dst():
                 # II-1. Remove dst node from node dict
 
-                node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(op.dst_node.device_uid)
-                if not node_dict:
+                node_dict_for_device: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(op.dst_node.device_uid)
+                if not node_dict_for_device:
                     # very bad
+                    self._print_current_state()
                     raise RuntimeError(
                         f'Completed op dst node device_uid ({op.dst_node.device_uid}) not found in master dict (for {op.dst_node.dn_uid})')
 
-                dst_node_list: Deque[OpGraphNode] = node_dict.get(op.dst_node.uid)
+                dst_node_list: Deque[OpGraphNode] = node_dict_for_device.get(op.dst_node.uid)
                 if not dst_node_list:
-                    raise RuntimeError(f'Dst node for completed op not found in master dict (dst node UID {op.dst_node.uid})')
+                    raise RuntimeError(f'Dst node for completed op not found in master dict (dst node {op.dst_node.dn_uid})')
 
                 dst_ogn = dst_node_list.popleft()
                 if dst_ogn.op.op_uid != op.op_uid:
@@ -712,10 +715,10 @@ class OpGraph(HasLifecycle):
                                        f'(UID {dst_ogn.op.op_uid})')
                 if not dst_node_list:
                     # Remove queue if it is empty:
-                    node_dict.pop(op.dst_node.uid, None)
-                if not node_dict:
+                    node_dict_for_device.pop(op.dst_node.uid, None)
+                if not node_dict_for_device:
                     # Remove dict if it is empty:
-                    self._node_ogn_q_dict.pop(op.dst_node.uid, None)
+                    self._node_ogn_q_dict.pop(op.dst_node.device_uid, None)
 
                 # I-2. Remove src node ancestor counts
 

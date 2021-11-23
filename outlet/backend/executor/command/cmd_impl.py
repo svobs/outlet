@@ -2,7 +2,7 @@ import logging
 import os
 from typing import List
 
-from error import InvalidOperationError
+from error import GDriveItemNotFoundError, InvalidOperationError
 from util import file_util
 from model.user_op import UserOp, UserOpType
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand
@@ -646,7 +646,12 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
             if len(existing_child_list) > 0:
                 raise RuntimeError(f'Folder has {len(existing_child_list)} children; will not delete non-empty folder ({self.op.src_node})')
 
-            gdrive_client.hard_delete(self.op.src_node.goog_id)
+            try:
+                gdrive_client.hard_delete(self.op.src_node.goog_id)
+            except GDriveItemNotFoundError:
+                logger.warning(f'GDrive item not found while deleting: {self.op.src_node.goog_id} - assuming it was deleted externally')
+                return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
+
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
