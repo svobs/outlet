@@ -19,7 +19,7 @@ class OpGraphNode(BaseNode, ABC):
     This is a node which represents an operation (or half of an operation, if the operations includes both src and dst nodes)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: Optional[UserOp]):
+    def __init__(self, uid: UID, op: Optional[UserOp], target_ancestor_uid_list: List[UID]):
         BaseNode.__init__(self)
 
         self.node_uid: UID = uid
@@ -27,6 +27,8 @@ class OpGraphNode(BaseNode, ABC):
 
         self.op: UserOp = op
         """The UserOp (i.e. "operation")"""
+
+        self.tgt_ancestor_uid_list: List[UID] = target_ancestor_uid_list
 
     @property
     def identifier(self):
@@ -327,7 +329,7 @@ class RootNode(HasMultiChild, OpGraphNode):
     """
 
     def __init__(self):
-        OpGraphNode.__init__(self, SUPER_ROOT_UID, None)
+        OpGraphNode.__init__(self, SUPER_ROOT_UID, None, [])
         HasMultiChild.__init__(self)
 
     @classmethod
@@ -353,8 +355,8 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     CLASS SrcOpNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp):
-        OpGraphNode.__init__(self, uid, op=op)
+    def __init__(self, uid: UID, op: UserOp, target_ancestor_uid_list: List[UID]):
+        OpGraphNode.__init__(self, uid, op=op, target_ancestor_uid_list=target_ancestor_uid_list)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
@@ -390,9 +392,9 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     CLASS DstOpNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp):
+    def __init__(self, uid: UID, op: UserOp, target_ancestor_uid_list: List[UID]):
         assert op.has_dst()
-        OpGraphNode.__init__(self, uid, op=op)
+        OpGraphNode.__init__(self, uid, op=op, target_ancestor_uid_list=target_ancestor_uid_list)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
@@ -433,9 +435,9 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     RM nodes have an inverted structure: the child nodes become the shared parents for their parent dir.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp):
+    def __init__(self, uid: UID, op: UserOp, target_ancestor_uid_list: List[UID]):
         assert op.op_type == UserOpType.RM
-        OpGraphNode.__init__(self, uid, op=op)
+        OpGraphNode.__init__(self, uid, op=op, target_ancestor_uid_list=target_ancestor_uid_list)
         HasMultiParent.__init__(self)
         HasSingleChild.__init__(self)
 

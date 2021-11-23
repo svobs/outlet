@@ -4,10 +4,10 @@ import threading
 from typing import Deque, Dict, Iterable, List, Optional, Set
 
 from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
-from constants import NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import IconId, NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import UserOp
+from model.user_op import OpTypeMeta, UserOp
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -50,6 +50,8 @@ class OpGraph(HasLifecycle):
 
         self._max_added_op_uid: UID = NULL_UID
         """Sanity check. Keep track of what's been added to the graph, and disallow duplicate or past inserts"""
+
+        self._ancestor_dict: Dict[UID, Dict[UID, int]] = {}
 
     def shutdown(self):
         """Need to call this for try_get() to return"""
@@ -117,6 +119,25 @@ class OpGraph(HasLifecycle):
         if op_node:
             return op_node.op
         return None
+
+    def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
+        with self._cv_can_get:
+            ogn: OpGraphNode = self._get_last_pending_ogn_for_node(device_uid, node_uid)
+            if ogn and not ogn.op.is_completed():
+                icon = OpTypeMeta.get_icon_for(device_uid, node_uid, ogn.op)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): returning icon')
+                return icon
+
+            device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
+            if device_ancestor_dict:
+                if device_ancestor_dict.get(node_uid, None):
+                    logger.debug(f'Node {device_uid}:{node_uid} has a downstream op: returning icon {IconId.ICON_DIR_PENDING_DOWNSTREAM_OP.name}')
+                    return IconId.ICON_DIR_PENDING_DOWNSTREAM_OP
+
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Node {device_uid}:{node_uid}: no custom icon')
+            return None
 
     def get_max_added_op_uid(self) -> UID:
         with self._cv_can_get:
@@ -465,6 +486,16 @@ class OpGraph(HasLifecycle):
                 node_dict[target_node.uid] = pending_op_queue
             pending_op_queue.append(new_og_node)
 
+            # Add to ancestor_dict:
+            device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(new_og_node.get_tgt_node().device_uid)
+            if not device_ancestor_dict:
+                device_ancestor_dict = {}
+                self._ancestor_dict[new_og_node.get_tgt_node().device_uid] = device_ancestor_dict
+            logger.debug(f'Inserted node {new_og_node.get_tgt_node().node_identifier} has ancestors: {new_og_node.tgt_ancestor_uid_list}')
+            for ancestor_uid in new_og_node.tgt_ancestor_uid_list:
+                count = device_ancestor_dict.get(ancestor_uid, 0)
+                device_ancestor_dict[ancestor_uid] = count + 1
+
             if self._max_added_op_uid < new_og_node.op.op_uid:
                 self._max_added_op_uid = new_og_node.op.op_uid
 
@@ -597,11 +628,11 @@ class OpGraph(HasLifecycle):
                 # very bad
                 raise RuntimeError(f'Completed op for src node UID ({op.src_node.uid}) not found in master dict!')
 
-            src_op_node: OpGraphNode = src_node_list.popleft()
-            if src_op_node.op.op_uid != op.op_uid:
+            src_ogn: OpGraphNode = src_node_list.popleft()
+            if src_ogn.op.op_uid != op.op_uid:
                 # very bad
                 raise RuntimeError(f'Completed op (UID {op.op_uid}) does not match first node popped from src queue '
-                                   f'(UID {src_op_node.op.op_uid})')
+                                   f'(UID {src_ogn.op.op_uid})')
             if not src_node_list:
                 # Remove queue if it is empty:
                 node_dict.pop(op.src_node.uid, None)
@@ -609,20 +640,24 @@ class OpGraph(HasLifecycle):
                 # Remove dict if it is empty:
                 self._node_ogn_q_dict.pop(op.src_node.uid, None)
 
-            # I-2. Remove src node from op graph
+            # I-2. Remove src node ancestor counts
+
+            self._decrement_ancestor_counts(src_ogn)
+
+            # I-3. Remove src node from op graph
 
             # validate it is a child of root
-            if not src_op_node.is_child_of_root():
-                parent = src_op_node.get_first_parent()
+            if not src_ogn.is_child_of_root():
+                parent = src_ogn.get_first_parent()
                 parent_uid = parent.node_uid if parent else None
                 raise RuntimeError(f'Src node for completed op is not a parent of root (instead found parent op node {parent_uid})')
 
             # unlink from its parent
-            self.root.unlink_child(src_op_node)
+            self.root.unlink_child(src_ogn)
 
             # unlink its children also. If the child then has no other parents, it moves up to become child of root
-            for child in src_op_node.get_child_list():
-                child.unlink_parent(src_op_node)
+            for child in src_ogn.get_child_list():
+                child.unlink_parent(src_ogn)
 
                 if not child.get_parent_list():
                     self.root.link_child(child)
@@ -633,7 +668,7 @@ class OpGraph(HasLifecycle):
                             logger.error(f'Node has no parents: {par}')
 
             # I-3. Delete src node
-            del src_op_node
+            del src_ogn
 
             # II. DST Node
             if op.has_dst():
@@ -649,10 +684,10 @@ class OpGraph(HasLifecycle):
                 if not dst_node_list:
                     raise RuntimeError(f'Dst node for completed op not found in master dict (dst node UID {op.dst_node.uid})')
 
-                dst_op_node = dst_node_list.popleft()
-                if dst_op_node.op.op_uid != op.op_uid:
+                dst_ogn = dst_node_list.popleft()
+                if dst_ogn.op.op_uid != op.op_uid:
                     raise RuntimeError(f'Completed op (UID {op.op_uid}) does not match first node popped from dst queue '
-                                       f'(UID {dst_op_node.op.op_uid})')
+                                       f'(UID {dst_ogn.op.op_uid})')
                 if not dst_node_list:
                     # Remove queue if it is empty:
                     node_dict.pop(op.dst_node.uid, None)
@@ -660,29 +695,44 @@ class OpGraph(HasLifecycle):
                     # Remove dict if it is empty:
                     self._node_ogn_q_dict.pop(op.dst_node.uid, None)
 
-                # II-2. Remove dst node from op graph
+                # I-2. Remove src node ancestor counts
+
+                self._decrement_ancestor_counts(dst_ogn)
+
+                # II-3. Remove dst node from op graph
 
                 # validate it is a child of root
-                if not dst_op_node.is_child_of_root():
-                    parent = dst_op_node.get_first_parent()
+                if not dst_ogn.is_child_of_root():
+                    parent = dst_ogn.get_first_parent()
                     parent_uid = parent.node_uid if parent else None
                     raise RuntimeError(f'Dst node for completed op is not a parent of root (instead found parent {parent_uid})')
 
                 # unlink from its parent
-                self.root.unlink_child(dst_op_node)
+                self.root.unlink_child(dst_ogn)
 
                 # unlink its children also. If the child then has no other parents, it moves up to become child of root
-                for child in dst_op_node.get_child_list():
-                    child.unlink_parent(dst_op_node)
+                for child in dst_ogn.get_child_list():
+                    child.unlink_parent(dst_ogn)
 
                     if not child.get_parent_list():
                         self.root.link_child(child)
 
                 # II-3. Delete dst node
-                del dst_op_node
+                del dst_ogn
 
             logger.debug(f'[{self.name}] Done with pop_op() for op: {op}')
             self._print_current_state()
 
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
+
+    def _decrement_ancestor_counts(self, ogn: OpGraphNode):
+        device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(ogn.get_tgt_node().device_uid)
+        if not device_ancestor_dict:
+            raise RuntimeError(f'Completed op (UID {ogn.op.op_uid}): no entry for device_uid ({ogn.get_tgt_node().device_uid}) in ancestor dict!')
+        for ancestor_uid in ogn.tgt_ancestor_uid_list:
+            count = device_ancestor_dict.get(ancestor_uid) - 1
+            if count == 0:
+                device_ancestor_dict.pop(ancestor_uid)
+            else:
+                device_ancestor_dict[ancestor_uid] = count

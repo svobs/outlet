@@ -73,12 +73,19 @@ class OpManager(HasLifecycle):
         logger.debug(f'[OpManager] Shutdown started')
         HasLifecycle.shutdown(self)
 
-        if self._disk_store:
-            self._disk_store.shutdown()
-            self._disk_store = None
-        if self._op_graph:
-            self._op_graph.shutdown()
-            self._op_graph = None
+        try:
+            if self._disk_store:
+                self._disk_store.shutdown()
+                self._disk_store = None
+        except (AttributeError, NameError):
+            pass
+
+        try:
+            if self._op_graph:
+                self._op_graph.shutdown()
+                self._op_graph = None
+        except (AttributeError, NameError):
+            pass
 
         self.backend = None
         self._cmd_builder = None
@@ -411,17 +418,7 @@ class OpManager(HasLifecycle):
         return self._op_graph.get_max_added_op_uid()
 
     def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
-        # TODO: expand this to check for descendants with pending ops and return ICON_DIR_PENDING_DOWNSTREAM_OP
-        op: Optional[UserOp] = self.get_last_pending_op_for_node(device_uid, node_uid)
-        if not op or op.is_completed():
-            if TRACE_ENABLED:
-                logger.debug(f'Node {device_uid}:{node_uid}: no custom icon (op={op})')
-            return None
-
-        icon = OpTypeMeta.get_icon_for(device_uid, node_uid, op)
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({op.op_uid}: {op.op_type.name}): returning icon')
-        return icon
+        return self._op_graph.get_icon_for_node(device_uid, node_uid)
 
     def get_next_command(self) -> Optional[Command]:
         # Call this from Executor. Only returns None if shutting down

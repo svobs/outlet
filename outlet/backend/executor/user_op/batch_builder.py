@@ -205,17 +205,31 @@ class BatchBuilder:
 
     def insert_for_op(self, op: UserOp, graph: OpGraph):
         # make src node
+        ancestor_uid_list = self._build_ancestor_uid_list(op.src_node)
         if op.op_type == UserOpType.RM:
-            src_node: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op)
+            src_node: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
         else:
-            src_node: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op)
+            src_node: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
 
         graph.enqueue_single_og_node(src_node)
 
         # make dst node (if op has dst)
         if op.has_dst():
-            dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op)
+            ancestor_uid_list = self._build_ancestor_uid_list(op.dst_node)
+            dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
             graph.enqueue_single_og_node(dst_node)
+
+    def _build_ancestor_uid_list(self, tgt_node: Node) -> List[UID]:
+        ancestor_list: List[UID] = []
+        queue = collections.deque()
+        queue.append(tgt_node)
+        while len(queue) > 0:
+            node = queue.popleft()
+            for parent_node in self.backend.cacheman.get_parent_list_for_node(node):
+                ancestor_list.append(parent_node.uid)
+                queue.append(parent_node)
+
+        return ancestor_list
 
     def validate_batch_graph(self, op_root: RootNode, op_manager):
         """
