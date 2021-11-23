@@ -284,23 +284,21 @@ class OpManager(HasLifecycle):
             self._on_batch_error_fight_or_flight('Failed to build operation graph', str(err), batch=next_batch)
             return
 
-        try:
-            inserted_op_list, discarded_op_list = self._add_batch_to_main_graph(batch_graph_root)
-            # The lists are returned in order of BFS of their op graph. However, when upserting to the cache we need them in BFS order of the tree
-            # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
-            inserted_op_list.sort(key=lambda op: op.op_uid)
-            discarded_op_list.sort(key=lambda op: op.op_uid)
-            logger.debug(f'Got list of ops to insert: {",".join([str(op.op_uid) for op in inserted_op_list])}')
-        except RuntimeError as err:
-            logger.exception('Failed to insert into op graph')
-            self._on_batch_error_fight_or_flight('Failed to insert into op graph', str(err), batch=next_batch)
-            return
-
-        with self._lock:
-            logger.debug(f'submit_next_batch(): Popping batch {next_batch.batch_uid} off the pending queue')
-            if not self._pending_batch_dict.pop(next_batch.batch_uid, None):
-                logger.warning(f'Failed to pop batch {next_batch.batch_uid} off of pending batches: was it already removed?')
-                # fall through
+        inserted_op_list, discarded_op_list, error_to_report = self._add_batch_to_main_graph(batch_graph_root)
+        # The lists are returned in order of BFS of their op graph. However, when upserting to the cache we need them in BFS order of the tree
+        # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
+        inserted_op_list.sort(key=lambda op: op.op_uid)
+        discarded_op_list.sort(key=lambda op: op.op_uid)
+        logger.debug(f'Got list of ops to insert: {",".join([str(op.op_uid) for op in inserted_op_list])}')
+        if error_to_report:
+            logger.exception('Failed while inserting into op graph', error_to_report)
+            self._on_batch_error_fight_or_flight('Failed to insert into op graph', str(error_to_report), batch=next_batch)
+        else:
+            with self._lock:
+                logger.debug(f'submit_next_batch(): Popping batch {next_batch.batch_uid} off the pending queue')
+                if not self._pending_batch_dict.pop(next_batch.batch_uid, None):
+                    logger.warning(f'Failed to pop batch {next_batch.batch_uid} off of pending batches: was it already removed?')
+                    # fall through
 
         try:
             if discarded_op_list:
@@ -312,24 +310,46 @@ class OpManager(HasLifecycle):
         except RuntimeError as err:
             # this is a non-recoverable error and indicates something is very wrong. Alert user and return
             logger.exception('Failed to save discarded ops to disk')
-            self.backend.report_error(ID_OP_MANAGER, 'Failed to save discarded ops to disk', str(err))
-            return
+            if not error_to_report:
+                error_to_report = err
+                self.backend.report_error(ID_OP_MANAGER, 'Failed to save discarded ops to disk', str(error_to_report))
+                # fall through
 
         try:
-            # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).
-            # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
-            logger.debug(f'Upserting affected nodes in memstore for {len(inserted_op_list)} ops')
-            for op in inserted_op_list:
-                # NOTE: this REQUIRES that inserted_op_list is in the correct order:
-                # any directories which need to be made must come before their children
-                self._upsert_nodes_in_memstore(op)
+            if inserted_op_list:
+                # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).
+                # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
+                logger.debug(f'Upserting affected nodes in memstore for {len(inserted_op_list)} ops')
+                for op in inserted_op_list:
+                    # NOTE: this REQUIRES that inserted_op_list is in the correct order:
+                    # any directories which need to be made must come before their children
+                    self._upsert_nodes_in_memstore(op)
         except RuntimeError as err:
             logger.exception('Error while updating nodes in memory store for user ops')
-            self._on_batch_error_fight_or_flight('Error while updating nodes in memory store for user ops', str(err), batch=next_batch)
-            return
+            if not error_to_report:
+                error_to_report = err
+                self._on_batch_error_fight_or_flight('Error while updating nodes in memory store for user ops', str(error_to_report), batch=next_batch)
+                # fall through
 
-        logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')
-        this_task.add_next_task(self._submit_next_batch)
+        added_ancestor_dict, removed_ancestor_dict = self._op_graph.get_ancestor_dict_changes()
+        logger.debug(f'Got added ancestors: {added_ancestor_dict}; removed ancestors: {removed_ancestor_dict}')
+        self._update_icons_for_ancestors(added_ancestor_dict)
+        self._update_icons_for_ancestors(removed_ancestor_dict)
+
+        if not error_to_report:
+            logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')
+            this_task.add_next_task(self._submit_next_batch)
+
+    def _update_icons_for_ancestors(self, ancestor_dict: Dict[UID, Set[UID]]):
+        for device_uid, ancestor_node_uid_set in ancestor_dict.items():
+            for ancestor_node_uid in ancestor_node_uid_set:
+                ancestor_node = self.backend.cacheman.get_node_for_uid(uid=ancestor_node_uid, device_uid=device_uid)
+                if ancestor_node:
+                    # This is an in-memory update only:
+                    self.backend.cacheman.update_node_icon(ancestor_node)
+                    dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_OP_MANAGER, node=ancestor_node)
+                elif SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Could not find busy ancestor node: {device_uid}:{ancestor_node_uid}')
 
     def _on_batch_error_fight_or_flight(self, msg: str, secondary_msg: str, batch: Batch):
         with self._lock:
@@ -364,7 +384,7 @@ class OpManager(HasLifecycle):
         else:
             assert False, f'Unrecognized: {error_strategy.name}'
 
-    def _add_batch_to_main_graph(self, op_root: RootNode) -> Tuple[List[UserOp], List[UserOp]]:
+    def _add_batch_to_main_graph(self, op_root: RootNode) -> Tuple[List[UserOp], List[UserOp], Optional[RuntimeError]]:
         """Returns a tuple of [inserted user ops, discarded user ops]
         Algo:
         1. Discard root
@@ -388,28 +408,31 @@ class OpManager(HasLifecycle):
         processed_op_uid_set: Set[UID] = set()
         inserted_op_list: List[UserOp] = []
         discarded_op_list: List[UserOp] = []
-        for graph_node in skip_root(breadth_first_list):
-            succeeded = self._op_graph.enqueue_single_og_node(graph_node)
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Enqueue of OGNode {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded={succeeded}')
+        try:
+            for graph_node in skip_root(breadth_first_list):
+                succeeded = self._op_graph.enqueue_single_og_node(graph_node)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Enqueue of OGNode {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded={succeeded}')
 
-            if succeeded:
-                if graph_node.op.op_uid not in processed_op_uid_set:
-                    inserted_op_list.append(graph_node.op)
-                    processed_op_uid_set.add(graph_node.op.op_uid)
+                if succeeded:
+                    if graph_node.op.op_uid not in processed_op_uid_set:
+                        inserted_op_list.append(graph_node.op)
+                        processed_op_uid_set.add(graph_node.op.op_uid)
 
-            else:
-                if graph_node.op.op_uid not in processed_op_uid_set:
-                    discarded_op_list.append(graph_node.op)
-                    processed_op_uid_set.add(graph_node.op.op_uid)
+                else:
+                    if graph_node.op.op_uid not in processed_op_uid_set:
+                        discarded_op_list.append(graph_node.op)
+                        processed_op_uid_set.add(graph_node.op.op_uid)
 
-            # Wake Central Executor for each graph node:
-            self.backend.executor.notify()
+                # Wake Central Executor for each graph node:
+                self.backend.executor.notify()
 
-        if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
-            self._op_graph.validate_graph()
+            if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
+                self._op_graph.validate_graph()
+        except RuntimeError as err:
+            return inserted_op_list, discarded_op_list, err
 
-        return inserted_op_list, discarded_op_list
+        return inserted_op_list, discarded_op_list, None
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(device_uid, node_uid)

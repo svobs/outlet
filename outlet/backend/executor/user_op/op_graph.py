@@ -52,6 +52,8 @@ class OpGraph(HasLifecycle):
         """Sanity check. Keep track of what's been added to the graph, and disallow duplicate or past inserts"""
 
         self._ancestor_dict: Dict[UID, Dict[UID, int]] = {}
+        self._added_ancestor_dict: Dict[UID, Set[UID]] = {}
+        self._removed_ancestor_dict: Dict[UID, Set[UID]] = {}
 
     def shutdown(self):
         """Need to call this for try_get() to return"""
@@ -138,6 +140,15 @@ class OpGraph(HasLifecycle):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Node {device_uid}:{node_uid}: no custom icon')
             return None
+
+    def get_ancestor_dict_changes(self):
+        with self._cv_can_get:
+            added_ancestor_dict: Dict[UID, Set[UID]] = self._added_ancestor_dict
+            removed_ancestor_dict: Dict[UID, Set[UID]] = self._removed_ancestor_dict
+            self._added_ancestor_dict = {}
+            self._removed_ancestor_dict = {}
+
+        return added_ancestor_dict, removed_ancestor_dict
 
     def get_max_added_op_uid(self) -> UID:
         with self._cv_can_get:
@@ -286,7 +297,8 @@ class OpGraph(HasLifecycle):
                 error_count += 1
                 logger.error(f'[{self.name}] ValidateGraph: {error_msg}')
 
-        logger.debug(f'[{self.name}] ValidateGraph: encountered {len(ogn_coverage_dict)} OGNs in graph')
+        len_ogn_coverage_dict = len(ogn_coverage_dict)
+        logger.debug(f'[{self.name}] ValidateGraph: encountered {len_ogn_coverage_dict} OGNs in graph')
 
         # Check for missing OGNs for binary ops.
         for ogn_src in binary_op_src_coverage_dict.values():
@@ -316,7 +328,7 @@ class OpGraph(HasLifecycle):
         if error_count > 0:
             raise RuntimeError(f'Validation for OpGraph failed with {error_count} errors!')
         else:
-            logger.info(f'[{self.name}] ValidateGraph: completed with no errors for {len(ogn_coverage_dict)} OGNs')
+            logger.info(f'[{self.name}] ValidateGraph: completed with no errors for {len_ogn_coverage_dict} OGNs')
 
     # INSERT logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -352,8 +364,6 @@ class OpGraph(HasLifecycle):
         # We want to find the lowest RM node in the tree.
         assert new_og_node.is_rm_node()
         target_node: Node = new_og_node.get_tgt_node()
-
-        # FIXME: I seem to be checking the op graph for pending ops on the target's parent, but what about further up in its ancestors?
 
         # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
         og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_og_node)
@@ -410,8 +420,6 @@ class OpGraph(HasLifecycle):
     def _insert_non_rm_in_graph(self, new_og_node: OpGraphNode, prev_og_node_for_target: OpGraphNode, tgt_parent_uid_list: List[UID]):
         target_node: Node = new_og_node.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
-
-        # FIXME: I seem to be checking the op graph for pending ops on the target's parent, but what about further up in its ancestors?
 
         for tgt_node_parent_uid in tgt_parent_uid_list:
             prev_og_node_for_tgt_node_parent = self._get_last_pending_ogn_for_node(target_device_uid, tgt_node_parent_uid)
@@ -487,14 +495,28 @@ class OpGraph(HasLifecycle):
             pending_op_queue.append(new_og_node)
 
             # Add to ancestor_dict:
-            device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(new_og_node.get_tgt_node().device_uid)
+            device_uid = new_og_node.get_tgt_node().device_uid
+            device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
             if not device_ancestor_dict:
                 device_ancestor_dict = {}
-                self._ancestor_dict[new_og_node.get_tgt_node().device_uid] = device_ancestor_dict
+                self._ancestor_dict[device_uid] = device_ancestor_dict
             logger.debug(f'Inserted node {new_og_node.get_tgt_node().node_identifier} has ancestors: {new_og_node.tgt_ancestor_uid_list}')
             for ancestor_uid in new_og_node.tgt_ancestor_uid_list:
                 count = device_ancestor_dict.get(ancestor_uid, 0)
+                if count == 0:
+                    added_ancestor_map_for_device = self._added_ancestor_dict.get(device_uid)
+                    if not added_ancestor_map_for_device:
+                        added_ancestor_map_for_device = set()
+                        self._added_ancestor_dict[device_uid] = added_ancestor_map_for_device
+                    added_ancestor_map_for_device.add(ancestor_uid)
+
+                    removed_ancestor_map_for_device = self._removed_ancestor_dict.get(device_uid)
+                    if removed_ancestor_map_for_device and ancestor_uid in removed_ancestor_map_for_device:
+                        removed_ancestor_map_for_device.remove(ancestor_uid)
                 device_ancestor_dict[ancestor_uid] = count + 1
+
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Ancestor dict: {self._ancestor_dict}')
 
             if self._max_added_op_uid < new_og_node.op.op_uid:
                 self._max_added_op_uid = new_og_node.op.op_uid
@@ -517,7 +539,7 @@ class OpGraph(HasLifecycle):
         pending_op_queue: Deque[OpGraphNode] = node_dict.get(node.uid, None)
         if not pending_op_queue:
             logger.error(f'Could not find entry for node UID {node.uid} (op {node_type_str} node: op={op}); raising error')
-            raise RuntimeError(f'Serious error: master dict has no entries for op {node_type_str} node (uid={node.uid})!')
+            raise RuntimeError(f'Serious error: NodeQueueDict has no entries for op {node_type_str} node (uid={node.uid})!')
 
         op_graph_node = pending_op_queue[0]
         if op.op_uid != op_graph_node.op.op_uid:
@@ -727,12 +749,25 @@ class OpGraph(HasLifecycle):
             self._cv_can_get.notifyAll()
 
     def _decrement_ancestor_counts(self, ogn: OpGraphNode):
-        device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(ogn.get_tgt_node().device_uid)
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Decrement(): Ancestor dict: {self._ancestor_dict}')
+        device_uid = ogn.get_tgt_node().device_uid
+        device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
         if not device_ancestor_dict:
-            raise RuntimeError(f'Completed op (UID {ogn.op.op_uid}): no entry for device_uid ({ogn.get_tgt_node().device_uid}) in ancestor dict!')
+            raise RuntimeError(f'Completed op (UID {ogn.op.op_uid}): no entry for device_uid ({device_uid}) in ancestor dict!')
         for ancestor_uid in ogn.tgt_ancestor_uid_list:
             count = device_ancestor_dict.get(ancestor_uid) - 1
             if count == 0:
                 device_ancestor_dict.pop(ancestor_uid)
+
+                added_ancestor_map_for_device = self._added_ancestor_dict.get(device_uid)
+                if added_ancestor_map_for_device and ancestor_uid in added_ancestor_map_for_device:
+                    added_ancestor_map_for_device.remove(ancestor_uid)
+
+                removed_ancestor_map_for_device = self._removed_ancestor_dict.get(device_uid)
+                if not removed_ancestor_map_for_device:
+                    removed_ancestor_map_for_device = set()
+                    self._removed_ancestor_dict[device_uid] = removed_ancestor_map_for_device
+                removed_ancestor_map_for_device.add(ancestor_uid)
             else:
                 device_ancestor_dict[ancestor_uid] = count

@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 from backend.sqlite.gdrive_db import GDriveDatabase
 from backend.tree_store.gdrive.client.change_observer import GDriveChange, GDriveNodeChange
 from backend.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
-from constants import SUPER_DEBUG_ENABLED, TreeType
+from constants import GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TreeType
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
@@ -62,6 +62,9 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
 
         parent_uids = self.node.get_parent_uids()
         if parent_uids:
+            if len(parent_uids) == 1 and parent_uids[0] == GDRIVE_ROOT_UID:
+                logger.debug(f'Parent is GDrive root')
+                self.parent_goog_ids = [None]
             try:
                 self.parent_goog_ids = memstore.master_tree.resolve_uids_to_goog_ids(parent_uids, fail_if_missing=True)
             except RuntimeError:
