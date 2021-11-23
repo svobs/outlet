@@ -214,13 +214,13 @@ class BatchBuilder:
         else:
             src_node: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
 
-        graph.enqueue_single_og_node(src_node)
+        graph.enqueue_single_ogn(src_node)
 
         # make dst node (if op has dst)
         if op.has_dst():
             ancestor_uid_list = self._build_ancestor_uid_list(op.dst_node, tgt_node_dict)
             dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
-            graph.enqueue_single_og_node(dst_node)
+            graph.enqueue_single_ogn(dst_node)
 
     def _build_ancestor_uid_list(self, tgt_node: Node, tgt_node_dict: Dict[UID, Dict[UID, Node]]) -> List[UID]:
         ancestor_list: List[UID] = []

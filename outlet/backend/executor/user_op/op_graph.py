@@ -450,7 +450,7 @@ class OpGraph(HasLifecycle):
                              f'or parent node {target_device_uid}:{tgt_node_parent_uid}; adding to root')
                 self.root.link_child(new_og_node)
 
-    def enqueue_single_og_node(self, new_og_node: OpGraphNode) -> bool:
+    def enqueue_single_ogn(self, new_og_node: OpGraphNode) -> bool:
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
@@ -530,15 +530,27 @@ class OpGraph(HasLifecycle):
     # GET logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _is_node_ready(self, op: UserOp, node: Node, node_type_str: str) -> bool:
+    def _is_node_ready(self, op: UserOp, node: Node, node_type_str: str, fail_if_not_found: bool = True) -> bool:
+        """Note: we allow for the possibilty that not all nodes have been added to the graph yet (i.e. an op's src node is there but not its dst
+        node yet) by setting fail_if_not_found to False"""
         node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(node.device_uid, None)
         if not node_dict:
-            logger.error(f'Could not find entry in node dict for device_uid {node.device_uid} (from op {node_type_str} node); raising error')
-            raise RuntimeError(f'Serious error: master dict has no entries for device_uid={node.device_uid} (op {node_type_str} node) !')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Could not find entry in node dict for device_uid {node.device_uid} (from OGN {node_type_str}, op {op}, '
+                             f'fail_if_not_found={fail_if_not_found})')
+            if fail_if_not_found:
+                raise RuntimeError(f'Serious error: master dict has no entries for device_uid={node.device_uid} (op {node_type_str} node) !')
+            else:
+                return False
         pending_op_queue: Deque[OpGraphNode] = node_dict.get(node.uid, None)
         if not pending_op_queue:
-            logger.error(f'Could not find entry for node UID {node.uid} (op {node_type_str} node: op={op}); raising error')
-            raise RuntimeError(f'Serious error: NodeQueueDict has no entries for op {node_type_str} node (uid={node.uid})!')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Could not find entry in node dict for device_uid {node.device_uid} (from OGN {node_type_str}, op {op}, '
+                             f'fail_if_not_found={fail_if_not_found})')
+            if fail_if_not_found:
+                raise RuntimeError(f'Serious error: NodeQueueDict has no entries for op {node_type_str} node (uid={node.uid})!')
+            else:
+                return False
 
         op_graph_node = pending_op_queue[0]
         if op.op_uid != op_graph_node.op.op_uid:
@@ -564,10 +576,10 @@ class OpGraph(HasLifecycle):
                 # If the UserOp has both src and dst nodes, *both* must be next in their queues, and also be just below root.
                 if og_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
-                    is_other_node_ready = self._is_node_ready(og_node.op, og_node.op.src_node, 'src')
+                    is_other_node_ready = self._is_node_ready(og_node.op, og_node.op.src_node, 'src', fail_if_not_found=False)
                 else:
-                    # Src node is child of root. But verify corresponding dst node is also child of root
-                    is_other_node_ready = self._is_node_ready(og_node.op, og_node.op.dst_node, 'dst')
+                    # Src node is child of root. But verify corresponding dst node is also child of root.
+                    is_other_node_ready = self._is_node_ready(og_node.op, og_node.op.dst_node, 'dst', fail_if_not_found=False)
 
                 if not is_other_node_ready:
                     if SUPER_DEBUG_ENABLED:

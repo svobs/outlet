@@ -413,7 +413,7 @@ class OpManager(HasLifecycle):
         discarded_op_list: List[UserOp] = []
         try:
             for graph_node in skip_root(breadth_first_list):
-                succeeded = self._op_graph.enqueue_single_og_node(graph_node)
+                succeeded = self._op_graph.enqueue_single_ogn(graph_node)
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Enqueue of OGNode {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded={succeeded}')
 

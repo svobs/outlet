@@ -290,9 +290,6 @@ DEFAULT_REPLACE_DIR_WITH_FILE_POLICY = ReplaceDirWithFilePolicy.FAIL
 DEFAULT_ERROR_HANDLING_STRATEGY = ErrorHandlingStrategy.PROMPT
 
 
-# TODO: create new icon for directory which has descendant(s) which have pending operations
-
-
 TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.MIXED: 'M', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G'}
 
 # UID reserved values:
