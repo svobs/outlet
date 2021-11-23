@@ -4,7 +4,7 @@ from typing import Callable, DefaultDict, Deque, Dict, List
 
 from backend.executor.user_op.op_graph import OpGraph, skip_root
 from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
-from constants import NULL_UID, SUPER_DEBUG_ENABLED
+from constants import is_root, NULL_UID, SUPER_DEBUG_ENABLED
 from model.node.node import Node
 from model.node_identifier import DN_UID
 from model.uid import UID
@@ -191,8 +191,11 @@ class BatchBuilder:
             last_op_uid = op.op_uid
 
         batch_graph = OpGraph(f'BatchGraph-{batch_uid}')
+        # some of the ancestors may not be in cacheman, because they are being added by the batch.
+        # so, store the batch nodes in a dict for additional lookup
+        tgt_node_dict: Dict[UID, Dict[UID, Node]] = {}
         for op in op_batch:
-            self.insert_for_op(op, batch_graph)
+            self.insert_for_op(op, batch_graph, tgt_node_dict)
 
         lines = batch_graph.root.print_recursively()
         # note: GDrive paths may not be present at this point; this is ok.
@@ -203,9 +206,9 @@ class BatchBuilder:
         batch_graph.validate_graph()
         return batch_graph.root
 
-    def insert_for_op(self, op: UserOp, graph: OpGraph):
+    def insert_for_op(self, op: UserOp, graph: OpGraph, tgt_node_dict):
         # make src node
-        ancestor_uid_list = self._build_ancestor_uid_list(op.src_node)
+        ancestor_uid_list = self._build_ancestor_uid_list(op.src_node, tgt_node_dict)
         if op.op_type == UserOpType.RM:
             src_node: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
         else:
@@ -215,20 +218,42 @@ class BatchBuilder:
 
         # make dst node (if op has dst)
         if op.has_dst():
-            ancestor_uid_list = self._build_ancestor_uid_list(op.dst_node)
+            ancestor_uid_list = self._build_ancestor_uid_list(op.dst_node, tgt_node_dict)
             dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
             graph.enqueue_single_og_node(dst_node)
 
-    def _build_ancestor_uid_list(self, tgt_node: Node) -> List[UID]:
+    def _build_ancestor_uid_list(self, tgt_node: Node, tgt_node_dict: Dict[UID, Dict[UID, Node]]) -> List[UID]:
         ancestor_list: List[UID] = []
         queue = collections.deque()
         queue.append(tgt_node)
+
+        # store tgt node in dict for possible later lookup
+        device_tgt_node_dict: Dict[UID, Node] = tgt_node_dict.get(tgt_node.device_uid)
+        if not device_tgt_node_dict:
+            device_tgt_node_dict = {}
+            tgt_node_dict[tgt_node.device_uid] = device_tgt_node_dict
+        device_tgt_node_dict[tgt_node.uid] = tgt_node
+
         while len(queue) > 0:
             node = queue.popleft()
-            for parent_node in self.backend.cacheman.get_parent_list_for_node(node):
-                ancestor_list.append(parent_node.uid)
+            if is_root(node.uid):
+                logger.debug(f'Node is root; stopping: {node.node_identifier}')
+                break
+            parent_uid_list = node.get_parent_uids()
+            if not parent_uid_list:
+                raise RuntimeError(f'Node has no parent UIDs listed: {node}')
+
+            for parent_uid in parent_uid_list:
+                ancestor_list.append(parent_uid)
+                parent_node = self.backend.cacheman.get_node_for_uid(uid=parent_uid, device_uid=node.device_uid)
+                if not parent_node:
+                    parent_node = device_tgt_node_dict.get(parent_uid)
+                    if not parent_node:
+                        raise RuntimeError(f'Failed to find parent node in cacheman or in tgt dict: {node.device_uid}:{parent_uid}')
                 queue.append(parent_node)
 
+        if not ancestor_list:
+            raise RuntimeError(f'No ancestors for target node: {tgt_node}')
         return ancestor_list
 
     def validate_batch_graph(self, op_root: RootNode, op_manager):

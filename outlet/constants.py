@@ -311,6 +311,10 @@ SUPER_ROOT_DEVICE_UID = SUPER_ROOT_UID
 MIN_FREE_UID = 100
 
 
+def is_root(node_uid: UID) -> bool:
+    return SUPER_ROOT_UID <= node_uid <= GDRIVE_ROOT_UID
+
+
 class TreeDisplayMode(IntEnum):
     ONE_TREE_ALL_ITEMS = 1
     CHANGES_ONE_TREE_PER_CATEGORY = 2

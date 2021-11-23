@@ -132,10 +132,9 @@ class OpGraph(HasLifecycle):
                 return icon
 
             device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
-            if device_ancestor_dict:
-                if device_ancestor_dict.get(node_uid, None):
-                    logger.debug(f'Node {device_uid}:{node_uid} has a downstream op: returning icon {IconId.ICON_DIR_PENDING_DOWNSTREAM_OP.name}')
-                    return IconId.ICON_DIR_PENDING_DOWNSTREAM_OP
+            if device_ancestor_dict and device_ancestor_dict.get(node_uid):
+                logger.debug(f'Node {device_uid}:{node_uid} has a downstream op: returning icon {IconId.ICON_DIR_PENDING_DOWNSTREAM_OP.name}')
+                return IconId.ICON_DIR_PENDING_DOWNSTREAM_OP
 
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Node {device_uid}:{node_uid}: no custom icon')
@@ -753,7 +752,7 @@ class OpGraph(HasLifecycle):
 
     def _decrement_ancestor_counts(self, ogn: OpGraphNode):
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Decrement(): Ancestor dict: {self._ancestor_dict}')
+            logger.debug(f'Decrement(before): Ancestor dict: {self._ancestor_dict}')
         device_uid = ogn.get_tgt_node().device_uid
         device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
         if not device_ancestor_dict:
@@ -774,3 +773,6 @@ class OpGraph(HasLifecycle):
                 removed_ancestor_map_for_device.add(ancestor_uid)
             else:
                 device_ancestor_dict[ancestor_uid] = count
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Decrement(after): Ancestor dict: {self._ancestor_dict}')
