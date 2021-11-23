@@ -143,6 +143,7 @@ class IconStore(ABC):
 
             IconId.BADGE_CANCEL: SimpleIcon(name=f'Cancel', path=f'{badge_dir_path}/Cancel-{badge_size}.png'),
             IconId.BADGE_REFRESH: SimpleIcon(name=f'Refreshing', path=f'{badge_dir_path}/Refresh-{badge_size}.png'),
+            IconId.BADGE_PENDING_DOWNSTREAM_OP: SimpleIcon(name=f'PendingDownstreamOp', path=f'{badge_dir_path}/PendingDownstreamOp-{badge_size}.png'),
             IconId.BADGE_LINUX: SimpleIcon(name=f'Linux', path=f'{badge_dir_path}/linux-{badge_size}.png'),
             IconId.BADGE_MACOS: SimpleIcon(name=f'MacOS', path=f'{badge_dir_path}/macos-{badge_size}.png'),
             IconId.BADGE_WINDOWS: SimpleIcon(name=f'Windows', path=f'{badge_dir_path}/win-{badge_size}.png'),

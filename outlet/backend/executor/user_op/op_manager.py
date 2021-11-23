@@ -331,14 +331,17 @@ class OpManager(HasLifecycle):
                 self._on_batch_error_fight_or_flight('Error while updating nodes in memory store for user ops', str(error_to_report), batch=next_batch)
                 # fall through
 
-        added_ancestor_dict, removed_ancestor_dict = self._op_graph.get_ancestor_dict_changes()
-        logger.debug(f'Got added ancestors: {added_ancestor_dict}; removed ancestors: {removed_ancestor_dict}')
-        self._update_icons_for_ancestors(added_ancestor_dict)
-        self._update_icons_for_ancestors(removed_ancestor_dict)
+        self._update_icons_for_all_ancestors()
 
         if not error_to_report:
             logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')
             this_task.add_next_task(self._submit_next_batch)
+
+    def _update_icons_for_all_ancestors(self):
+        added_ancestor_dict, removed_ancestor_dict = self._op_graph.get_ancestor_dict_changes()
+        logger.debug(f'Got added ancestors: {added_ancestor_dict}; removed ancestors: {removed_ancestor_dict}')
+        self._update_icons_for_ancestors(added_ancestor_dict)
+        self._update_icons_for_ancestors(removed_ancestor_dict)
 
     def _update_icons_for_ancestors(self, ancestor_dict: Dict[UID, Set[UID]]):
         for device_uid, ancestor_node_uid_set in ancestor_dict.items():
@@ -474,6 +477,8 @@ class OpManager(HasLifecycle):
         # Ensure command is one that we are expecting.
         # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
         self._op_graph.pop_op(command.op)
+
+        self._update_icons_for_all_ancestors()
 
         # Wake Central Executor in case it is in the waiting state:
         self.backend.executor.notify()
