@@ -190,30 +190,6 @@ class CacheManager(HasLifecycle):
     def _on_command_completed(self, sender, command: Command):
         """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given UserOpResult"""
         logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE.name}"')
-        result = command.op.result
-
-        # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
-
-        if result.nodes_to_upsert:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert: '
-                             f'{result.nodes_to_upsert}')
-            else:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert')
-
-            for node_to_upsert in result.nodes_to_upsert:
-                self.upsert_single_node(node_to_upsert)
-
-        if result.nodes_to_remove:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove: '
-                             f'{result.nodes_to_remove}')
-            else:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove')
-
-            for removed_node in result.nodes_to_remove:
-                self.remove_node(removed_node, to_trash=False)
-
         self._op_manager.finish_command(command)
 
     # DisplayTree stuff

@@ -17,7 +17,7 @@ from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, Ic
     SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import Batch, OpTypeMeta, UserOp
+from model.user_op import Batch, OpTypeMeta, UserOp, UserOpStatus
 from signal_constants import ID_OP_MANAGER, Signal
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task
@@ -471,13 +471,43 @@ class OpManager(HasLifecycle):
         return len(self._op_graph)
 
     def finish_command(self, command: Command):
-        logger.debug(f'Archiving op: {command.op}')
-        self._disk_store.archive_completed_op_list([command.op])
+        result = command.op.result
+
+        # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
+
+        if result.nodes_to_upsert:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert: '
+                             f'{result.nodes_to_upsert}')
+            else:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert')
+
+            for node_to_upsert in result.nodes_to_upsert:
+                self.backend.cacheman.upsert_single_node(node_to_upsert)
+
+        if result.nodes_to_remove:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove: '
+                             f'{result.nodes_to_remove}')
+            else:
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove')
+
+            for removed_node in result.nodes_to_remove:
+                self.backend.cacheman.remove_node(removed_node, to_trash=False)
+
+        if result.status == UserOpStatus.STOPPED_ON_ERROR:
+            logger.info(f'Command {command.uid} ({command.op.op_type}) stopped on error')
+        elif result.status == UserOpStatus.NOT_STARTED or result.status == UserOpStatus.EXECUTING:
+            raise RuntimeError(f'Command completed but status ({result.status}) is invalid: {command}')
+        else:
+            logger.debug(f'Archiving op: {command.op}')
+            self._disk_store.archive_completed_op_list([command.op])
 
         # Ensure command is one that we are expecting.
         # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
         self._op_graph.pop_op(command.op)
 
+        # Do this after popping the op:
         self._update_icons_for_all_ancestors()
 
         # Wake Central Executor in case it is in the waiting state:

@@ -866,6 +866,8 @@ class LocalDiskMasterStore(TreeStore):
             sha256 = None
         else:
             try:
+                logger.debug(f'[device_uid={self.device_uid}] Calculating signatures for '
+                             f'full_path={full_path}, staging_path={staging_path}"')
                 md5, sha256 = content_hasher.calculate_signatures(full_path, staging_path)
             except FileNotFoundError:
                 # bad link
