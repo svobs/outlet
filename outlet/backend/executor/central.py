@@ -280,7 +280,7 @@ class CentralExecutor(HasLifecycle):
             return task
         else:
             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Running max OpGraph tasks '
-                         f'({TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS}) ')
+                         f'({TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS}) - OpExecutionEnabled={self.enable_op_execution}')
 
     def _print_current_state_of_pipeline(self):
         running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()

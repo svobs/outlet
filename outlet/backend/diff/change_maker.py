@@ -259,9 +259,9 @@ class ChangeMaker:
         return [] + self.left_side.change_tree.get_op_list() + self.right_side.change_tree.get_op_list()
 
     @staticmethod
-    def _change_base_path(orig_target_path: str, orig_base: SPIDNodePair, new_base: SPIDNodePair, new_target_name: Optional[str] = None) -> str:
-        dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base.spid.get_single_path())
-        logger.debug(f'change_base_path(): new_base_path="{new_base.spid.get_single_path()}", dst_rel_path1="{dst_rel_path}"')
+    def _change_base_path(orig_target_path: str, orig_base_path: str, new_base_path: str, new_target_name: Optional[str] = None) -> str:
+        dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base_path)
+        logger.debug(f'change_base_path(): new_base_path="{new_base_path}", dst_rel_path1="{dst_rel_path}"')
         if new_target_name:
             # target is being renamed
             orig_target_name = os.path.basename(orig_target_path)
@@ -270,18 +270,19 @@ class ChangeMaker:
             dst_rel_path = dst_rel_path_minus_name + new_target_name
             logger.debug(f'change_base_path(): new_target_name="{new_target_name}", dst_rel_path2="{dst_rel_path}"')
         if dst_rel_path:
-            result = os.path.join(new_base.spid.get_single_path(), dst_rel_path)
+            result = os.path.join(new_base_path, dst_rel_path)
         else:
             # do not use os.path.join() here, or we will end up with a '/' at the end which we don't want
-            result = new_base.spid.get_single_path()
+            result = new_base_path
         logger.info(f'change_base_path(): OrigTarget="{orig_target_path}", NewTarget="{result}"')
         return result
 
     @staticmethod
     def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier, new_target_name: Optional[str] = None) \
             -> str:
-        return ChangeMaker._change_base_path(orig_target_path=spid_from_src_tree.get_single_path(), orig_base=src_side.root_sn,
-                                             new_base=dst_side.root_sn, new_target_name=new_target_name)
+        return ChangeMaker._change_base_path(orig_target_path=spid_from_src_tree.get_single_path(),
+                                             orig_base_path=src_side.root_sn.spid.get_single_path(),
+                                             new_base_path=dst_side.root_sn.spid.get_single_path(), new_target_name=new_target_name)
 
     def migrate_rel_path_to_right_tree(self, spid_left: SinglePathNodeIdentifier) -> str:
         return ChangeMaker._change_tree_path(self.left_side, self.right_side, spid_left)

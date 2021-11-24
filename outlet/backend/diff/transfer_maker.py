@@ -447,14 +447,20 @@ class TransferMaker(ChangeMaker):
         queue_rm_dir: Deque[SPIDNodePair] = collections.deque()
 
         if sn_src.node.is_dir():
+            orig_parent_path = sn_src.spid.get_single_parent_path()
+            new_parent_path = dd_meta.sn_dst_parent.spid.get_single_path()
+
             # Need to get all the nodes in its whole subtree and add them individually:
             list_sn_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.spid)
-            logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for {dd_meta.op_type.name}')
+            logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for {dd_meta.op_type.name} '
+                         f'to dst parent {dd_meta.sn_dst_parent.spid}')
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'NoConflicts: src subtree nodes: {", ".join([str(sn.spid) for sn in list_sn_subtree])}')
 
             for sn_src_descendent in list_sn_subtree:
-                dst_path = self._change_tree_path(src_side=self.left_side, dst_side=self.right_side, spid_from_src_tree=sn_src_descendent.spid,
+                dst_path = self._change_base_path(orig_target_path=sn_src_descendent.spid.get_single_path(),
+                                                  orig_base_path=orig_parent_path,
+                                                  new_base_path=new_parent_path,
                                                   new_target_name=name_new_dst)
                 sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path)
 
