@@ -56,6 +56,7 @@ class UserOpType(IntEnum):
 class UserOpStatus(IntEnum):
     NOT_STARTED = 1
     EXECUTING = 2
+    BLOCKED_BY_ERROR = 3
     COMPLETED_OK = 10
     COMPLETED_NO_OP = 11
     STOPPED_ON_ERROR = 12
@@ -81,6 +82,10 @@ class UserOpResult:
 
     def is_completed(self) -> bool:
         return self.status.is_completed()
+
+    def __repr__(self):
+        return f'UserOpResult(status={self.status.name} ' \
+               f'error={self.error} to_upsert={self.nodes_to_upsert} to_remove={self.nodes_to_remove}'
 
 
 class UserOp(BaseNode):
@@ -120,6 +125,16 @@ class UserOp(BaseNode):
         if self.result:
             return self.result.status
         return UserOpStatus.NOT_STARTED
+
+    def set_status(self, status: UserOpStatus):
+        if not self.result:
+            self.result = UserOpResult(status=status)
+        else:
+            self.result.status = status
+
+    def is_stopped_on_error(self) -> bool:
+        status = self.get_status()
+        return status == UserOpStatus.STOPPED_ON_ERROR or status == UserOpStatus.BLOCKED_BY_ERROR
 
     def has_dst(self) -> bool:
         return self.op_type.has_dst()
@@ -214,14 +229,23 @@ class OpTypeMeta:
     def get_icon_for(device_uid: UID, node_uid: UID, op: UserOp) -> IconId:
         if op.has_dst() and op.dst_node.device_uid == device_uid and op.dst_node.uid == node_uid:
             if op.dst_node.is_dir():
+                if op.is_stopped_on_error():
+                    return IconId.ICON_DIR_ERROR
+
                 return OpTypeMeta._icon_dst_dir_dict[op.op_type]
             else:
+                if op.is_stopped_on_error():
+                    return IconId.ICON_FILE_ERROR
                 return OpTypeMeta._icon_dst_file_dict[op.op_type]
 
         assert op.src_node.uid == node_uid
         if op.src_node.is_dir():
+            if op.is_stopped_on_error():
+                return IconId.ICON_DIR_ERROR
             return OpTypeMeta._icon_src_dir_dict[op.op_type]
         else:
+            if op.is_stopped_on_error():
+                return IconId.ICON_FILE_ERROR
             return OpTypeMeta._icon_src_file_dict[op.op_type]
 
 

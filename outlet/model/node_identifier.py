@@ -51,6 +51,13 @@ class NodeIdentifier(ABC):
     def is_spid():
         return False
 
+    @property
+    def dn_uid(self) -> DN_UID:
+        """Device+Node UID (expressed as a str).
+        This guarantees a unique identifier for the node across all devices, but DOES NOT guarantee uniqueness for all of its path instances.
+        (i.e. this is sometimes the same as the node's GUID, but not for all tree types)"""
+        return f'{self.device_uid}:{self.node_uid}'
+
     def get_single_path(self) -> str:
         raise InvalidOperationError(f'Cannot call get_single_path() for {type(self)}')
 

@@ -331,26 +331,27 @@ class OpManager(HasLifecycle):
                 self._on_batch_error_fight_or_flight('Error while updating nodes in memory store for user ops', str(error_to_report), batch=next_batch)
                 # fall through
 
-        self._update_icons_for_all_ancestors()
+        self._update_icons_for_nodes()
 
         if not error_to_report:
             logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')
             this_task.add_next_task(self._submit_next_batch)
 
-    def _update_icons_for_all_ancestors(self):
-        added_ancestor_dict, removed_ancestor_dict = self._op_graph.get_ancestor_dict_changes()
-        logger.debug(f'Got added ancestors: {added_ancestor_dict}; removed ancestors: {removed_ancestor_dict}')
-        self._update_icons_for_ancestors(added_ancestor_dict)
-        self._update_icons_for_ancestors(removed_ancestor_dict)
+    def _update_icons_for_nodes(self):
+        added_ancestor_dict, removed_ancestor_dict, changed_node_dict = self._op_graph.pop_ancestor_icon_changes()
+        logger.debug(f'Got added ancestors: {added_ancestor_dict}; removed ancestors: {removed_ancestor_dict}; other changes: {changed_node_dict}')
+        self._update_icons_for_dict(added_ancestor_dict)
+        self._update_icons_for_dict(removed_ancestor_dict)
+        self._update_icons_for_dict(changed_node_dict)
 
-    def _update_icons_for_ancestors(self, ancestor_dict: Dict[UID, Set[UID]]):
-        for device_uid, ancestor_node_uid_set in ancestor_dict.items():
-            for ancestor_node_uid in ancestor_node_uid_set:
-                ancestor_node = self.backend.cacheman.get_node_for_uid(uid=ancestor_node_uid, device_uid=device_uid)
-                if ancestor_node:
+    def _update_icons_for_dict(self, device_node_dict: Dict[UID, Set[UID]]):
+        for device_uid, node_uid_set in device_node_dict.items():
+            for ancestor_node_uid in node_uid_set:
+                node = self.backend.cacheman.get_node_for_uid(uid=ancestor_node_uid, device_uid=device_uid)
+                if node:
                     # This is an in-memory update only:
-                    self.backend.cacheman.update_node_icon(ancestor_node)
-                    dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_OP_MANAGER, node=ancestor_node)
+                    self.backend.cacheman.update_node_icon(node)
+                    dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_OP_MANAGER, node=node)
                 elif SUPER_DEBUG_ENABLED:
                     logger.debug(f'Could not find busy ancestor node: {device_uid}:{ancestor_node_uid}')
 
@@ -497,7 +498,7 @@ class OpManager(HasLifecycle):
 
         if result.status == UserOpStatus.STOPPED_ON_ERROR:
             logger.info(f'Command {command.uid} ({command.op.op_type}) stopped on error')
-        elif result.status == UserOpStatus.NOT_STARTED or result.status == UserOpStatus.EXECUTING:
+        elif not (result.status == UserOpStatus.COMPLETED_OK or result.status == UserOpStatus.COMPLETED_NO_OP):
             raise RuntimeError(f'Command completed but status ({result.status}) is invalid: {command}')
         else:
             logger.debug(f'Archiving op: {command.op}')
@@ -508,7 +509,7 @@ class OpManager(HasLifecycle):
         self._op_graph.pop_op(command.op)
 
         # Do this after popping the op:
-        self._update_icons_for_all_ancestors()
+        self._update_icons_for_nodes()
 
         # Wake Central Executor in case it is in the waiting state:
         self.backend.executor.notify()

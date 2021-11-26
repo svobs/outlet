@@ -51,7 +51,7 @@ class BackendIntegrated(OutletBackend):
         self.cacheman.start()
 
     def shutdown(self):
-        logger.debug('Shutting down backend')
+        logger.info('Shutting down backend')
         OutletBackend.shutdown(self)  # this will disconnect the listener for SHUTDOWN_APP as well
 
         dispatcher.send(Signal.SHUTDOWN_APP, sender=ID_CENTRAL_EXEC)

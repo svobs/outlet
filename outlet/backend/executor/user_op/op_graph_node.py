@@ -6,9 +6,15 @@ from typing import Any, Deque, Dict, List, Optional
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
 from model.node.node import BaseNode, Node
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp, UserOpStatus, UserOpType
 
 logger = logging.getLogger(__name__)
+
+
+def propagate_status_to_child(parent, child):
+    # If error status, propagate it downstream:
+    if parent.op and parent.op.is_stopped_on_error():
+        child.op.set_status(UserOpStatus.BLOCKED_BY_ERROR)
 
 
 class OpGraphNode(BaseNode, ABC):
@@ -283,6 +289,8 @@ class HasSingleChild(ABC):
             self._child = child
             child.link_parent(self)
 
+            propagate_status_to_child(self, child)
+
     def unlink_child(self, child: OpGraphNode):
         if self._child == child:
             if self._child.node_uid == child.node_uid:
@@ -311,6 +319,8 @@ class HasMultiChild(ABC):
         if not self._child_dict.get(child.node_uid, None):
             self._child_dict[child.node_uid] = child
             child.link_parent(self)
+
+            propagate_status_to_child(self, child)
 
     def unlink_child(self, child: OpGraphNode):
         if self._child_dict.get(child.node_uid, None):
