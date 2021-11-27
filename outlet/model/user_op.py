@@ -57,9 +57,9 @@ class UserOpStatus(IntEnum):
     NOT_STARTED = 1
     EXECUTING = 2
     BLOCKED_BY_ERROR = 3
+    STOPPED_ON_ERROR = 4
     COMPLETED_OK = 10
     COMPLETED_NO_OP = 11
-    STOPPED_ON_ERROR = 12
 
     def is_completed(self) -> bool:
         """Note: "completed" set includes possible errors"""
