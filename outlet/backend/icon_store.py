@@ -8,8 +8,9 @@ from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_FOLDER_TREE, 
     COMPOSITE_ICON_BASE_DIR, \
     ICON_ALERT, ICON_DIR_CP_DST, \
     ICON_DIR_CP_SRC, ICON_DIR_ERROR, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_PENDING_DOWNSTREAM_OP, ICON_DIR_RM, \
-    ICON_DIR_TRASHED, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, ICON_FILE_ERROR, ICON_FILE_MV_DST, \
-    ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_FOLDER_TREE, ICON_GDRIVE, ICON_GENERIC_DIR, \
+    ICON_DIR_TRASHED, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_DIR_WARNING, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, ICON_FILE_ERROR, ICON_FILE_MV_DST, \
+    ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_FILE_WARNING, ICON_FOLDER_TREE, ICON_GDRIVE, \
+    ICON_GENERIC_DIR, \
     ICON_GENERIC_FILE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_LOADING, ICON_LOCAL_DISK_LINUX, ICON_LOCAL_DISK_MACOS, ICON_LOCAL_DISK_WINDOWS, \
     ICON_MATCH_CASE, ICON_PAUSE, ICON_PLAY, \
     ICON_REFRESH, \
@@ -147,6 +148,7 @@ class IconStore(ABC):
             IconId.BADGE_PENDING_DOWNSTREAM_OP: SimpleIcon(name=f'PendingDownstreamOp',
                                                            path=f'{badge_dir_path}/PendingDownstreamOp-{badge_size}.png'),
             IconId.BADGE_ERROR: SimpleIcon(name=f'Warning-Red', path=f'{badge_dir_path}/Warning-Red-{badge_size}.png'),
+            IconId.BADGE_WARNING: SimpleIcon(name=f'Warning-Yellow', path=f'{badge_dir_path}/Warning-Yellow-{badge_size}.png'),
 
             IconId.BADGE_LINUX: SimpleIcon(name=f'Linux', path=f'{badge_dir_path}/linux-{badge_size}.png'),
             IconId.BADGE_MACOS: SimpleIcon(name=f'MacOS', path=f'{badge_dir_path}/macos-{badge_size}.png'),
@@ -167,6 +169,8 @@ class IconStore(ABC):
             IconId.ICON_FILE_TRASHED: SimpleIcon(name=ICON_FILE_TRASHED, path=f'resources/icons8-paper-waste-{tree_icon_size}px.png'),
             IconId.ICON_FILE_ERROR: CompositeIcon(name=ICON_FILE_ERROR, base_path=file_base,
                                                   badges=[badge_meta_dict[IconId.BADGE_ERROR]]),
+            IconId.ICON_FILE_WARNING: CompositeIcon(name=ICON_FILE_WARNING, base_path=file_base,
+                                                    badges=[badge_meta_dict[IconId.BADGE_WARNING]]),
 
             # Dir
             IconId.ICON_GENERIC_DIR: SimpleIcon(name=ICON_GENERIC_DIR, path=dir_base),
@@ -181,6 +185,8 @@ class IconStore(ABC):
             IconId.ICON_DIR_TRASHED: SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{tree_icon_size}px.png'),
             IconId.ICON_DIR_ERROR: CompositeIcon(name=ICON_DIR_ERROR, base_path=dir_base,
                                                  badges=[badge_meta_dict[IconId.BADGE_ERROR]]),
+            IconId.ICON_DIR_WARNING: CompositeIcon(name=ICON_DIR_WARNING, base_path=dir_base,
+                                                   badges=[badge_meta_dict[IconId.BADGE_WARNING]]),
             IconId.ICON_DIR_PENDING_DOWNSTREAM_OP: CompositeIcon(name=ICON_DIR_PENDING_DOWNSTREAM_OP, base_path=dir_base,
                                                                  badges=[badge_meta_dict[IconId.BADGE_REFRESH]]),
 

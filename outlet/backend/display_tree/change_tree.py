@@ -234,8 +234,10 @@ class ChangeTree(DisplayTree):
             assert from_sn.node.is_dir(), f'Should be a dir: {from_sn.node}'
             # For display purposes, group "mkdir" with "copy":
             change_spid.op_type = UserOpType.CP
-        change_node = copy.deepcopy(from_sn.node)
-        change_node.set_icon(OpTypeMeta.get_icon_for(change_node.device_uid, change_node.uid, op))
+        change_node: Node = copy.deepcopy(from_sn.node)
+
+        is_dst = op.has_dst() and op.dst_node.node_identifier == change_node.node_identifier
+        change_node.set_icon(OpTypeMeta.get_icon_for_node(change_node.is_dir(), is_dst, op))
         return SPIDNodePair(change_spid, change_node)
 
     def add_sn_and_op(self, sn: SPIDNodePair, op: UserOp):

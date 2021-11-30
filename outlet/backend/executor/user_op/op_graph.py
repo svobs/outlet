@@ -98,12 +98,12 @@ class OpGraph(HasLifecycle):
                 for i, node_repr in enumerate(node_repr_list):
                     qd_line_list.append(f'  [{i}] {node_repr}')
 
-        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: OpGraph = {len(graph_line_list)} OGNs:')
+        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: OpGraph = [{len(graph_line_list)} OGNs]:')
         for graph_line in graph_line_list:
             logger.debug(f'[{self.name}] {graph_line}')
 
-        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: NodeQueues = [#Ops: {len(op_set)} #Devices: {len(self._node_ogn_q_dict)} '
-                     '#Nodes: {queue_count}]:')
+        logger.debug(f'[{self.name}] CURRENT EXECUTION STATE: NodeQueues = [Ops: {len(op_set)} Devices: {len(self._node_ogn_q_dict)} '
+                     f'Nodes: {queue_count}]:')
         for qd_line in qd_line_list:
             logger.debug(f'[{self.name}] {qd_line}')
 
@@ -126,10 +126,9 @@ class OpGraph(HasLifecycle):
 
     def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
         with self._cv_can_get:
-            # FIXME: return ERROR if upstream error
             ogn: OpGraphNode = self._get_last_pending_ogn_for_node(device_uid, node_uid)
             if ogn and not ogn.op.is_completed():
-                icon = OpTypeMeta.get_icon_for(device_uid, node_uid, ogn.op)
+                icon = OpTypeMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): returning icon')
                 return icon
@@ -333,7 +332,7 @@ class OpGraph(HasLifecycle):
         if error_count > 0:
             raise RuntimeError(f'Validation for OpGraph failed with {error_count} errors!')
         else:
-            logger.info(f'[{self.name}] ValidateGraph: completed with no errors for {len_ogn_coverage_dict} OGNs')
+            logger.info(f'[{self.name}] ValidateGraph: validation done. No errors for {len_ogn_coverage_dict} OGNs')
 
     # INSERT logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -374,13 +373,12 @@ class OpGraph(HasLifecycle):
         og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_ogn)
         if og_nodes_for_child_nodes_list:
             # Possibility 1: children
-            logger.debug(f'[{self.name}] Found {len(og_nodes_for_child_nodes_list)} existing OG nodes for children of node being removed '
-                         f'({target_node.dn_uid}); examining whether to add as child dependency of each')
-            assert new_ogn.get_tgt_node()
+            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found {len(og_nodes_for_child_nodes_list)} '
+                         f'existing OGNs for children of tgt node ({target_node.dn_uid}); examining whether to add as child dependency of each')
 
             parent_ogn_list: List[OpGraphNode] = []  # Use this list to store parents to link to until we are done validating.
             for og_node_for_child_node in og_nodes_for_child_nodes_list:
-                logger.debug(f'[{self.name}] Examining {og_node_for_child_node}')
+                logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Examining {og_node_for_child_node}')
                 if not og_node_for_child_node.is_remove_type():
                     raise RuntimeError(f'Cannot insert RM OGN: all children of its target must be scheduled for removal first,'
                                        f'but found: {og_node_for_child_node} (while trying to insert OGN: {new_ogn})')
@@ -398,13 +396,14 @@ class OpGraph(HasLifecycle):
                     parent_ogn_list.append(og_node_for_child_node)
 
             for parent_ogn in parent_ogn_list:
-                logger.debug(f'[{self.name}] Adding OGN {new_ogn.node_uid} as child dependency of OGN {parent_ogn.node_uid}')
+                logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Adding OGN as child dependency of OGN {parent_ogn.node_uid}')
                 parent_ogn.link_child(new_ogn)
 
         elif prev_ogn_for_target:
             # Possibility 2: If existing op is found for the target node, add below that.
             if prev_ogn_for_target.is_rm_node():
-                logger.warning(f'[{self.name}] UserOp node being enqueued (UID {new_ogn.op.src_node.dn_uid}, tgt {target_node.dn_uid}) is an RM '
+                logger.warning(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) UserOp node being enqueued '
+                               f'(UID {new_ogn.op.src_node.dn_uid}, tgt {target_node.dn_uid}) is an RM '
                                f'which is a dup of already enqueued RM ({prev_ogn_for_target.op.src_node.dn_uid}); discarding!')
                 return False
 
@@ -413,11 +412,13 @@ class OpGraph(HasLifecycle):
             if prev_ogn_for_target.get_child_list():
                 raise RuntimeError(f'While trying to add RM op: did not expect existing OGN for target to have children! '
                                    f'(tgt={prev_ogn_for_target})')
-            logger.debug(f'[{self.name}] Found pending op(s) for target node {target_node.dn_uid} for RM op; adding as child dependency')
+            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found pending op(s) for target node {target_node.dn_uid} for RM op; '
+                         f'adding as child dependency')
             prev_ogn_for_target.link_child(new_ogn)
         else:
             # Possibility 3: no previous ops for node or its children
-            logger.debug(f'[{self.name}] Found no previous ops for target node {target_node.dn_uid} or its children; adding to root')
+            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found no previous ops for target node {target_node.dn_uid} or its children; '
+                         f'adding to root')
             self.root.link_child(new_ogn)
 
         return True
@@ -431,28 +432,28 @@ class OpGraph(HasLifecycle):
 
             if prev_ogn_for_target and prev_ogn_for_target_node_parent:
                 if prev_ogn_for_target.get_level() > prev_ogn_for_target_node_parent.get_level():
-                    logger.debug(f'[OGN {new_ogn.node_uid}] Last target op (for node {target_node.dn_uid}) is lower level than last op '
+                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) ast target op (for node {target_node.dn_uid}) is lower level than last op '
                                  f'for parent node ({tgt_node_parent_uid}); adding new OGN as child of last target op '
                                  f'(OGN {prev_ogn_for_target.node_uid})')
                     prev_ogn_for_target.link_child(new_ogn)
                 else:
-                    logger.debug(f'[OGN {new_ogn.node_uid}] Last target op is >= level than last op for parent node; adding new OG node '
+                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Last target op is >= level than last op for parent node; adding new OG node '
                                  f'as child of last op for parent node (OG node {prev_ogn_for_target_node_parent.node_uid})')
                     prev_ogn_for_target_node_parent.link_child(new_ogn)
             elif prev_ogn_for_target:
                 assert not prev_ogn_for_target_node_parent
-                logger.debug(f'[OGN {new_ogn.node_uid}] Found pending op(s) for target node {target_node.dn_uid}; '
+                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for target node {target_node.dn_uid}; '
                              f'adding new OGN as child dependency of OGN {prev_ogn_for_target.node_uid}')
                 prev_ogn_for_target.link_child(new_ogn)
             elif prev_ogn_for_target_node_parent:
                 assert not prev_ogn_for_target
-                logger.debug(f'[OGN {new_ogn.node_uid}] Found pending op(s) for parent {target_device_uid}:{tgt_node_parent_uid}; '
+                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent {target_device_uid}:{tgt_node_parent_uid}; '
                              f'adding new OGN as child dependency of OGN {prev_ogn_for_target_node_parent.node_uid}')
                 # FIXME: what if this is a remove-type node? What about ancestors of target node? We need a way to look further up the node trees.
                 prev_ogn_for_target_node_parent.link_child(new_ogn)
             else:
                 assert not prev_ogn_for_target_node_parent and not prev_ogn_for_target
-                logger.debug(f'[OGN {new_ogn.node_uid}] Found no pending ops for either target node {target_node.dn_uid} '
+                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found no pending ops for either target node {target_node.dn_uid} '
                              f'or parent node {target_device_uid}:{tgt_node_parent_uid}; adding to root')
                 self.root.link_child(new_ogn)
 
@@ -505,7 +506,7 @@ class OpGraph(HasLifecycle):
             if not device_ancestor_dict:
                 device_ancestor_dict = {}
                 self._ancestor_dict[device_uid] = device_ancestor_dict
-            logger.debug(f'Inserted node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
+            logger.debug(f'[{self.name}] Inserted node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
             for ancestor_uid in new_ogn.tgt_ancestor_uid_list:
                 count = device_ancestor_dict.get(ancestor_uid, 0)
                 if count == 0:
@@ -521,7 +522,7 @@ class OpGraph(HasLifecycle):
                 device_ancestor_dict[ancestor_uid] = count + 1
 
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Ancestor dict: {self._ancestor_dict}')
+                logger.debug(f'[{self.name}] Ancestor dict: {self._ancestor_dict}')
 
             if self._max_added_op_uid < new_ogn.op.op_uid:
                 self._max_added_op_uid = new_ogn.op.op_uid
@@ -529,7 +530,8 @@ class OpGraph(HasLifecycle):
             # notify consumers there is something to get:
             self._cv_can_get.notifyAll()
 
-        logger.info(f'[{self.name}] InsertOGNode: successfully enqueued: {new_ogn}')
+            logger.info(f'[{self.name}] InsertOGNode: successfully inserted: {new_ogn}')
+            self._print_current_state()
 
         return True
 
@@ -542,7 +544,7 @@ class OpGraph(HasLifecycle):
         node_dict: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(node.device_uid, None)
         if not node_dict:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Could not find entry in node dict for device_uid {node.device_uid} (from OGN {node_type_str}, op {op}, '
+                logger.debug(f'[{self.name}] Could not find entry in node dict for device_uid {node.device_uid} (from OGN {node_type_str}, op {op}, '
                              f'fail_if_not_found={fail_if_not_found})')
             if fail_if_not_found:
                 raise RuntimeError(f'Serious error: master dict has no entries for device_uid={node.device_uid} (op {node_type_str} node) !')
@@ -551,7 +553,7 @@ class OpGraph(HasLifecycle):
         pending_op_queue: Deque[OpGraphNode] = node_dict.get(node.uid, None)
         if not pending_op_queue:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Could not find entry in node dict for device_uid {node.device_uid} (from OGN {node_type_str}, op {op}, '
+                logger.debug(f'[{self.name}] Could not find entry in node dict for device_uid {node.device_uid} (from OGN {node_type_str}, op {op}, '
                              f'fail_if_not_found={fail_if_not_found})')
             if fail_if_not_found:
                 raise RuntimeError(f'Serious error: NodeQueueDict has no entries for op {node_type_str} node (uid={node.uid})!')
@@ -561,12 +563,12 @@ class OpGraph(HasLifecycle):
         op_graph_node = pending_op_queue[0]
         if op.op_uid != op_graph_node.op.op_uid:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Skipping UserOp (UID {op_graph_node.op.op_uid}): it is not next in {node_type_str} node queue')
+                logger.debug(f'[{self.name}] Skipping UserOp (UID {op_graph_node.op.op_uid}): it is not next in {node_type_str} node queue')
             return False
 
         if not op_graph_node.is_child_of_root():
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Skipping UserOp (UID {op_graph_node.op.op_uid}): {node_type_str} node is not child of root')
+                logger.debug(f'[{self.name}] Skipping UserOp (UID {op_graph_node.op.op_uid}): {node_type_str} node is not child of root')
             return False
 
         return True
@@ -576,11 +578,11 @@ class OpGraph(HasLifecycle):
 
         for ogn in self.root.get_child_list():
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'TryGet(): Examining {ogn}')
+                logger.debug(f'[{self.name}] TryGet(): Examining {ogn}')
 
             if ogn.op.get_status() != UserOpStatus.NOT_STARTED:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'TryGet(): Skipping OGN because is has status {ogn.op.get_status()}')
+                    logger.debug(f'[{self.name}] TryGet(): Skipping OGN {ogn.node_uid} because it has status {ogn.op.get_status().name}')
                 continue
 
             if ogn.op.has_dst():
@@ -594,21 +596,22 @@ class OpGraph(HasLifecycle):
 
                 if not is_other_node_ready:
                     if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'TryGet(): Skipping OGN because its partner OGN (is_dst={ogn.is_dst()}) is not ready')
+                        logger.debug(f'[{self.name}] TryGet(): Skipping OGN {ogn.node_uid} (is_dst={ogn.is_dst()}) because its partner OGN '
+                                     f'is not ready')
                     continue
 
             # Make sure the node has not already been checked out:
             if self._outstanding_op_dict.get(ogn.op.op_uid, None):
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'TryGet(): Skipping op because it is already outstanding')
+                    logger.debug(f'[{self.name}] TryGet(): Skipping op {ogn.op.op_uid} because it is already outstanding')
             else:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'TryGet(): Returning op for OGN {ogn}')
+                    logger.debug(f'[{self.name}] TryGet(): Returning op for OGN {ogn}')
                 self._outstanding_op_dict[ogn.op.op_uid] = ogn.op
                 return ogn.op
 
         if TRACE_ENABLED:
-            logger.debug(f'TryGet(): Returning None')
+            logger.debug(f'[{self.name}] TryGet(): Returning None')
         return None
 
     def get_next_op(self) -> Optional[UserOp]:
@@ -621,28 +624,28 @@ class OpGraph(HasLifecycle):
         # Block until we have an op
         while True:
             if self.was_shutdown:
-                logger.debug(f'get_next_op(): Discovered shutdown flag was set. Returning None')
+                logger.debug(f'[{self.name}] get_next_op(): Discovered shutdown flag was set. Returning None')
                 return None
 
             with self._cv_can_get:
                 op = self._try_get()
                 if op:
-                    logger.info(f'Got next pending op: {op}')
+                    logger.info(f'[{self.name}] Got next pending op: {op}')
                     return op
                 else:
-                    logger.debug(f'No pending ops; sleeping until notified')
+                    logger.debug(f'[{self.name}] No pending ops; sleeping until notified')
                     self._cv_can_get.wait()
 
     def get_next_op_nowait(self) -> Optional[UserOp]:
         """Same as get_next_op(), but returns immediately"""
         if self.was_shutdown:
-            logger.debug(f'get_next_op(): Discovered shutdown flag was set. Returning None')
+            logger.debug(f'[{self.name}] get_next_op(): Discovered shutdown flag was set. Returning None')
             return None
 
         with self._cv_can_get:
             op = self._try_get()
             if op:
-                logger.info(f'Got next pending op: {op}')
+                logger.info(f'[{self.name}] Got next pending op: {op}')
                 return op
 
         return None
@@ -694,9 +697,9 @@ class OpGraph(HasLifecycle):
             op: UserOp = queue.popleft()
 
             if op.result:
-                logger.debug(f'Op {op.op_uid} already has a result: {op.result}')
+                logger.debug(f'[{self.name}] Op {op.op_uid} already has a result: {op.result}')
             else:
-                logger.debug(f'Setting status of op {op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
+                logger.debug(f'[{self.name}] Setting status of op {op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
                 op.result = UserOpResult(status=UserOpStatus.BLOCKED_BY_ERROR)
 
             self._add_node_to_icon_changes_dict(op.src_node, op, queue)
@@ -715,7 +718,7 @@ class OpGraph(HasLifecycle):
             self._changed_node_dict[tgt_node.device_uid] = added_error_node_map_for_device
         added_error_node_map_for_device.add(tgt_node.uid)
 
-        logger.debug(f'Adding node {tgt_node.node_identifier} to icon refresh list')
+        logger.debug(f'[{self.name}] Adding node {tgt_node.node_identifier} to icon refresh list')
 
         # Enqueue dependent ops:
         for child_ogn in ogn.get_child_list():
@@ -773,14 +776,14 @@ class OpGraph(HasLifecycle):
                 # Sanity check:
                 for par in ogn_child.get_parent_list():
                     if not par.get_parent_list():
-                        logger.error(f'Node has no parents: {par}')
+                        logger.error(f'[{self.name}] Node has no parents: {par}')
 
         # 4. Delete tgt OGN
         del tgt_ogn
 
     def _decrement_ancestor_counts(self, ogn: OpGraphNode):
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Decrement(before): Ancestor dict: {self._ancestor_dict}')
+            logger.debug(f'[{self.name}] Decrement(before): Ancestor dict: {self._ancestor_dict}')
         device_uid = ogn.get_tgt_node().device_uid
         device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
         if not device_ancestor_dict:
@@ -803,4 +806,4 @@ class OpGraph(HasLifecycle):
                 device_ancestor_dict[ancestor_uid] = count
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Decrement(after): Ancestor dict: {self._ancestor_dict}')
+            logger.debug(f'[{self.name}] Decrement(after): Ancestor dict: {self._ancestor_dict}')

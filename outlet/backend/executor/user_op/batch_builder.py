@@ -177,7 +177,7 @@ class BatchBuilder:
 
     def build_batch_graph(self, op_batch: List[UserOp]) -> RootNode:
         batch_uid = op_batch[0].batch_uid
-        logger.debug(f'Building OpGraph for UserOp batch uid={batch_uid} ({len(op_batch)} ops)...')
+        logger.debug(f'[Batch-{batch_uid}] Building OpGraph for {len(op_batch)} ops...')
 
         # Verify batch is properly sorted first:
         last_op_uid = 0
@@ -186,11 +186,11 @@ class BatchBuilder:
             # Changes MUST be sorted in ascending time of creation!
             if op.op_uid < last_op_uid:
                 op_batch_str = '\n\t'.join([f'{x.op_uid}={repr(x)}' for x in op_batch])
-                logger.error(f'OpBatch:\n\t {op_batch_str}')
+                logger.error(f'[Batch-{batch_uid}] OpBatch:\n\t {op_batch_str}')
                 raise RuntimeError(f'Batch items are not in order! ({op.op_uid} < {last_op_uid})')
             last_op_uid = op.op_uid
 
-        batch_graph = OpGraph(f'BatchGraph-{batch_uid}')
+        batch_graph = OpGraph(f'Batch-{batch_uid}')
         # some of the ancestors may not be in cacheman, because they are being added by the batch.
         # so, store the batch nodes in a dict for additional lookup
         tgt_node_dict: Dict[UID, Dict[UID, Node]] = {}
@@ -207,19 +207,21 @@ class BatchBuilder:
         return batch_graph.root
 
     def insert_for_op(self, op: UserOp, graph: OpGraph, tgt_node_dict):
-        # make src node
+        # make src OGN:
         ancestor_uid_list = self._build_ancestor_uid_list(op.src_node, tgt_node_dict)
         if op.op_type == UserOpType.RM:
             src_node: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
         else:
             src_node: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
 
+        # add src OGN:
         graph.enqueue_single_ogn(src_node)
 
-        # make dst node (if op has dst)
+        # make dst OGN (if op has dst):
         if op.has_dst():
             ancestor_uid_list = self._build_ancestor_uid_list(op.dst_node, tgt_node_dict)
             dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
+            # add dst OGN:
             graph.enqueue_single_ogn(dst_node)
 
     def _build_ancestor_uid_list(self, tgt_node: Node, tgt_node_dict: Dict[UID, Dict[UID, Node]]) -> List[UID]:

@@ -56,7 +56,7 @@ class UserOpType(IntEnum):
 class UserOpStatus(IntEnum):
     NOT_STARTED = 1
     EXECUTING = 2
-    BLOCKED_BY_ERROR = 3
+    BLOCKED_BY_ERROR = 3  # upstream error in OpGraph
     STOPPED_ON_ERROR = 4
     COMPLETED_OK = 10
     COMPLETED_NO_OP = 11
@@ -226,27 +226,28 @@ class OpTypeMeta:
         return OpTypeMeta._icon_cat_node[op_type]
 
     @staticmethod
-    def get_icon_for(device_uid: UID, node_uid: UID, op: UserOp) -> IconId:
-        if op.has_dst() and op.dst_node.device_uid == device_uid and op.dst_node.uid == node_uid:
-            if op.dst_node.is_dir():
-                if op.is_stopped_on_error():
-                    return IconId.ICON_DIR_ERROR
-
-                return OpTypeMeta._icon_dst_dir_dict[op.op_type]
-            else:
-                if op.is_stopped_on_error():
-                    return IconId.ICON_FILE_ERROR
-                return OpTypeMeta._icon_dst_file_dict[op.op_type]
-
-        assert op.src_node.uid == node_uid
-        if op.src_node.is_dir():
-            if op.is_stopped_on_error():
+    def get_icon_for_node(is_dir: bool, is_dst: bool, op: UserOp) -> IconId:
+        if op.get_status() == UserOpStatus.STOPPED_ON_ERROR:
+            if is_dir:
                 return IconId.ICON_DIR_ERROR
-            return OpTypeMeta._icon_src_dir_dict[op.op_type]
-        else:
-            if op.is_stopped_on_error():
+            else:
                 return IconId.ICON_FILE_ERROR
-            return OpTypeMeta._icon_src_file_dict[op.op_type]
+        elif op.get_status() == UserOpStatus.BLOCKED_BY_ERROR:
+            if is_dir:
+                return IconId.ICON_DIR_WARNING
+            else:
+                return IconId.ICON_FILE_WARNING
+        else:
+            if is_dir:
+                if is_dst:
+                    return OpTypeMeta._icon_dst_dir_dict[op.op_type]
+                else:
+                    return OpTypeMeta._icon_src_dir_dict[op.op_type]
+            else:
+                if is_dst:
+                    return OpTypeMeta._icon_dst_file_dict[op.op_type]
+                else:
+                    return OpTypeMeta._icon_src_file_dict[op.op_type]
 
 
 class Batch:

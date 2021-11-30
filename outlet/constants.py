@@ -351,6 +351,7 @@ ICON_FILE_UP_DST = 'file-up-dst'
 ICON_FILE_CP_DST = 'file-cp-dst'
 ICON_FILE_TRASHED = 'file-trashed'
 ICON_FILE_ERROR = 'file-error'
+ICON_FILE_WARNING = 'file-warning'
 
 # Dir icon names:
 ICON_GENERIC_DIR = 'dir'
@@ -364,6 +365,7 @@ ICON_DIR_UP_DST = 'dir-up-dst'
 ICON_DIR_CP_DST = 'dir-cp-dst'
 ICON_DIR_TRASHED = 'dir-trashed'
 ICON_DIR_ERROR = 'dir-error'
+ICON_DIR_WARNING = 'dir-warning'
 ICON_DIR_PENDING_DOWNSTREAM_OP = 'dir-pending-downstream-op'
 
 # Various icon names:
@@ -463,6 +465,7 @@ class IconId(IntEnum):
     BADGE_REFRESH = 110
     BADGE_PENDING_DOWNSTREAM_OP = 111
     BADGE_ERROR = 112
+    BADGE_WARNING = 113
 
     BADGE_LINUX = 120
     BADGE_MACOS = 121
@@ -471,6 +474,8 @@ class IconId(IntEnum):
     ICON_DIR_PENDING_DOWNSTREAM_OP = 130
     ICON_FILE_ERROR = 131
     ICON_DIR_ERROR = 132
+    ICON_FILE_WARNING = 133
+    ICON_DIR_WARNING = 134
 
 
 PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
