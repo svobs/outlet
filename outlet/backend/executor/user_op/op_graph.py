@@ -5,6 +5,7 @@ from typing import Deque, Dict, Iterable, List, Optional, Set
 
 from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
 from constants import IconId, NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from error import InvalidInsertOpGraphError
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import OpTypeMeta, UserOp, UserOpResult, UserOpStatus
@@ -32,6 +33,7 @@ class OpGraph(HasLifecycle):
     These should be distinguished from regular file nodes, dir nodes, etc, which I'll refer to as simply "nodes", with class Node.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, name):
         HasLifecycle.__init__(self)
         self.name = name
@@ -169,7 +171,7 @@ class OpGraph(HasLifecycle):
         ogn_coverage_dict: Dict[UID, OpGraphNode] = {self.root.node_uid: self.root}  # OGN uid -> OGN
         binary_op_src_coverage_dict: Dict[UID, OpGraphNode] = {}
         binary_op_dst_coverage_dict: Dict[UID, OpGraphNode] = {}
-        unrecognized_og_node_dict : Dict[UID, str] = {}
+        unrecognized_og_node_dict: Dict[UID, str] = {}
 
         # Iterate through graph using a queue, using ogn_coverage_dict to avoid doing duplicate analysis:
         ogn_queue: Deque[OpGraphNode] = collections.deque()
@@ -357,17 +359,25 @@ class OpGraph(HasLifecycle):
                         # We found a parent OG node for
                         if not existing_og_node.is_remove_type():
                             # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
-                            raise RuntimeError(f'Found child node for RM-type node which is not RM type: {existing_og_node}')
+                            raise InvalidInsertOpGraphError(f'Found child node for RM-type node which is not RM type: {existing_og_node}')
                         child_nodes.append(existing_og_node)
 
         logger.debug(f'[{self.name}] {sw_total} Found {len(child_nodes):,} child nodes in graph for RM node')
         return child_nodes
 
-    def _insert_rm_in_graph(self, new_ogn: OpGraphNode, prev_ogn_for_target) -> bool:
+    def _insert_rm_in_graph(self, new_ogn: OpGraphNode, prev_ogn_for_target):
         # Special handling for RM-type nodes.
         # We want to find the lowest RM node in the tree.
         assert new_ogn.is_rm_node()
         target_node: Node = new_ogn.get_tgt_node()
+
+        if prev_ogn_for_target and prev_ogn_for_target.is_rm_node():
+            logger.error(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Op\'s target node ({target_node.dn_uid}) is an RM '
+                         f'which is a dup of already enqueued RM ({prev_ogn_for_target.op.src_node.dn_uid})!')
+            assert target_node.dn_uid == new_ogn.op.src_node.dn_uid
+            assert prev_ogn_for_target.op.src_node.dn_uid == target_node.dn_uid
+
+            raise InvalidInsertOpGraphError(f'Trying to remove node ({target_node.node_identifier}) whose last operation is already an RM operation!')
 
         # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
         og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_ogn)
@@ -380,18 +390,18 @@ class OpGraph(HasLifecycle):
             for og_node_for_child_node in og_nodes_for_child_nodes_list:
                 logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Examining {og_node_for_child_node}')
                 if not og_node_for_child_node.is_remove_type():
-                    raise RuntimeError(f'Cannot insert RM OGN: all children of its target must be scheduled for removal first,'
-                                       f'but found: {og_node_for_child_node} (while trying to insert OGN: {new_ogn})')
+                    raise InvalidInsertOpGraphError(f'Cannot insert RM OGN: all children of its target must be scheduled for removal first,'
+                                                    f'but found: {og_node_for_child_node} (while trying to insert OGN: {new_ogn})')
 
                 # Check if there's an existing OGN which is child of parent OGN.
                 conflicting_ogn: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
                 if conflicting_ogn:
                     if not conflicting_ogn.is_remove_type():
-                        raise RuntimeError(f'Found unexpected node which is blocking insert of our RM operation: {conflicting_ogn} '
-                                           f'(while trying to insert: {new_ogn})')
+                        raise InvalidInsertOpGraphError(f'Found unexpected node which is blocking insert of our RM operation: {conflicting_ogn} '
+                                                        f'(while trying to insert: {new_ogn})')
                     else:
                         # extremely rare for this to happen - likely indicates a hole in our logic somewhere
-                        raise RuntimeError(f'Found unexpected child OGN: {conflicting_ogn} (while trying to insert OGN: {new_ogn})')
+                        raise InvalidInsertOpGraphError(f'Found unexpected child OGN: {conflicting_ogn} (while trying to insert OGN: {new_ogn})')
                 else:
                     parent_ogn_list.append(og_node_for_child_node)
 
@@ -401,17 +411,12 @@ class OpGraph(HasLifecycle):
 
         elif prev_ogn_for_target:
             # Possibility 2: If existing op is found for the target node, add below that.
-            if prev_ogn_for_target.is_rm_node():
-                logger.warning(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) UserOp node being enqueued '
-                               f'(UID {new_ogn.op.src_node.dn_uid}, tgt {target_node.dn_uid}) is an RM '
-                               f'which is a dup of already enqueued RM ({prev_ogn_for_target.op.src_node.dn_uid}); discarding!')
-                return False
 
             # The node's children MUST be removed first. It is invalid to RM a node which has children.
             # (if the children being added are later scheduled for removal, then they should should up in Possibility 1
             if prev_ogn_for_target.get_child_list():
-                raise RuntimeError(f'While trying to add RM op: did not expect existing OGN for target to have children! '
-                                   f'(tgt={prev_ogn_for_target})')
+                raise InvalidInsertOpGraphError(f'While trying to add RM op: did not expect existing OGN for target to have children! '
+                                                f'(tgt={prev_ogn_for_target})')
             logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found pending op(s) for target node {target_node.dn_uid} for RM op; '
                          f'adding as child dependency')
             prev_ogn_for_target.link_child(new_ogn)
@@ -420,8 +425,6 @@ class OpGraph(HasLifecycle):
             logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found no previous ops for target node {target_node.dn_uid} or its children; '
                          f'adding to root')
             self.root.link_child(new_ogn)
-
-        return True
 
     def _insert_non_rm_in_graph(self, new_ogn: OpGraphNode, prev_ogn_for_target: OpGraphNode, tgt_parent_uid_list: List[UID]):
         target_node: Node = new_ogn.get_tgt_node()
@@ -432,13 +435,13 @@ class OpGraph(HasLifecycle):
 
             if prev_ogn_for_target and prev_ogn_for_target_node_parent:
                 if prev_ogn_for_target.get_level() > prev_ogn_for_target_node_parent.get_level():
-                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) ast target op (for node {target_node.dn_uid}) is lower level than last op '
-                                 f'for parent node ({tgt_node_parent_uid}); adding new OGN as child of last target op '
+                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) ast target op (for node {target_node.dn_uid}) '
+                                 f'is lower level than last op for parent node ({tgt_node_parent_uid}); adding new OGN as child of last target op '
                                  f'(OGN {prev_ogn_for_target.node_uid})')
                     prev_ogn_for_target.link_child(new_ogn)
                 else:
-                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Last target op is >= level than last op for parent node; adding new OG node '
-                                 f'as child of last op for parent node (OG node {prev_ogn_for_target_node_parent.node_uid})')
+                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Last target op is >= level than last op for parent node; '
+                                 f'adding new OG node as child of last op for parent node (OG node {prev_ogn_for_target_node_parent.node_uid})')
                     prev_ogn_for_target_node_parent.link_child(new_ogn)
             elif prev_ogn_for_target:
                 assert not prev_ogn_for_target_node_parent
@@ -447,7 +450,8 @@ class OpGraph(HasLifecycle):
                 prev_ogn_for_target.link_child(new_ogn)
             elif prev_ogn_for_target_node_parent:
                 assert not prev_ogn_for_target
-                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent {target_device_uid}:{tgt_node_parent_uid}; '
+                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent '
+                             f'{target_device_uid}:{tgt_node_parent_uid}; '
                              f'adding new OGN as child dependency of OGN {prev_ogn_for_target_node_parent.node_uid}')
                 # FIXME: what if this is a remove-type node? What about ancestors of target node? We need a way to look further up the node trees.
                 prev_ogn_for_target_node_parent.link_child(new_ogn)
@@ -457,14 +461,14 @@ class OpGraph(HasLifecycle):
                              f'or parent node {target_device_uid}:{tgt_node_parent_uid}; adding to root')
                 self.root.link_child(new_ogn)
 
-    def enqueue_single_ogn(self, new_ogn: OpGraphNode) -> bool:
+    def enqueue_single_ogn(self, new_ogn: OpGraphNode):
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
         in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
         to the top of the dependency tree.
 
-        Returns True if the node was successfully nq'd; returns False if discarded
+        A successful return indicates taht the node was successfully nq'd; raises InvalidInsertOpGraphError otherwise
         """
         logger.debug(f'[{self.name}] InsertOGNode called for: {new_ogn}')
 
@@ -475,19 +479,25 @@ class OpGraph(HasLifecycle):
         tgt_parent_uid_list: List[UID] = target_node.get_parent_uids()
 
         with self._cv_can_get:
+            device_uid = new_ogn.get_tgt_node().device_uid
+
             # First check whether the target node is known and has pending operations
-            prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
+            prev_ogn_for_target = self._get_last_pending_ogn_for_node(device_uid, target_node.uid)
+            if prev_ogn_for_target and prev_ogn_for_target.op.is_stopped_on_error():
+                # User should resolve this first
+                raise InvalidInsertOpGraphError(f'Previous operation for target node {target_node.node_identifier} is already blocked due to error')
+
+            for ancestor_uid in new_ogn.tgt_ancestor_uid_list:
+                prev_ogn_for_ancestor = self._get_last_pending_ogn_for_node(target_node.device_uid, ancestor_uid)
+                if prev_ogn_for_ancestor and prev_ogn_for_ancestor.op.is_stopped_on_error():
+                    raise InvalidInsertOpGraphError(f'An ancestor {target_node.node_identifier} of affected node {target_node.node_identifier}'
+                                                    f' is already blocked due to error')
 
             if new_ogn.is_rm_node():
-                insert_succeeded = self._insert_rm_in_graph(new_ogn, prev_ogn_for_target)
+                self._insert_rm_in_graph(new_ogn, prev_ogn_for_target)
             else:
                 # Not an RM node:
                 self._insert_non_rm_in_graph(new_ogn, prev_ogn_for_target, tgt_parent_uid_list)
-                insert_succeeded = True
-
-            if not insert_succeeded:
-                logger.info(f'[{self.name}] InsertOGNode: failed to enqueue: {new_ogn}')
-                return False
 
             # Always add to node_queue_dict:
             node_dict = self._node_ogn_q_dict.get(target_node.device_uid, None)
@@ -501,12 +511,11 @@ class OpGraph(HasLifecycle):
             pending_op_queue.append(new_ogn)
 
             # Add to ancestor_dict:
-            device_uid = new_ogn.get_tgt_node().device_uid
             device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
             if not device_ancestor_dict:
                 device_ancestor_dict = {}
                 self._ancestor_dict[device_uid] = device_ancestor_dict
-            logger.debug(f'[{self.name}] Inserted node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
+            logger.debug(f'[{self.name}] Tgt node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
             for ancestor_uid in new_ogn.tgt_ancestor_uid_list:
                 count = device_ancestor_dict.get(ancestor_uid, 0)
                 if count == 0:
@@ -532,8 +541,6 @@ class OpGraph(HasLifecycle):
 
             logger.info(f'[{self.name}] InsertOGNode: successfully inserted: {new_ogn}')
             self._print_current_state()
-
-        return True
 
     # GET logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -807,3 +814,7 @@ class OpGraph(HasLifecycle):
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.name}] Decrement(after): Ancestor dict: {self._ancestor_dict}')
+
+    def revert_ogn(self, ogn: OpGraphNode):
+        # TODO!
+        raise NotImplementedError()
