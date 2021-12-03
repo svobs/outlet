@@ -4,8 +4,8 @@ import threading
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
 from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
-from constants import IconId, NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from error import InvalidInsertOpGraphError
+from constants import IconId, NULL_UID, OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from error import InvalidInsertOpGraphError, OpGraphError, UnsuccessfulBatchInsertError
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import OpTypeMeta, UserOp, UserOpResult, UserOpStatus
@@ -397,7 +397,7 @@ class OpGraph(HasLifecycle):
                 logger.error(f'[{self.name}] ValidateGraph: OGN found in graph which is not present in NodeQueues: {ogn}')
 
         if error_count > 0:
-            raise RuntimeError(f'Validation for OpGraph failed with {error_count} errors!')
+            raise OpGraphError(f'Validation for OpGraph failed with {error_count} errors!')
         else:
             logger.info(f'[{self.name}] ValidateGraph: validation done. No errors for {len_ogn_coverage_dict} OGNs')
 
@@ -532,62 +532,114 @@ class OpGraph(HasLifecycle):
 
         A successful return indicates taht the node was successfully nq'd; raises InvalidInsertOpGraphError otherwise
         """
+        with self._cv_can_get:
+            self._insert_ogn(new_ogn)
+
+    def _insert_ogn(self, new_ogn: OpGraphNode):
         logger.debug(f'[{self.name}] InsertOGN called for: {new_ogn}')
 
         target_node: Node = new_ogn.get_tgt_node()
 
+        # First check whether the target node is known and has pending operations
+        prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
+
+        if new_ogn.is_rm_node():
+            parent_ogn_list = self._find_adopters_for_new_rm_ogn(new_ogn, prev_ogn_for_target)
+        else:
+            # Not an RM node:
+            parent_ogn_list = self._find_adopters_for_new_non_rm_ogn(new_ogn, prev_ogn_for_target)
+
+        if not parent_ogn_list:
+            # Serious error
+            raise InvalidInsertOpGraphError(f'Failed to find parent OGNs to link with: {new_ogn}')
+
+        # Need to clear out previous relationships before adding to main tree:
+        new_ogn.clear_relationships()
+
+        is_new_ogn_blocked = False
+        for parent_ogn in parent_ogn_list:
+            logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) Adding OGN as child dependency of OGN {parent_ogn.node_uid}')
+            parent_ogn.link_child(new_ogn)
+            if parent_ogn.op.is_stopped_on_error():
+                is_new_ogn_blocked = True
+
+        if is_new_ogn_blocked:
+            logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) New OGN is downstream of an error; setting status of '
+                         f'op {new_ogn.op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
+            new_ogn.op.set_status(UserOpStatus.BLOCKED_BY_ERROR)
+
+        # Always add to node_queue_dict:
+        node_dict = self._node_ogn_q_dict.get(target_node.device_uid, None)
+        if not node_dict:
+            node_dict = dict()
+            self._node_ogn_q_dict[target_node.device_uid] = node_dict
+        pending_ogn_queue = node_dict.get(target_node.uid)
+        if not pending_ogn_queue:
+            pending_ogn_queue = collections.deque()
+            node_dict[target_node.uid] = pending_ogn_queue
+        pending_ogn_queue.append(new_ogn)
+
+        # Add to ancestor_dict:
+        logger.debug(f'[{self.name}] InsertOGN() Tgt node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
+        self._increment_icon_update_counts(target_node.device_uid, new_ogn.tgt_ancestor_uid_list)
+
+        if self._max_added_op_uid < new_ogn.op.op_uid:
+            self._max_added_op_uid = new_ogn.op.op_uid
+
+        # notify consumers there is something to get:
+        self._cv_can_get.notifyAll()
+
+        logger.info(f'[{self.name}] InsertOGN: successfully inserted: {new_ogn}')
+        self._print_current_state()
+
+    def insert_batch_graph(self, batch_root: RootNode) -> List[UserOp]:
+        """Inserts all the OGNs from an OpGraph which contains a single batch.
+        Tries to make this atomic by locking the graph for the duration of the work [*grits teeth*].
+        Tries to make this transactional by failing at standardized intervals and then backing out any already-completed work in the reverse order
+        in which it was done."""
+
+        if not batch_root.get_child_list():
+            raise RuntimeError(f'Batch has no operations!')
+
+        batch_uid: UID = batch_root.get_first_child().op.batch_uid
+        logger.info(f'[{self.name}] Inserting batch {batch_uid} into this OpGraph')
+
+        breadth_first_list: List[OpGraphNode] = batch_root.get_subgraph_bfs_list()
+        processed_op_uid_set: Set[UID] = set()
+        inserted_op_list: List[UserOp] = []
+        inserted_ogn_list: List[OpGraphNode] = []
+
         with self._cv_can_get:
-            # First check whether the target node is known and has pending operations
-            prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
+            try:
+                for graph_node in skip_root(breadth_first_list):
+                    self._insert_ogn(graph_node)
+                    inserted_ogn_list.append(graph_node)
 
-            if new_ogn.is_rm_node():
-                parent_ogn_list = self._find_adopters_for_new_rm_ogn(new_ogn, prev_ogn_for_target)
-            else:
-                # Not an RM node:
-                parent_ogn_list = self._find_adopters_for_new_non_rm_ogn(new_ogn, prev_ogn_for_target)
+                    if graph_node.op.op_uid not in processed_op_uid_set:
+                        inserted_op_list.append(graph_node.op)
+                        processed_op_uid_set.add(graph_node.op.op_uid)
 
-            if not parent_ogn_list:
-                # Serious error
-                raise InvalidInsertOpGraphError(f'Failed to find parent OGNs to link with: {new_ogn}')
+                if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
+                    self._validate_internal_consistency()  # this will raise an OpGraphError if validation fails
 
-            # Need to clear out previous relationships before adding to main tree:
-            new_ogn.clear_relationships()
+                return inserted_op_list
 
-            is_new_ogn_blocked = False
-            for parent_ogn in parent_ogn_list:
-                logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) Adding OGN as child dependency of OGN {parent_ogn.node_uid}')
-                parent_ogn.link_child(new_ogn)
-                if parent_ogn.op.is_stopped_on_error():
-                    is_new_ogn_blocked = True
-
-            if is_new_ogn_blocked:
-                logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) New OGN is downstream of an error; setting status of '
-                             f'op {new_ogn.op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
-                new_ogn.op.set_status(UserOpStatus.BLOCKED_BY_ERROR)
-
-            # Always add to node_queue_dict:
-            node_dict = self._node_ogn_q_dict.get(target_node.device_uid, None)
-            if not node_dict:
-                node_dict = dict()
-                self._node_ogn_q_dict[target_node.device_uid] = node_dict
-            pending_ogn_queue = node_dict.get(target_node.uid)
-            if not pending_ogn_queue:
-                pending_ogn_queue = collections.deque()
-                node_dict[target_node.uid] = pending_ogn_queue
-            pending_ogn_queue.append(new_ogn)
-
-            # Add to ancestor_dict:
-            logger.debug(f'[{self.name}] InsertOGN() Tgt node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
-            self._increment_icon_update_counts(target_node.device_uid, new_ogn.tgt_ancestor_uid_list)
-
-            if self._max_added_op_uid < new_ogn.op.op_uid:
-                self._max_added_op_uid = new_ogn.op.op_uid
-
-            # notify consumers there is something to get:
-            self._cv_can_get.notifyAll()
-
-            logger.info(f'[{self.name}] InsertOGN: successfully inserted: {new_ogn}')
-            self._print_current_state()
+            except OpGraphError as oge:
+                logger.exception(f'[{self.name}] Failed to add batch {batch_uid} to this graph (need to revert insert of {len(inserted_ogn_list)} '
+                                 f'OGNs from {len(inserted_op_list)} ops)')
+                if inserted_ogn_list:
+                    ogn_count = len(inserted_ogn_list)
+                    while len(inserted_ogn_list) > 0:
+                        ogn = inserted_ogn_list.pop()
+                        logger.debug(f'Backing out OGN {ogn_count - len(inserted_ogn_list)} of {len(inserted_ogn_list)}: {ogn}')
+                        self.revert_ogn(ogn)
+                raise UnsuccessfulBatchInsertError(str(oge))
+            except RuntimeError as err:
+                if not isinstance(err, OpGraphError):
+                    # bad bad bad
+                    logger.error(f'Unexpected failure while adding batch {batch_uid} to main graph (after adding {len(inserted_ogn_list)} OGNs from '
+                                 f'{len(inserted_op_list)} ops) - rethrowing exception')
+                    raise err
 
     # GET logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

@@ -380,64 +380,15 @@ class OpManager(HasLifecycle):
             assert False, f'Unrecognized: {error_strategy.name}'
 
     def _add_batch_to_main_graph(self, op_root: RootNode) -> List[UserOp]:
-        """Returns a tuple of [inserted user ops, discarded user ops]
-        Algo:
-        1. Discard root
-        2. Examine each child of root. Each shall be treated as its own subtree.
-        3. For each subtree, look up all its nodes in the master dict. Level...?
-
-        Disregard the kind of op when building the tree; they are all equal for now (except for RM; see below):
-        Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
-
-        Note: it is assumed that the given batch has already been reduced, and stored in the pending ops tree.
-        Every op node in the supplied graph must be accounted for.
+        """Inserts into the main OpGraph a batch which is represented by its own OpGraph.
+         Returns a list of inserted user ops if successful, or raises a UnsuccessfulBatchInsertError if it failed but managed to back out any
+         data from the batch which was already inserted. Any other exception indicates that something Bad happened and the main OpGraph may
+         be corrupted or contain incorrect data.
         """
-        if not op_root.get_child_list():
-            raise RuntimeError(f'Batch has no nodes!')
+        inserted_op_list = self._op_graph.insert_batch_graph(op_root)
 
-        # TODO: put all this logic in OpGraph, make transactional
-
-        batch_uid: UID = op_root.get_first_child().op.batch_uid
-
-        logger.info(f'Adding batch {batch_uid} to OpGraph')
-
-        breadth_first_list: List[OpGraphNode] = op_root.get_subgraph_bfs_list()
-        processed_op_uid_set: Set[UID] = set()
-        inserted_op_list: List[UserOp] = []
-        inserted_ogn_list: List[OpGraphNode] = []
-        try:
-            for graph_node in skip_root(breadth_first_list):
-                self._op_graph.insert_ogn(graph_node)
-
-                inserted_ogn_list.append(graph_node)
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Enqueue of OGN {graph_node.node_uid} (op {graph_node.op.op_uid}) succeeded')
-
-                if graph_node.op.op_uid not in processed_op_uid_set:
-                    inserted_op_list.append(graph_node.op)
-                    processed_op_uid_set.add(graph_node.op.op_uid)
-
-                # Wake Central Executor for each graph node:
-                self.backend.executor.notify()
-
-            if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
-                self._op_graph.validate_internal_consistency()
-        except RuntimeError as err:
-            if not isinstance(err, OpGraphError):
-                # bad bad bad
-                logger.error(f'Unexpected failure while adding batch {batch_uid} to main graph (after adding {len(inserted_ogn_list)} OGNs from '
-                             f'{len(inserted_op_list)} ops)')
-                raise err
-
-            logger.exception(f'Failed to add batch {batch_uid} to main graph (need to revert add of {len(inserted_ogn_list)} OGNs from '
-                             f'{len(inserted_op_list)} ops)')
-            if inserted_ogn_list:
-                ogn_count = len(inserted_ogn_list)
-                while len(inserted_ogn_list) > 0:
-                    ogn = inserted_ogn_list.pop()
-                    logger.debug(f'Backing out OGN {ogn_count - len(inserted_ogn_list)} of {len(inserted_ogn_list)}: {ogn}')
-                    self._op_graph.revert_ogn(ogn)
-            raise UnsuccessfulBatchInsertError(str(err))
+        # Wake Central Executor on success:
+        self.backend.executor.notify()
 
         return inserted_op_list
 

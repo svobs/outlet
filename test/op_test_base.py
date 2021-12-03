@@ -251,8 +251,6 @@ class OpTestBase(unittest.TestCase):
             try:
                 actual_node: Node = next(actual_iter)
                 logger.info(f'Examining: {actual_node} (expecting: {expected_node})')
-                if actual_node.name != expected_node.name:
-                    logger.debug('XXX')
                 self.assertEqual(expected_node.name, actual_node.name)
                 self.assertEqual(expected_node.size_bytes, actual_node.get_size_bytes())
                 self.assertEqual(expected_node.is_dir(), actual_node.is_dir())
