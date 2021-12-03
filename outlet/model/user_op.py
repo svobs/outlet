@@ -58,6 +58,8 @@ class UserOpStatus(IntEnum):
     EXECUTING = 2
     BLOCKED_BY_ERROR = 3  # upstream error in OpGraph
     STOPPED_ON_ERROR = 4
+
+    # all the values below here are completed:
     COMPLETED_OK = 10
     COMPLETED_NO_OP = 11
 

@@ -87,6 +87,9 @@ class OpGraphNode(BaseNode, ABC):
     def is_child_of_root(self) -> bool:
         return not self.is_root() and len(self.get_parent_list()) == 1 and self.get_first_parent().is_root()
 
+    def is_child_of(self, other_ogn) -> bool:
+        return not self.is_root() and other_ogn.node_uid in [p.node_uid for p in self.get_parent_list()]
+
     @abstractmethod
     def clear_relationships(self):
         pass

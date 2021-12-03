@@ -1,7 +1,7 @@
 import collections
 import logging
 import threading
-from typing import Deque, Dict, Iterable, List, Optional, Set
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
 from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
 from constants import IconId, NULL_UID, SUPER_DEBUG_ENABLED, TRACE_ENABLED
@@ -28,9 +28,12 @@ class OpGraph(HasLifecycle):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS OpGraph
 
-    Flow graph for user ops.
-    Note: an OpGraph is built out of "OpGraph nodes", which I may also refer to as "graph nodes", which have class OpGraphNode.
+    Undirected acyclic graph for user ops.
+    An OpGraph is built out of a set of "OpGraph nodes", aka "OGNs", which I may also refer to as "graph nodes", which have class OpGraphNode.
     These should be distinguished from regular file nodes, dir nodes, etc, which I'll refer to as simply "nodes", with class Node.
+
+    Every UserOp in the graph will be reprensented by either 1 or 2 OGNs, with one OGN for its src node, and one OGN for its dst node (if it has
+    a dst).
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -69,7 +72,99 @@ class OpGraph(HasLifecycle):
             # unblock any get() task which is waiting
             self._cv_can_get.notifyAll()
 
-    # Misc.
+    # Icon stuff
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
+        with self._cv_can_get:
+            ogn: OpGraphNode = self._get_last_pending_ogn_for_node(device_uid, node_uid)
+            if ogn and not ogn.op.is_completed():
+                icon = OpTypeMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): returning icon')
+                return icon
+
+            device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
+            if device_ancestor_dict and device_ancestor_dict.get(node_uid):
+                logger.debug(f'Node {device_uid}:{node_uid} has a downstream op: returning icon {IconId.ICON_DIR_PENDING_DOWNSTREAM_OP.name}')
+                return IconId.ICON_DIR_PENDING_DOWNSTREAM_OP
+
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Node {device_uid}:{node_uid}: no custom icon')
+            return None
+
+    def pop_ancestor_icon_changes(self):
+        """This returns a set of dicts of all the nodes which have changed icon since the last time this method was called."""
+        with self._cv_can_get:
+            added_ancestor_dict: Dict[UID, Set[UID]] = self._added_ancestor_dict
+            removed_ancestor_dict: Dict[UID, Set[UID]] = self._removed_ancestor_dict
+            changed_node_dict: Dict[UID, Set[UID]] = self._changed_node_dict
+            self._added_ancestor_dict = {}
+            self._removed_ancestor_dict = {}
+            self._changed_node_dict = {}
+
+        return added_ancestor_dict, removed_ancestor_dict, changed_node_dict
+
+    def _increment_icon_update_counts(self, device_uid: UID, ancestor_node_uid_list: List[UID]):
+        device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
+        if not device_ancestor_dict:
+            device_ancestor_dict = {}
+            self._ancestor_dict[device_uid] = device_ancestor_dict
+        for node_uid in ancestor_node_uid_list:
+            count = device_ancestor_dict.get(node_uid, 0)
+            if count == 0:
+                added_ancestor_map_for_device = self._added_ancestor_dict.get(device_uid)
+                if not added_ancestor_map_for_device:
+                    added_ancestor_map_for_device = set()
+                    self._added_ancestor_dict[device_uid] = added_ancestor_map_for_device
+                added_ancestor_map_for_device.add(node_uid)
+
+                removed_ancestor_map_for_device = self._removed_ancestor_dict.get(device_uid)
+                if removed_ancestor_map_for_device and node_uid in removed_ancestor_map_for_device:
+                    removed_ancestor_map_for_device.remove(node_uid)
+            device_ancestor_dict[node_uid] = count + 1
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Increment(after): Ancestor dict: {self._ancestor_dict}')
+
+    def _decrement_icon_update_counts(self, ogn: OpGraphNode):
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Decrement(before): Ancestor dict: {self._ancestor_dict}')
+        device_uid = ogn.get_tgt_node().device_uid
+        device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
+        if not device_ancestor_dict:
+            raise RuntimeError(f'Completed op (UID {ogn.op.op_uid}): no entry for device_uid ({device_uid}) in ancestor dict!')
+        for ancestor_uid in ogn.tgt_ancestor_uid_list:
+            count = device_ancestor_dict.get(ancestor_uid) - 1
+            if count == 0:
+                device_ancestor_dict.pop(ancestor_uid)
+
+                added_ancestor_map_for_device = self._added_ancestor_dict.get(device_uid)
+                if added_ancestor_map_for_device and ancestor_uid in added_ancestor_map_for_device:
+                    added_ancestor_map_for_device.remove(ancestor_uid)
+
+                removed_ancestor_map_for_device = self._removed_ancestor_dict.get(device_uid)
+                if not removed_ancestor_map_for_device:
+                    removed_ancestor_map_for_device = set()
+                    self._removed_ancestor_dict[device_uid] = removed_ancestor_map_for_device
+                removed_ancestor_map_for_device.add(ancestor_uid)
+            else:
+                device_ancestor_dict[ancestor_uid] = count
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Decrement(after): Ancestor dict: {self._ancestor_dict}')
+
+    def _add_tgt_node_to_icon_changes_dict(self, tgt_node: Node):
+        # TODO: merge this structure with ancestor change counts
+        logger.debug(f'[{self.name}] Adding node {tgt_node.node_identifier} to set of nodes which need UI icon updates')
+        # Add tgt node to change map
+        node_map_for_device = self._changed_node_dict.get(tgt_node.device_uid)
+        if not node_map_for_device:
+            node_map_for_device = set()
+            self._changed_node_dict[tgt_node.device_uid] = node_map_for_device
+        node_map_for_device.add(tgt_node.uid)
+
+    # Misc non-mutating methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def __len__(self):
@@ -109,7 +204,7 @@ class OpGraph(HasLifecycle):
         for qd_line in qd_line_list:
             logger.debug(f'[{self.name}] {qd_line}')
 
-    def _get_last_pending_ogn_for_node(self, device_uid: UID, node_uid: UID):
+    def _get_last_pending_ogn_for_node(self, device_uid: UID, node_uid: UID) -> Optional[OpGraphNode]:
         node_dict = self._node_ogn_q_dict.get(device_uid, None)
         if node_dict:
             node_list = node_dict.get(node_uid, None)
@@ -126,47 +221,17 @@ class OpGraph(HasLifecycle):
             return op_node.op
         return None
 
-    def get_icon_for_node(self, device_uid: UID, node_uid: UID) -> Optional[IconId]:
-        with self._cv_can_get:
-            ogn: OpGraphNode = self._get_last_pending_ogn_for_node(device_uid, node_uid)
-            if ogn and not ogn.op.is_completed():
-                icon = OpTypeMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): returning icon')
-                return icon
-
-            device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
-            if device_ancestor_dict and device_ancestor_dict.get(node_uid):
-                logger.debug(f'Node {device_uid}:{node_uid} has a downstream op: returning icon {IconId.ICON_DIR_PENDING_DOWNSTREAM_OP.name}')
-                return IconId.ICON_DIR_PENDING_DOWNSTREAM_OP
-
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Node {device_uid}:{node_uid}: no custom icon')
-            return None
-
-    def pop_ancestor_icon_changes(self):
-        """This returns a set of dicts of all the nodes which have changed icon since the last time this method was called."""
-        with self._cv_can_get:
-            added_ancestor_dict: Dict[UID, Set[UID]] = self._added_ancestor_dict
-            removed_ancestor_dict: Dict[UID, Set[UID]] = self._removed_ancestor_dict
-            changed_node_dict: Dict[UID, Set[UID]] = self._changed_node_dict
-            self._added_ancestor_dict = {}
-            self._removed_ancestor_dict = {}
-            self._changed_node_dict = {}
-
-        return added_ancestor_dict, removed_ancestor_dict, changed_node_dict
-
     def get_max_added_op_uid(self) -> UID:
         with self._cv_can_get:
             return self._max_added_op_uid
 
-    def validate_graph(self):
+    def validate_internal_consistency(self):
         with self._cv_can_get:
-            self._validate_graph()
+            self._validate_internal_consistency()
 
-    def _validate_graph(self):
+    def _validate_internal_consistency(self):
         """The caller is responsible for locking the graph before calling this."""
-        logger.debug(f'[{self.name}] Validating graph...')
+        logger.debug(f'[{self.name}] Validating insternal structural consistency of OpGraph...')
         error_count = 0
         ogn_coverage_dict: Dict[UID, OpGraphNode] = {self.root.node_uid: self.root}  # OGN uid -> OGN
         binary_op_src_coverage_dict: Dict[UID, OpGraphNode] = {}
@@ -365,7 +430,7 @@ class OpGraph(HasLifecycle):
         logger.debug(f'[{self.name}] {sw_total} Found {len(child_nodes):,} child nodes in graph for RM node')
         return child_nodes
 
-    def _insert_rm_in_graph(self, new_ogn: OpGraphNode, prev_ogn_for_target):
+    def _find_adopters_for_new_rm_ogn(self, new_ogn: OpGraphNode, prev_ogn_for_target) -> List[OpGraphNode]:
         # Special handling for RM-type nodes.
         # We want to find the lowest RM node in the tree.
         assert new_ogn.is_rm_node()
@@ -380,14 +445,14 @@ class OpGraph(HasLifecycle):
             raise InvalidInsertOpGraphError(f'Trying to remove node ({target_node.node_identifier}) whose last operation is already an RM operation!')
 
         # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
-        og_nodes_for_child_nodes_list: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_ogn)
-        if og_nodes_for_child_nodes_list:
+        ogn_list_for_children_of_tgt: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_ogn)
+        if ogn_list_for_children_of_tgt:
             # Possibility 1: children
-            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found {len(og_nodes_for_child_nodes_list)} '
+            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found {len(ogn_list_for_children_of_tgt)} '
                          f'existing OGNs for children of tgt node ({target_node.dn_uid}); examining whether to add as child dependency of each')
 
             parent_ogn_list: List[OpGraphNode] = []  # Use this list to store parents to link to until we are done validating.
-            for og_node_for_child_node in og_nodes_for_child_nodes_list:
+            for og_node_for_child_node in ogn_list_for_children_of_tgt:
                 logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Examining {og_node_for_child_node}')
                 if not og_node_for_child_node.is_remove_type():
                     raise InvalidInsertOpGraphError(f'Cannot insert RM OGN: all children of its target must be scheduled for removal first,'
@@ -405,9 +470,7 @@ class OpGraph(HasLifecycle):
                 else:
                     parent_ogn_list.append(og_node_for_child_node)
 
-            for parent_ogn in parent_ogn_list:
-                logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Adding OGN as child dependency of OGN {parent_ogn.node_uid}')
-                parent_ogn.link_child(new_ogn)
+            return parent_ogn_list
 
         elif prev_ogn_for_target:
             # Possibility 2: If existing op is found for the target node, add below that.
@@ -419,49 +482,48 @@ class OpGraph(HasLifecycle):
                                                 f'(tgt={prev_ogn_for_target})')
             logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found pending op(s) for target node {target_node.dn_uid} for RM op; '
                          f'adding as child dependency')
-            prev_ogn_for_target.link_child(new_ogn)
+            return [prev_ogn_for_target]
         else:
             # Possibility 3: no previous ops for node or its children
             logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found no previous ops for target node {target_node.dn_uid} or its children; '
                          f'adding to root')
-            self.root.link_child(new_ogn)
+            return [self.root]
 
-    def _insert_non_rm_in_graph(self, new_ogn: OpGraphNode, prev_ogn_for_target: OpGraphNode, tgt_parent_uid_list: List[UID]):
+    def _find_adopters_for_new_non_rm_ogn(self, new_ogn: OpGraphNode, prev_ogn_for_target: OpGraphNode) -> List[OpGraphNode]:
         target_node: Node = new_ogn.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
+        parent_ogn_list: List[OpGraphNode] = []
 
-        for tgt_node_parent_uid in tgt_parent_uid_list:
-            prev_ogn_for_target_node_parent = self._get_last_pending_ogn_for_node(target_device_uid, tgt_node_parent_uid)
-
-            if prev_ogn_for_target and prev_ogn_for_target_node_parent:
-                if prev_ogn_for_target.get_level() > prev_ogn_for_target_node_parent.get_level():
-                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) ast target op (for node {target_node.dn_uid}) '
-                                 f'is lower level than last op for parent node ({tgt_node_parent_uid}); adding new OGN as child of last target op '
-                                 f'(OGN {prev_ogn_for_target.node_uid})')
-                    prev_ogn_for_target.link_child(new_ogn)
+        for tgt_node_parent_uid in target_node.get_parent_uids():
+            prev_ogn_for_target_node_parent: Optional[OpGraphNode] = self._get_last_pending_ogn_for_node(target_device_uid, tgt_node_parent_uid)
+            if prev_ogn_for_target_node_parent:
+                if prev_ogn_for_target:
+                    logger.debug(f'Found both OGN for tgt ({prev_ogn_for_target}) and OGN for parent of tgt ({prev_ogn_for_target_node_parent})')
+                    if not prev_ogn_for_target.is_child_of(prev_ogn_for_target_node_parent):
+                        # 99% sure this should never happen, but let's check for it
+                        logger.error(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Prev OGN ({prev_ogn_for_target}) for tgt node '
+                                     f'is not a child of its parent node\'s OGN ({prev_ogn_for_target_node_parent})')
+                        raise RuntimeError(f'Invalid state of OpGraph: previous operation for tgt node {target_node.node_identifier} is not connected'
+                                           f'to its parent\'s operation!')
                 else:
-                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Last target op is >= level than last op for parent node; '
-                                 f'adding new OG node as child of last op for parent node (OG node {prev_ogn_for_target_node_parent.node_uid})')
-                    prev_ogn_for_target_node_parent.link_child(new_ogn)
-            elif prev_ogn_for_target:
-                assert not prev_ogn_for_target_node_parent
-                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for target node {target_node.dn_uid}; '
-                             f'adding new OGN as child dependency of OGN {prev_ogn_for_target.node_uid}')
-                prev_ogn_for_target.link_child(new_ogn)
-            elif prev_ogn_for_target_node_parent:
-                assert not prev_ogn_for_target
-                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent '
-                             f'{target_device_uid}:{tgt_node_parent_uid}; '
-                             f'adding new OGN as child dependency of OGN {prev_ogn_for_target_node_parent.node_uid}')
-                # FIXME: what if this is a remove-type node? What about ancestors of target node? We need a way to look further up the node trees.
-                prev_ogn_for_target_node_parent.link_child(new_ogn)
-            else:
-                assert not prev_ogn_for_target_node_parent and not prev_ogn_for_target
-                logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found no pending ops for either target node {target_node.dn_uid} '
-                             f'or parent node {target_device_uid}:{tgt_node_parent_uid}; adding to root')
-                self.root.link_child(new_ogn)
+                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent '
+                                 f'{target_device_uid}:{tgt_node_parent_uid}; '
+                                 f'adding new OGN as child dependency of OGN {prev_ogn_for_target_node_parent.node_uid}')
+                    parent_ogn_list.append(prev_ogn_for_target_node_parent)
 
-    def enqueue_single_ogn(self, new_ogn: OpGraphNode):
+        if prev_ogn_for_target:
+            assert not parent_ogn_list, f'Did not expect: {parent_ogn_list}'
+            logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Adding new OGN as child of prev OGN {prev_ogn_for_target.node_uid}'
+                         f'for tgt node')
+            return [prev_ogn_for_target]
+        elif parent_ogn_list:
+            return parent_ogn_list
+        else:
+            logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found no pending ops for either target node {target_node.dn_uid} '
+                         f'or its parent(s); adding to root')
+            return [self.root]
+
+    def insert_ogn(self, new_ogn: OpGraphNode):
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
@@ -470,68 +532,53 @@ class OpGraph(HasLifecycle):
 
         A successful return indicates taht the node was successfully nq'd; raises InvalidInsertOpGraphError otherwise
         """
-        logger.debug(f'[{self.name}] InsertOGNode called for: {new_ogn}')
-
-        # Need to clear out previous relationships before adding to main tree:
-        new_ogn.clear_relationships()
+        logger.debug(f'[{self.name}] InsertOGN called for: {new_ogn}')
 
         target_node: Node = new_ogn.get_tgt_node()
-        tgt_parent_uid_list: List[UID] = target_node.get_parent_uids()
 
         with self._cv_can_get:
-            device_uid = new_ogn.get_tgt_node().device_uid
-
             # First check whether the target node is known and has pending operations
-            prev_ogn_for_target = self._get_last_pending_ogn_for_node(device_uid, target_node.uid)
-            if prev_ogn_for_target and prev_ogn_for_target.op.is_stopped_on_error():
-                # User should resolve this first
-                raise InvalidInsertOpGraphError(f'Previous operation for target node {target_node.node_identifier} is already blocked due to error')
-
-            for ancestor_uid in new_ogn.tgt_ancestor_uid_list:
-                prev_ogn_for_ancestor = self._get_last_pending_ogn_for_node(target_node.device_uid, ancestor_uid)
-                if prev_ogn_for_ancestor and prev_ogn_for_ancestor.op.is_stopped_on_error():
-                    raise InvalidInsertOpGraphError(f'An ancestor {target_node.node_identifier} of affected node {target_node.node_identifier}'
-                                                    f' is already blocked due to error')
+            prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
 
             if new_ogn.is_rm_node():
-                self._insert_rm_in_graph(new_ogn, prev_ogn_for_target)
+                parent_ogn_list = self._find_adopters_for_new_rm_ogn(new_ogn, prev_ogn_for_target)
             else:
                 # Not an RM node:
-                self._insert_non_rm_in_graph(new_ogn, prev_ogn_for_target, tgt_parent_uid_list)
+                parent_ogn_list = self._find_adopters_for_new_non_rm_ogn(new_ogn, prev_ogn_for_target)
+
+            if not parent_ogn_list:
+                # Serious error
+                raise InvalidInsertOpGraphError(f'Failed to find parent OGNs to link with: {new_ogn}')
+
+            # Need to clear out previous relationships before adding to main tree:
+            new_ogn.clear_relationships()
+
+            is_new_ogn_blocked = False
+            for parent_ogn in parent_ogn_list:
+                logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) Adding OGN as child dependency of OGN {parent_ogn.node_uid}')
+                parent_ogn.link_child(new_ogn)
+                if parent_ogn.op.is_stopped_on_error():
+                    is_new_ogn_blocked = True
+
+            if is_new_ogn_blocked:
+                logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) New OGN is downstream of an error; setting status of '
+                             f'op {new_ogn.op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
+                new_ogn.op.set_status(UserOpStatus.BLOCKED_BY_ERROR)
 
             # Always add to node_queue_dict:
             node_dict = self._node_ogn_q_dict.get(target_node.device_uid, None)
             if not node_dict:
                 node_dict = dict()
                 self._node_ogn_q_dict[target_node.device_uid] = node_dict
-            pending_op_queue = node_dict.get(target_node.uid)
-            if not pending_op_queue:
-                pending_op_queue = collections.deque()
-                node_dict[target_node.uid] = pending_op_queue
-            pending_op_queue.append(new_ogn)
+            pending_ogn_queue = node_dict.get(target_node.uid)
+            if not pending_ogn_queue:
+                pending_ogn_queue = collections.deque()
+                node_dict[target_node.uid] = pending_ogn_queue
+            pending_ogn_queue.append(new_ogn)
 
             # Add to ancestor_dict:
-            device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
-            if not device_ancestor_dict:
-                device_ancestor_dict = {}
-                self._ancestor_dict[device_uid] = device_ancestor_dict
-            logger.debug(f'[{self.name}] Tgt node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
-            for ancestor_uid in new_ogn.tgt_ancestor_uid_list:
-                count = device_ancestor_dict.get(ancestor_uid, 0)
-                if count == 0:
-                    added_ancestor_map_for_device = self._added_ancestor_dict.get(device_uid)
-                    if not added_ancestor_map_for_device:
-                        added_ancestor_map_for_device = set()
-                        self._added_ancestor_dict[device_uid] = added_ancestor_map_for_device
-                    added_ancestor_map_for_device.add(ancestor_uid)
-
-                    removed_ancestor_map_for_device = self._removed_ancestor_dict.get(device_uid)
-                    if removed_ancestor_map_for_device and ancestor_uid in removed_ancestor_map_for_device:
-                        removed_ancestor_map_for_device.remove(ancestor_uid)
-                device_ancestor_dict[ancestor_uid] = count + 1
-
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.name}] Ancestor dict: {self._ancestor_dict}')
+            logger.debug(f'[{self.name}] InsertOGN() Tgt node {new_ogn.get_tgt_node().node_identifier} has ancestors: {new_ogn.tgt_ancestor_uid_list}')
+            self._increment_icon_update_counts(target_node.device_uid, new_ogn.tgt_ancestor_uid_list)
 
             if self._max_added_op_uid < new_ogn.op.op_uid:
                 self._max_added_op_uid = new_ogn.op.op_uid
@@ -539,7 +586,7 @@ class OpGraph(HasLifecycle):
             # notify consumers there is something to get:
             self._cv_can_get.notifyAll()
 
-            logger.info(f'[{self.name}] InsertOGNode: successfully inserted: {new_ogn}')
+            logger.info(f'[{self.name}] InsertOGN: successfully inserted: {new_ogn}')
             self._print_current_state()
 
     # GET logic
@@ -557,8 +604,8 @@ class OpGraph(HasLifecycle):
                 raise RuntimeError(f'Serious error: master dict has no entries for device_uid={node.device_uid} (op {node_type_str} node) !')
             else:
                 return False
-        pending_op_queue: Deque[OpGraphNode] = node_dict.get(node.uid, None)
-        if not pending_op_queue:
+        pending_ogn_queue: Deque[OpGraphNode] = node_dict.get(node.uid, None)
+        if not pending_ogn_queue:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Could not find entry in node dict for device_uid {node.device_uid} (from OGN {node_type_str}, op {op}, '
                              f'fail_if_not_found={fail_if_not_found})')
@@ -567,7 +614,7 @@ class OpGraph(HasLifecycle):
             else:
                 return False
 
-        op_graph_node = pending_op_queue[0]
+        op_graph_node = pending_ogn_queue[0]
         if op.op_uid != op_graph_node.op.op_uid:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Skipping UserOp (UID {op_graph_node.op.op_uid}): it is not next in {node_type_str} node queue')
@@ -680,15 +727,15 @@ class OpGraph(HasLifecycle):
                     # Note that we only need to do this at the moment of failure cuz we need to update nodes which are [possibly] already displayed.
                     # Any new nodes (unknown to us now) which need to be displayed thereafter will already call get_icon_for_node() prior to display.
                     logger.debug(f'[{self.name}] pop_op(): Op stopped on error; will populate error dict (currently = {self._changed_node_dict})')
-                    self._add_all_affected_nodes_to_changes_dict(op)
+                    self._block_downstream_ogns_for_failed_op(op)
                     logger.debug(f'[{self.name}] pop_op(): Error dict is now = {self._changed_node_dict}')
             else:
                 # I. SRC OGN
-                self._remove_ogn(op.src_node, op, 'src')
+                self._remove_ogn_for_completed_op(op.src_node, op, 'src')
 
                 # II. DST OGN
                 if op.has_dst():
-                    self._remove_ogn(op.dst_node, op, 'dst')
+                    self._remove_ogn_for_completed_op(op.dst_node, op, 'dst')
 
             logger.debug(f'[{self.name}] Done with pop_op() for op: {op}')
             self._print_current_state()
@@ -696,9 +743,27 @@ class OpGraph(HasLifecycle):
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
 
-    def _add_all_affected_nodes_to_changes_dict(self, op: UserOp):
+    def revert_ogn(self, ogn_to_remove: OpGraphNode):
+
+        def _remove_last(_tgt_ogn_queue):
+            last_ogn: OpGraphNode = _tgt_ogn_queue.pop()
+            if last_ogn.node_uid != ogn_to_remove.node_uid:
+                _tgt_ogn_queue.append(last_ogn)  # put it back
+                raise RuntimeError(f'Unexpected failure while trying to remove OGN {ogn_to_remove.node_uid} from tail of node queue: '
+                                   f'found OGN {last_ogn.node_uid} instead!')
+            return last_ogn
+
+        self._remove_ogn_from_node_queue(tgt_node=ogn_to_remove.get_tgt_node(), label='', remove_func=_remove_last)
+
+        self._decrement_icon_update_counts(ogn_to_remove)
+
+        self._unlink_ogn_from_graph(ogn_to_remove)
+
+    def _block_downstream_ogns_for_failed_op(self, failed_op: UserOp):
+        assert failed_op.get_status() == UserOpStatus.STOPPED_ON_ERROR, f'Op is not in failed status: {failed_op}'
+
         queue: Deque[UserOp] = collections.deque()
-        queue.append(op)
+        queue.append(failed_op)
 
         while len(queue) > 0:
             op: UserOp = queue.popleft()
@@ -709,48 +774,67 @@ class OpGraph(HasLifecycle):
                 logger.debug(f'[{self.name}] Setting status of op {op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
                 op.result = UserOpResult(status=UserOpStatus.BLOCKED_BY_ERROR)
 
-            self._add_node_to_icon_changes_dict(op.src_node, op, queue)
+            self._process_and_enqueue_children(op.src_node, op, queue)
 
             if op.has_dst():
-                self._add_node_to_icon_changes_dict(op.dst_node, op, queue)
+                self._process_and_enqueue_children(op.dst_node, op, queue)
 
-    def _add_node_to_icon_changes_dict(self, tgt_node: Node, op: UserOp, queue: Deque[UserOp]):
+    def _process_and_enqueue_children(self, tgt_node: Node, op: UserOp, queue: Deque[UserOp]):
         ogn: OpGraphNode = self._get_last_pending_ogn_for_node(tgt_node.device_uid, op.src_node.uid)
         assert ogn and ogn.op.op_uid == op.op_uid, f'Op (UID {op.op_uid}) does not match last node popped from its node\'s queue ({ogn})'
 
-        # Add tgt node to change map
-        added_error_node_map_for_device = self._changed_node_dict.get(tgt_node.device_uid)
-        if not added_error_node_map_for_device:
-            added_error_node_map_for_device = set()
-            self._changed_node_dict[tgt_node.device_uid] = added_error_node_map_for_device
-        added_error_node_map_for_device.add(tgt_node.uid)
+        self._add_tgt_node_to_icon_changes_dict(tgt_node)
 
-        logger.debug(f'[{self.name}] Adding node {tgt_node.node_identifier} to icon refresh list')
-
-        # Enqueue dependent ops:
+        # Enqueue downstream ops:
         for child_ogn in ogn.get_child_list():
             queue.append(child_ogn.op)
 
-    def _remove_ogn(self, tgt_node: Node, op: UserOp, node_label: str):
-        # 1. Remove tgt node from node dict
+    def _remove_ogn_for_completed_op(self, tgt_node: Node, op: UserOp, node_label: str):
 
+        # 1. Remove OGN from node queue dict
+
+        def _remove_from_front(_tgt_ogn_queue):
+            ogn: OpGraphNode = _tgt_ogn_queue.popleft()
+            if ogn.op.op_uid != op.op_uid:
+                # very bad
+                self._print_current_state()
+                raise RuntimeError(f'Completed op (UID {op.op_uid}) does not match last node popped from its {node_label} node\'s queue '
+                                   f'(UID {ogn.op.op_uid})')
+            return ogn
+
+        tgt_ogn = self._remove_ogn_from_node_queue(tgt_node=tgt_node, label=f'Completed op for {node_label}', remove_func=_remove_from_front)
+
+        # 2. Remove tgt node ancestor counts
+
+        self._decrement_icon_update_counts(tgt_ogn)
+
+        # 3. Remove OGN from graph
+
+        # 3a. validate it is a child of root
+        if not tgt_ogn.is_child_of_root():
+            ogn_parent = tgt_ogn.get_first_parent()
+            ogn_parent_uid = ogn_parent.node_uid if ogn_parent else None
+            raise RuntimeError(f'Src node for completed op is not a parent of root (instead found parent OGN {ogn_parent_uid})')
+
+        # 3b. unlink from its parent
+        self._unlink_ogn_from_graph(tgt_ogn)
+
+        # 4. Delete tgt OGN
+        del tgt_ogn
+
+    def _remove_ogn_from_node_queue(self, tgt_node: Node, label: str, remove_func: Callable[[Deque[OpGraphNode]], OpGraphNode]) -> OpGraphNode:
         node_dict_for_device: Dict[UID, Deque[OpGraphNode]] = self._node_ogn_q_dict.get(tgt_node.device_uid)
         if not node_dict_for_device:
             # very bad
-            raise RuntimeError(f'Completed op {node_label} node device_uid ({tgt_node.device_uid}) not found in master dict (for {tgt_node.dn_uid}')
+            raise RuntimeError(f'{label}: node device_uid ({tgt_node.device_uid}) not found in master dict (for {tgt_node.dn_uid}')
 
         tgt_ogn_queue: Deque[OpGraphNode] = node_dict_for_device.get(tgt_node.uid)
         if not tgt_ogn_queue:
             # very bad
             self._print_current_state()
-            raise RuntimeError(f'Completed op for {node_label} node ({tgt_node.dn_uid}) not found in master dict!')
+            raise RuntimeError(f'{label}: node ({tgt_node.dn_uid}) not found in master dict!')
 
-        tgt_ogn: OpGraphNode = tgt_ogn_queue.popleft()
-        if tgt_ogn.op.op_uid != op.op_uid:
-            # very bad
-            self._print_current_state()
-            raise RuntimeError(f'Completed op (UID {op.op_uid}) does not match last node popped from its {node_label} node\'s queue '
-                               f'(UID {tgt_ogn.op.op_uid})')
+        tgt_ogn: OpGraphNode = remove_func(tgt_ogn_queue)
         if not tgt_ogn_queue:
             # Remove queue if it is empty:
             node_dict_for_device.pop(tgt_node.uid, None)
@@ -758,20 +842,11 @@ class OpGraph(HasLifecycle):
             # Remove device dict if it is empty:
             self._node_ogn_q_dict.pop(tgt_node.device_uid, None)
 
-        # 2. Remove tgt node ancestor counts
+        return tgt_ogn
 
-        self._decrement_ancestor_counts(tgt_ogn)
-
-        # 3. Remove tgt node from op graph
-
-        # validate it is a child of root
-        if not tgt_ogn.is_child_of_root():
-            ogn_parent = tgt_ogn.get_first_parent()
-            ogn_parent_uid = ogn_parent.node_uid if ogn_parent else None
-            raise RuntimeError(f'Src node for completed op is not a parent of root (instead found parent OGN {ogn_parent_uid})')
-
-        # unlink from its parent
-        self.root.unlink_child(tgt_ogn)
+    def _unlink_ogn_from_graph(self, tgt_ogn: OpGraphNode):
+        for ogn_parent in tgt_ogn.get_parent_list():
+            ogn_parent.unlink_child(tgt_ogn)
 
         # unlink its children also. If the child then has no other parents, it moves up to become child of root
         for ogn_child in tgt_ogn.get_child_list():
@@ -784,37 +859,3 @@ class OpGraph(HasLifecycle):
                 for par in ogn_child.get_parent_list():
                     if not par.get_parent_list():
                         logger.error(f'[{self.name}] Node has no parents: {par}')
-
-        # 4. Delete tgt OGN
-        del tgt_ogn
-
-    def _decrement_ancestor_counts(self, ogn: OpGraphNode):
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Decrement(before): Ancestor dict: {self._ancestor_dict}')
-        device_uid = ogn.get_tgt_node().device_uid
-        device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
-        if not device_ancestor_dict:
-            raise RuntimeError(f'Completed op (UID {ogn.op.op_uid}): no entry for device_uid ({device_uid}) in ancestor dict!')
-        for ancestor_uid in ogn.tgt_ancestor_uid_list:
-            count = device_ancestor_dict.get(ancestor_uid) - 1
-            if count == 0:
-                device_ancestor_dict.pop(ancestor_uid)
-
-                added_ancestor_map_for_device = self._added_ancestor_dict.get(device_uid)
-                if added_ancestor_map_for_device and ancestor_uid in added_ancestor_map_for_device:
-                    added_ancestor_map_for_device.remove(ancestor_uid)
-
-                removed_ancestor_map_for_device = self._removed_ancestor_dict.get(device_uid)
-                if not removed_ancestor_map_for_device:
-                    removed_ancestor_map_for_device = set()
-                    self._removed_ancestor_dict[device_uid] = removed_ancestor_map_for_device
-                removed_ancestor_map_for_device.add(ancestor_uid)
-            else:
-                device_ancestor_dict[ancestor_uid] = count
-
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Decrement(after): Ancestor dict: {self._ancestor_dict}')
-
-    def revert_ogn(self, ogn: OpGraphNode):
-        # TODO!
-        raise NotImplementedError()

@@ -8,7 +8,7 @@ from constants import is_root, NULL_UID, SUPER_DEBUG_ENABLED
 from model.node.node import Node
 from model.node_identifier import DN_UID
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import Batch, UserOp, UserOpType
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,8 @@ class BatchBuilder:
             raise RuntimeError(f'Node has no parents: {dst_node}')
         return [f'{dst_node.device_uid}:{parent_uid}/{dst_node.name}' for parent_uid in dst_node.get_parent_uids()]
 
-    def reduce_and_validate_ops(self, op_list: List[UserOp]) -> List[UserOp]:
+    def assemble_batch(self, op_list: List[UserOp]) -> Batch:
+        """Pre=process step before building an OpGraph from the given ops. Validates each op and removes redundencies"""
         final_list: List[UserOp] = []
 
         # Put all affected nodes in map.
@@ -160,7 +161,7 @@ class BatchBuilder:
                 self._check_ancestors(op, op.dst_node, validate_cp_dst_ancestor_func)
 
         # Sort by ascending op_uid
-        return sorted(final_list, key=lambda _op: _op.op_uid)
+        return Batch(batch_uid=batch_uid, user_op_list=sorted(final_list, key=lambda _op: _op.op_uid))
 
     def _check_ancestors(self, op: UserOp, node: Node, eval_func: Callable[[UserOp, Node], None]):
         queue: Deque[Node] = collections.deque()
@@ -175,7 +176,7 @@ class BatchBuilder:
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     # Reduce Changes logic
 
-    def build_batch_graph(self, op_batch: List[UserOp]) -> RootNode:
+    def build_batch_graph(self, op_batch: List[UserOp], op_manager) -> RootNode:
         batch_uid = op_batch[0].batch_uid
         logger.debug(f'[Batch-{batch_uid}] Building OpGraph for {len(op_batch)} ops...')
 
@@ -195,7 +196,7 @@ class BatchBuilder:
         # so, store the batch nodes in a dict for additional lookup
         tgt_node_dict: Dict[UID, Dict[UID, Node]] = {}
         for op in op_batch:
-            self.insert_for_op(op, batch_graph, tgt_node_dict)
+            self._insert_for_op(op, batch_graph, tgt_node_dict)
 
         lines = batch_graph.root.print_recursively()
         # note: GDrive paths may not be present at this point; this is ok.
@@ -203,10 +204,15 @@ class BatchBuilder:
         for line in lines:
             logger.debug(f'[Batch-{batch_uid}] {line}')
 
-        batch_graph.validate_graph()
+        # Validate OGN graph is structurally consistent:
+        batch_graph.validate_internal_consistency()
+
+        # Reconcile ops against master op tree before adding nodes. This will raise an exception if invalid
+        self._validate_batch_graph_against_cache(batch_graph, op_manager)
+
         return batch_graph.root
 
-    def insert_for_op(self, op: UserOp, graph: OpGraph, tgt_node_dict):
+    def _insert_for_op(self, op: UserOp, graph: OpGraph, tgt_node_dict):
         # make src OGN:
         ancestor_uid_list = self._build_ancestor_uid_list(op.src_node, tgt_node_dict)
         if op.op_type == UserOpType.RM:
@@ -215,14 +221,14 @@ class BatchBuilder:
             src_node: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
 
         # add src OGN:
-        graph.enqueue_single_ogn(src_node)
+        graph.insert_ogn(src_node)
 
         # make dst OGN (if op has dst):
         if op.has_dst():
             ancestor_uid_list = self._build_ancestor_uid_list(op.dst_node, tgt_node_dict)
             dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
             # add dst OGN:
-            graph.enqueue_single_ogn(dst_node)
+            graph.insert_ogn(dst_node)
 
     def _build_ancestor_uid_list(self, tgt_node: Node, tgt_node_dict: Dict[UID, Dict[UID, Node]]) -> List[UID]:
         ancestor_list: List[UID] = []
@@ -258,11 +264,11 @@ class BatchBuilder:
             raise RuntimeError(f'No ancestors for target node: {tgt_node}')
         return ancestor_list
 
-    def validate_batch_graph(self, op_root: RootNode, op_manager):
+    def _validate_batch_graph_against_cache(self, batch_graph: OpGraph, op_manager):
         """
-        Takes a tree representing a batch as an arg. The root itself is ignored, but each of its children represent the root of a
-        subtree of changes, in which each node of the subtree maps to a node in a directory tree. No intermediate nodes are allowed to be
-        omitted from a subtree (e.g. if A is the parent of B which is the parent of C, you cannot copy A and C but exclude B).
+        Takes an OpGraph representing a monolithic batch as an arg. The root itself is ignored, but each of its children represent the root of a
+        subgraph of changes, in which each node of the subgraph maps to a node in a directory tree. No intermediate OpGraph nodes are allowed to be
+        omitted from a subgraph (e.g. if A is the parent of B which is the parent of C, you cannot copy A and C but exclude B).
 
         Rules:
         1. Parent for MKDIR_SRC and all DST nodes must be present in memstore and not already scheduled for RM
@@ -270,18 +276,19 @@ class BatchBuilder:
         and not already scheduled for RM
         """
 
-        assert isinstance(op_root, RootNode)
-        assert op_root.get_child_list(), f'no ops in batch!'
+        ogn_root = batch_graph.root
+        assert isinstance(ogn_root, RootNode)
+        assert ogn_root.get_child_list(), f'no ops in batch!'
 
         # Invert RM nodes when inserting into tree
-        batch_uid: UID = op_root.get_first_child().op.batch_uid
+        batch_uid: UID = ogn_root.get_first_child().op.batch_uid
 
         mkdir_node_dict: Dict[DN_UID] = {}
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
-        min_op_uid: UID = op_root.get_first_child().op.op_uid
+        min_op_uid: UID = ogn_root.get_first_child().op.op_uid
 
-        for op_node in skip_root(op_root.get_subgraph_bfs_list()):
+        for op_node in skip_root(ogn_root.get_subgraph_bfs_list()):
             tgt_node: Node = op_node.get_tgt_node()
             op_type: str = op_node.op.op_type.name
             if min_op_uid > op_node.op.op_uid:

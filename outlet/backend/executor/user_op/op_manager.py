@@ -165,17 +165,15 @@ class OpManager(HasLifecycle):
         logger.debug(f'append_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch_op_list)} ops')
 
         # Simplify and remove redundancies in op_list, then sort by ascending op_uid:
-        reduced_batch: List[UserOp] = self._batch_builder.reduce_and_validate_ops(batch_op_list)
+        batch: Batch = self._batch_builder.assemble_batch(batch_op_list)
 
         try:
             with self._lock:
                 # Save ops and their planning nodes to disk
-                self._disk_store.upsert_pending_op_list(reduced_batch)
+                self._disk_store.upsert_pending_op_list(batch.op_list)
         except RuntimeError as err:
             self.backend.report_error(ID_OP_MANAGER, f'Failed to save pending ops for batch {batch_uid} to disk', repr(err))
             return
-
-        batch = Batch(batch_uid, reduced_batch)
 
         with self._lock:
             if self._pending_batch_dict.get(batch.batch_uid, None):
@@ -217,7 +215,7 @@ class OpManager(HasLifecycle):
         sorted_keys = sorted(batch_dict_keys)
 
         for batch_uid in sorted_keys:
-            # Assume batch has already been reduced and reconciled against master tree; no need to call reduce_and_validate_ops()
+            # Assume batch has already been reduced and reconciled against master tree; no need to call validate_and_reduce_op_list()
             batch_op_list: List[UserOp] = batch_dict[batch_uid]
             batch = Batch(batch_uid, batch_op_list)
 
@@ -276,10 +274,7 @@ class OpManager(HasLifecycle):
         logger.info(f'Got next batch to submit: batch_uid={next_batch.batch_uid} with {len(next_batch.op_list)} ops')
 
         try:
-            batch_graph_root: RootNode = self._batch_builder.build_batch_graph(next_batch.op_list)
-
-            # Reconcile ops against master op tree before adding nodes. This will raise an exception if invalid
-            self._batch_builder.validate_batch_graph(batch_graph_root, self)
+            batch_graph_root: RootNode = self._batch_builder.build_batch_graph(next_batch.op_list, self)
         except RuntimeError as err:
             logger.exception('Failed to build operation graph')
             self._on_batch_error_fight_or_flight('Failed to build operation graph', str(err), batch=next_batch)
@@ -303,6 +298,11 @@ class OpManager(HasLifecycle):
         # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
         inserted_op_list.sort(key=lambda op: op.op_uid)
         logger.debug(f'Returned from adding batch. InsertedOpList: {",".join([str(op.op_uid) for op in inserted_op_list])}')
+        actual_op_uid_list = [op.op_uid for op in inserted_op_list]
+        expected_op_uid_list = [op.op_uid for op in next_batch.op_list]
+        if not actual_op_uid_list == expected_op_uid_list:
+            # Output to log but keep going
+            logger.error(f'List of ops inserted into main graph ({actual_op_uid_list}) do not match planned list of ops ({expected_op_uid_list})')
 
         with self._lock:
             logger.debug(f'submit_next_batch(): Popping batch {next_batch.batch_uid} off the pending queue')
@@ -407,7 +407,7 @@ class OpManager(HasLifecycle):
         inserted_ogn_list: List[OpGraphNode] = []
         try:
             for graph_node in skip_root(breadth_first_list):
-                self._op_graph.enqueue_single_ogn(graph_node)
+                self._op_graph.insert_ogn(graph_node)
 
                 inserted_ogn_list.append(graph_node)
                 if SUPER_DEBUG_ENABLED:
@@ -421,7 +421,7 @@ class OpManager(HasLifecycle):
                 self.backend.executor.notify()
 
             if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
-                self._op_graph.validate_graph()
+                self._op_graph.validate_internal_consistency()
         except RuntimeError as err:
             if not isinstance(err, OpGraphError):
                 # bad bad bad
