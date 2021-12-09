@@ -34,9 +34,9 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import Batch, UserOp, UserOpType
 from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
-from util import file_util
+from util import file_util, time_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
@@ -69,7 +69,7 @@ class CacheManager(HasLifecycle):
         self.backend = backend
 
         self.cache_dir_path = ensure_cache_dir_exists(self.backend)
-        
+
         self.load_all_caches_on_startup = backend.get_config('cache.load_all_caches_on_startup')
 
         self.load_caches_for_displayed_trees_at_startup = backend.get_config('cache.load_caches_for_displayed_trees_on_startup')
@@ -412,7 +412,7 @@ class CacheManager(HasLifecycle):
 
         # don't worry about overlapping trees; the cacheman will sort everything out
         batch_uid = self.backend.uid_generator.next_uid()
-        op_list = []
+        batch = Batch(batch_uid=batch_uid, op_list=[])
         for uid_to_delete in node_uid_list:
             node_to_delete = self.get_node_for_uid(uid_to_delete, device_uid)
             if not node_to_delete:
@@ -426,13 +426,13 @@ class CacheManager(HasLifecycle):
                 for node in reversed(expanded_node_list):
                     # The last node should be the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
-                        op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
-                                              op_type=UserOpType.RM, src_node=node))
+                        batch.op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
+                                                    op_type=UserOpType.RM, src_node=node))
 
-            op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
-                                  op_type=UserOpType.RM, src_node=node_to_delete))
+            batch.op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
+                                        op_type=UserOpType.RM, src_node=node_to_delete))
 
-        self.enqueue_op_batch(op_list)
+        self.enqueue_op_batch(batch)
 
     def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[Node]:
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).get_subtree_bfs_node_list(subtree_root)
@@ -763,27 +763,25 @@ class CacheManager(HasLifecycle):
             logger.info(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
             return False
 
-        # FIXME: add a wait so that the backend is done resuming pending ops, before continuing
-
         logger.debug(f'[{dst_tree_id}] Dropping into dest: {sn_dst.spid}')
         # "Left tree" here is the source tree, and "right tree" is the dst tree:
         transfer_maker = TransferMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
                                        tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
 
         if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
-            transfer_maker.drag_and_drop(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
+            batch: Batch = transfer_maker.drag_and_drop(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
         elif drag_operation == DragOperation.LINK:
             # TODO: link operation
             raise NotImplementedError('LINK drag operation is not yet supported!')
         else:
             raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
-        # This should fire listeners which ultimately populate the tree:
-        op_list: List[UserOp] = transfer_maker.get_all_op_list()
+
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{dst_tree_id}] Generated {len(op_list)} ops from drop: {op_list}')
+            logger.debug(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop: {batch.op_list}')
         else:
-            logger.debug(f'[{dst_tree_id}] Generated {len(op_list)} ops from drop')
-        self.enqueue_op_batch(op_list)
+            logger.debug(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop')
+        # This should fire listeners which ultimately populate the dst tree and possibly select the pending nodes:
+        self.enqueue_op_batch(batch)
         logger.debug(f'[{dst_tree_id}] {sw} Returning TRUE for drop')
         return True
 
@@ -846,9 +844,19 @@ class CacheManager(HasLifecycle):
 
         logger.debug(f'[{tree_id}] visit_each_sn_in_subtree(): Visited {count_file_nodes} file nodes out of {count_total_nodes} total nodes')
 
+    def set_selection_in_ui(self, tree_id: TreeID, selected: Set[GUID], select_ts: int):
+        """BE -> FE. First checks whether the tree_id has already had a more recent selection made: does nothing if true.
+         Otherwise: first records the new selection in the BE, then notifies the FE that the rows corresponding to the given identifiers
+         should be selected."""
+        if not self._row_state_tracking.set_selected_rows(tree_id, selected, select_ts=time_util.now_ms()):
+            logger.debug(f'[{tree_id}] Discarding request from backend to set selection')
+            return
+
+        dispatcher.send(signal=Signal.SET_SELECTED_ROWS, sender=tree_id, selected_rows=selected)
+
     def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
-        """Saves the selected rows from the UI for the given tree"""
-        self._row_state_tracking.set_selected_rows(tree_id, selected)
+        """FE -> BE. Saves the selected rows from the UI for the given tree in memory and on disk."""
+        self._row_state_tracking.set_selected_rows(tree_id, selected, select_ts=time_util.now_ms())
 
     def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
@@ -889,12 +897,12 @@ class CacheManager(HasLifecycle):
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
         return self._op_manager.get_last_pending_op_for_node(device_uid, node_uid)
 
-    def enqueue_op_batch(self, op_list: List[UserOp]):
+    def enqueue_op_batch(self, batch: Batch):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
          the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
         try:
-            self._op_manager.append_new_pending_op_batch(op_list)  # this now returns asynchronously
+            self._op_manager.enqueue_new_pending_op_batch(batch=batch)  # this now returns asynchronously
         except RuntimeError as err:
             self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to enqueue batch of operations', error=err)
 

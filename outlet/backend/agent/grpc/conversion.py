@@ -377,6 +377,11 @@ class GRPCConverter:
             kwargs['is_enabled'] = signal_msg.play_state.is_enabled
         elif signal == Signal.TOGGLE_UI_ENABLEMENT:
             kwargs['enable'] = signal_msg.ui_enablement.enable
+        elif signal == Signal.SET_SELECTED_ROWS:
+            guid_set = set()
+            for guid in signal.guid_set.guid_set:
+                guid_set.add(guid)
+            kwargs['selected_rows'] = guid_set
         elif signal == Signal.ERROR_OCCURRED:
             kwargs['msg'] = signal_msg.error_occurred.msg
             kwargs['secondary_msg'] = signal_msg.error_occurred.secondary_msg

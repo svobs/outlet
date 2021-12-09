@@ -525,12 +525,14 @@ class OpGraph(HasLifecycle):
 
     def insert_ogn(self, new_ogn: OpGraphNode):
         """
+        This method is executed as a transaction, but if a
+
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
         in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
         to the top of the dependency tree.
 
-        A successful return indicates taht the node was successfully nq'd; raises InvalidInsertOpGraphError otherwise
+        A successful return indicates that the node was successfully nq'd; raises InvalidInsertOpGraphError otherwise
         """
         with self._cv_can_get:
             self._insert_ogn(new_ogn)
@@ -628,11 +630,7 @@ class OpGraph(HasLifecycle):
                 logger.exception(f'[{self.name}] Failed to add batch {batch_uid} to this graph (need to revert insert of {len(inserted_ogn_list)} '
                                  f'OGNs from {len(inserted_op_list)} ops)')
                 if inserted_ogn_list:
-                    ogn_count = len(inserted_ogn_list)
-                    while len(inserted_ogn_list) > 0:
-                        ogn = inserted_ogn_list.pop()
-                        logger.debug(f'Backing out OGN {ogn_count - len(inserted_ogn_list)} of {len(inserted_ogn_list)}: {ogn}')
-                        self.revert_ogn(ogn)
+                    self._rollback(inserted_ogn_list)
                 raise UnsuccessfulBatchInsertError(str(oge))
             except RuntimeError as err:
                 if not isinstance(err, OpGraphError):
@@ -759,9 +757,9 @@ class OpGraph(HasLifecycle):
     # POP logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def pop_op(self, op: UserOp):
+    def pop_completed_op(self, op: UserOp):
         """Ensure that we were expecting this op to be copmleted, and remove it from the tree."""
-        logger.debug(f'[{self.name}] Entered pop_op() for op {op}')
+        logger.debug(f'[{self.name}] Entered pop_completed_op() for op {op}')
 
         with self._cv_can_get:
             if not self._outstanding_op_dict.pop(op.op_uid, None):
@@ -769,7 +767,7 @@ class OpGraph(HasLifecycle):
 
             status = op.get_status()
             if status != UserOpStatus.COMPLETED_OK and status != UserOpStatus.COMPLETED_NO_OP:
-                logger.info(f'[{self.name}] pop_op(): will not pop OGNs for op ({op.op_uid}) as it did not complete OK (status: {status}) ')
+                logger.info(f'[{self.name}] pop_completed_op(): will not pop OGNs for op ({op.op_uid}) as it did not complete OK (status: {status}) ')
 
                 if status == UserOpStatus.STOPPED_ON_ERROR:
                     # Mark affected nodes, and also any nodes from dependent OGNs, as needing icon updates.
@@ -778,9 +776,9 @@ class OpGraph(HasLifecycle):
                     #
                     # Note that we only need to do this at the moment of failure cuz we need to update nodes which are [possibly] already displayed.
                     # Any new nodes (unknown to us now) which need to be displayed thereafter will already call get_icon_for_node() prior to display.
-                    logger.debug(f'[{self.name}] pop_op(): Op stopped on error; will populate error dict (currently = {self._changed_node_dict})')
+                    logger.debug(f'[{self.name}] pop_completed_op(): Op stopped on error; will populate error dict (currently = {self._changed_node_dict})')
                     self._block_downstream_ogns_for_failed_op(op)
-                    logger.debug(f'[{self.name}] pop_op(): Error dict is now = {self._changed_node_dict}')
+                    logger.debug(f'[{self.name}] pop_completed_op(): Error dict is now = {self._changed_node_dict}')
             else:
                 # I. SRC OGN
                 self._remove_ogn_for_completed_op(op.src_node, op, 'src')
@@ -789,13 +787,21 @@ class OpGraph(HasLifecycle):
                 if op.has_dst():
                     self._remove_ogn_for_completed_op(op.dst_node, op, 'dst')
 
-            logger.debug(f'[{self.name}] Done with pop_op() for op: {op}')
+            logger.debug(f'[{self.name}] Done with pop_completed_op() for op: {op}')
             self._print_current_state()
 
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
 
-    def revert_ogn(self, ogn_to_remove: OpGraphNode):
+    def _rollback(self, ogn_list: List[OpGraphNode]):
+        ogn_count = len(ogn_list)
+        while len(ogn_list) > 0:
+            # Back out in reverse order in which they were inserted
+            ogn = ogn_list.pop()
+            logger.debug(f'Uninserting OGN {ogn_count - len(ogn_list)} of {len(ogn_list)}: {ogn}')
+            self._uninsert_ogn(ogn)
+
+    def _uninsert_ogn(self, ogn_to_remove: OpGraphNode):
 
         def _remove_last(_tgt_ogn_queue):
             last_ogn: OpGraphNode = _tgt_ogn_queue.pop()

@@ -12,7 +12,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import Batch, UserOp, UserOpType
 from util import file_util
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,10 @@ class OneSide:
     @property
     def tree_id(self) -> TreeID:
         return self.change_tree.tree_id
+
+    @property
+    def batch_uid(self) -> UID:
+        return self._batch_uid
 
     @property
     def root_sn(self) -> SPIDNodePair:
@@ -253,10 +257,6 @@ class ChangeMaker:
 
         self.left_side = OneSide(backend, tree_id_left, left_tree_root_sn, batch_uid, tree_id_left_src)
         self.right_side = OneSide(backend, tree_id_right, right_tree_root_sn, batch_uid, tree_id_right_src)
-
-    def get_all_op_list(self) -> List[UserOp]:
-        """Returns all UserOps, from both sides."""
-        return [] + self.left_side.change_tree.get_op_list() + self.right_side.change_tree.get_op_list()
 
     @staticmethod
     def _change_base_path(orig_target_path: str, orig_base_path: str, new_base_path: str, new_target_name: Optional[str] = None) -> str:

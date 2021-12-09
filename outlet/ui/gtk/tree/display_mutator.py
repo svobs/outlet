@@ -85,6 +85,7 @@ class DisplayMutator(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.FILTER_UI_TREE, receiver=self._on_filter_ui_tree_requested)
         self.connect_dispatch_listener(signal=Signal.EXPAND_ALL, receiver=self._on_expand_all_requested)
         self.connect_dispatch_listener(signal=Signal.EXPAND_AND_SELECT_NODE, receiver=self._expand_and_select_node)
+        self.connect_dispatch_listener(signal=Signal.SET_SELECTED_ROWS, receiver=self._on_set_selected_rows)
 
         logger.debug(f'[{self.con.tree_id}] DisplayMutator listeners connected')
 
@@ -92,6 +93,11 @@ class DisplayMutator(HasLifecycle):
         self._is_shutdown = True
         HasLifecycle.shutdown(self)
         self.con = None
+
+    def _on_set_selected_rows(self, sender: str, selected_rows: Set[GUID]):
+        if sender == self.con.tree_id:
+            logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.SET_SELECTED_ROWS.name}"')
+            self._set_selected_rows(selected_rows)
 
     def _expand_and_select_node(self, sender: str, spid: SinglePathNodeIdentifier):
         if sender == self.con.tree_id:
@@ -339,16 +345,22 @@ class DisplayMutator(HasLifecycle):
 
                 if rows.selected:
                     logger.debug(f'[{self.con.tree_id}] Attempting to restore {len(rows.selected)} previously selected rows')
-                try:
-                    for prev_guid in rows.selected:
-                        self.select_guid(prev_guid)
-                except RuntimeError:
-                    logger.exception(f'[{self.con.tree_id}] Failed to restore selection')
+                    try:
+                        self._set_selected_rows(rows.selected)
+                    except RuntimeError:
+                        logger.exception(f'[{self.con.tree_id}] Failed to restore selection')
 
             logger.debug(f'[{self.con.tree_id}] Sending signal {Signal.POPULATE_UI_TREE_DONE.name}')
             dispatcher.send(signal=Signal.POPULATE_UI_TREE_DONE, sender=self.con.tree_id)
 
         GLib.idle_add(_update_ui)
+
+    def _set_selected_rows(self, selected_rows: Set[GUID]):
+        tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
+        tree_view_selection.unselect_all()
+
+        for prev_guid in selected_rows:
+            self.select_guid(prev_guid)
 
     def generate_checked_row_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the nodes of the items which are currently checked by the user

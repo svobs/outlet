@@ -84,6 +84,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
 
         self.connect_dispatch_listener(signal=Signal.BATCH_FAILED, receiver=self._on_batch_failed)
+        self.connect_dispatch_listener(signal=Signal.SET_SELECTED_ROWS, receiver=self._on_set_selected_rows)
 
         # simple:
         self.forward_signal_to_clients(signal=Signal.DIFF_TREES_FAILED)
@@ -311,6 +312,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.batch_failed.batch_uid = batch_uid
         signal.batch_failed.msg = msg
         signal.batch_failed.secondary_msg = secondary_msg
+        self._send_grpc_signal_to_all_clients(signal)
+
+    def _on_set_selected_rows(self, sender: str, selected_rows: Set[GUID]):
+        signal = SignalMsg(sig_int=Signal.SET_SELECTED_ROWS, sender=sender)
+        for guid in selected_rows:
+            signal.guid_set.guid_set.append(guid)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_gdrive_download_done(self, sender, filename: str):

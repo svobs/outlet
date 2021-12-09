@@ -64,15 +64,22 @@ class RowStateTracking:
         meta.expanded_row_set = expanded_row_set
         meta.selected_row_set = selected_row_set
 
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID], select_ts: int) -> bool:
         display_tree_meta: ActiveDisplayTreeMeta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
 
+        if display_tree_meta.last_select_time_ms > select_ts:
+            logger.info(f'[{tree_id}] Discarding request to set new rows selection; last select time for tree '
+                        f'({display_tree_meta.last_select_time_ms}) is more recent than the request\'s ({select_ts})')
+            return False
+
         logger.debug(f'[{tree_id}] Storing selection: {selected}')
         display_tree_meta.selected_row_set = selected
+        display_tree_meta.last_select_time_ms = select_ts
 
         self._schedule_rows_of_interest_save(tree_id)
+        return True
 
     def add_expanded_row(self, guid: GUID, tree_id: TreeID):
         """AKA expanding a row on the frontend"""

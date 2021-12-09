@@ -225,6 +225,10 @@ message HandleBatchFailed {
 	uint32 error_handling_strategy = 2;
 }
 
+message GUIDSet {
+	repeated string guid_set = 1;
+}
+
 message SignalMsg {
 	uint32 sig_int = 1;
 	string sender = 2;
@@ -244,6 +248,7 @@ message SignalMsg {
 		SubtreeChangeData subtree = 22;  // for SUBTREE_NODES_CHANGED
 		BatchFailed batch_failed = 23;  // for BATCH_FAILED
 		HandleBatchFailed handle_batch_failed = 24;  // for HANDLE_BATCH_FAILED
+		GUIDSet guid_set = 25;  // for SET_SELECTED_ROWS
 	}
 }
 

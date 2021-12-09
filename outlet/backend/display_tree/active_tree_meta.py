@@ -43,7 +43,8 @@ class ActiveDisplayTreeMeta:
         """A map containing the current stats for each dir node (with NO filter applied).
         See the filter_state for a map of stats WITH the filter applied"""
 
-        logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
+        # The last time, in millis, that the selection was updated. Used to ensure continuity of selection
+        self.last_select_time_ms: int = 0
 
     def is_first_order(self) -> bool:
         """'First order' means the tree relies on the master caches directly.

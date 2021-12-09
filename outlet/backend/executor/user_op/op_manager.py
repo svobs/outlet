@@ -149,23 +149,22 @@ class OpManager(HasLifecycle):
             logger.debug(f'cancel_all_pending_ops(): setting startup_done=True')
             self._are_batches_loaded_from_last_run = True
 
-    def append_new_pending_op_batch(self, batch_op_list: List[UserOp]):
+    def enqueue_new_pending_op_batch(self, batch: Batch):
         """
         Call this after the user requests a new set of ops.
 
-         - First store "planning nodes" to the list of cached nodes (but each will have is_live=False until we execute its associated command).
-         - The list of to-be-completed ops is also cached on disk.
-         - When each command completes, cacheman is notified of any node updates required as well.
-         - When batch completes, we archive the ops on disk.
+         - First do some basic validation of the submitted ops.
+         - Persist the list of to-be-completed ops to disk, for robustness.
+         - Asynchronously add the batch to the queue of batches to submit.
         """
-        if not batch_op_list:
+        if not batch or batch.op_list:
             return
 
-        batch_uid = batch_op_list[0].batch_uid
-        logger.debug(f'append_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch_op_list)} ops')
+        batch_uid = batch.batch_uid
+        logger.debug(f'enqueue_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch.op_list)} ops')
 
         # Simplify and remove redundancies in op_list, then sort by ascending op_uid:
-        batch: Batch = self._batch_builder.assemble_batch(batch_op_list)
+        self._batch_builder.preprocess_batch(batch)
 
         try:
             with self._lock:
@@ -185,7 +184,7 @@ class OpManager(HasLifecycle):
         batch_intake_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._batch_intake, batch)
         batch_intake_task.add_next_task(self._submit_next_batch)
         self.backend.executor.submit_async_task(batch_intake_task)
-        logger.debug(f'append_new_pending_op_batch(): Enqueued append_batch task for {batch_uid}')
+        logger.debug(f'enqueue_new_pending_op_batch(): Enqueued append_batch task for {batch_uid}')
 
     def resume_pending_ops_from_disk(self, this_task: Task):
         """Call this at startup, to RESUME pending ops which have not yet been applied."""
@@ -325,6 +324,10 @@ class OpManager(HasLifecycle):
 
         self._update_icons_for_nodes()
 
+        if next_batch.to_select_in_ui:
+            self.backend.cacheman.set_selection_in_ui(tree_id=next_batch.select_in_tree_id, selected=next_batch.to_select_in_ui,
+                                                      select_ts=next_batch.select_ts)
+
         logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')
         this_task.add_next_task(self._submit_next_batch)
 
@@ -460,7 +463,7 @@ class OpManager(HasLifecycle):
 
         # Ensure command is one that we are expecting.
         # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
-        self._op_graph.pop_op(command.op)
+        self._op_graph.pop_completed_op(command.op)
 
         # Do this after popping the op:
         self._update_icons_for_nodes()

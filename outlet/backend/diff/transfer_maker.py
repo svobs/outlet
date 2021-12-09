@@ -3,7 +3,7 @@ import copy
 import logging
 import os
 import re
-from typing import Callable, Deque, Dict, List, Optional, Tuple
+from typing import Callable, Deque, Dict, List, Optional, Set, Tuple
 
 from backend.diff.change_maker import ChangeMaker
 from backend.tree_store.local import content_hasher
@@ -13,8 +13,9 @@ from constants import DEFAULT_REPLACE_DIR_WITH_FILE_POLICY, DEFAULT_SRC_NODE_MOV
     SUPER_DEBUG_ENABLED, \
     TRACE_ENABLED, TreeID
 from model.node.node import SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
-from model.user_op import UserOpType
+from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
+from model.user_op import Batch, UserOpType
+from util import time_util
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class TransferMaker(ChangeMaker):
         super().__init__(backend, left_tree_root_sn, right_tree_root_sn, tree_id_left_src, tree_id_right_src)
 
     def drag_and_drop(self, sn_src_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair,
-                      drag_op: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy):
+                      drag_op: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy) -> Batch:
         """Populates the destination parent in "change_tree_right" with a subset of the given source nodes (assumed to be from the left side)
         based on the given DragOperation and policies. NOTE: this may actually result in UserOps created in the left
         ChangeTree (in particular RM), so use the get_all_op_list() method to get the complete list of resulting UserOps."""
@@ -52,6 +53,8 @@ class TransferMaker(ChangeMaker):
         assert sn_dst_parent and sn_dst_parent.node.is_dir()
         if not (drag_op == DragOperation.COPY or drag_op == DragOperation.MOVE):
             raise RuntimeError(f'Unsupported DragOperation: {drag_op.name}')
+
+        drop_ts = time_util.now_ms()
 
         dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = self._get_dict_of_name_to_child_list(sn_dst_parent.spid, self.right_side.tree_id_src)
         dd_meta = TransferMeta(drag_op, dir_conflict_policy, file_conflict_policy, sn_dst_parent, dst_existing_sn_dict)
@@ -72,6 +75,29 @@ class TransferMaker(ChangeMaker):
                     self._handle_dir_conflict(dd_meta, sn_src, list_sn_dst_conflicting)
                 else:
                     self._handle_file_conflict(dd_meta, sn_src, list_sn_dst_conflicting)
+
+        assert self.left_side.batch_uid == self.right_side.batch_uid
+        src_tree_op_list = self.left_side.change_tree.get_op_list()
+        dst_tree_op_list = self.right_side.change_tree.get_op_list()
+
+        # Try to determine which nodes represent the "dropped" nodes, so that we can later notify the UI to select them in the dst tree.
+        # It would be a huge mess to do this as we go along, given our complex logic and multiple code paths. But should be easy enough to figure
+        # this out here.
+        parent_path: str = sn_dst_parent.spid.get_single_path()
+        assert parent_path, f'Cannot have empty path for: {sn_dst_parent.spid}'
+        to_select_in_ui: Set[GUID] = set()
+        for dst_tree_op in dst_tree_op_list:
+            if dst_tree_op.has_dst() and sn_dst_parent.node.is_parent_of(dst_tree_op.dst_node):
+                single_path = os.path.join(parent_path, dst_tree_op.dst_node.name)
+                spid = self.backend.cacheman.make_spid_for(node_uid=dst_tree_op.dst_node.uid, device_uid=dst_tree_op.dst_node.device_uid,
+                                                           full_path=single_path)
+                to_select_in_ui.add(spid.guid)
+
+        logger.debug(f'to_select_in_ui (tree_id={self.right_side.tree_id_src}): {to_select_in_ui}')
+
+        op_list = [] + src_tree_op_list + dst_tree_op_list
+        return Batch(batch_uid=self.left_side.batch_uid, op_list=op_list, to_select_in_ui=to_select_in_ui, select_ts=drop_ts,
+                     select_in_tree_id=self.right_side.tree_id_src)
 
     def _handle_dir_conflict(self, dd_meta: TransferMeta, sn_src_dir: SPIDNodePair, list_sn_dst_conflicting):
         assert sn_src_dir.node.is_dir()

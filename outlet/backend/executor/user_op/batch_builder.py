@@ -36,7 +36,7 @@ class BatchBuilder:
             raise RuntimeError(f'Node has no parents: {dst_node}')
         return [f'{dst_node.device_uid}:{parent_uid}/{dst_node.name}' for parent_uid in dst_node.get_parent_uids()]
 
-    def assemble_batch(self, op_list: List[UserOp]) -> Batch:
+    def preprocess_batch(self, batch: Batch) -> Batch:
         """Pre=process step before building an OpGraph from the given ops. Validates each op and removes redundencies"""
         final_list: List[UserOp] = []
 
@@ -50,8 +50,9 @@ class BatchBuilder:
         cp_src_dict: DefaultDict[UID, List[UserOp]] = collections.defaultdict(lambda: list())
         count_ops_orig = 0
 
-        batch_uid: UID = op_list[0].batch_uid
+        batch_uid: UID = batch.batch_uid
 
+        op_list = batch.op_list
         op_list.sort(key=lambda _op: _op.op_uid)
 
         for op in op_list:
@@ -161,7 +162,8 @@ class BatchBuilder:
                 self._check_ancestors(op, op.dst_node, validate_cp_dst_ancestor_func)
 
         # Sort by ascending op_uid
-        return Batch(batch_uid=batch_uid, user_op_list=sorted(final_list, key=lambda _op: _op.op_uid))
+        batch.op_list = sorted(final_list, key=lambda _op: _op.op_uid)
+        return batch
 
     def _check_ancestors(self, op: UserOp, node: Node, eval_func: Callable[[UserOp, Node], None]):
         queue: Deque[Node] = collections.deque()

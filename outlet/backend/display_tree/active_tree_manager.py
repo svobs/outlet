@@ -23,6 +23,7 @@ from model.node.node import Node, NonexistentDirNode, SPIDNodePair
 from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
+from model.user_op import Batch
 from signal_constants import ID_GLOBAL_CACHE, ID_LEFT_DIFF_TREE, ID_LEFT_TREE, ID_RIGHT_DIFF_TREE, ID_RIGHT_TREE, Signal
 from util import file_util
 from util.has_lifecycle import HasLifecycle
@@ -324,8 +325,10 @@ class ActiveTreeManager(HasLifecycle):
 
         try:
             op_list = meta.change_tree.get_op_list()
-            logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
-            self.backend.cacheman.enqueue_op_batch(op_list=op_list)
+            if op_list:
+                batch = Batch(batch_uid=op_list[0].batch_uid, op_list=op_list)
+                logger.debug(f'Sending new batch (uid={batch.batch_uid}) with {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
+                self.backend.cacheman.enqueue_op_batch(batch=batch)
 
             self._cancel_diff_mode()
         except Exception as err:

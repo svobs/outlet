@@ -1,8 +1,9 @@
 from enum import IntEnum
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Set, Union
 
-from constants import IconId
+from constants import IconId, TreeID
+from model.node_identifier import GUID, NodeIdentifier
 from model.uid import UID
 from model.node.node import BaseNode, Node
 from util import time_util
@@ -259,9 +260,17 @@ class Batch:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, batch_uid: UID, user_op_list: List[UserOp]):
+    def __init__(self, batch_uid: UID, op_list: List[UserOp], to_select_in_ui: Optional[Set[GUID]] = None, select_ts: Optional[int] = 0,
+                 select_in_tree_id: Optional[TreeID] = None):
         assert batch_uid, 'No batch_uid!'
-        assert user_op_list, f'No ops in batch {batch_uid}!'
+        assert op_list, f'No ops in batch {batch_uid}!'
 
         self.batch_uid: UID = batch_uid
-        self.op_list: List[UserOp] = user_op_list
+        self.op_list: List[UserOp] = op_list
+
+        # If provided, will attempt to send a signal back to UI to select the nodes with these identifiers (e.g. for drag & drop).
+        # However, these will be ignored if it is determined that the user changed the selection before we are able to get around to them.
+        # These are not currently persisted, and may be lost if we go down before we are able to change the selection.
+        self.to_select_in_ui: Set[GUID] = to_select_in_ui
+        self.select_ts: int = select_ts
+        self.select_in_tree_id: TreeID = select_in_tree_id

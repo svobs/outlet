@@ -1,16 +1,10 @@
 import logging
 import threading
-from typing import Dict
 
 from pydispatch import dispatcher
 
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
-from constants import ErrorHandlingStrategy, TreeLoadState
-from model.display_tree.display_tree import DisplayTree
-from model.node.directory_stats import DirectoryStats
-from model.node_identifier import GUID
-from model.uid import UID
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
 

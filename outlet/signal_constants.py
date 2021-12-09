@@ -76,6 +76,10 @@ class Signal(IntEnum):
 
     TREE_SELECTION_CHANGED = 70
 
+    SET_SELECTED_ROWS = 71
+    """Sent from backend to FE, telling it to change the selected rows of the given tree
+    Note: for FE -> BE, see gRPC set_selected_row_set()"""
+
     # All components should listen for this
     TOGGLE_UI_ENABLEMENT = 80
 
