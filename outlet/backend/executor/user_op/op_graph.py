@@ -560,7 +560,7 @@ class OpGraph(HasLifecycle):
         for parent_ogn in parent_ogn_list:
             logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) Adding OGN as child dependency of OGN {parent_ogn.node_uid}')
             parent_ogn.link_child(new_ogn)
-            if parent_ogn.op.is_stopped_on_error():
+            if parent_ogn.op and parent_ogn.op.is_stopped_on_error():
                 is_new_ogn_blocked = True
 
         if is_new_ogn_blocked:
