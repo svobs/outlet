@@ -16,6 +16,7 @@ from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.user_op import Batch, UserOpType
 from util import time_util
+from util.ensure import ensure_bool
 
 logger = logging.getLogger(__name__)
 
@@ -79,25 +80,29 @@ class TransferMaker(ChangeMaker):
         assert self.left_side.batch_uid == self.right_side.batch_uid
         src_tree_op_list = self.left_side.change_tree.get_op_list()
         dst_tree_op_list = self.right_side.change_tree.get_op_list()
-
-        # Try to determine which nodes represent the "dropped" nodes, so that we can later notify the UI to select them in the dst tree.
-        # It would be a huge mess to do this as we go along, given our complex logic and multiple code paths. But should be easy enough to figure
-        # this out here.
-        parent_path: str = sn_dst_parent.spid.get_single_path()
-        assert parent_path, f'Cannot have empty path for: {sn_dst_parent.spid}'
-        to_select_in_ui: Set[GUID] = set()
-        for dst_tree_op in dst_tree_op_list:
-            if dst_tree_op.has_dst() and sn_dst_parent.node.is_parent_of(dst_tree_op.dst_node):
-                single_path = os.path.join(parent_path, dst_tree_op.dst_node.name)
-                spid = self.backend.cacheman.make_spid_for(node_uid=dst_tree_op.dst_node.uid, device_uid=dst_tree_op.dst_node.device_uid,
-                                                           full_path=single_path)
-                to_select_in_ui.add(spid.guid)
-
-        logger.debug(f'to_select_in_ui (tree_id={self.right_side.tree_id_src}): {to_select_in_ui}')
-
         op_list = [] + src_tree_op_list + dst_tree_op_list
-        return Batch(batch_uid=self.left_side.batch_uid, op_list=op_list, to_select_in_ui=to_select_in_ui, select_ts=drop_ts,
-                     select_in_tree_id=self.right_side.tree_id_src)
+
+        if ensure_bool(self.backend.get_config('display.treeview.highlight_dropped_nodes_after_drag', default_val=True)):
+            # Try to determine which nodes represent the "dropped" nodes, so that we can later notify the UI to select them in the dst tree.
+            # It would be a huge mess to do this as we go along, given our complex logic and multiple code paths. But should be easy enough to figure
+            # this out here.
+            parent_path: str = sn_dst_parent.spid.get_single_path()
+            assert parent_path, f'Cannot have empty path for: {sn_dst_parent.spid}'
+            to_select_in_ui: Set[GUID] = set()
+            for dst_tree_op in dst_tree_op_list:
+                if dst_tree_op.has_dst() and sn_dst_parent.node.is_parent_of(dst_tree_op.dst_node):
+                    single_path = os.path.join(parent_path, dst_tree_op.dst_node.name)
+                    spid = self.backend.cacheman.make_spid_for(node_uid=dst_tree_op.dst_node.uid, device_uid=dst_tree_op.dst_node.device_uid,
+                                                               full_path=single_path)
+                    to_select_in_ui.add(spid.guid)
+
+            logger.debug(f'[{self.right_side.tree_id_src}] Dropped nodes to select in UI = {to_select_in_ui}')
+
+            return Batch(batch_uid=self.left_side.batch_uid, op_list=op_list, to_select_in_ui=to_select_in_ui, select_ts=drop_ts,
+                         select_in_tree_id=self.right_side.tree_id_src)
+        else:
+            logger.debug(f'[{self.right_side.tree_id_src}] Configured not to select dropped items in UI')
+            return Batch(batch_uid=self.left_side.batch_uid, op_list=op_list)
 
     def _handle_dir_conflict(self, dd_meta: TransferMeta, sn_src_dir: SPIDNodePair, list_sn_dst_conflicting):
         assert sn_src_dir.node.is_dir()
