@@ -106,6 +106,9 @@ class OpGraph(HasLifecycle):
         return added_ancestor_dict, removed_ancestor_dict, changed_node_dict
 
     def _increment_icon_update_counts(self, device_uid: UID, ancestor_node_uid_list: List[UID]):
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.name}] Increment(before): Ancestor dict: {self._ancestor_dict}')
+
         device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
         if not device_ancestor_dict:
             device_ancestor_dict = {}
@@ -130,6 +133,7 @@ class OpGraph(HasLifecycle):
     def _decrement_icon_update_counts(self, ogn: OpGraphNode):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.name}] Decrement(before): Ancestor dict: {self._ancestor_dict}')
+
         device_uid = ogn.get_tgt_node().device_uid
         device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
         if not device_ancestor_dict:
@@ -798,7 +802,7 @@ class OpGraph(HasLifecycle):
         while len(ogn_list) > 0:
             # Back out in reverse order in which they were inserted
             ogn = ogn_list.pop()
-            logger.debug(f'Uninserting OGN {ogn_count - len(ogn_list)} of {len(ogn_list)}: {ogn}')
+            logger.debug(f'Backing out insert of OGN {-(len(ogn_list) - ogn_count)} of {ogn_count}: {ogn}')
             self._uninsert_ogn(ogn)
 
     def _uninsert_ogn(self, ogn_to_remove: OpGraphNode):

@@ -21,6 +21,7 @@ from model.uid import UID
 from model.user_op import Batch, OpTypeMeta, UserOp, UserOpStatus
 from signal_constants import ID_OP_MANAGER, Signal
 from util.has_lifecycle import HasLifecycle
+from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
@@ -266,7 +267,7 @@ class OpManager(HasLifecycle):
 
     def _submit_next_batch(self, this_task: Optional[Task]):
         """Part 2 of multi-task procession of adding a batch. Do not call this directly. Start _batch_intake(), which will start this."""
-        next_batch = self._get_next_batch_in_queue()
+        next_batch: Batch = self._get_next_batch_in_queue()
         if not next_batch:
             return
 
@@ -275,19 +276,20 @@ class OpManager(HasLifecycle):
         try:
             batch_graph_root: RootNode = self._batch_builder.build_batch_graph(next_batch.op_list, self)
         except RuntimeError as err:
-            logger.exception('Failed to build operation graph')
+            logger.exception(f'[Batch-{next_batch.batch_uid}] Failed to build operation graph for batch')
             self._on_batch_error_fight_or_flight('Failed to build operation graph', str(err), batch=next_batch)
             return
 
+        sw = Stopwatch()
         try:
             inserted_op_list = self._add_batch_to_main_graph(batch_graph_root)
         except UnsuccessfulBatchInsertError as ubie:
             msg = str(ubie)
-            logger.info(f'Caught UnsuccessfulBatchInsertError: {msg}')
+            logger.info(f'[Batch-{next_batch.batch_uid}] {sw} Caught UnsuccessfulBatchInsertError: {msg}')
             self._on_batch_error_fight_or_flight('Failed to add batch to op graph', msg, batch=next_batch)
             return
         except RuntimeError as err:
-            logger.exception('Unexpected failure')
+            logger.exception(f'[Batch-{next_batch.batch_uid}] {sw} Unexpected failure')
             self._on_batch_error_fight_or_flight('Unexpected failure adding batch to op graph', str(err), batch=next_batch)
 
             self._update_icons_for_nodes()  # just in case
@@ -296,15 +298,16 @@ class OpManager(HasLifecycle):
         # The lists are returned in order of BFS of their op graph. However, when upserting to the cache we need them in BFS order of the tree
         # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
         inserted_op_list.sort(key=lambda op: op.op_uid)
-        logger.debug(f'Returned from adding batch. InsertedOpList: {",".join([str(op.op_uid) for op in inserted_op_list])}')
+        logger.debug(f'[Batch-{next_batch.batch_uid}] {sw} Batch insert succesful. InsertedOpList: {",".join([str(op.op_uid) for op in inserted_op_list])}')
         actual_op_uid_list = [op.op_uid for op in inserted_op_list]
         expected_op_uid_list = [op.op_uid for op in next_batch.op_list]
         if not actual_op_uid_list == expected_op_uid_list:
             # Output to log but keep going
-            logger.error(f'List of ops inserted into main graph ({actual_op_uid_list}) do not match planned list of ops ({expected_op_uid_list})')
+            logger.error(f'[Batch-{next_batch.batch_uid}] List of ops inserted into main graph ({actual_op_uid_list}) do not match '
+                         f'planned list of ops ({expected_op_uid_list})')
 
         with self._lock:
-            logger.debug(f'submit_next_batch(): Popping batch {next_batch.batch_uid} off the pending queue')
+            logger.debug(f'[Batch-{next_batch.batch_uid}] Removing batch {next_batch.batch_uid} from the pending queue')
             if not self._pending_batch_dict.pop(next_batch.batch_uid, None):
                 logger.warning(f'Failed to pop batch {next_batch.batch_uid} off of pending batches: was it already removed?')
                 # fall through
@@ -312,13 +315,13 @@ class OpManager(HasLifecycle):
         try:
             # Upsert src & dst nodes (redraws icons if present; adds missing nodes; fills in GDrive paths).
             # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
-            logger.debug(f'Upserting affected nodes in memstore for {len(inserted_op_list)} ops')
+            logger.debug(f'[Batch-{next_batch.batch_uid}] Upserting affected nodes in memstore for {len(inserted_op_list)} ops')
             for op in inserted_op_list:
                 # NOTE: this REQUIRES that inserted_op_list is in the correct order:
                 # any directories which need to be made must come before their children
                 self._upsert_nodes_in_memstore(op)
         except RuntimeError as err:
-            logger.exception('Error while updating nodes in memory store for user ops')
+            logger.exception(f'[Batch-{next_batch.batch_uid}] Error while updating nodes in memory store for user ops')
             self.backend.report_error(ID_OP_MANAGER, f'Error while updating nodes in memory store for user ops', repr(err))
             # fall through
 
@@ -328,7 +331,7 @@ class OpManager(HasLifecycle):
             self.backend.cacheman.set_selection_in_ui(tree_id=next_batch.select_in_tree_id, selected=next_batch.to_select_in_ui,
                                                       select_ts=next_batch.select_ts)
 
-        logger.debug(f'submit_next_batch(): Done with batch {next_batch.batch_uid}; enqueuing another task')
+        logger.debug(f'[Batch-{next_batch.batch_uid}] Done submitting batch; enqueuing another task')
         this_task.add_next_task(self._submit_next_batch)
 
     def _update_icons_for_nodes(self):
