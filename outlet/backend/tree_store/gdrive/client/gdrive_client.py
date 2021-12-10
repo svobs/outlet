@@ -5,8 +5,9 @@ import os.path
 import pickle
 import socket
 import time
+from collections import deque
 from functools import partial
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Deque, Dict, List, Optional, Tuple, Union
 
 import humanfriendly
 from google.auth.transport.requests import Request
@@ -320,6 +321,25 @@ class GDriveClient(HasLifecycle):
         self._execute_files_query(query, fields, None, sync_ts, observer)
         return observer.nodes
 
+    def get_subtree_bfs_node_list(self, parent_goog_id: str) -> List[GDriveNode]:
+        """Very slow operation! Use sparingly!"""
+        if not parent_goog_id:
+            raise RuntimeError(f'get_subtree_bfs_node_list(): parent_goog_id cannot be empty!')
+
+        bfs_list: List = []
+
+        parent_goog_id_queue: Deque[str] = deque()
+        parent_goog_id_queue.append(parent_goog_id)
+
+        while len(parent_goog_id_queue) > 0:
+            parent_goog_id = parent_goog_id_queue.popleft()
+            for child_node in self.get_all_children_for_parent(parent_goog_id):
+                bfs_list.append(child_node)
+                if child_node.is_dir():
+                    parent_goog_id_queue.append(child_node.goog_id)
+
+        return bfs_list
+
     def get_single_node_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
             -> Optional[GDriveNode]:
         src_parent_goog_id_list: List[str] = self.backend.cacheman.get_parent_goog_id_list(node)
@@ -389,27 +409,33 @@ class GDriveClient(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
-            -> Tuple[Optional[GDriveNode], Optional[Dict]]:
-        """Important note: if the given node has several parents, the first one found in the cache will be used in the query"""
+            -> Optional[GDriveNode]:
+        """Important note: this method will raise an exception if more than one file is found with the specified criteria"""
         src_parent_goog_id_list: List[str] = self.backend.cacheman.get_parent_goog_id_list(node)
         if not src_parent_goog_id_list:
             raise RuntimeError(f'Node has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
 
-        result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id_list[0], name=node.name)
+        result: SimpleNodeCollector = self._get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id_list[0], name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id_list[0]} and name="{node.name}"')
 
         if len(result.nodes) > 0:
-            for found_node, found_raw in zip(result.nodes, result.raw_items):
+            found_list = []
+            for found_node in result.nodes:
                 assert isinstance(found_node, GDriveFile)
                 if match_func:
                     if match_func(found_node):
-                        return found_node, found_raw
+                        found_list.append(found_node)
                 else:
-                    return found_node, found_raw
+                    found_list.append(found_node)
 
-        return None, None
+            if len(found_list) > 1:
+                raise RuntimeError(f'Found {len(found_list)} GDrive files for the specified criteria! Expected to find only 0 or 1')
+            elif len(found_list) == 1:
+                return found_list[0]
 
-    def get_existing_file_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
+        return None
+
+    def _get_existing_file_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = f"{QUERY_NON_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'
 

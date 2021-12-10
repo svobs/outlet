@@ -286,8 +286,7 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
             assert not self.op.dst_node.goog_id, f'Expected dst node to have null goog_id because overwrite=false: {self.op.dst_node}'
 
             # Try to see if a node already exists at the given dst matching the properties of the src node
-            # FIXME: if overwrite=true and multiple matches are found, we will overwrite the first match we find. Need to find a cleaner behavior
-            existing_dst_node, existing_raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
+            existing_dst_node = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
 
             if existing_dst_node:
                 if existing_dst_node.md5 == src_node.md5 and existing_dst_node.get_size_bytes() == src_node.get_size_bytes():
@@ -435,9 +434,16 @@ class CreateGDriveFolderCommand(Command):
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
         existing = gdrive_client.get_folders_with_parent_and_name(parent_goog_id=parent_goog_id_list[0], name=name)
         if len(existing.nodes) > 0:
-            logger.info(f'Found {len(existing.nodes)} existing folders with parent={parent_goog_id_list[0]} and name="{name}". '
-                        f'Will use first found instead of creating a new folder.')
-            # TODO: need to test this situation when this folder is the prerequisite for other nodes
+            if len(existing.nodes) > 1:
+                raise RuntimeError(f'Found {len(existing.nodes)} existing folders with parent={parent_goog_id_list[0]} and name="{name}"; '
+                                   f'expected at most 1')
+
+            existing_folder = existing.nodes[0]
+            if existing_folder.uid != self.op.src_node.uid:
+                raise RuntimeError(f'Found unexpected existing folder with parent={parent_goog_id_list[0]} and name="{name}": '
+                                   f'uid={existing_folder.uid}, goog_id={existing_folder.goog_id}')
+
+            logger.info(f'Looks like folder was already created: uid={existing_folder.uid}, goog_id={existing_folder.goog_id}')
             goog_node: GDriveNode = existing.nodes[0]
         else:
             goog_node = gdrive_client.create_folder(name=self.op.src_node.name, parent_goog_ids=parent_goog_id_list, uid=self.op.src_node.uid)
@@ -552,12 +558,17 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
         if not existing_src:
             raise RuntimeError(f'Could not find src node for copy in Google Drive: "{self.op.src_node.name}" (goog_id={self.op.src_node.goog_id})')
 
-        existing_dst, raw = gdrive_client.get_single_file_with_parent_and_name_and_criteria(
-            self.op.dst_node, lambda x: x.md5 == self.op.src_node.md5 and x.mime_type_uid == self.op.src_node.mime_type_uid
-            and x.name == self.op.src_node.name)
-        if existing_dst and sorted(self.op.dst_node.get_parent_uids()) == sorted(existing_dst.get_parent_uids()):
-            logger.info(f'File with identical content and name already exists in Google Drive (goog_id={existing_dst.goog_id})')
-            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_dst], to_remove=[self.op.dst_node])
+        existing_dst = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
+        if existing_dst:
+            if existing_dst.md5 == self.op.src_node.md5 and existing_dst.mime_type_uid == self.op.src_node.mime_type_uid:
+                logger.info(f'File with identical content and name already exists in Google Drive (goog_id={existing_dst.goog_id})')
+
+                to_upsert = [self.op.src_node, existing_dst]
+                to_remove = []
+                if existing_dst.uid != self.op.dst_node.uid:
+                    to_remove.append(self.op.dst_node)
+
+                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=to_upsert, to_remove=to_remove)
 
         # Check whether node already exists at dst, and that it is as expected. Delete if specified.
         if self.overwrite:
@@ -566,7 +577,10 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
                 raise RuntimeError(f'Cannot overwrite file in GDrive: no goog_id provided in dst node: {self.op.dst_node}')
 
             node_dst_updated = gdrive_client.get_existing_node_by_id(self.op.dst_node.goog_id)
-            if not node_dst_updated:
+            if node_dst_updated:
+                assert node_dst_updated.uid == self.op.dst_node.uid and node_dst_updated.goog_id == self.op.dst_node.goog_id, \
+                    f'Expected uid and goog_id of node from server {node_dst_updated} to match param {self.op.dst_node}'
+            else:
                 if USE_STRICT_STATE_ENFORCEMENT:
                     raise RuntimeError(
                         f'Cannot overwrite file in GDrive: target not found in Google Drive (maybe already deleted?) (using strict=true):'
@@ -632,13 +646,13 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
             node_updated = gdrive_client.trash(self.op.src_node.goog_id)
             to_upsert = [node_updated]
 
-            # FIXME: need to download ALL DESCENDANTS, not just immediate children!
-            existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
-            for child in existing_child_list:
-                if child.get_trashed_status() == TrashStatus.NOT_TRASHED:
-                    raise RuntimeError(f'Found a child ("{child.name}", id={child.goog_id}) which was not already trashed')
+            # Verify that Google did what it said it did...
+            # TODO: this is really time consuming and we probably don't need it - revisit with testing
+            for descendant in gdrive_client.get_subtree_bfs_node_list(self.op.src_node.goog_id):
+                if descendant.get_trashed_status() == TrashStatus.NOT_TRASHED:
+                    raise RuntimeError(f'Found a descendant ("{descendant.name}", id={descendant.goog_id}) which was not already trashed')
 
-                to_upsert.append(child)
+                to_upsert.append(descendant)
 
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert)
         else:

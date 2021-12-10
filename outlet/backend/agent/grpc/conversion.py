@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg
-from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, TRACE_ENABLED, TreeLoadState, TreeType
+from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, SPIDType, TRACE_ENABLED, TreeLoadState, TreeType
 from model.device import Device
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
@@ -229,8 +229,11 @@ class GRPCConverter:
     def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         if not node_identifier:
             return
+
         grpc_node_identifier.device_uid = node_identifier.device_uid
-        if isinstance(node_identifier, ChangeTreeSPID):
+        path_list = node_identifier.get_path_list()
+
+        if node_identifier.get_spid_type() == SPIDType.CHANGE_TREE:
             # ChangeTreeSPIDs use path_uids instead of node_uids. We can use this field to smuggle the path_uid across gRPC
             grpc_node_identifier.uid = node_identifier.path_uid
             if not node_identifier.op_type:
@@ -239,8 +242,6 @@ class GRPCConverter:
                 grpc_node_identifier.op_type = node_identifier.op_type
         else:
             grpc_node_identifier.uid = node_identifier.node_uid
-
-        path_list = node_identifier.get_path_list()
 
         for full_path in path_list:
             grpc_node_identifier.path_list.append(full_path)

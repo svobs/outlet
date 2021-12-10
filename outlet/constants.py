@@ -187,6 +187,12 @@ class TreeType(IntEnum):
     GDRIVE = 3
 
 
+class SPIDType(IntEnum):
+    NOT_A_SPID = 0
+    STANDARD = 1
+    CHANGE_TREE = 2
+
+
 class DragOperation(IntEnum):
     MOVE = 1
     COPY = 2

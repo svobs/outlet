@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
-from constants import NULL_UID, TRACE_ENABLED, TREE_TYPE_DISPLAY, TreeType
+from constants import NULL_UID, SPIDType, TRACE_ENABLED, TREE_TYPE_DISPLAY, TreeType
 from error import InvalidOperationError
 from model.uid import UID
 from util import file_util
@@ -50,6 +50,10 @@ class NodeIdentifier(ABC):
     @staticmethod
     def is_spid():
         return False
+
+    @staticmethod
+    def get_spid_type() -> SPIDType:
+        return SPIDType.NOT_A_SPID
 
     @property
     def dn_uid(self) -> DN_UID:
@@ -141,6 +145,10 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
 
         if len(self.get_path_list()) != 1:
             raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {self.get_path_list()}')
+
+    @staticmethod
+    def get_spid_type() -> SPIDType:
+        return SPIDType.STANDARD
 
     # Currently this is only exposed for gRPC
     @property
@@ -259,6 +267,8 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
         CLASS MixedTreeSPID
+
+        Currently only used for the super-root node in a ChangeTree (I think...)
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
     def __init__(self, node_uid: UID, device_uid: UID, path_uid: UID, full_path: str, parent_guid: Optional[GUID] = None):
@@ -310,6 +320,10 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
     def path_uid(self) -> UID:
         # default
         return self.node_uid
+
+    @staticmethod
+    def get_spid_type() -> SPIDType:
+        return SPIDType.CHANGE_TREE
 
     @property
     def tree_type(self) -> TreeType:

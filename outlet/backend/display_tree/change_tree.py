@@ -59,7 +59,9 @@ class ChangeTree(DisplayTree):
 
     @staticmethod
     def _extract_identifier_func(sn: SPIDNodePair) -> GUID:
-        # assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
+        """Note: All of the nodes in the ChangeTree will be ChangeTreeSPIDs, except for its its root node and any device root nodes (if showing
+        multiple devices). Unfortunately, it's just a lot easier this way because the rest of the app references the root node and expects it
+        to conform to certain standards, but we need to use ChangeTreeSPIDs in order to guarantee its GUIDs will be unique within the tree."""
         return sn.spid.guid
 
     def get_sn_for_guid(self, guid: GUID) -> SPIDNodePair:

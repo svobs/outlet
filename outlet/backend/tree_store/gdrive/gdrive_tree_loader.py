@@ -1,7 +1,7 @@
 import logging
 import os
 from collections import deque
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
@@ -281,6 +281,7 @@ class GDriveTreeLoader:
 
         item_count: int = 0
         path_count: int = 0
+        name_conflict_count: int = 0
 
         # set path list for root
         root_node = tree.get_root_node()
@@ -297,19 +298,26 @@ class GDriveTreeLoader:
             parent: GDriveNode = queue.popleft()
             children = tree.parent_child_dict.get(parent.uid, None)
             if children:
+                child_name_set: Set[str] = set()
                 for child in children:
+                    if child.name in child_name_set:
+                        if TRACE_ENABLED:
+                            logger.warning(f'For parent={parent.node_identifier}: '
+                                           f'child already exists with name "{child.name}": {child.uid}')
+                        name_conflict_count += 1
+                    else:
+                        child_name_set.add(child.name)
+
                     child_path_list: List[str] = child.get_path_list()
 
                     # add paths for this parent:
                     parent_path_list = parent.get_path_list()
-                    # if len(parent_path_list) > 1:
-                    #     logger.info(f'MULTIPLE PARENT PATHS ({len(parent_path_list)}) for node {parent.uid} ("{parent.name}")')
-                    # if len(parent_path_list) > 10:
-                    #     logger.warning(f'Large number of parents for node {child.uid} (possible cycle?): {len(parent_path_list)}')
+                    if len(parent_path_list) > 100:
+                        logger.warning(f'Large number of parents for node {child.dn_uid} (possible cycle?): {len(parent_path_list)}')
                     for parent_path in parent_path_list:
                         new_child_path = os.path.join(parent_path, child.name)
-                        # if len(new_child_path) > 1000:
-                        #     logger.warning(f'Very long path found (possible cycle?): {new_child_path}')
+                        if len(new_child_path) > 1000:
+                            logger.warning(f'Very long path found (possible cycle?): {new_child_path}')
                         if TRACE_ENABLED:
                             logger.debug(f'[{path_count}] ({child.uid}) Adding path "{new_child_path}" to  paths ({child_path_list})')
                         if new_child_path not in child_path_list:
@@ -323,6 +331,10 @@ class GDriveTreeLoader:
                     if child.is_dir():
                         queue.append(child)
 
+        if name_conflict_count:
+            # FIXME: prompt user to clean these up
+            logger.warning(f'Found {name_conflict_count} parent/name conflicts in GDrive tree!')
+
         logger.debug(f'{full_path_stopwatch} Constructed {path_count:n} full paths for {item_count:n} items')
 
     @staticmethod
@@ -334,7 +346,7 @@ class GDriveTreeLoader:
         broken_folder_uid_list = []
         for node in tree.uid_dict.values():
             if not node.get_path_list():
-                logger.error(f'Node has no paths: {node}')
+                logger.error(f'Found broken node: node has no paths: {node}')
                 if node.is_dir():
                     broken_folder_uid_list.append(node.uid)
                 else:
