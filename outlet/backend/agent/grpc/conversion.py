@@ -2,8 +2,9 @@ import logging
 from typing import Dict, Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
-from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg
-from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, SPIDType, TRACE_ENABLED, TreeLoadState, TreeType
+from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeContextMenuItem
+from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TRACE_ENABLED, TreeLoadState, TreeType
+from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
@@ -207,6 +208,19 @@ class GRPCConverter:
         else:
             dir_meta_parent.dir_meta.has_data = False
 
+    def dir_stats_dicts_to_grpc(self, dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict, dir_meta_grpc_parent):
+        if dir_stats_dict_by_guid:
+            for key, dir_stats in dir_stats_dict_by_guid.items():
+                dir_meta_grpc = dir_meta_grpc_parent.dir_meta_by_guid_list.add()
+                dir_meta_grpc.guid = key
+                self.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
+
+        if dir_stats_dict_by_uid:
+            for key, dir_stats in dir_stats_dict_by_uid.items():
+                dir_meta_grpc = dir_meta_grpc_parent.dir_meta_by_uid_list.add()
+                dir_meta_grpc.uid = key
+                self.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
+
     # List[Node]
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -352,8 +366,39 @@ class GRPCConverter:
         grpc_device.friendly_name = device.friendly_name
 
     @staticmethod
-    def device_from_grpc( grpc_device: Outlet_pb2.Device) -> Device:
+    def device_from_grpc(grpc_device: Outlet_pb2.Device) -> Device:
         return Device(grpc_device.device_uid, grpc_device.long_device_id, grpc_device.tree_type, grpc_device.friendly_name)
+
+    # Tree Context Menu
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def menu_item_list_to_grpc(self, menu_item_list: List[ContextMenuItem], menu_item_list_grpc):
+        for menu_item in menu_item_list:
+            menu_item_grpc = menu_item_list_grpc.add()
+            self.menu_item_to_grpc(menu_item, menu_item_grpc)
+
+    def menu_item_to_grpc(self, menu_item: ContextMenuItem, menu_item_grpc: TreeContextMenuItem):
+        menu_item_grpc.item_type = menu_item.item_type
+        menu_item_grpc.title = menu_item.title
+        menu_item_grpc.action_id = menu_item.action_id
+
+        for submenu_item in menu_item.submenu_item_list:
+            submenu_item_grpc = menu_item_grpc.submenu_item_list.add()
+            self.menu_item_list_to_grpc(submenu_item, submenu_item_grpc)
+
+    def menu_item_list_from_grpc(self, menu_item_list_grpc) -> List[ContextMenuItem]:
+        menu_item_list = []
+        for menu_item_grpc in menu_item_list_grpc:
+            menu_item = self.menu_item_from_grpc(menu_item_grpc)
+            menu_item_list.append(menu_item)
+        return menu_item_list
+
+    def menu_item_from_grpc(self, menu_item_grpc: TreeContextMenuItem) -> ContextMenuItem:
+        menu_item = ContextMenuItem(MenuItemType(menu_item_grpc.item_type), menu_item_grpc.title, menu_item_grpc.action_id)
+        for submenu_item_grpc in menu_item_grpc.submenu_item_list:
+            submenu_item = self.menu_item_from_grpc(submenu_item_grpc)
+            menu_item.add_submenu_item(submenu_item)
+        return menu_item
 
     # Signal
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

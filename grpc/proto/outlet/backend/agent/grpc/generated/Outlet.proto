@@ -298,6 +298,22 @@ message StartSubtreeLoad_Response {
 	// nothing
 }
 
+message GetContextMenu_Request {
+	string tree_id = 1;
+	repeated NodeIdentifier identifier_list = 2;
+}
+
+message GetContextMenu_Response {
+	repeated TreeContextMenuItem menu_item_list = 1;
+}
+
+message TreeContextMenuItem {
+	uint32 item_type = 1;
+	string title = 2;
+	uint32 action_id = 3;
+	repeated TreeContextMenuItem submenu_item_list = 4;
+}
+
 message DisplayTreeUiState {
 	string tree_id = 1;
 	SPIDNodePair root_sn = 2;
@@ -379,6 +395,7 @@ service Outlet {
 	rpc remove_expanded_row(RemoveExpandedRow_Request) returns (RemoveExpandedRow_Response);
 	rpc get_filter(GetFilter_Request) returns (GetFilter_Response);
 	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
+	rpc get_context_menu(GetContextMenu_Request) returns (GetContextMenu_Response);
 
 	rpc request_display_tree(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);

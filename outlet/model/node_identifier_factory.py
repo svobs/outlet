@@ -89,7 +89,6 @@ class NodeIdentifierFactory:
 
     def for_values(self,
                    device_uid: UID,
-                   tree_type: Optional[TreeType] = None,
                    path_list: Optional[Union[str, List[str]]] = None,
                    uid: Optional[UID] = None,
                    path_uid: Optional[UID] = None,

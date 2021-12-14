@@ -283,17 +283,24 @@ class ReplaceDirWithFilePolicy(IntEnum):
     """Act like the dir is a file: go ahead and follow the FileConflictPolicy."""
 
 
-# For batch failures
+# For batch or single op failures
 class ErrorHandlingStrategy(IntEnum):
     PROMPT = 1
-    PAUSE_EXECUTION = 2  # TODO: maybe delete
-    CANCEL_BATCH = 3
-    CANCEL_FAILED_OPS_AND_DEPENDENTS = 4
+    CANCEL_BATCH = 2
+    CANCEL_FAILED_OPS_AND_ALL_DESCENDANT_OPS = 3
+    CANCEL_FAILED_OPS_ONLY = 4
 
 
 DEFAULT_SRC_NODE_MOVE_POLICY = SrcNodeMovePolicy.DELETE_SRC_IF_NOT_SKIPPED
 DEFAULT_REPLACE_DIR_WITH_FILE_POLICY = ReplaceDirWithFilePolicy.FAIL
 DEFAULT_ERROR_HANDLING_STRATEGY = ErrorHandlingStrategy.PROMPT
+
+
+# For tree context menus: see gRPC TreeContextMenuItem
+class MenuItemType(IntEnum):
+    NORMAL = 1
+    SEPARATOR = 2
+    DISABLED = 3
 
 
 TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.MIXED: 'M', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G'}

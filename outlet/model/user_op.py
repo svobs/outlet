@@ -57,7 +57,7 @@ class UserOpType(IntEnum):
 class UserOpStatus(IntEnum):
     NOT_STARTED = 1
     EXECUTING = 2
-    BLOCKED_BY_ERROR = 3  # upstream error in OpGraph
+    BLOCKED_BY_ERROR = 3  # upstream error in OpGraph is preventing execution
     STOPPED_ON_ERROR = 4
 
     # all the values below here are completed:

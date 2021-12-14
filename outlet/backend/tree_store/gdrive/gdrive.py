@@ -570,7 +570,7 @@ class GDriveMasterStore(TreeStore):
             return None
 
     def to_sn(self, node: GDriveNode, single_path: str) -> SPIDNodePair:
-        spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid, tree_type=node.tree_type,
+        spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid,
                                                                path_list=single_path, must_be_single_path=True)
         return SPIDNodePair(spid, node)
 

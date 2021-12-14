@@ -335,8 +335,7 @@ class GDriveWholeTree(BaseTree):
                     logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}"'
                                  f' (target_path: "{target_path}", path_so_far="{path_so_far}")')
                 if error_if_not_found:
-                    err_node_identifier = self.backend.node_identifier_factory.for_values(device_uid=self.device_uid, tree_type=TreeType.GDRIVE,
-                                                                                          path_list=full_path)
+                    err_node_identifier = self.backend.node_identifier_factory.for_values(device_uid=self.device_uid, path_list=full_path)
                     raise GDriveNodePathNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
                 else:
                     return []
@@ -387,7 +386,7 @@ class GDriveWholeTree(BaseTree):
         return []
 
     def to_sn(self, node, single_path) -> SPIDNodePair:
-        spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid, tree_type=node.tree_type,
+        spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid,
                                                                path_list=single_path, must_be_single_path=True)
         return SPIDNodePair(spid, node)
 

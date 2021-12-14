@@ -376,14 +376,11 @@ class OpManager(HasLifecycle):
 
             # There may be another batch in the queue: try to process that if applicable
             self.try_batch_submit()
-        elif error_strategy == ErrorHandlingStrategy.PAUSE_EXECUTION:
-            # TODO: determine if we ever want to support this. Now seems unnecessary and might just confuse the user
-            raise NotImplementedError(f'Cannot handle ErrorHandlingStrategy.PAUSE_EXECUTION')
-        elif error_strategy == ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_DEPENDENTS:
-            # TODO: implement ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_DEPENDENTS
-            raise NotImplementedError(f'Cannot handle ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_DEPENDENTS yet!')
+        elif error_strategy == ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_ALL_DESCENDANT_OPS:
+            # TODO: implement ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_ALL_DESCENDANT_OPS
+            raise NotImplementedError(f'Cannot handle ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_ALL_DESCENDANT_OPS yet!')
         else:
-            assert False, f'Unrecognized: {error_strategy.name}'
+            raise RuntimeError(f'Invalid error handling strategy for batches: {error_strategy.name}')
 
     def _add_batch_to_main_graph(self, op_root: RootNode) -> List[UserOp]:
         """Inserts into the main OpGraph a batch which is represented by its own OpGraph.

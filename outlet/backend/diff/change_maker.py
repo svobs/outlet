@@ -113,8 +113,8 @@ class OneSide:
             raise RuntimeError(f'Invalid tree_type: {dst_tree_type}')
 
         # Now build the node:
-        nid = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
-                                                              device_uid=dst_device_uid)
+        nid = self.backend.node_identifier_factory.for_values(device_uid=dst_device_uid, path_list=[dst_path], uid=dst_node_uid)
+
         node_src: Node = sn_src.node
         if dst_tree_type == TreeType.LOCAL_DISK:
             assert isinstance(nid, LocalNodeIdentifier)
@@ -139,7 +139,7 @@ class OneSide:
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={nid}")
 
-        spid = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid,
+        spid = self.backend.node_identifier_factory.for_values(path_list=[dst_path], uid=dst_node_uid,
                                                                device_uid=dst_device_uid, must_be_single_path=True)
         sn_dst: SPIDNodePair = SPIDNodePair(spid, node_dst)
 
@@ -227,7 +227,7 @@ class OneSide:
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')
 
-            spid = self.backend.node_identifier_factory.for_values(uid=new_ancestor_node.uid, device_uid=device_uid, tree_type=tree_type,
+            spid = self.backend.node_identifier_factory.for_values(uid=new_ancestor_node.uid, device_uid=device_uid,
                                                                    path_list=parent_path, must_be_single_path=True)
             new_ancestor_sn: SPIDNodePair = SPIDNodePair(spid, new_ancestor_node)
             self._dict_added_dirs_by_path[parent_path] = new_ancestor_sn

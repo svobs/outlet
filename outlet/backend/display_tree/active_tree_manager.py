@@ -618,7 +618,7 @@ class ActiveTreeManager(HasLifecycle):
                 # must have single path
                 tree_type = new_root_spid.tree_type
                 new_root_spid = self.backend.node_identifier_factory.for_values(uid=new_root_spid.node_uid, device_uid=new_root_spid.device_uid,
-                                                                                tree_type=tree_type, path_list=full_path, must_be_single_path=True)
+                                                                                path_list=full_path, must_be_single_path=True)
 
             root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
         except GDriveNodePathNotFoundError as ginf:

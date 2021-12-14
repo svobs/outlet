@@ -25,6 +25,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, 
     SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType
 from error import ResultsExceededError
 from model.cache_info import PersistedCacheInfo
+from model.context_menu import ContextMenuItem
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
@@ -582,8 +583,7 @@ class CacheManager(HasLifecycle):
         if not node:
             return None
 
-        spid = self.backend.node_identifier_factory.for_values(uid=node_uid, device_uid=device_uid, tree_type=node.tree_type,
-                                                               path_list=full_path, must_be_single_path=True)
+        spid = self.backend.node_identifier_factory.for_values(uid=node_uid, device_uid=device_uid, path_list=full_path, must_be_single_path=True)
 
         return SPIDNodePair(spid, node)
 
@@ -933,3 +933,7 @@ class CacheManager(HasLifecycle):
         spid.set_path_list(path_list)
 
         return self.get_node_for_uid(spid.node_uid, spid.device_uid)
+
+    def get_context_menu(self, tree_id: TreeID, identifier_list: List[NodeIdentifier]) -> List[ContextMenuItem]:
+        # TODO
+        return []

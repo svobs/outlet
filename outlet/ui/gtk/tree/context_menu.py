@@ -123,7 +123,7 @@ class TreeContextMenu:
             item = Gtk.MenuItem(label=f'Go Into "{node.name}"')
 
             def go_into(menu_item):
-                spid = self.con.app.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid, tree_type=node.tree_type,
+                spid = self.con.app.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid,
                                                                                path_list=single_path, must_be_single_path=True)
                 self.con.app.backend.create_display_tree_from_spid(self.con.tree_id, spid)
 

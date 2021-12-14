@@ -8,13 +8,14 @@ from pydispatch import dispatcher
 
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
-    GenerateMergeTree_Request, GetAncestorList_Response, GetChildList_Response, GetConfig_Request, GetConfig_Response, GetDeviceList_Request, \
+    GenerateMergeTree_Request, GetAncestorList_Response, GetChildList_Response, GetConfig_Request, GetConfig_Response, GetContextMenu_Request, \
+    GetContextMenu_Response, GetDeviceList_Request, \
     GetDeviceList_Response, GetFilter_Response, GetIcon_Request, GetIcon_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, \
     GetNextUid_Response, GetNodeForUid_Request, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetSnFor_Request, GetSnFor_Response, \
     GetUidForLocalPath_Request, GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, \
     RemoveExpandedRow_Response, RequestDisplayTree_Response, SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
     SingleNode_Response, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, StartSubtreeLoad_Response, Subscribe_Request, \
-    UpdateFilter_Request, UpdateFilter_Response
+    TreeContextMenu_Request, TreeContextMenu_Response, UpdateFilter_Request, UpdateFilter_Response
 from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
 from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
@@ -22,6 +23,7 @@ from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
 from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
 from error import ResultsExceededError
+from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -180,117 +182,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         except RuntimeError:
             logger.exception('Unexpected error processing signal subscription')
 
-    # Short-lived async (non-streaming) client requests
+    # Signal forwarding
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def send_signal(self, signal_msg, context):
-        """This is a request from the CLIENT to relay a Signal to the server"""
-        kwargs = self._converter.signal_from_grpc(signal_msg)
-        dispatcher.send(**kwargs)
-        return SendSignalResponse()
-
-    def get_config(self, request: GetConfig_Request, context):
-        response = GetConfig_Response()
-        for config_key in request.config_key_list:
-            logger.debug(f'Getting config "{config_key}"')
-            config_val: str = self.backend.get_config(config_key, default_val='', required=False)
-            config = ConfigEntry(key=config_key, val=str(config_val))
-            response.config_list.append(config)
-
-        return response
-
-    def put_config(self, request: PutConfig_Request, context):
-        for config in request.config_list:
-            logger.debug(f'Putting config "{config.key}" = "{config.val}"')
-            self.backend.put_config(config_key=config.key, config_val=config.val)
-
-        return PutConfig_Response()
-
-    @staticmethod
-    def _img_to_bytes(image):
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='PNG')
-        img_byte_arr.flush()
-        return img_byte_arr.getvalue()
-
-    def get_icon(self, request: GetIcon_Request, context):
-        image = self.backend.get_icon(request.icon_id)
-        response = GetIcon_Response()
-
-        if image:
-            response.icon.icon_id = request.icon_id
-            response.icon.content = self._img_to_bytes(image)
-            logger.debug(f'Returning requested image with iconId={IconId(request.icon_id).name}')
-        else:
-            logger.debug(f'Could not find image with requested iconId={request.icon_id}')
-
-        return response
-
-    def get_node_for_uid(self, request: GetNodeForUid_Request, context):
-        response = SingleNode_Response()
-        node = self.cacheman.get_node_for_uid(request.full_path, request.device_uid)
-        if node:
-            self._converter.node_to_grpc(node, response.node)
-        return response
-
-    def get_next_uid(self, request, context):
-        response = GetNextUid_Response()
-        response.uid = self.uid_generator.next_uid()
-        return response
-
-    def get_uid_for_local_path(self, request: GetUidForLocalPath_Request, context):
-        response = GetUidForLocalPath_Response()
-        response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
-        return response
-
-    def get_sn_for(self, request: GetSnFor_Request, context):
-        response = GetSnFor_Response()
-
-        sn = self.cacheman.get_sn_for(request.node_uid, request.device_uid, request.full_path)
-        if sn:
-            self._converter.sn_to_grpc(sn, response.sn)
-
-        return response
-
-    def request_display_tree(self, grpc_req, context):
-        if grpc_req.HasField('spid'):
-            spid = self._converter.node_identifier_from_grpc(grpc_req.spid)
-        else:
-            spid = None
-
-        request = DisplayTreeRequest(tree_id=grpc_req.tree_id, return_async=grpc_req.return_async, user_path=grpc_req.user_path, spid=spid,
-                                     device_uid=grpc_req.device_uid, is_startup=grpc_req.is_startup, tree_display_mode=grpc_req.tree_display_mode)
-
-        display_tree: Optional[DisplayTree] = self.cacheman.request_display_tree(request)
-
-        response = RequestDisplayTree_Response()
-        if display_tree:
-            logger.debug(f'Converting DisplayTreeUiState: {display_tree.state}')
-            self._converter.display_tree_ui_state_to_grpc(display_tree.state, response.display_tree_ui_state)
-        return response
-
-    def start_subtree_load(self, request: StartSubtreeLoad_Request, context):
-        self.backend.start_subtree_load(request.tree_id)
-        return StartSubtreeLoad_Response()
-
-    def _dir_stats_to_grpc(self, dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict, dir_meta_grpc_parent):
-        if dir_stats_dict_by_guid:
-            for key, dir_stats in dir_stats_dict_by_guid.items():
-                dir_meta_grpc = dir_meta_grpc_parent.dir_meta_by_guid_list.add()
-                dir_meta_grpc.guid = key
-                self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
-
-        if dir_stats_dict_by_uid:
-            for key, dir_stats in dir_stats_dict_by_uid.items():
-                dir_meta_grpc = dir_meta_grpc_parent.dir_meta_by_uid_list.add()
-                dir_meta_grpc.uid = key
-                self._converter.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
 
     def _on_stats_updated(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict):
         signal = SignalMsg(sig_int=Signal.STATS_UPDATED, sender=sender)
         signal.stats_update.status_msg = status_msg
 
-        self._dir_stats_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.stats_update)
+        self._converter.dir_stats_dicts_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.stats_update)
 
         if dir_stats_dict_by_guid is None:
             dir_stats_dict_by_guid = {}  # for safety when logging
@@ -304,7 +203,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal = SignalMsg(sig_int=Signal.TREE_LOAD_STATE_UPDATED, sender=sender)
         signal.tree_load_update.load_state_int = tree_load_state.value
         signal.tree_load_update.stats_update.status_msg = status_msg
-        self._dir_stats_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.tree_load_update.stats_update)
+        self._converter.dir_stats_dicts_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.tree_load_update.stats_update)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_batch_failed(self, sender: str, msg: str, secondary_msg: str, batch_uid: UID):
@@ -398,6 +297,99 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.play_state.is_enabled = is_enabled
         logger.debug(f'Relaying signal across gRPC: "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}", sender={sender}, is_enabled={is_enabled}')
         self._send_grpc_signal_to_all_clients(signal)
+
+    # Short-lived async (non-streaming) client requests
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def send_signal(self, signal_msg, context):
+        """This is a request from the CLIENT to relay a Signal to the server"""
+        kwargs = self._converter.signal_from_grpc(signal_msg)
+        dispatcher.send(**kwargs)
+        return SendSignalResponse()
+
+    def get_config(self, request: GetConfig_Request, context):
+        response = GetConfig_Response()
+        for config_key in request.config_key_list:
+            logger.debug(f'Getting config "{config_key}"')
+            config_val: str = self.backend.get_config(config_key, default_val='', required=False)
+            config = ConfigEntry(key=config_key, val=str(config_val))
+            response.config_list.append(config)
+
+        return response
+
+    def put_config(self, request: PutConfig_Request, context):
+        for config in request.config_list:
+            logger.debug(f'Putting config "{config.key}" = "{config.val}"')
+            self.backend.put_config(config_key=config.key, config_val=config.val)
+
+        return PutConfig_Response()
+
+    @staticmethod
+    def _img_to_bytes(image):
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr.flush()
+        return img_byte_arr.getvalue()
+
+    def get_icon(self, request: GetIcon_Request, context):
+        image = self.backend.get_icon(request.icon_id)
+        response = GetIcon_Response()
+
+        if image:
+            response.icon.icon_id = request.icon_id
+            response.icon.content = self._img_to_bytes(image)
+            logger.debug(f'Returning requested image with iconId={IconId(request.icon_id).name}')
+        else:
+            logger.debug(f'Could not find image with requested iconId={request.icon_id}')
+
+        return response
+
+    def get_node_for_uid(self, request: GetNodeForUid_Request, context):
+        response = SingleNode_Response()
+        node = self.cacheman.get_node_for_uid(request.full_path, request.device_uid)
+        if node:
+            self._converter.node_to_grpc(node, response.node)
+        return response
+
+    def get_next_uid(self, request, context):
+        response = GetNextUid_Response()
+        response.uid = self.uid_generator.next_uid()
+        return response
+
+    def get_uid_for_local_path(self, request: GetUidForLocalPath_Request, context):
+        response = GetUidForLocalPath_Response()
+        response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
+        return response
+
+    def get_sn_for(self, request: GetSnFor_Request, context):
+        response = GetSnFor_Response()
+
+        sn = self.cacheman.get_sn_for(request.node_uid, request.device_uid, request.full_path)
+        if sn:
+            self._converter.sn_to_grpc(sn, response.sn)
+
+        return response
+
+    def request_display_tree(self, grpc_req, context):
+        if grpc_req.HasField('spid'):
+            spid = self._converter.node_identifier_from_grpc(grpc_req.spid)
+        else:
+            spid = None
+
+        request = DisplayTreeRequest(tree_id=grpc_req.tree_id, return_async=grpc_req.return_async, user_path=grpc_req.user_path, spid=spid,
+                                     device_uid=grpc_req.device_uid, is_startup=grpc_req.is_startup, tree_display_mode=grpc_req.tree_display_mode)
+
+        display_tree: Optional[DisplayTree] = self.cacheman.request_display_tree(request)
+
+        response = RequestDisplayTree_Response()
+        if display_tree:
+            logger.debug(f'Converting DisplayTreeUiState: {display_tree.state}')
+            self._converter.display_tree_ui_state_to_grpc(display_tree.state, response.display_tree_ui_state)
+        return response
+
+    def start_subtree_load(self, request: StartSubtreeLoad_Request, context):
+        self.backend.start_subtree_load(request.tree_id)
+        return StartSubtreeLoad_Response()
 
     def get_op_exec_play_state(self, request, context):
         response = PlayState()
@@ -532,4 +524,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         for guid in rows.selected:
             response.selected_row_guid_set.append(guid)
 
+        return response
+
+    def get_context_menu_for_node(self, request: GetContextMenu_Request, context):
+        identifier_list = []
+        for node_identifier_grpc in request.identifier_list:
+            identifier_list.append(self._converter.node_identifier_from_grpc(node_identifier_grpc))
+        menu_item_list: List[ContextMenuItem] = self.cacheman.get_context_menu(request.tree_id, identifier_list)
+
+        response = GetContextMenu_Response()
+        self._converter.menu_item_list_to_grpc(menu_item_list, response.menu_item_list)
         return response
