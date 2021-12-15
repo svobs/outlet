@@ -10,13 +10,14 @@ from backend.agent.client.zeroconf import OutletZeroconfListener
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated import Outlet_pb2_grpc
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, \
-    GenerateMergeTree_Request, GetAncestorList_Request, GetChildList_Request, GetConfig_Request, GetConfig_Response, GetDeviceList_Request, \
+    ExecuteTreeAction_Request, GenerateMergeTree_Request, GetAncestorList_Request, GetChildList_Request, GetConfig_Request, GetConfig_Response, \
+    GetDeviceList_Request, \
     GetFilter_Request, GetFilter_Response, GetIcon_Request, GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForUid_Request, GetOpExecPlayState_Request, GetRowsOfInterest_Request, GetSnFor_Request, GetUidForLocalPath_Request, PutConfig_Request, \
     RefreshSubtree_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, SetSelectedRowSet_Request, SignalMsg, SPIDNodePair, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, TreeContextMenu_Request, UpdateFilter_Request
 from backend.backend_interface import OutletBackend
-from constants import DirConflictPolicy, DragOperation, ErrorHandlingStrategy, FileConflictPolicy, IconId, TRACE_ENABLED, TreeID
+from constants import ActionID, DirConflictPolicy, DragOperation, ErrorHandlingStrategy, FileConflictPolicy, IconId, TRACE_ENABLED, TreeID
 from error import ResultsExceededError
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -325,6 +326,19 @@ class BackendGRPCClient(OutletBackend):
             self._converter.node_identifier_to_grpc(node_identifier, node_identifier_grpc)
         response = self.grpc_stub.get_context_menu(request)
         return self._converter.menu_item_list_from_grpc(response.menu_item_list)
+
+    def execute_tree_action(self, tree_id: TreeID, action_id: ActionID, target_guid_list: Optional[List[GUID]]):
+        request = ExecuteTreeAction_Request()
+
+        request.tree_id = tree_id
+        request.action_id = action_id
+
+        if target_guid_list:
+            request.target_guid_list = []
+            for guid in target_guid_list:
+                request.target_guid_list.append(guid)
+
+        self.grpc_stub.execute_tree_action(request)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[SPIDNodePair]:
         request = GetAncestorList_Request()

@@ -301,6 +301,24 @@ class MenuItemType(IntEnum):
     NORMAL = 1
     SEPARATOR = 2
     DISABLED = 3
+    ITALIC_DISABLED = 4
+
+
+class ActionID(IntEnum):
+    NO_ACTION = 1
+    REFRESH = 2                  # FE only (should be BE though)
+    EXPAND_ALL = 3               # FE only
+    GO_INTO_DIR = 4              # FE only (should be BE though)
+    SHOW_IN_FILE_EXPLORER = 5    # FE only
+    OPEN_WITH_DEFAULT_APP = 6    # FE only
+    DELETE_SINGLE_FILE = 7       # FE only (should be BE though)
+    DELETE_SUBTREE = 8           # FE only (should be BE though)
+    DELETE_SUBTREE_FOR_SINGLE_DEVICE = 9  # BE: requires: target_guid_list
+    DOWNLOAD_FROM_GDRIVE = 10    # FE only (should be BE though)
+    SET_ROWS_CHECKED = 11        # FE only
+    SET_ROWS_UNCHECKED = 12      # FE only
+
+    CALL_EXIFTOOL = 50           # FE only
 
 
 TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.MIXED: 'M', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G'}

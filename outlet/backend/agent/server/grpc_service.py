@@ -8,7 +8,8 @@ from pydispatch import dispatcher
 
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
-    GenerateMergeTree_Request, GetAncestorList_Response, GetChildList_Response, GetConfig_Request, GetConfig_Response, GetContextMenu_Request, \
+    ExecuteTreeAction_Request, GenerateMergeTree_Request, GetAncestorList_Response, GetChildList_Response, GetConfig_Request, GetConfig_Response, \
+    GetContextMenu_Request, \
     GetContextMenu_Response, GetDeviceList_Request, \
     GetDeviceList_Response, GetFilter_Response, GetIcon_Request, GetIcon_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, \
     GetNextUid_Response, GetNodeForUid_Request, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetSnFor_Request, GetSnFor_Response, \
@@ -21,7 +22,7 @@ from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
 from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
-from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
+from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
 from error import ResultsExceededError
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -526,7 +527,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         return response
 
-    def get_context_menu_for_node(self, request: GetContextMenu_Request, context):
+    def get_context_menu(self, request: GetContextMenu_Request, context):
         identifier_list = []
         for node_identifier_grpc in request.identifier_list:
             identifier_list.append(self._converter.node_identifier_from_grpc(node_identifier_grpc))
@@ -535,3 +536,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response = GetContextMenu_Response()
         self._converter.menu_item_list_to_grpc(menu_item_list, response.menu_item_list)
         return response
+
+    def execute_tree_action(self, request: ExecuteTreeAction_Request, context):
+        if request.target_guid_list:
+            target_guid_list = []
+            for guid in request.target_guid_list:
+                target_guid_list.append(guid)
+        else:
+            target_guid_list = None
+
+        self.cacheman.execute_tree_action(tree_id=request.tree_id, action_id=ActionID(request.action_id), target_guid_list=target_guid_list)
+        return ExecuteTreeAction_Request()

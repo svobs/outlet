@@ -9,6 +9,7 @@ from backend.display_tree.root_path_config import RootPathConfigPersister
 from model.node.directory_stats import DirectoryStats
 from model.node_identifier import GUID
 from model.uid import UID
+from signal_constants import ID_MERGE_TREE
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,14 @@ class ActiveDisplayTreeMeta:
         """'First order' means the tree relies on the master caches directly.
         This implies that it is not a change tree, and that its data may not have been laoded yet"""
         return not self.change_tree
+
+    def can_change_root(self) -> bool:
+        # Kind of a kludge right now. The FE and BE both determine this separately
+        return not (self.change_tree and self.tree_id == ID_MERGE_TREE)
+
+    def has_checkboxes(self) -> bool:
+        # Kind of a kludge right now. The FE and BE both determine this separately
+        return self.change_tree and self.tree_id != ID_MERGE_TREE
 
     @property
     def root_sn(self):

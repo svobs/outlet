@@ -381,7 +381,11 @@ class GRPCConverter:
         menu_item_grpc.item_type = menu_item.item_type
         menu_item_grpc.title = menu_item.title
         menu_item_grpc.action_id = menu_item.action_id
+        if menu_item.target_guid_list:
+            for guid in menu_item.target_guid_list:
+                menu_item_grpc.target_guid_list.append(guid)
 
+        # Recurse for all submenu items:
         for submenu_item in menu_item.submenu_item_list:
             submenu_item_grpc = menu_item_grpc.submenu_item_list.add()
             self.menu_item_list_to_grpc(submenu_item, submenu_item_grpc)
@@ -395,6 +399,9 @@ class GRPCConverter:
 
     def menu_item_from_grpc(self, menu_item_grpc: TreeContextMenuItem) -> ContextMenuItem:
         menu_item = ContextMenuItem(MenuItemType(menu_item_grpc.item_type), menu_item_grpc.title, menu_item_grpc.action_id)
+        if menu_item_grpc.target_guid_list:
+            for guid in menu_item_grpc.target_guid_list:
+                menu_item.target_guid_list.append(guid)
         for submenu_item_grpc in menu_item_grpc.submenu_item_list:
             submenu_item = self.menu_item_from_grpc(submenu_item_grpc)
             menu_item.add_submenu_item(submenu_item)

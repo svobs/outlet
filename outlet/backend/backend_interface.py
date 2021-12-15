@@ -5,7 +5,8 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from pydispatch import dispatcher
 
-from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeDisplayMode, TreeID
+from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeDisplayMode, TreeID
+from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -32,6 +33,9 @@ class OutletBackend(HasLifecycle, ABC):
         # This works for both Application & thin client FE:
         self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
 
+    # Exceptions
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     @staticmethod
     def report_error(sender: str, msg: str, secondary_msg: Optional[str] = None):
         """Convenience method for notifying the user about errors"""
@@ -42,6 +46,9 @@ class OutletBackend(HasLifecycle, ABC):
         """Convenience method for notifying the user about errors"""
         logger.exception(f'[{sender}] {msg}')
         dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=sender, msg=msg, secondary_msg=f'{error}')
+
+    # Config
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
     def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = True) -> Optional[str]:
@@ -60,6 +67,13 @@ class OutletBackend(HasLifecycle, ABC):
     def put_config_list(self, config_dict: Dict[str, str]):
         pass
 
+    # Data model
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    @abstractmethod
+    def next_uid(self) -> UID:
+        pass
+
     @abstractmethod
     def get_icon(self, icon_id: IconId) -> Optional:
         pass
@@ -69,23 +83,11 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def next_uid(self) -> UID:
-        pass
-
-    @abstractmethod
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         pass
 
     @abstractmethod
     def get_sn_for(self, node_uid: UID, device_uid: UID, full_path: str) -> Optional[SPIDNodePair]:
-        pass
-
-    @abstractmethod
-    def start_subtree_load(self, tree_id: TreeID):
-        pass
-
-    @abstractmethod
-    def get_op_execution_play_state(self) -> bool:
         pass
 
     @abstractmethod
@@ -105,18 +107,8 @@ class OutletBackend(HasLifecycle, ABC):
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[SPIDNodePair]:
         pass
 
-    @abstractmethod
-    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
-        pass
-
-    @abstractmethod
-    def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
-        pass
-
-    @abstractmethod
-    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
-        """I really could not think of a better name for this."""
-        pass
+    # DisplayTree requests
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def create_display_tree_for_gdrive_select(self, device_uid: UID) -> Optional[DisplayTree]:
         spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
@@ -154,6 +146,49 @@ class OutletBackend(HasLifecycle, ABC):
         """
         pass
 
+    # DisplayTree state
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    @abstractmethod
+    def start_subtree_load(self, tree_id: TreeID):
+        pass
+
+    @abstractmethod
+    def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
+        """I really could not think of a better name for this."""
+        pass
+
+    @abstractmethod
+    def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):
+        pass
+
+    @abstractmethod
+    def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
+        pass
+
+    @abstractmethod
+    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
+        pass
+
+    @abstractmethod
+    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
+        pass
+
+    # Various UI
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    @abstractmethod
+    def get_op_execution_play_state(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_context_menu(self, tree_id: TreeID, identifier_list: List[NodeIdentifier]) -> List[ContextMenuItem]:
+        pass
+
+    @abstractmethod
+    def execute_tree_action(self, tree_id: TreeID, action_id: ActionID, target_guid_list: Optional[List[GUID]]):
+        pass
+
     @abstractmethod
     def drop_dragged_nodes(self, src_tree_id: TreeID, src_guid_list: List[GUID], is_into: bool, dst_tree_id: TreeID, dst_guid: GUID,
                            drag_operation: DragOperation, dir_conflict_policy: DirConflictPolicy, file_conflict_policy: FileConflictPolicy) -> bool:
@@ -182,12 +217,4 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def delete_subtree(self, device_uid: UID, node_uid_list: List[UID]):
-        pass
-
-    @abstractmethod
-    def get_filter_criteria(self, tree_id: TreeID) -> Optional[FilterCriteria]:
-        pass
-
-    @abstractmethod
-    def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
         pass

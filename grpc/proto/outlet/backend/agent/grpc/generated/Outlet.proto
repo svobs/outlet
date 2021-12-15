@@ -311,7 +311,19 @@ message TreeContextMenuItem {
 	uint32 item_type = 1;
 	string title = 2;
 	uint32 action_id = 3;
-	repeated TreeContextMenuItem submenu_item_list = 4;
+	// Optional. Only used for menu items which apply to a subset, but not the entirety, of the selected nodes:
+	repeated string target_guid_list = 4;
+	repeated TreeContextMenuItem submenu_item_list = 5;
+}
+
+message ExecuteTreeAction_Request {
+	string tree_id = 1;
+	uint32 action_id = 2;
+	repeated string target_guid_list = 3;  // only required for certain actions
+}
+
+message ExecuteTreeAction_Response {
+	// nothing
 }
 
 message DisplayTreeUiState {
@@ -396,6 +408,7 @@ service Outlet {
 	rpc get_filter(GetFilter_Request) returns (GetFilter_Response);
 	rpc update_filter(UpdateFilter_Request) returns (UpdateFilter_Response);
 	rpc get_context_menu(GetContextMenu_Request) returns (GetContextMenu_Response);
+	rpc execute_tree_action(ExecuteTreeAction_Request) returns (ExecuteTreeAction_Response);
 
 	rpc request_display_tree(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);

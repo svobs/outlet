@@ -2,6 +2,7 @@ import collections
 import logging
 import os
 import pathlib
+import re
 import threading
 from collections import deque
 from typing import Callable, Deque, Dict, List, Optional, Set, Tuple
@@ -13,6 +14,7 @@ from backend.diff.transfer_maker import TransferMaker
 from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
+from backend.display_tree.context_menu_manager import ContextMenuManager
 from backend.display_tree.row_state_tracking import RowStateTracking
 from backend.executor.central import ExecPriority
 from backend.executor.command.cmd_interface import Command
@@ -20,12 +22,13 @@ from backend.executor.user_op.op_manager import OpManager
 from backend.tree_store.gdrive.gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
-from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
-    OPS_FILE_NAME, ROOT_PATH, \
+from constants import ActionID, CACHE_LOAD_TIMEOUT_SEC, DATE_REGEX, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
+    MenuItemType, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType
 from error import ResultsExceededError
 from model.cache_info import PersistedCacheInfo
 from model.context_menu import ContextMenuItem
+from model.device import Device
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
@@ -90,6 +93,7 @@ class CacheManager(HasLifecycle):
 
         self._active_tree_manager = ActiveTreeManager(self.backend)
         self._row_state_tracking = RowStateTracking(self.backend, self._active_tree_manager)
+        self._context_menu_manager = ContextMenuManager(self.backend)
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
         self._op_manager: OpManager = OpManager(self.backend, op_db_path)
@@ -108,6 +112,13 @@ class CacheManager(HasLifecycle):
         try:
             if self._local_disk_sig_calc_thread:
                 self._local_disk_sig_calc_thread.shutdown()
+        except (AttributeError, NameError):
+            pass
+
+        try:
+            if self._context_menu_manager:
+                self._context_menu_manager.shutdown()
+                self._context_menu_manager = None
         except (AttributeError, NameError):
             pass
 
@@ -158,6 +169,8 @@ class CacheManager(HasLifecycle):
             self._active_tree_manager.start()
 
             self._op_manager.start()
+
+            self._context_menu_manager.start()
 
             local_store = self._cache_registry.get_this_disk_local_store()
             if local_store and self.lazy_load_local_file_signatures:
@@ -583,7 +596,7 @@ class CacheManager(HasLifecycle):
         if not node:
             return None
 
-        spid = self.backend.node_identifier_factory.for_values(uid=node_uid, device_uid=device_uid, path_list=full_path, must_be_single_path=True)
+        spid = self.make_spid_for(node_uid=node_uid, device_uid=device_uid, full_path=full_path)
 
         return SPIDNodePair(spid, node)
 
@@ -934,6 +947,8 @@ class CacheManager(HasLifecycle):
 
         return self.get_node_for_uid(spid.node_uid, spid.device_uid)
 
-    def get_context_menu(self, tree_id: TreeID, identifier_list: List[NodeIdentifier]) -> List[ContextMenuItem]:
-        # TODO
-        return []
+    def get_context_menu(self, tree_id: TreeID, guid_list: List[GUID]) -> List[ContextMenuItem]:
+        return self._context_menu_manager.get_context_menu(tree_id, guid_list)
+
+    def execute_tree_action(self, tree_id: TreeID, action_id: ActionID, target_guid_list: Optional[List[GUID]]):
+        self._context_menu_manager.execute_tree_action(tree_id, action_id, target_guid_list)

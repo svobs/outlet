@@ -430,10 +430,16 @@ class TreeUiListeners(HasLifecycle):
 
         if clicked_on_selection:
             # User right-clicked on selection -> apply context menu to all selected items:
-            context_menu = self._context_menu.build_context_menu_multiple(selected_sn_list, selected_tree_paths)
+            sn_list = selected_sn_list
+            tree_path_list = selected_tree_paths
         else:
             # Singular item, or singular selection (equivalent logic). Display context menu:
-            context_menu = self._context_menu.build_context_menu_single(tree_path, clicked_sn)
+            sn_list = [clicked_sn]
+            tree_path_list = [tree_path]
+
+        spid_list = [sn.spid for sn in sn_list]
+        menu_item_list = self.con.backend.get_context_menu(tree_id=self.con.tree_id, identifier_list=spid_list)
+        context_menu = self._context_menu.build_context_menu(menu_item_list, sn_list, tree_path_list)
 
         if context_menu:
             context_menu.popup_at_pointer(event)
