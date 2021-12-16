@@ -26,9 +26,10 @@ class ContextMenuManager(HasLifecycle):
         HasLifecycle.__init__(self)
         self.backend = backend
 
-        # NOTE: only one action in here so far (and it's not even used!) but will expand on this in future
         self._action_handler_dict: Dict[ActionID, Callable[[ActionContext], None]] = {
-            ActionID.DELETE_SUBTREE_FOR_SINGLE_DEVICE: self._delete_subtree_for_single_device
+            ActionID.DELETE_SUBTREE_FOR_SINGLE_DEVICE: self._delete_subtree_for_single_device,
+            ActionID.DELETE_SUBTREE: self._delete_subtree_for_single_device,
+            ActionID.DELETE_SINGLE_FILE: self._delete_single_file
         }
 
     def start(self):
@@ -174,6 +175,7 @@ class ContextMenuManager(HasLifecycle):
                 if tree_type == TreeType.GDRIVE:
                     title += ' from Google Drive'
                 item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=title, action_id=ActionID.DELETE_SUBTREE)
+                item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
 
             else:  # not dir
@@ -182,6 +184,7 @@ class ContextMenuManager(HasLifecycle):
                 if tree_type == TreeType.GDRIVE:
                     title += ' from Google Drive'
                 item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=title, action_id=ActionID.DELETE_SINGLE_FILE)
+                item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
 
     def build_context_menu_for_sn_list(self, selected_sn_list: List[SPIDNodePair], tree_id: TreeID) -> List[ContextMenuItem]:
@@ -245,9 +248,22 @@ class ContextMenuManager(HasLifecycle):
         action_context = ActionContext(tree_id=tree_id, action_id=action_id, target_sn_list=target_sn_list)
         action_handler(action_context)
 
+    def _delete_single_file(self, context: ActionContext):
+        if not context.target_sn_list:
+            raise RuntimeError(f'Cannot delete file: no nodes provided!')
+        if len(context.target_sn_list) > 1:
+            raise RuntimeError(f'Cannot call DeleteSingleFile for multiple nodes!')
+
+        return self._delete_subtree_for_single_device(context)
+
     def _delete_subtree_for_single_device(self, context: ActionContext):
         if not context.target_sn_list:
             raise RuntimeError(f'Cannot delete subtree: no nodes provided!')
         device_uid = context.target_sn_list[0].spid.device_uid
-        node_uid_list = [sn.node.uid for sn in context.target_sn_list]
+        node_uid_list = []
+        for sn in context.target_sn_list:
+            if sn.node.device_uid != device_uid:
+                logger.error(f'Found unexpected device: {sn.node.device_uid} (expected: {device_uid})')
+                raise RuntimeError(f'Invalid: cannot call DeleteSubTree for more than a single device!')
+            node_uid_list.append(sn.node.uid)
         self.backend.delete_subtree(device_uid, node_uid_list)

@@ -7,7 +7,6 @@ from typing import List
 from pydispatch import dispatcher
 
 from constants import DATE_REGEX, OPEN, SHOW
-from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile
 from model.node.node import Node, SPIDNodePair
 from signal_constants import Signal
