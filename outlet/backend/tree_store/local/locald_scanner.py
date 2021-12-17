@@ -132,7 +132,7 @@ class LocalDiskScanner:
 
         self._local_tree = LocalDiskTree(self.backend)
         if not os.path.isdir(self.root_node_identifier.get_single_path()):
-            logger.debug(f'[{self.tree_id}] Root is a file!')
+            logger.debug(f'[{self.tree_id}] Root of scan is a file!')
             self.master_local.overwrite_dir_entries_list(parent_full_path=self.root_node_identifier.get_single_path(), child_list=[])
             return
 

@@ -159,8 +159,9 @@ class LocalDiskMasterStore(TreeStore):
                     raise RuntimeError(f'overwrite_dir_entries_list(): Parent (path={parent_full_path}) is not a dir, but we are asked to add '
                                        f'{len(child_list)} children to it!')
 
-        assert parent_dir and parent_dir.is_dir()
-        parent_dir.all_children_fetched = True
+        if parent_dir.is_dir():
+            parent_dir.all_children_fetched = True
+
         parent_spid: LocalNodeIdentifier = parent_dir.node_identifier
 
         # Get children of target parent, and sort into dirs and nondirs:
