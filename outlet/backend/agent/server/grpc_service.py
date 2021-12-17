@@ -15,8 +15,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     GetNextUid_Response, GetNodeForUid_Request, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetSnFor_Request, GetSnFor_Response, \
     GetUidForLocalPath_Request, GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, \
     RemoveExpandedRow_Response, RequestDisplayTree_Response, SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
-    SingleNode_Response, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, StartSubtreeLoad_Response, Subscribe_Request, \
-    TreeContextMenu_Request, TreeContextMenu_Response, UpdateFilter_Request, UpdateFilter_Response
+    SingleNode_Response, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response
 from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
 from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
@@ -528,10 +527,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def get_context_menu(self, request: GetContextMenu_Request, context):
-        identifier_list = []
-        for node_identifier_grpc in request.identifier_list:
-            identifier_list.append(self._converter.node_identifier_from_grpc(node_identifier_grpc))
-        menu_item_list: List[ContextMenuItem] = self.cacheman.get_context_menu(request.tree_id, identifier_list)
+        target_guid_list = []
+        for guid in request.target_guid_list:
+            target_guid_list.append(guid)
+        menu_item_list: List[ContextMenuItem] = self.cacheman.get_context_menu(request.tree_id, target_guid_list)
 
         response = GetContextMenu_Response()
         self._converter.menu_item_list_to_grpc(menu_item_list, response.menu_item_list)

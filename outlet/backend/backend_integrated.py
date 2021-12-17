@@ -8,7 +8,8 @@ from backend.diff.task.tree_diff_task import TreeDiffTask
 from backend.executor.central import CentralExecutor, ExecPriority
 from backend.cache_manager import CacheManager
 from backend.icon_store import IconStorePy
-from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeID
+from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeID
+from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
@@ -157,3 +158,9 @@ class BackendIntegrated(OutletBackend):
 
     def update_filter_criteria(self, tree_id: TreeID, filter_criteria: FilterCriteria):
         self.cacheman.update_filter_criteria(tree_id, filter_criteria)
+
+    def get_context_menu(self, tree_id: TreeID, target_guid_list: List[GUID]) -> List[ContextMenuItem]:
+        return self.cacheman.get_context_menu(tree_id=tree_id, guid_list=target_guid_list)
+
+    def execute_tree_action(self, tree_id: TreeID, action_id: ActionID, target_guid_list: Optional[List[GUID]]):
+        self.cacheman.execute_tree_action(tree_id=tree_id, action_id=action_id, target_guid_list=target_guid_list)

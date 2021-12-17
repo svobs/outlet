@@ -437,8 +437,8 @@ class TreeUiListeners(HasLifecycle):
             sn_list = [clicked_sn]
             tree_path_list = [tree_path]
 
-        spid_list = [sn.spid for sn in sn_list]
-        menu_item_list = self.con.backend.get_context_menu(tree_id=self.con.tree_id, identifier_list=spid_list)
+        guid_list = [sn.spid.guid for sn in sn_list]
+        menu_item_list = self.con.backend.get_context_menu(tree_id=self.con.tree_id, identifier_list=guid_list)
         context_menu = self._context_menu.build_context_menu(menu_item_list, sn_list, tree_path_list)
 
         if context_menu:

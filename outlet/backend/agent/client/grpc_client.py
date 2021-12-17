@@ -317,13 +317,12 @@ class BackendGRPCClient(OutletBackend):
             rows.selected.add(guid)
         return rows
 
-    def get_context_menu(self, tree_id: TreeID, identifier_list: List[NodeIdentifier]) -> List[ContextMenuItem]:
+    def get_context_menu(self, tree_id: TreeID, target_guid_list: List[GUID]) -> List[ContextMenuItem]:
         request = TreeContextMenu_Request()
         request.tree_id = tree_id
 
-        for node_identifier in identifier_list:
-            node_identifier_grpc = request.identifier_list.add()
-            self._converter.node_identifier_to_grpc(node_identifier, node_identifier_grpc)
+        for guid in target_guid_list:
+            request.target_guid_list.append(guid)
         response = self.grpc_stub.get_context_menu(request)
         return self._converter.menu_item_list_from_grpc(response.menu_item_list)
 

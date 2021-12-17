@@ -187,6 +187,8 @@ class ContextMenuManager(HasLifecycle):
                 item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
 
+        return menu_item_list
+
     def build_context_menu_for_sn_list(self, selected_sn_list: List[SPIDNodePair], tree_id: TreeID) -> List[ContextMenuItem]:
         menu_item_list = []
 

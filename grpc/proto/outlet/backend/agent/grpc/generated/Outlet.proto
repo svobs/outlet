@@ -300,7 +300,7 @@ message StartSubtreeLoad_Response {
 
 message GetContextMenu_Request {
 	string tree_id = 1;
-	repeated NodeIdentifier identifier_list = 2;
+	repeated string target_guid_list = 2;
 }
 
 message GetContextMenu_Response {

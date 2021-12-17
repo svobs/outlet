@@ -182,7 +182,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_context_menu(self, tree_id: TreeID, identifier_list: List[NodeIdentifier]) -> List[ContextMenuItem]:
+    def get_context_menu(self, tree_id: TreeID, target_guid_list: List[GUID]) -> List[ContextMenuItem]:
         pass
 
     @abstractmethod
