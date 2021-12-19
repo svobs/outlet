@@ -2,10 +2,9 @@ import collections
 import logging
 import os
 import pathlib
-import re
 import threading
 from collections import deque
-from typing import Callable, Deque, Dict, List, Optional, Set, Tuple
+from typing import Callable, Deque, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
@@ -22,21 +21,20 @@ from backend.executor.user_op.op_manager import OpManager
 from backend.tree_store.gdrive.gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
-from constants import ActionID, CACHE_LOAD_TIMEOUT_SEC, DATE_REGEX, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
-    MenuItemType, OPS_FILE_NAME, ROOT_PATH, \
-    SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType
+from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
+    OPS_FILE_NAME, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType
 from error import ResultsExceededError
 from model.cache_info import PersistedCacheInfo
 from model.context_menu import ContextMenuItem
-from model.device import Device
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.display_tree.summary import TreeSummarizer
+from model.display_tree.tree_action import TreeAction
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import Batch, UserOp, UserOpType
 from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
@@ -872,8 +870,12 @@ class CacheManager(HasLifecycle):
         self._row_state_tracking.set_selected_rows(tree_id, selected, select_ts=time_util.now_ms())
 
     def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
-        """AKA collapsing a row on the frontend"""
+        """AKA collapsing a row on the FE, from the backend"""
         self._row_state_tracking.remove_expanded_row(row_guid, tree_id)
+
+    def is_row_expanded(self, row_guid: GUID, tree_id: TreeID) -> bool:
+        """BE keeps track of row expanded states, and can be queried"""
+        return self._row_state_tracking.is_row_expanded(row_guid, tree_id)
 
     def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self._row_state_tracking.get_rows_of_interest(tree_id)
@@ -950,5 +952,5 @@ class CacheManager(HasLifecycle):
     def get_context_menu(self, tree_id: TreeID, guid_list: List[GUID]) -> List[ContextMenuItem]:
         return self._context_menu_manager.get_context_menu(tree_id, guid_list)
 
-    def execute_tree_action(self, tree_id: TreeID, action_id: ActionID, target_guid_list: Optional[List[GUID]]):
-        self._context_menu_manager.execute_tree_action(tree_id, action_id, target_guid_list)
+    def execute_tree_action_list(self, tree_action_list: List[TreeAction]):
+        self._context_menu_manager.execute_tree_action_list(tree_action_list)

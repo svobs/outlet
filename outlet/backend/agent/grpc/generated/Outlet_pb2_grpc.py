@@ -84,10 +84,10 @@ class OutletStub(object):
                 request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.SerializeToString,
                 response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.FromString,
                 )
-        self.execute_tree_action = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/execute_tree_action',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeAction_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeAction_Response.FromString,
+        self.execute_tree_action_list = channel.unary_unary(
+                '/outlet.backend.agent.grpc.generated.Outlet/execute_tree_action_list',
+                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.SerializeToString,
+                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.FromString,
                 )
         self.request_display_tree = channel.unary_unary(
                 '/outlet.backend.agent.grpc.generated.Outlet/request_display_tree',
@@ -251,7 +251,7 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def execute_tree_action(self, request, context):
+    def execute_tree_action_list(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -414,10 +414,10 @@ def add_OutletServicer_to_server(servicer, server):
                     request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.FromString,
                     response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.SerializeToString,
             ),
-            'execute_tree_action': grpc.unary_unary_rpc_method_handler(
-                    servicer.execute_tree_action,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeAction_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeAction_Response.SerializeToString,
+            'execute_tree_action_list': grpc.unary_unary_rpc_method_handler(
+                    servicer.execute_tree_action_list,
+                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.FromString,
+                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.SerializeToString,
             ),
             'request_display_tree': grpc.unary_unary_rpc_method_handler(
                     servicer.request_display_tree,
@@ -738,7 +738,7 @@ class Outlet(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def execute_tree_action(request,
+    def execute_tree_action_list(request,
             target,
             options=(),
             channel_credentials=None,
@@ -748,9 +748,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/execute_tree_action',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeAction_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeAction_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/execute_tree_action_list',
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.SerializeToString,
+            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

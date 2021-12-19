@@ -8,14 +8,16 @@ from pydispatch import dispatcher
 
 from backend.agent.grpc.conversion import GRPCConverter
 from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, \
-    ExecuteTreeAction_Request, GenerateMergeTree_Request, GetAncestorList_Response, GetChildList_Response, GetConfig_Request, GetConfig_Response, \
+    ExecuteTreeActionList_Request, ExecuteTreeActionList_Response, GenerateMergeTree_Request, GetAncestorList_Response, GetChildList_Response, \
+    GetConfig_Request, GetConfig_Response, \
     GetContextMenu_Request, \
     GetContextMenu_Response, GetDeviceList_Request, \
     GetDeviceList_Response, GetFilter_Response, GetIcon_Request, GetIcon_Response, GetLastPendingOp_Request, GetLastPendingOp_Response, \
     GetNextUid_Response, GetNodeForUid_Request, GetRowsOfInterest_Request, GetRowsOfInterest_Response, GetSnFor_Request, GetSnFor_Response, \
     GetUidForLocalPath_Request, GetUidForLocalPath_Response, PlayState, PutConfig_Request, PutConfig_Response, RemoveExpandedRow_Request, \
     RemoveExpandedRow_Response, RequestDisplayTree_Response, SendSignalResponse, SetSelectedRowSet_Request, SetSelectedRowSet_Response, SignalMsg, \
-    SingleNode_Response, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, StartSubtreeLoad_Response, Subscribe_Request, UpdateFilter_Request, UpdateFilter_Response
+    SingleNode_Response, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, StartSubtreeLoad_Response, Subscribe_Request, \
+    TreeAction, UpdateFilter_Request, UpdateFilter_Response
 from backend.agent.grpc.generated.Outlet_pb2_grpc import OutletServicer
 from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
@@ -87,6 +89,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.BATCH_FAILED, receiver=self._on_batch_failed)
         self.connect_dispatch_listener(signal=Signal.SET_SELECTED_ROWS, receiver=self._on_set_selected_rows)
+        self.connect_dispatch_listener(signal=Signal.EXECUTE_ACTION, receiver=self._on_execute_tree_action_list)
 
         # simple:
         self.forward_signal_to_clients(signal=Signal.DIFF_TREES_FAILED)
@@ -217,6 +220,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal = SignalMsg(sig_int=Signal.SET_SELECTED_ROWS, sender=sender)
         for guid in selected_rows:
             signal.guid_set.guid_set.append(guid)
+        self._send_grpc_signal_to_all_clients(signal)
+
+    def _on_execute_tree_action_list(self, sender: str, action_list: List[TreeAction]):
+        signal = SignalMsg(sig_int=Signal.EXECUTE_ACTION, sender=sender)
+        self._converter.tree_action_list_to_grpc(action_list, signal.tree_action_request)
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_gdrive_download_done(self, sender, filename: str):
@@ -536,13 +544,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self._converter.menu_item_list_to_grpc(menu_item_list, response.menu_item_list)
         return response
 
-    def execute_tree_action(self, request: ExecuteTreeAction_Request, context):
-        if request.target_guid_list:
-            target_guid_list = []
-            for guid in request.target_guid_list:
-                target_guid_list.append(guid)
-        else:
-            target_guid_list = None
+    def execute_tree_action_list(self, request: ExecuteTreeActionList_Request, context):
+        tree_action_list = self._converter.tree_action_list_from_grpc(request)
 
-        self.cacheman.execute_tree_action(tree_id=request.tree_id, action_id=ActionID(request.action_id), target_guid_list=target_guid_list)
-        return ExecuteTreeAction_Request()
+        self.cacheman.execute_tree_action_list(tree_action_list)
+        return ExecuteTreeActionList_Response()

@@ -83,6 +83,7 @@ class RowStateTracking:
 
     def add_expanded_row(self, guid: GUID, tree_id: TreeID):
         """AKA expanding a row on the frontend"""
+        # TODO: find out its ancestors so that it can be stored better.
         display_tree_meta: ActiveDisplayTreeMeta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
@@ -98,7 +99,7 @@ class RowStateTracking:
 
     def remove_expanded_row(self, row_guid: GUID, tree_id: TreeID):
         """AKA collapsing a row on the frontend"""
-        # TODO: change FE API to send descendants for removal also
+        # TODO: change to send descendants for removal also (see above)
         display_tree_meta: ActiveDisplayTreeMeta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             raise RuntimeError(f'Tree not found in memory: {tree_id}')
@@ -116,6 +117,13 @@ class RowStateTracking:
             return
 
         self._schedule_rows_of_interest_save(tree_id)
+
+    def is_row_expanded(self, row_guid: GUID, tree_id: TreeID):
+        display_tree_meta: ActiveDisplayTreeMeta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
+        if not display_tree_meta:
+            raise RuntimeError(f'Tree not found in memory: {tree_id}')
+
+        return row_guid in display_tree_meta.expanded_row_set
 
     def _schedule_rows_of_interest_save(self, tree_id: TreeID):
         with self._tree_id_set_lock:

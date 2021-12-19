@@ -317,9 +317,16 @@ class ActionID(IntEnum):
     DOWNLOAD_FROM_GDRIVE = 10    # FE only (should be BE though)
     SET_ROWS_CHECKED = 11        # FE only
     SET_ROWS_UNCHECKED = 12      # FE only
+    EXPAND_ROWS = 13             # BE -> FE
+    COLLAPSE_ROWS = 14           # BE -> FE
 
     CALL_EXIFTOOL = 50           # FE only
 
+    ACTIVATE = 100
+
+
+# Beyond this amount, an error msg will be displayed
+MAX_ROWS_PER_ACTIVATION = 20
 
 TREE_TYPE_DISPLAY = {TreeType.NA: '✪', TreeType.MIXED: 'M', TreeType.LOCAL_DISK: 'L', TreeType.GDRIVE: 'G'}
 

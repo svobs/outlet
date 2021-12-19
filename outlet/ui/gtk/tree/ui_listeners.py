@@ -284,7 +284,7 @@ class TreeUiListeners(HasLifecycle):
         else:
             logger.debug(f'[{self.con.tree_id}] User activated {len(tree_paths)} rows')
 
-        # FIXME: GTK3's multiple item activation is terrible - find a way around it
+        # TODO: replace the following with ActionID.ACTIVATE call
         if len(tree_paths) == 1:
             if self.on_single_row_activated(tree_view=tree_view, tree_path=tree_path):
                 return True
@@ -369,25 +369,37 @@ class TreeUiListeners(HasLifecycle):
             else:
                 tree_view.expand_row(path=tree_path, open_all=False)
             return True
-        else:
+        else:  # file
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
+
+            if sn.node.is_live():
+                self._activate_node(sn.node, self.con.tree_id)
+                return True
 
             op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(sn.node.uid)
             if op and op.has_dst():
                 logger.warning('TODO: test this!')
 
                 if op.src_node.is_live():
-                    _do_default_action_for_node(op.src_node, self.con.tree_id)
+                    self._activate_node(op.src_node, self.con.tree_id)
                     return True
                 elif op.dst_node.is_live():
-                    _do_default_action_for_node(op.dst_node, self.con.tree_id)
+                    self._activate_node(op.dst_node, self.con.tree_id)
                     return True
-            elif sn.node.is_live():
-                _do_default_action_for_node(sn.node, self.con.tree_id)
-                return True
             else:
-                logger.debug(f'Aborting activation: file does not exist: {sn.node}')
+                logger.debug(f'Aborting activation: node does not exist: {sn.node}')
+        return False
+
+    @staticmethod
+    def _activate_node(node: Node, tree_id: TreeID) -> bool:
+        if node.tree_type == TreeType.LOCAL_DISK:
+            # FIXME: this will not work for non-local files
+            dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.node_identifier.get_single_path())
+            return True
+        elif node.tree_type == TreeType.GDRIVE:
+            dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
+            return True
         return False
 
     def on_multiple_rows_activated(self, tree_view, tree_paths):
@@ -450,13 +462,3 @@ class TreeUiListeners(HasLifecycle):
 
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # ACTIONS end
-
-
-def _do_default_action_for_node(node: Node, tree_id: TreeID):
-    if node.tree_type == TreeType.LOCAL_DISK:
-        # FIXME: this will not work for non-local files
-        dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.node_identifier.get_single_path())
-        return True
-    elif node.tree_type == TreeType.GDRIVE:
-        dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
-        return True

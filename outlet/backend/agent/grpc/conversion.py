@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
-from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeContextMenuItem
+from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeAction, TreeContextMenuItem
 from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TRACE_ENABLED, TreeLoadState, TreeType
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -407,6 +407,40 @@ class GRPCConverter:
             menu_item.add_submenu_item(submenu_item)
         return menu_item
 
+    def tree_action_list_to_grpc(self, tree_action_list: List[TreeAction], grpc_action_list_container):
+        for action in tree_action_list:
+            action_grpc = grpc_action_list_container.action_list.add()
+
+            action_grpc.tree_id = action.tree_id
+            action_grpc.action_id = action.action_id
+
+            if action.target_guid_list:
+                for guid in action.target_guid_list:
+                    action_grpc.target_guid_list.append(guid)
+
+            if action.target_node_list:
+                for node in action.target_node_list:
+                    node_grpc = action_grpc.target_node_list.add()
+                    self.node_to_grpc(node, node_grpc)
+
+    def tree_action_list_from_grpc(self, grpc_action_list_container) -> List[TreeAction]:
+        action_list = []
+        for action_grpc in grpc_action_list_container.action_list:
+
+            target_guid_list = []
+            if action_grpc.target_guid_list:
+                for guid in action_grpc.target_guid_list:
+                    target_guid_list.append(guid)
+
+            target_node_list = []
+            if action_grpc.target_node_list:
+                for grpc_node in action_grpc.target_node_list:
+                    target_node_list.append(self.node_from_grpc(grpc_node))
+
+            action_list.append(TreeAction(action_grpc.tree_id, action_grpc.action_id, target_guid_list, target_node_list))
+
+        return action_list
+
     # Signal
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -426,6 +460,8 @@ class GRPCConverter:
             display_tree_ui_state = self.display_tree_ui_state_from_grpc(signal.dual_display_tree.right_tree)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['right_tree'] = tree
+        elif signal == Signal.EXECUTE_ACTION:
+            kwargs['action_list'] = self.tree_action_list_from_grpc(signal_msg.tree_action_request)
         elif signal == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
             kwargs['is_enabled'] = signal_msg.play_state.is_enabled
         elif signal == Signal.TOGGLE_UI_ENABLEMENT:

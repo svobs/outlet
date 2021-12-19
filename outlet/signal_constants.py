@@ -51,6 +51,7 @@ class Signal(IntEnum):
     When done, the central cache will send the signal REFRESH_SUBTREE_STATS_DONE to notify the tree that it can redraw the displayed nodes"""
     SHUTDOWN_APP = 34
     DEREGISTER_DISPLAY_TREE = 35
+    EXECUTE_ACTION = 36  # Request from BE to execute action(s) in FE
 
     TREE_LOAD_STATE_UPDATED = 40
     """Fired by the backend each time the TreeLoadState changes for a given tree"""
@@ -111,6 +112,7 @@ ID_MERGE_TREE = 'merge_tree'
 
 ID_GDRIVE_DIR_SELECT = 'gdrive_dir_select'
 ID_GLOBAL_CACHE = 'global_cache'
+ID_CONTEXT_MENU_MANAGER = 'context-menu-manager'
 ID_OP_MANAGER = 'op-manager'
 ID_COMMAND_EXECUTOR = 'command-executor'
 ID_CENTRAL_EXEC = 'central-executor'
