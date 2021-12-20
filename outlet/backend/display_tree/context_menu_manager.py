@@ -45,7 +45,7 @@ class ContextMenuManager(HasLifecycle):
         if len(sn_list) == 1:
             return self.build_context_menu_for_single_sn(sn_list[0], tree_id)
         else:
-            return self.build_context_menu_for_sn_list(sn_list, tree_id)
+            return self.build_context_menu_for_sn_list(sn_list, guid_list, tree_id)
 
     def _build_submenu_for_op_node(self, op: UserOp, op_node: Node, op_node_label: str, clicked_sn: SPIDNodePair, tree_id: TreeID) \
             -> ContextMenuItem:
@@ -110,6 +110,7 @@ class ContextMenuManager(HasLifecycle):
 
         if sn.node.is_dir():
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Expand All', action_id=ActionID.EXPAND_ALL)
+            item.target_guid_list = [sn.spid.guid]
             menu_item_list.append(item)
 
         if sn.node.is_live():
@@ -118,6 +119,7 @@ class ContextMenuManager(HasLifecycle):
 
             # MenuItem: Refresh
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Refresh', action_id=ActionID.REFRESH)
+            item.target_guid_list = [sn.spid.guid]
             menu_item_list.append(item)
 
         return menu_item_list
@@ -132,15 +134,18 @@ class ContextMenuManager(HasLifecycle):
         # MenuItem: 'Show in Nautilus'
         if sn.node.is_live() and tree_type == TreeType.LOCAL_DISK:
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Show in File Explorer', action_id=ActionID.SHOW_IN_FILE_EXPLORER)
+            item.target_guid_list = [sn.spid.guid]
             menu_item_list.append(item)
 
         # MenuItem: 'Download from Google Drive' [GDrive] OR 'Open with default app' [Local]
         if sn.node.is_live() and not sn.node.is_dir():
             if tree_type == TreeType.GDRIVE:
                 item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Download from Google Drive', action_id=ActionID.DOWNLOAD_FROM_GDRIVE)
+                item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
             elif tree_type == TreeType.LOCAL_DISK:
                 item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Open with Default App', action_id=ActionID.OPEN_WITH_DEFAULT_APP)
+                item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
 
         # Label: Does not exist
@@ -158,6 +163,7 @@ class ContextMenuManager(HasLifecycle):
                 # MenuItem: 'Go Into {dir}'
                 if tree_meta.can_change_root():
                     item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Go Into "{sn.node.name}"', action_id=ActionID.GO_INTO_DIR)
+                    item.target_guid_list = [sn.spid.guid]
                     menu_item_list.append(item)
 
                 # MenuItem: 'Use EXIFTool on dir'
@@ -165,6 +171,7 @@ class ContextMenuManager(HasLifecycle):
                     match = re.match(DATE_REGEX, sn.node.name)
                     if match:
                         item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Use EXIFTool on Dir"', action_id=ActionID.CALL_EXIFTOOL)
+                        item.target_guid_list = [sn.spid.guid]
                         menu_item_list.append(item)
 
                 # MenuItem: 'Delete tree'
@@ -186,7 +193,8 @@ class ContextMenuManager(HasLifecycle):
 
         return menu_item_list
 
-    def build_context_menu_for_sn_list(self, selected_sn_list: List[SPIDNodePair], tree_id: TreeID) -> List[ContextMenuItem]:
+    def build_context_menu_for_sn_list(self, selected_sn_list: List[SPIDNodePair], selected_guid_list: List[GUID], tree_id: TreeID) \
+            -> List[ContextMenuItem]:
         menu_item_list = []
 
         # Show number of items selected
@@ -199,15 +207,18 @@ class ContextMenuManager(HasLifecycle):
 
         if tree_meta.has_checkboxes():
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Check All"', action_id=ActionID.SET_ROWS_CHECKED)
+            item.target_guid_list = selected_guid_list
             menu_item_list.append(item)
 
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Uncheck All"', action_id=ActionID.SET_ROWS_UNCHECKED)
+            item.target_guid_list = selected_guid_list
             menu_item_list.append(item)
 
         # KLUDGE! Prob will remove this anyway:
         is_localdisk = len(selected_sn_list) > 0 and selected_sn_list[0].node.tree_type == TreeType.LOCAL_DISK
         if is_localdisk:
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Use EXIFTool on Dirs"', action_id=ActionID.CALL_EXIFTOOL)
+            item.target_guid_list = selected_guid_list
             menu_item_list.append(item)
 
         # Show an option to delete nodes (sort nodes by subtree; display option for each subtree found)

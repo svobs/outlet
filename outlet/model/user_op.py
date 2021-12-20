@@ -263,7 +263,6 @@ class Batch:
     def __init__(self, batch_uid: UID, op_list: List[UserOp], to_select_in_ui: Optional[Set[GUID]] = None, select_ts: Optional[int] = 0,
                  select_in_tree_id: Optional[TreeID] = None):
         assert batch_uid, 'No batch_uid!'
-        assert op_list, f'No ops in batch {batch_uid}!'
 
         self.batch_uid: UID = batch_uid
         self.op_list: List[UserOp] = op_list

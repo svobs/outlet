@@ -2,18 +2,19 @@ import logging
 from typing import Dict, Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
-from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeAction, TreeContextMenuItem
-from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TRACE_ENABLED, TreeLoadState, TreeType
+from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeContextMenuItem
+from constants import ActionID, ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TRACE_ENABLED, TreeLoadState, TreeType
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
+from model.display_tree.tree_action import TreeAction
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, NonexistentDirNode, SPIDNodePair
-from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GDriveIdentifier, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from outlet.backend.agent.grpc.generated import Outlet_pb2
 from signal_constants import Signal
@@ -437,7 +438,8 @@ class GRPCConverter:
                 for grpc_node in action_grpc.target_node_list:
                     target_node_list.append(self.node_from_grpc(grpc_node))
 
-            action_list.append(TreeAction(action_grpc.tree_id, action_grpc.action_id, target_guid_list, target_node_list))
+            action_id = ActionID(action_grpc.action_id)
+            action_list.append(TreeAction(action_grpc.tree_id, action_id, target_guid_list, target_node_list))
 
         return action_list
 
