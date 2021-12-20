@@ -256,7 +256,8 @@ class ContextMenuManager(HasLifecycle):
         if not action_handler:
             raise RuntimeError(f'Backend cannot find an action handler for: {tree_action.action_id.name}')
 
-        logger.debug(f'[{tree_action.tree_id}] Calling ActionHandler for action {tree_action.action_id} target_guid_list={tree_action.target_guid_list}')
+        logger.debug(f'[{tree_action.tree_id}] Calling ActionHandler for action {tree_action.action_id.name} '
+                     f'target_guid_list={tree_action.target_guid_list}')
         action_handler(tree_action)
 
     def _get_sn_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID):
@@ -306,7 +307,8 @@ class ContextMenuManager(HasLifecycle):
 
         if dir_count == len(target_sn_list):  # All dirs
             # Expand/collapse row:
-            if _is_true_for_all_in_list(cxt.target_guid_list, lambda guid: not self.backend.cacheman.is_row_expanded(guid)):
+            if _is_true_for_all_in_list(cxt.target_guid_list, lambda guid: not self.backend.cacheman.is_row_expanded(row_guid=guid,
+                                                                                                                     tree_id=cxt.tree_id)):
                 action = TreeAction(cxt.tree_id, action_id=ActionID.EXPAND_ROWS, target_guid_list=cxt.target_guid_list)
             else:
                 # Collapse by default

@@ -158,9 +158,6 @@ class OpManager(HasLifecycle):
          - Persist the list of to-be-completed ops to disk, for robustness.
          - Asynchronously add the batch to the queue of batches to submit.
         """
-        if not batch or batch.op_list:
-            return
-
         batch_uid = batch.batch_uid
         logger.debug(f'enqueue_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch.op_list)} ops')
 

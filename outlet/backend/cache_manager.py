@@ -444,6 +444,9 @@ class CacheManager(HasLifecycle):
             batch.op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
                                         op_type=UserOpType.RM, src_node=node_to_delete))
 
+        if not batch.op_list:
+            raise RuntimeError(f'Something went wrong: batch has no operations!')
+
         self.enqueue_op_batch(batch)
 
     def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[Node]:
