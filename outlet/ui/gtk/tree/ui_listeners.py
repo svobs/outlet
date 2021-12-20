@@ -1,20 +1,19 @@
 import logging
 from typing import List, Optional, Set
 
-import gi
 from pydispatch import dispatcher
 
 from backend.diff.change_maker import SPIDNodePair
-from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, TreeID, TreeType
+from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy
 from model.display_tree.display_tree import DisplayTree
-from model.node.node import Node
+from model.display_tree.tree_action import TreeAction
 from model.node_identifier import GUID
 from model.uid import UID
-from model.user_op import UserOp
 from signal_constants import Signal
 from ui.gtk.tree.context_menu import TreeContextMenu
 from util.has_lifecycle import HasLifecycle
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
 
@@ -276,22 +275,17 @@ class TreeUiListeners(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Ignoring row activation - UI is disabled')
             # Allow it to propagate down the chain:
             return False
-        selection = tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        if not tree_paths:
+
+        selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection()
+        if not selected_sn_list:
             logger.error(f'[{self.con.tree_id}] Row somehow activated with no selection!')
             return False
         else:
-            logger.debug(f'[{self.con.tree_id}] User activated {len(tree_paths)} rows')
+            logger.debug(f'[{self.con.tree_id}] User activated {len(selected_sn_list)} rows')
 
-        # TODO: replace the following with ActionID.ACTIVATE call
-        if len(tree_paths) == 1:
-            if self.on_single_row_activated(tree_view=tree_view, tree_path=tree_path):
-                return True
-        else:
-            if self.on_multiple_rows_activated(tree_view=tree_view, tree_paths=tree_paths):
-                return True
-        return False
+        action = TreeAction(self.con.tree_id, action_id=ActionID.ACTIVATE, target_guid_list=[sn.spid.guid for sn in selected_sn_list])
+        self.con.backend.execute_tree_action_list([action])
+        return True
 
     def _on_toggle_gtk_row_expanded_state(self, tree_view, parent_iter, parent_path, is_expanded):
         sn = self.con.display_store.get_node_data(parent_iter)
@@ -359,66 +353,15 @@ class TreeUiListeners(HasLifecycle):
     # ACTIONS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def on_single_row_activated(self, tree_view, tree_path):
-        """Fired when an node is double-clicked or when an node is selected and Enter is pressed"""
-        sn: SPIDNodePair = self.con.display_store.get_node_data(tree_path)
-        if sn.node.is_dir():
-            # Expand/collapse row:
-            if tree_view.row_expanded(tree_path):
-                tree_view.collapse_row(tree_path)
-            else:
-                tree_view.expand_row(path=tree_path, open_all=False)
-            return True
-        else:  # file
-            # Attempt to open it no matter where it is.
-            # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
-
-            if sn.node.is_live():
-                self._activate_node(sn.node, self.con.tree_id)
-                return True
-
-            op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(sn.node.uid)
-            if op and op.has_dst():
-                logger.warning('TODO: test this!')
-
-                if op.src_node.is_live():
-                    self._activate_node(op.src_node, self.con.tree_id)
-                    return True
-                elif op.dst_node.is_live():
-                    self._activate_node(op.dst_node, self.con.tree_id)
-                    return True
-            else:
-                logger.debug(f'Aborting activation: node does not exist: {sn.node}')
-        return False
-
-    @staticmethod
-    def _activate_node(node: Node, tree_id: TreeID) -> bool:
-        if node.tree_type == TreeType.LOCAL_DISK:
-            # FIXME: this will not work for non-local files
-            dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.node_identifier.get_single_path())
-            return True
-        elif node.tree_type == TreeType.GDRIVE:
-            dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
-            return True
-        return False
-
-    def on_multiple_rows_activated(self, tree_view, tree_paths):
-        """Fired when multiple items are selected and Enter is pressed"""
-        if len(tree_paths) > 20:
-            self.con.parent_win.show_error_msg(f'Too many items selected', f'You selected {len(tree_paths)} items, which is too many for you.\n\n'
-                                               f'Try selecting less items first. This message exists for your protection. You child.')
-        for tree_path in tree_paths:
-            self.on_single_row_activated(tree_view, tree_path)
-        return True
-
     def on_delete_key_pressed(self):
         if not self.con.treeview_meta.can_modify_tree:
             return False
 
-        selected_node_list: List[Node] = self.con.display_store.get_multiple_selection()
-        if selected_node_list:
-            if self.con.parent_win.show_question_dialog('Confirm Delete', f'Are you sure you want delete these {len(selected_node_list)} items?'):
-                dispatcher.send(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, node_list=selected_node_list)
+        selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection()
+        if selected_sn_list:
+            if self.con.parent_win.show_question_dialog('Confirm Delete', f'Are you sure you want delete these {len(selected_sn_list)} items?'):
+                node_list = [sn.node for sn in selected_sn_list]
+                dispatcher.send(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, node_list=node_list)
                 return True
 
         return False
