@@ -94,13 +94,13 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
 
                 logger.debug(f'[{self.name}] Submitting batch calc task with {len(nodes_to_scan)} nodes and {bytes_to_scan:d} bytes total '
                              f'({len(self._node_queue)} nodes still enqueued)')
-                calc_task = Task(ExecPriority.P6_SIGNATURE_CALC, self.batch_calculate_signatures, nodes_to_scan)
+                calc_task = Task(ExecPriority.P7_SIGNATURE_CALC, self.batch_calculate_signatures, nodes_to_scan)
                 self._running_task_set.add(calc_task.task_uuid)
             self.backend.executor.submit_async_task(calc_task)
 
     def batch_calculate_signatures(self, this_task: Task, nodes_to_scan: List[LocalFileNode]):
         """One task is created for each execution of this method."""
-        assert this_task.priority == ExecPriority.P6_SIGNATURE_CALC
+        assert this_task.priority == ExecPriority.P7_SIGNATURE_CALC
 
         if len(nodes_to_scan) == 0:
             # indicates a bug in this file

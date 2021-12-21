@@ -2,6 +2,7 @@ import logging
 import re
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
+from backend.executor.central import ExecPriority
 from constants import ActionID, DATE_REGEX, MAX_ROWS_PER_ACTIVATION, MenuItemType, SUPER_DEBUG_ENABLED, TreeID, TreeType
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -13,6 +14,8 @@ from model.user_op import UserOp
 from signal_constants import ID_CONTEXT_MENU_MANAGER, Signal
 from util.has_lifecycle import HasLifecycle
 from pydispatch import dispatcher
+
+from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +29,8 @@ class ContextMenuManager(HasLifecycle):
             ActionID.DELETE_SUBTREE_FOR_SINGLE_DEVICE: self._delete_subtree_for_single_device,
             ActionID.DELETE_SUBTREE: self._delete_subtree_for_single_device,
             ActionID.DELETE_SINGLE_FILE: self._delete_single_file,
-            ActionID.ACTIVATE: self._activate
+            ActionID.ACTIVATE: self._activate,
+            ActionID.REFRESH: self._refresh_subtree
         }
 
     def start(self):
@@ -353,6 +357,13 @@ class ContextMenuManager(HasLifecycle):
         elif node.tree_type == TreeType.GDRIVE:
             return TreeAction(tree_id, ActionID.DOWNLOAD_FROM_GDRIVE, [], [node])
         return None
+
+    def _refresh_subtree(self, act: TreeAction):
+        target_sn_list = self._get_sn_list_for_guid_list(guid_list=act.target_guid_list, tree_id=act.tree_id)
+        node_identifier_list = [sn.node.node_identifier for sn in target_sn_list]
+        logger.info(f'Enqueuing task to refresh subtree at {node_identifier_list}')
+        for node_identifier in node_identifier_list:
+            self.backend.executor.submit_async_task(Task(ExecPriority.P1_USER_LOAD, self._refresh_subtree, node_identifier, act.tree_id))
 
 
 T = TypeVar('T')

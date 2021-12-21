@@ -2,7 +2,7 @@ import logging
 import threading
 from collections import defaultdict
 from enum import IntEnum
-from typing import DefaultDict, Dict, List, Optional, Set, Tuple
+from typing import DefaultDict, Dict, List, Optional, Set
 
 from pydispatch import dispatcher
 
@@ -11,14 +11,13 @@ from backend.executor.command.cmd_builder import CommandBuilder
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.batch_builder import BatchBuilder
 from backend.executor.user_op.op_disk_store import OpDiskStore
-from backend.executor.user_op.op_graph import OpGraph, skip_root
-from backend.executor.user_op.op_graph_node import OpGraphNode, RootNode
-from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId, OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT, \
-    SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from error import OpGraphError, UnsuccessfulBatchInsertError
+from backend.executor.user_op.op_graph import OpGraph
+from backend.executor.user_op.op_graph_node import RootNode
+from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId, SUPER_DEBUG_ENABLED
+from error import UnsuccessfulBatchInsertError
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import Batch, OpTypeMeta, UserOp, UserOpStatus
+from model.user_op import Batch, UserOp, UserOpStatus
 from signal_constants import ID_OP_MANAGER, Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
@@ -100,7 +99,7 @@ class OpManager(HasLifecycle):
             return len(self._pending_batch_dict) > 0 or not self._are_batches_loaded_from_last_run
 
     def try_batch_submit(self):
-        self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._submit_next_batch))
+        self.backend.executor.submit_async_task(Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, self._submit_next_batch))
 
     def _on_handle_batch_failed(self, sender, batch_uid: UID, error_handling_strategy: ErrorHandlingStrategy):
         """This is triggered when the user indicated a strategy for handling any batch errors."""
@@ -179,7 +178,7 @@ class OpManager(HasLifecycle):
 
         # Use the same priority as "background cache load" so that we can ensure that relevant caches are loaded...
         # TODO: find a way to increase priority here. User will not see dragged nodes until caches are loaded!
-        batch_intake_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._batch_intake, batch)
+        batch_intake_task = Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, self._batch_intake, batch)
         batch_intake_task.add_next_task(self._submit_next_batch)
         self.backend.executor.submit_async_task(batch_intake_task)
         logger.debug(f'enqueue_new_pending_op_batch(): Enqueued append_batch task for {batch_uid}')
@@ -238,7 +237,7 @@ class OpManager(HasLifecycle):
         """Adds the given batch of UserOps to the graph, which will lead to their eventual execution. Optionally also saves the ops to disk,
         which should only be done if they haven't already been saved.
         This method should only be called via the Executor."""
-        assert this_task and this_task.priority == ExecPriority.P3_BACKGROUND_CACHE_LOAD, f'Bad task: {this_task}'
+        assert this_task and this_task.priority == ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, f'Bad task: {this_task}'
 
         batch.op_list.sort(key=lambda _op: _op.op_uid)
 

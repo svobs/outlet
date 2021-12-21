@@ -29,20 +29,23 @@ class ExecPriority(IntEnum):
     P1_USER_LOAD = 1
 
     # Cache loads from disk into memory (such as during startup)
-    P3_BACKGROUND_CACHE_LOAD = 4
+    P2_USER_RELEVANT_CACHE_LOAD = 2
 
     # Updates to the cache based on disk monitoring, in batches.
-    P4_LIVE_UPDATE = 4
+    P3_LIVE_UPDATE = 3
 
     # GDrive whole tree downloads (in chunks), diffs, and other tasks which should be run after the caches have settled.
-    P5_LONG_RUNNING_USER_TASK = 5
-
-    # Signature calculations: IO-dominant
-    P6_SIGNATURE_CALC = 6
+    P4_LONG_RUNNING_USER_TASK = 4
 
     # This queue stores operations like "resume pending ops on startup", but we also consult the OpManager.
     # Also used for TreeDiffTask presently
-    P7_USER_OP_EXECUTION = 7
+    P5_USER_OP_EXECUTION = 5
+
+    # Tasks, such as syncing between directories, or just updating the cache by rescanning, but for caches which aren't displayed
+    P6_BACKGROUND_CACHE_LOAD = 6
+
+    # Signature calculations: IO-dominant
+    P7_SIGNATURE_CALC = 7
 
 
 class CentralExecutor(HasLifecycle):
@@ -65,37 +68,43 @@ class CentralExecutor(HasLifecycle):
         self._struct_lock = threading.Lock()
         self._running_task_cv = threading.Condition()
 
-        self._PRIORITY_LIST = [ExecPriority.P1_USER_LOAD,
-                               ExecPriority.P3_BACKGROUND_CACHE_LOAD,
-                               ExecPriority.P4_LIVE_UPDATE,
-                               ExecPriority.P5_LONG_RUNNING_USER_TASK,
-                               ExecPriority.P6_SIGNATURE_CALC]
+        self._FIRST_PRIORITY_LIST = [ExecPriority.P1_USER_LOAD,
+                                     ExecPriority.P2_USER_RELEVANT_CACHE_LOAD,
+                                     ExecPriority.P3_LIVE_UPDATE,
+                                     ExecPriority.P4_LONG_RUNNING_USER_TASK]
+
+        self._SECOND_PRIORITY_LIST = [ExecPriority.P6_BACKGROUND_CACHE_LOAD,
+                                      ExecPriority.P7_SIGNATURE_CALC]
 
         # -- QUEUES --
         self._submitted_task_queue_dict: Dict[ExecPriority, Queue[Task]] = {
 
             ExecPriority.P1_USER_LOAD: Queue[Task](),
 
-            ExecPriority.P3_BACKGROUND_CACHE_LOAD: Queue[Task](),
+            ExecPriority.P2_USER_RELEVANT_CACHE_LOAD: Queue[Task](),
 
-            ExecPriority.P4_LIVE_UPDATE: Queue[Task](),
+            ExecPriority.P3_LIVE_UPDATE: Queue[Task](),
 
-            ExecPriority.P5_LONG_RUNNING_USER_TASK: Queue[Task](),
+            ExecPriority.P4_LONG_RUNNING_USER_TASK: Queue[Task](),
 
-            ExecPriority.P6_SIGNATURE_CALC: Queue[Task](),
+            ExecPriority.P6_BACKGROUND_CACHE_LOAD: Queue[Task](),
+
+            ExecPriority.P7_SIGNATURE_CALC: Queue[Task](),
         }
 
         self._next_task_queue_dict: Dict[ExecPriority, Queue[Task]] = {
 
             ExecPriority.P1_USER_LOAD: Queue[Task](),
 
-            ExecPriority.P3_BACKGROUND_CACHE_LOAD: Queue[Task](),
+            ExecPriority.P2_USER_RELEVANT_CACHE_LOAD: Queue[Task](),
 
-            ExecPriority.P5_LONG_RUNNING_USER_TASK: Queue[Task](),
+            ExecPriority.P3_LIVE_UPDATE: Queue[Task](),
 
-            ExecPriority.P4_LIVE_UPDATE: Queue[Task](),
+            ExecPriority.P4_LONG_RUNNING_USER_TASK: Queue[Task](),
 
-            ExecPriority.P6_SIGNATURE_CALC: Queue[Task](),
+            ExecPriority.P6_BACKGROUND_CACHE_LOAD: Queue[Task](),
+
+            ExecPriority.P7_SIGNATURE_CALC: Queue[Task](),
         }
 
         self._running_task_dict: Dict[UUID, Task] = {}
@@ -147,13 +156,13 @@ class CentralExecutor(HasLifecycle):
     def get_engine_summary_state(self) -> EngineSummaryState:
         with self._struct_lock:
             # FIXME: need to revisit these categories
-            if self._submitted_task_queue_dict[ExecPriority.P3_BACKGROUND_CACHE_LOAD].qsize() > 0 \
-                    or self._submitted_task_queue_dict[ExecPriority.P5_LONG_RUNNING_USER_TASK].qsize() > 0:
+            if self._submitted_task_queue_dict[ExecPriority.P2_USER_RELEVANT_CACHE_LOAD].qsize() > 0 \
+                    or self._submitted_task_queue_dict[ExecPriority.P4_LONG_RUNNING_USER_TASK].qsize() > 0:
                 # still getting up to speed on the BE
                 return EngineSummaryState.RED
 
             total_enqueued = self._submitted_task_queue_dict[ExecPriority.P1_USER_LOAD].qsize() + \
-                             self._submitted_task_queue_dict[ExecPriority.P6_SIGNATURE_CALC].qsize()
+                             self._submitted_task_queue_dict[ExecPriority.P7_SIGNATURE_CALC].qsize()
 
             if total_enqueued > 0:
                 return EngineSummaryState.YELLOW
@@ -179,7 +188,7 @@ class CentralExecutor(HasLifecycle):
     def wait_until_queue_depleted(self, priority: ExecPriority):
         self._submitted_task_queue_dict.get(priority).join()
 
-    # Central Executor Thread
+    # Central Executor Thread Runtime Loop
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     def _run_central_exec_thread(self):
         logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Starting thread...')
@@ -187,100 +196,33 @@ class CentralExecutor(HasLifecycle):
         try:
             while not self.was_shutdown:
                 task = self._check_for_queued_task()
+                if TRACE_ENABLED:
+                    self._print_current_state_of_pipeline()
+
                 if task:
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority {task.priority.name}: '
+                                     f'"{task.task_func.__name__}" uuid={task.task_uuid}')
+                    with self._struct_lock:
+                        self._running_task_dict[task.task_uuid] = task
                     self._enqueue_in_task_runner(task)
                 else:
-                    if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No tasks or UserOps from queue. Waiting to be notified by CV')
                     with self._running_task_cv:
                         if not self._was_notified:  # could have been notified while run loop was doing other work
                             # wait until we are notified of new task (assuming task queue is not full)
                             # or task finished (if task queue is full)
                             if not self._running_task_cv.wait(TASK_EXEC_IMEOUT_SEC):
-                                if SUPER_DEBUG_ENABLED:
+                                if TRACE_ENABLED:
                                     logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CV timeout! Looping')
 
         finally:
             logger.info(f'[{CENTRAL_EXEC_THREAD_NAME}] Execution stopped')
 
-    def _get_user_op_count(self) -> int:
-        user_op_count = 0
-        for running_task in self._running_task_dict.values():
-            if running_task.priority == ExecPriority.P7_USER_OP_EXECUTION:
-                user_op_count += 1
-        return user_op_count
-
-    def _check_for_queued_task(self) -> Optional[Task]:
-        if TRACE_ENABLED:
-            logger.debug('CheckForQueuedTasks() entered')
-        task: Optional[Task] = None
-
-        with self._struct_lock:
-            with self._running_task_cv:
-                self._was_notified = False
-
-            if self.was_shutdown:
-                # check this again in case shutdown broke us out of our CV:
-                return None
-
-            total_count = len(self._running_task_dict)
-            if total_count >= self._max_workers:
-                # already at max capacity
-                logger.debug(f'CheckForQueuedTasks(): Already running max number of workers ({self._max_workers}); will wait for one to complete')
-                return None
-
-            # Count number of user ops already running:
-            user_op_count = self._get_user_op_count()
-            non_user_op_count = total_count - user_op_count
-
-            if non_user_op_count < TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS:
-                if TRACE_ENABLED:
-                    logger.debug('Getting next task to run')
-                task = self._get_next_task_from_non_user_op_queues()
-                if task:
-                    if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Got task with priority {task.priority.name}: '
-                                     f'"{task.task_func.__name__}" uuid={task.task_uuid}')
-                    self._running_task_dict[task.task_uuid] = task
-                    # fall through:
-                else:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): No regular tasks enqueued; {non_user_op_count} running')
-            else:
-                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of concurrent regular tasks '
-                             f'({TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS}) ')
-
-        if self.was_shutdown:
-            return
-
-        if task:
-            return task
-
-        # Now handle user ops. Do this outside the CV:
-        if self.enable_op_execution and user_op_count < TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS:
-            try:
-                if TRACE_ENABLED:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Checking OpGraph for any new tasks')
-                command = self.backend.cacheman.get_next_command_nowait()
-                if command:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Got new task from OpGraph ({command.op}, '
-                                 f'cmd = {command.__class__.__name__})')
-                    task = Task(ExecPriority.P7_USER_OP_EXECUTION, self._command_executor.execute_command, command,
-                                self._command_executor.global_context, True)
-                    with self._struct_lock:
-                        self._running_task_dict[task.task_uuid] = task
-                    return task
-                elif SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): No new tasks ready in OpGraph')
-
-            except RuntimeError as e:
-                logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving OpGraph cmd: halting execution pipeline')
-                self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error retreiving command', secondary_msg=f'{e}')
-                self._pause_op_execution(sender=ID_CENTRAL_EXEC)
-
-            return task
-        else:
-            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Running max OpGraph tasks '
-                         f'({TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS}) - OpExecutionEnabled={self.enable_op_execution}')
+    def _enqueue_in_task_runner(self, task: Task):
+        future = self._be_task_runner.enqueue_task(task)
+        callback = partial(self._on_task_done, task)
+        # This will call back immediately if the task already completed:
+        future.add_done_callback(callback)
 
     def _print_current_state_of_pipeline(self):
         running_tasks_str, problem_tasks_str_list = self._get_running_task_dict_debug_info()
@@ -309,11 +251,62 @@ class CentralExecutor(HasLifecycle):
 
         return running_tasks_str, problem_tasks_str_list
 
-    def _enqueue_in_task_runner(self, task: Task):
-        future = self._be_task_runner.enqueue_task(task)
-        callback = partial(self._on_task_done, task)
-        # This will call back immediately if the task already completed:
-        future.add_done_callback(callback)
+    def _get_user_op_count(self) -> int:
+        user_op_count = 0
+        for running_task in self._running_task_dict.values():
+            if running_task.priority == ExecPriority.P5_USER_OP_EXECUTION:
+                user_op_count += 1
+        return user_op_count
+
+    def _check_for_queued_task(self) -> Optional[Task]:
+        if TRACE_ENABLED:
+            logger.debug('CheckForQueuedTasks() entered')
+
+        with self._struct_lock:
+            with self._running_task_cv:
+                self._was_notified = False
+
+            if self.was_shutdown:
+                # check this again in case shutdown broke us out of our CV:
+                return None
+
+            total_count = len(self._running_task_dict)
+            if total_count >= self._max_workers:
+                # already at max capacity
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of workers '
+                             f'({self._max_workers}); will wait for one to complete')
+                return None
+
+            # Count number of user ops already running:
+            user_op_count = self._get_user_op_count()
+            non_user_op_count = total_count - user_op_count
+
+            if TRACE_ENABLED:
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Checking 1st tier priority queues...')
+            task = self._get_next_task_from_queues(non_user_op_count, self._FIRST_PRIORITY_LIST)
+            if task:
+                return task
+
+        if self.was_shutdown:
+            return None
+
+        task = self._get_next_task_from_op_graph(user_op_count)
+        if task:
+            return task
+
+        if self.was_shutdown:
+            return None
+
+        with self._struct_lock:
+            if TRACE_ENABLED:
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Checking 2nd tier priority queues...')
+            task = self._get_next_task_from_queues(non_user_op_count, self._SECOND_PRIORITY_LIST)
+            if task:
+                return task
+
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No new tasks started. Running {non_user_op_count} tasks + {user_op_count} ops '
+                         f' (max {self._max_workers})')
 
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
         assert self._struct_lock.locked()
@@ -328,15 +321,55 @@ class CentralExecutor(HasLifecycle):
             except Empty:
                 return None
 
-    def _get_next_task_from_non_user_op_queues(self) -> Optional[Task]:
+    def _get_next_task_from_queues(self, non_user_op_count: int, priority_list: List[ExecPriority]) -> Optional[Task]:
         assert self._struct_lock.locked()
 
-        for priority in self._PRIORITY_LIST:
+        if non_user_op_count >= TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS:
+            if TRACE_ENABLED:
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Already running max number of '
+                             f'concurrent regular tasks ({TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS}) ')
+            return None
+
+        for priority in priority_list:
             task = self._get_from_queue(priority)
             if task:
                 return task
 
         return None
+
+    def _get_next_task_from_op_graph(self, user_op_count: int) -> Optional[Task]:
+        # Now handle user ops. Do this outside the CV:
+        if not self.enable_op_execution:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Op execution is disabled - skipping')
+                return None
+
+        if user_op_count >= TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS:
+            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Running max OpGraph tasks '
+                         f'({TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS}) - OpExecutionEnabled={self.enable_op_execution}')
+            return None
+
+        try:
+            if TRACE_ENABLED:
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Checking OpGraph for any new tasks')
+            command = self.backend.cacheman.get_next_command_nowait()
+            if command:
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): Got new task from OpGraph ({command.op}, '
+                             f'cmd = {command.__class__.__name__})')
+                return Task(ExecPriority.P5_USER_OP_EXECUTION, self._command_executor.execute_command, command,
+                            self._command_executor.global_context, True)
+            elif SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] CheckForQueuedTasks(): No new tasks ready in OpGraph')
+
+        except RuntimeError as e:
+            logger.exception(f'[{CENTRAL_EXEC_THREAD_NAME}] SERIOUS: caught exception while retreiving OpGraph cmd: halting execution pipeline')
+            self.backend.report_error(sender=ID_CENTRAL_EXEC, msg='Error retreiving command', secondary_msg=f'{e}')
+            self._pause_op_execution(sender=ID_CENTRAL_EXEC)
+
+        return None
+
+    # Next Task Logic
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _on_task_done(self, done_task: Task, future: Future):
         if TRACE_ENABLED:
@@ -355,7 +388,7 @@ class CentralExecutor(HasLifecycle):
             child_deque_of_done_task: Deque[UUID] = self._parent_child_task_dict.get(done_task.task_uuid, None)
             if child_deque_of_done_task:
                 logger.debug(f'Task {done_task.task_uuid} has {len(child_deque_of_done_task)} children remaining '
-                             f'({", ".join([ str(u) for u in child_deque_of_done_task])}): will enqueue its first child')
+                             f'({", ".join([str(u) for u in child_deque_of_done_task])}): will enqueue its first child')
                 # add to _dependent_task_dict and do not remove it until ready to run its next_task
                 self._dependent_task_dict[done_task.task_uuid] = done_task
                 # Dereference the first child and add it to the next_task queue
@@ -434,6 +467,9 @@ class CentralExecutor(HasLifecycle):
                 return self._dependent_task_dict[child_uuid]  # fail if not found
         else:
             return next_task
+
+    # Submit Task
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _add_child_to_parent(self, parent_task_uuid, child_task_uuid):
         child_deque = self._parent_child_task_dict.get(parent_task_uuid, None)

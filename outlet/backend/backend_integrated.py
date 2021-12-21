@@ -8,7 +8,7 @@ from backend.diff.task.tree_diff_task import TreeDiffTask
 from backend.executor.central import CentralExecutor, ExecPriority
 from backend.cache_manager import CacheManager
 from backend.icon_store import IconStorePy
-from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeID
+from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeID
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -133,7 +133,7 @@ class BackendIntegrated(OutletBackend):
         """Starts the Diff Trees task async"""
         assert tree_id_left == ID_LEFT_TREE and tree_id_right == ID_RIGHT_TREE, f'Wrong tree IDs: {ID_LEFT_TREE}, {ID_RIGHT_TREE}'
         tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(ID_LEFT_DIFF_TREE, ID_RIGHT_DIFF_TREE)
-        self.executor.submit_async_task(Task(ExecPriority.P5_LONG_RUNNING_USER_TASK, TreeDiffTask.do_tree_diff,
+        self.executor.submit_async_task(Task(ExecPriority.P4_LONG_RUNNING_USER_TASK, TreeDiffTask.do_tree_diff,
                                         self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct))
         return tree_id_struct
 

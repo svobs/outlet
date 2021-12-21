@@ -182,8 +182,8 @@ class CacheManager(HasLifecycle):
             else:
                 logger.debug(f'Configured to resume pending ops on startup')
                 pending_ops_func = self._op_manager.resume_pending_ops_from_disk
-            # This is a lower priority, so will not execute until after caches are all loaded
-            self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, pending_ops_func))
+            # This will load any caches needed along the way:
+            self.backend.executor.submit_async_task(Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, pending_ops_func))
 
         finally:
             dispatcher.send(Signal.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -260,7 +260,7 @@ class CacheManager(HasLifecycle):
                             dir_stats_dict_by_guid={}, dir_stats_dict_by_uid={})
 
         # Full cache load. Both first-order & higher-order trees do this:
-        self.backend.executor.submit_async_task(Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._load_cache_for_subtree, tree_meta, send_signals))
+        self.backend.executor.submit_async_task(Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, self._load_cache_for_subtree, tree_meta, send_signals))
 
     def is_cache_loaded_for(self, spid: SinglePathNodeIdentifier) -> bool:
         # this will return False if either a cache exists but is not loaded, or no cache yet exists:
@@ -386,7 +386,6 @@ class CacheManager(HasLifecycle):
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: TreeID):
         logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
-        # TODO: split this in P1_USER_LOAD and LOAD_1 tasks. Need to cross-reference each dir with the visible dirs indicated by tree_id's metadata
         self.backend.executor.submit_async_task(Task(ExecPriority.P1_USER_LOAD, self._refresh_subtree, node_identifier, tree_id))
 
     def _refresh_subtree(self, this_task: Task, node_identifier: NodeIdentifier, tree_id: TreeID):

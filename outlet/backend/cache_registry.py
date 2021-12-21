@@ -111,7 +111,7 @@ class CacheRegistry(HasLifecycle):
                 self._load_all_caches_done.set()
                 logger.info(f'{load_all_caches_sw} Done loading all caches.')
 
-            load_all_caches_task = Task(ExecPriority.P3_BACKGROUND_CACHE_LOAD, self._load_all_caches_start)
+            load_all_caches_task = Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, self._load_all_caches_start)
             load_all_caches_task.add_next_task(notify_load_all_done)
             self.backend.executor.submit_async_task(load_all_caches_task)
         else:
@@ -594,7 +594,7 @@ class CacheRegistry(HasLifecycle):
             store = self.get_store_for_device_uid(gdrive_device_uid)
             assert isinstance(store, GDriveMasterStore)
             cache_load_task = this_task.create_child_task(store.load_and_sync_master_tree)
-            assert cache_load_task.priority == ExecPriority.P3_BACKGROUND_CACHE_LOAD
+            assert cache_load_task.priority == ExecPriority.P2_USER_RELEVANT_CACHE_LOAD
             self.backend.executor.submit_async_task(cache_load_task)
 
         # LocalDisk:
@@ -607,7 +607,7 @@ class CacheRegistry(HasLifecycle):
                     assert isinstance(cache.subtree_root, LocalNodeIdentifier)
                     store = self.get_store_for_device_uid(cache.subtree_root.device_uid)
                     cache_load_task = this_task.create_child_task(store.load_subtree, cache.subtree_root, ID_GLOBAL_CACHE)
-                    assert cache_load_task.priority == ExecPriority.P3_BACKGROUND_CACHE_LOAD
+                    assert cache_load_task.priority == ExecPriority.P2_USER_RELEVANT_CACHE_LOAD
                     self.backend.executor.submit_async_task(cache_load_task)
 
     # TreeStore getters
