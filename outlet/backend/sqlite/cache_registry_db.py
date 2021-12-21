@@ -54,6 +54,16 @@ class CacheRegistryDatabase(MetaDatabase):
         ('sync_ts', 'INTEGER'),
     ]))
 
+    TABLE_RULE = Table(name='rule', cols=OrderedDict([
+        ('uid', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
+        ('rule_type_id', 'INTEGER'),
+        ('src_device_uid', 'TEXT'),
+        ('src_node_uid', 'INTEGER'),
+        ('dst_device_uid', 'TEXT'),
+        ('dst_node_uid', 'INTEGER'),
+        ('sync_ts', 'INTEGER'),
+    ]))
+
     def __init__(self, main_registry_path: str, node_identifier_factory):
         super().__init__(main_registry_path)
         self.node_identifier_factory = node_identifier_factory

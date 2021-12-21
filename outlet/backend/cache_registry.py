@@ -148,7 +148,7 @@ class CacheRegistry(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _init_store_dict(self):
-        logger.debug('Init store dict')
+        logger.debug('[CacheRegistry] Init store dict')
 
         # First create all devices, and note any singletons along the way.
 
@@ -243,7 +243,7 @@ class CacheRegistry(HasLifecycle):
             self._store_dict[device.uid] = store
 
     def _load_registry(self):
-        logger.debug('Loading registry')
+        logger.debug('[CacheRegistry] Loading registry')
         stopwatch = Stopwatch()
 
         caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_list_from_registry()
@@ -277,7 +277,7 @@ class CacheRegistry(HasLifecycle):
             self._overwrite_all_caches_in_registry(caches)
 
         self._load_registry_done.set()
-        logger.info(f'{stopwatch} Done loading registry. Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
+        logger.info(f'[CacheRegistry] {stopwatch} Done loading registry. Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
 
     def _wait_for_load_registry_done(self, fail_on_timeout: bool = True):
         if self._load_registry_done.is_set():
@@ -305,7 +305,7 @@ class CacheRegistry(HasLifecycle):
             return
 
         self._load_all_caches_in_process = True
-        logger.info('Loading all caches from disk')
+        logger.info('[CacheRegistry] Loading all caches from disk')
 
         class ConsolidateCachesTask:
             def __init__(self):

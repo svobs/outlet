@@ -37,7 +37,36 @@ Create a virtual environment within this directory (`{project_name}`)  following
 #### Install required packages:
     make init
 
-### Future Major Features (TODO)
+# PROJECT GOALS
+
+1. Robustness. As much as possible, the app should be killable at any point and suffer no data loss, or even loss of UI state.
+2. Responsiveness. The user should never have to wait (except during indexing, and even then that should be minimized as much as possible). Actions should return as quickly as possible, and should be allowed to be compounded into addtional actions. Long-running operations from the user should be queued appropriately.
+2. Declarative behavior. The user should never have any reason to doubt that its actions are going to be fulfilled. The transition to a future state desired by the user should be represented by the UI, it should be persisted every step along the way, and a record of it should be kept which is so good that we can eventually undo. Any errors which prevent a state change from happening should be clear.
+
+
+## Future Major Features
+### Various small items
+* Checkbox: Prioritize reads over writes
+    * Scan the content of flles before overwriting, and do not overwrite if the content is already there
+* TODO: Add ability to cancel a UserOp and all pending ops
+* TODO (minor): blank out selection & expanded states when changing tree root
+* TODO (minor): only scan dirs inside display tree when loading
+* TODO (minor): handle case where root path is deleted
+* TODO: allow rules to be created for different directories.
+    * e.g.: Copy to: X Directory on Device A
+    * e.g.: Move to: Y Directory on Device B
+    * For 2-way sync: just create 2 copy rules with each directory pointing at the other
+* TODO: Add ability to cancel pending task from UI
+
+### Future feature idea: put old content in trash & only delete when needed
+    The command cannot be completed because X Disk needs an additional 52 MB of free space, unless you first empty at least 24% of its trash.
+
+    * Delete Oldest 24%
+    * Delete All Trash
+
+### Audit UIDs:
+1. Make one giant map of UID -> thing 
+2. Iterate over all nodes
 
 #### ESSENTIAL FOR FIRST RELEASE
 * [3] Google Drive connect flow

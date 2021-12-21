@@ -74,7 +74,7 @@ class CacheManager(HasLifecycle):
 
         self.load_all_caches_on_startup = backend.get_config('cache.load_all_caches_on_startup')
 
-        self.load_caches_for_displayed_trees_at_startup = backend.get_config('cache.load_caches_for_displayed_trees_on_startup')
+        self.load_caches_for_displayed_trees_on_startup = backend.get_config('cache.load_caches_for_displayed_trees_on_startup')
         self.sync_from_local_disk_on_cache_load = backend.get_config('cache.local_disk.sync_from_local_disk_on_cache_load')
         self.sync_from_gdrive_on_cache_load = backend.get_config('cache.sync_from_gdrive_on_cache_load')
         self.reload_tree_on_root_path_update = backend.get_config('cache.load_cache_when_tree_root_selected')
@@ -376,7 +376,7 @@ class CacheManager(HasLifecycle):
             # Already loaded!
             return False
 
-        if is_startup and self.load_all_caches_on_startup or self.load_caches_for_displayed_trees_at_startup:
+        if is_startup and self.load_all_caches_on_startup or self.load_caches_for_displayed_trees_on_startup:
             # We are still starting up but will auto-load this tree soon:
             return False
 
