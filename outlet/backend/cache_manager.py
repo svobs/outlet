@@ -13,7 +13,7 @@ from backend.diff.transfer_maker import TransferMaker
 from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
-from backend.display_tree.context_menu_manager import ContextMenuManager
+from backend.display_tree.context_menu_builder import ContextMenuManager
 from backend.display_tree.row_state_tracking import RowStateTracking
 from backend.executor.central import ExecPriority
 from backend.executor.command.cmd_interface import Command
@@ -91,7 +91,8 @@ class CacheManager(HasLifecycle):
 
         self._active_tree_manager = ActiveTreeManager(self.backend)
         self._row_state_tracking = RowStateTracking(self.backend, self._active_tree_manager)
-        self._context_menu_manager = ContextMenuManager(self.backend)
+        self._context_menu_builder = ContextMenuBuilder(self.backend)
+        self._action_manager = ContextMenuManager(self.backend)
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
         self._op_manager: OpManager = OpManager(self.backend, op_db_path)
@@ -114,9 +115,9 @@ class CacheManager(HasLifecycle):
             pass
 
         try:
-            if self._context_menu_manager:
-                self._context_menu_manager.shutdown()
-                self._context_menu_manager = None
+            if self._action_manager:
+                self._action_manager.shutdown()
+                self._action_manager = None
         except (AttributeError, NameError):
             pass
 
@@ -168,7 +169,7 @@ class CacheManager(HasLifecycle):
 
             self._op_manager.start()
 
-            self._context_menu_manager.start()
+            self._action_manager.start()
 
             local_store = self._cache_registry.get_this_disk_local_store()
             if local_store and self.lazy_load_local_file_signatures:
@@ -952,7 +953,7 @@ class CacheManager(HasLifecycle):
         return self.get_node_for_uid(spid.node_uid, spid.device_uid)
 
     def get_context_menu(self, tree_id: TreeID, guid_list: List[GUID]) -> List[ContextMenuItem]:
-        return self._context_menu_manager.get_context_menu(tree_id, guid_list)
+        return self._context_menu_builder.build_context_menu(tree_id, guid_list)
 
     def execute_tree_action_list(self, tree_action_list: List[TreeAction]):
-        self._context_menu_manager.execute_tree_action_list(tree_action_list)
+        self._action_manager.execute_tree_action_list(tree_action_list)

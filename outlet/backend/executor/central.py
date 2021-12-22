@@ -305,7 +305,7 @@ class CentralExecutor(HasLifecycle):
                 return task
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No new tasks started. Running {non_user_op_count} tasks + {user_op_count} ops '
+            logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No new tasks started. Running: {non_user_op_count} tasks + {user_op_count} ops '
                          f' (max {self._max_workers})')
 
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
@@ -341,7 +341,7 @@ class CentralExecutor(HasLifecycle):
         # Now handle user ops. Do this outside the CV:
         if not self.enable_op_execution:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Op execution is disabled - skipping')
+                logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] Op execution is disabled; ignoring op grapph')
                 return None
 
         if user_op_count >= TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS:

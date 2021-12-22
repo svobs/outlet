@@ -46,7 +46,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
 
 ## Future Major Features
 ### Various small items
-* Checkbox: Prioritize reads over writes
+* Checkbox: Prioritize reading over writing
     * Scan the content of flles before overwriting, and do not overwrite if the content is already there
 * TODO: Add ability to cancel a UserOp and all pending ops
 * TODO (minor): blank out selection & expanded states when changing tree root
