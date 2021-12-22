@@ -7,7 +7,8 @@ from uuid import UUID
 
 from backend.executor.central import ExecPriority
 from backend.tree_store.local import content_hasher
-from constants import LARGE_FILE_SIZE_THRESHOLD_BYTES, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import LARGE_FILE_SIZE_THRESHOLD_BYTES
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node_identifier import NodeIdentifier
 from model.uid import UID

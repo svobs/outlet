@@ -4,7 +4,8 @@ import os
 import sys
 
 from app_config import AppConfig
-from constants import DIFF_DEBUG_ENABLED, IS_LINUX, IS_MACOS, IS_WINDOWS, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import IS_LINUX, IS_MACOS, IS_WINDOWS
 
 logger = logging.getLogger(__name__)
 

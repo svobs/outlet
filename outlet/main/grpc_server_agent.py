@@ -1,8 +1,10 @@
 #!/usr/local/bin/python3
-import logging
+from main import bootstrap
 import sys
-import util.main_util
 from backend.agent.server.backend_grpc_server import OutletAgent
+import logging
+
+from util import main_util
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    app_config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
+    bootstrap.configure()
+    app_config = main_util.do_main_boilerplate(__file__)
     agent = OutletAgent(app_config)
 
     try:

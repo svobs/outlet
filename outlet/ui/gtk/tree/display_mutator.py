@@ -8,7 +8,8 @@ from typing import Deque, Dict, Iterable, List, Set, Union
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, SUPER_DEBUG_ENABLED, TreeDisplayMode, TreeLoadState
+from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode, TreeLoadState
+from logging_constants import SUPER_DEBUG_ENABLED
 from error import ResultsExceededError
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest

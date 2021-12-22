@@ -22,7 +22,8 @@ from backend.tree_store.gdrive.client.conversion import GDriveAPIConverter
 from backend.tree_store.gdrive.client.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
     GDRIVE_FOLDER_FIELDS, \
-    GDRIVE_MY_DRIVE_ROOT_GOOG_ID, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG_ENABLED, TreeID
+    GDRIVE_MY_DRIVE_ROOT_GOOG_ID, MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, TreeID
+from logging_constants import SUPER_DEBUG_ENABLED
 from error import GDriveError, GDriveItemNotFoundError, GDriveNodePathNotFoundError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode

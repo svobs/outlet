@@ -11,15 +11,16 @@ from uuid import UUID
 from pydispatch import dispatcher
 
 from backend.executor.command.cmd_executor import CommandExecutor
-from constants import CENTRAL_EXEC_THREAD_NAME, CFG_ENABLE_OP_EXECUTION, EngineSummaryState, OP_EXECUTION_THREAD_NAME, SUPER_DEBUG_ENABLED, \
+from constants import CENTRAL_EXEC_THREAD_NAME, CFG_ENABLE_OP_EXECUTION, EngineSummaryState, OP_EXECUTION_THREAD_NAME, \
     TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS, TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS, \
-    TASK_TIME_WARNING_THRESHOLD_SEC, TRACE_ENABLED
+    TASK_TIME_WARNING_THRESHOLD_SEC
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util import time_util
 from util.ensure import ensure_bool
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task, TaskRunner
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 
 logger = logging.getLogger(__name__)
 

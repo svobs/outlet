@@ -89,7 +89,8 @@ class TreeActions(HasLifecycle):
         if comment_to_set:
             args.append(f'-Comment="{comment_to_set}"')
         args.append(full_path)
-        subprocess.run(args)
+        completed_process = subprocess.run(args)
+        logger.debug(f'Process returned {completed_process.returncode}')
 
         list_original_files = [f.path for f in os.scandir(full_path) if not f.is_dir() and f.path.endswith('.jpg_original')]
         for file in list_original_files:

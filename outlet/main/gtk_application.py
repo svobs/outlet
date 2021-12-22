@@ -1,5 +1,6 @@
 import logging
 import sys
+from main import bootstrap
 import util.main_util
 from backend.backend_integrated import BackendIntegrated
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 def main():
+    bootstrap.configure()
     app_config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
     backend = BackendIntegrated(app_config)
     app = OutletApplication(backend)

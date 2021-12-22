@@ -5,7 +5,8 @@ from typing import Callable, Deque, Dict, Generic, List, Optional, TypeVar
 
 from util.stopwatch_sec import Stopwatch
 from model.node.directory_stats import DirectoryStats
-from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID
+from constants import TrashStatus, TreeID
+from logging_constants import TRACE_ENABLED
 
 logger = logging.getLogger(__name__)
 

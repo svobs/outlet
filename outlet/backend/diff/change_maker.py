@@ -5,7 +5,8 @@ from collections import deque
 from typing import Deque, Dict, List, Optional
 
 from backend.display_tree.change_tree import ChangeTree
-from constants import DIFF_DEBUG_ENABLED, TrashStatus, TreeID, TreeType
+from constants import TrashStatus, TreeID, TreeType
+from logging_constants import DIFF_DEBUG_ENABLED
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode

@@ -1,7 +1,8 @@
 import logging
 from typing import Callable, List, Tuple
 
-from constants import ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import ROOT_PATH
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import NodeNotPresentError
 from model.node.gdrive_node import GDriveNode
 from model.uid import UID

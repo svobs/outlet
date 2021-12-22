@@ -6,7 +6,8 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import DISK_SCAN_MAX_ITEMS_PER_TASK, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode, LocalNode
 from backend.tree_store.local.locald_tree import LocalDiskTree

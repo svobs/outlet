@@ -4,7 +4,8 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import DIFF_DEBUG_ENABLED, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import ROOT_PATH
+from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode

@@ -3,7 +3,8 @@ from typing import Dict, Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeContextMenuItem
-from constants import ActionID, ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TRACE_ENABLED, TreeLoadState, TreeType
+from constants import ActionID, ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TreeLoadState, TreeType
+from logging_constants import TRACE_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState

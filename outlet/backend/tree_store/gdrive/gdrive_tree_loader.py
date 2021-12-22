@@ -17,8 +17,8 @@ from constants import GDRIVE_CHECK_FOR_BROKEN_NODES, GDRIVE_COUNT_MULTIPLE_PAREN
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_FIX_ORPHANS_ON_LOAD, \
     GDRIVE_ROOT_UID, \
-    ROOT_PATH, SUPER_DEBUG_ENABLED, \
-    TRACE_ENABLED, TreeID
+    ROOT_PATH, TreeID
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID

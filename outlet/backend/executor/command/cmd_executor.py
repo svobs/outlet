@@ -3,7 +3,7 @@ from typing import List, Optional
 from pydispatch import dispatcher
 import logging
 
-from constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED
 from util import file_util
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal

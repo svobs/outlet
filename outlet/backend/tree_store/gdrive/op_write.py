@@ -8,7 +8,8 @@ from pydispatch import dispatcher
 from backend.sqlite.gdrive_db import GDriveDatabase
 from backend.tree_store.gdrive.client.change_observer import GDriveChange, GDriveNodeChange
 from backend.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
-from constants import GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TreeType
+from constants import GDRIVE_ROOT_UID, TreeType
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID

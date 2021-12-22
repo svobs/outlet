@@ -51,7 +51,7 @@ def is_normalized(path: str):
     return path == ROOT_PATH or not path.endswith('/')
 
 
-def get_resource_path(rel_path: str, resolve_symlinks=False):
+def get_resource_path(rel_path: str, resolve_symlinks=False) -> str:
     """Returns the absolute path from the given relative path (relative to the project dir)"""
 
     if rel_path.startswith('/'):
@@ -357,3 +357,8 @@ def get_valid_or_ancestor(dir_path):
     if dir_path != new_path:
         logger.info(f'Path ({dir_path}) is invalid; using closest valid ancestor: {new_path}')
     return new_path
+
+
+def touch(file_path):
+    with open(file_path, 'a'):
+        os.utime(file_path, None)

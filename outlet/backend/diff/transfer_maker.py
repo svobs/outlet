@@ -1,5 +1,4 @@
 import collections
-import copy
 import logging
 import os
 import re
@@ -7,11 +6,10 @@ from typing import Callable, Deque, Dict, List, Optional, Set, Tuple
 
 from backend.diff.change_maker import ChangeMaker
 from backend.tree_store.local import content_hasher
-from constants import DEFAULT_REPLACE_DIR_WITH_FILE_POLICY, DEFAULT_SRC_NODE_MOVE_POLICY, DIFF_DEBUG_ENABLED, DirConflictPolicy, DragOperation, \
+from constants import DEFAULT_REPLACE_DIR_WITH_FILE_POLICY, DEFAULT_SRC_NODE_MOVE_POLICY, DirConflictPolicy, DragOperation, \
     FileConflictPolicy, \
-    ReplaceDirWithFilePolicy, SrcNodeMovePolicy, \
-    SUPER_DEBUG_ENABLED, \
-    TRACE_ENABLED, TreeID
+    ReplaceDirWithFilePolicy, SrcNodeMovePolicy, TreeID
+from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.user_op import Batch, UserOpType

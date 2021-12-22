@@ -15,8 +15,9 @@ from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, \
     IS_LINUX, IS_MACOS, IS_WINDOWS, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
-    SUPER_DEBUG_ENABLED, SUPER_ROOT_DEVICE_UID, TRACE_ENABLED, TreeType, UID_GOOG_ID_FILE_NAME, \
+    SUPER_ROOT_DEVICE_UID, TreeType, UID_GOOG_ID_FILE_NAME, \
     UID_PATH_FILE_NAME
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import CacheNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device

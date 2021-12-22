@@ -2,7 +2,8 @@ import logging
 
 import gi
 
-from constants import SUPER_DEBUG_ENABLED, TreeDisplayMode
+from constants import TreeDisplayMode
+from logging_constants import SUPER_DEBUG_ENABLED
 from ui.gtk.comp.filter_panel import TreeFilterPanel
 from ui.gtk.comp.root_path_panel import RootPathPanel
 from ui.gtk.dialog.base_dialog import BaseDialog

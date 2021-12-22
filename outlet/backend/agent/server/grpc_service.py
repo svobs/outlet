@@ -23,7 +23,8 @@ from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
 from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
-from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeLoadState
+from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeLoadState
+from logging_constants import TRACE_ENABLED, SUPER_DEBUG_ENABLED
 from error import ResultsExceededError
 from model.context_menu import ContextMenuItem
 from model.device import Device

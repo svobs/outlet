@@ -4,7 +4,8 @@ import threading
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
 from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
-from constants import IconId, NULL_UID, OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT, SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import IconId, NULL_UID, OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidInsertOpGraphError, OpGraphError, UnsuccessfulBatchInsertError
 from model.node.node import Node
 from model.uid import UID

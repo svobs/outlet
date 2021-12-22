@@ -21,10 +21,9 @@ from backend.tree_store.gdrive.op_write import BatchChangesOp, CreateUserOp, Del
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, ROOT_PATH, \
-    SUPER_DEBUG_ENABLED, \
-    TRACE_ENABLED, TrashStatus, \
+from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, ROOT_PATH, TrashStatus, \
     TreeID
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import CacheNotLoadedError, NodeNotPresentError
 from global_actions import GlobalActions
 from model.device import Device

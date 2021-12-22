@@ -1,6 +1,7 @@
 import logging
 import sys
 
+from main import bootstrap
 from util import main_util, daemon_util
 from ui.gtk.gtk_frontend import OutletApplication
 from backend.agent.client.grpc_client import BackendGRPCClient
@@ -19,6 +20,7 @@ def main():
     if sys.version_info[0] < 3:
         raise Exception("Python 3 or a more recent version is required.")
 
+    bootstrap.configure()
     app_config = main_util.do_main_boilerplate(executing_script_path=__file__)
 
     if ensure_bool(app_config.get('thin_client.launch_server_on_start')):

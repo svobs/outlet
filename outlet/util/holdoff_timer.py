@@ -3,7 +3,7 @@ import time
 from typing import Callable, Optional
 import logging
 
-from constants import TRACE_ENABLED
+from logging_constants import TRACE_ENABLED
 
 logger = logging.getLogger(__name__)
 counter: int = 0

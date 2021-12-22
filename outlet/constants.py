@@ -1,21 +1,6 @@
 from enum import IntEnum
-
-import logging_constants
 from model.uid import UID
 import platform
-import os
-
-_cur_dir = os.path.dirname(__file__)
-
-
-TRACE_ENABLED = logging_constants.TRACE_ENABLED
-SUPER_DEBUG_ENABLED = logging_constants.SUPER_DEBUG_ENABLED
-
-DIFF_DEBUG_ENABLED = logging_constants.DIFF_DEBUG_ENABLED
-
-# do not modify this behavior
-if TRACE_ENABLED:
-    SUPER_DEBUG_ENABLED = True
 
 _system = platform.system().lower()
 IS_WINDOWS = _system == 'windows'
@@ -30,6 +15,8 @@ OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT = True
 
 # When parsing config file:
 PROJECT_DIR_TOKEN = '$PROJECT_DIR'
+LOGGING_CONSTANTS_FILE = 'logging_constants.py'
+TEMPLATE = 'template'
 
 GRPC_CHANGE_TREE_NO_OP = 9
 
@@ -79,6 +66,7 @@ BADGE_ICON_BASE_DIR = 'resources/Badge'
 
 PROJECT_DIR = '.'
 CONFIG_DIR = f'{PROJECT_DIR}/config'
+CONFIG_PY_DIR = f'{PROJECT_DIR}/config_py'
 DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 
 UI_STATE_CFG_SEGMENT = 'ui_state'

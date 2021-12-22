@@ -8,7 +8,7 @@ from backend.diff.task.tree_diff_task import TreeDiffTask
 from backend.executor.central import CentralExecutor, ExecPriority
 from backend.cache_manager import CacheManager
 from backend.icon_store import IconStorePy
-from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeID
+from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeID
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest

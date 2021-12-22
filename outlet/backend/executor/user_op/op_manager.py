@@ -13,7 +13,8 @@ from backend.executor.user_op.batch_builder import BatchBuilder
 from backend.executor.user_op.op_disk_store import OpDiskStore
 from backend.executor.user_op.op_graph import OpGraph
 from backend.executor.user_op.op_graph_node import RootNode
-from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId, SUPER_DEBUG_ENABLED
+from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId
+from logging_constants import SUPER_DEBUG_ENABLED
 from error import UnsuccessfulBatchInsertError
 from model.node.node import Node
 from model.uid import UID

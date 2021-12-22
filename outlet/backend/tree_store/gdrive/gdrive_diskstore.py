@@ -4,7 +4,8 @@ from typing import Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
-from constants import GDRIVE_ROOT_UID, SUPER_DEBUG_ENABLED, TreeID
+from constants import GDRIVE_ROOT_UID, TreeID
+from logging_constants import SUPER_DEBUG_ENABLED
 from backend.tree_store.gdrive.gdrive_tree import GDriveWholeTree
 from error import CacheNotFoundError, NodeNotPresentError
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode

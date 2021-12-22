@@ -2,7 +2,8 @@ import logging
 from collections import deque
 from typing import Deque, Dict, List
 
-from constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType, UI_STATE_CFG_SEGMENT
+from constants import TrashStatus, TreeID, TreeType, UI_STATE_CFG_SEGMENT
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.display_tree.filter_criteria import FilterCriteria, Ternary
 from model.node.directory_stats import DirectoryStats
 from model.node.node import SPIDNodePair

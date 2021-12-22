@@ -4,7 +4,8 @@ from collections import Counter, defaultdict, deque
 from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
-from constants import GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeType
+from constants import GDRIVE_ROOT_UID, ROOT_PATH, TreeType
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import GDriveNodePathNotFoundError, NodeNotPresentError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode

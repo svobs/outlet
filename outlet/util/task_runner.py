@@ -3,7 +3,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 import logging
 from typing import Callable, Optional
 
-from constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC
 from util import time_util

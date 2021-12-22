@@ -2,7 +2,8 @@ import logging
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-from constants import SUPER_DEBUG_ENABLED, TreeID
+from constants import TreeID
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID

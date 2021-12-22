@@ -3,7 +3,7 @@ import sqlite3
 import logging
 from typing import Any, Callable, Iterable, List, Optional, OrderedDict, Tuple, Union
 
-from constants import TRACE_ENABLED
+from logging_constants import TRACE_ENABLED
 from model.uid import UID
 
 logger = logging.getLogger(__name__)

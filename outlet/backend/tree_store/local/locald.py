@@ -20,7 +20,8 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import IS_MACOS, MAX_FS_LINK_DEPTH, ROOT_PATH, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TrashStatus, TreeID, TreeType
+from constants import IS_MACOS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
 from model.device import Device

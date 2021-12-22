@@ -2,7 +2,8 @@ import logging
 import re
 from typing import Dict, List, Optional
 
-from constants import ActionID, DATE_REGEX, MenuItemType, SUPER_DEBUG_ENABLED, TreeID, TreeType
+from constants import ActionID, DATE_REGEX, MenuItemType, TreeID, TreeType
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.node.node import Node, SPIDNodePair

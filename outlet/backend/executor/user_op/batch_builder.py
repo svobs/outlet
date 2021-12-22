@@ -4,7 +4,8 @@ from typing import Callable, DefaultDict, Deque, Dict, List
 
 from backend.executor.user_op.op_graph import OpGraph, skip_root
 from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
-from constants import is_root, NULL_UID, SUPER_DEBUG_ENABLED
+from constants import is_root, NULL_UID
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.node import Node
 from model.node_identifier import DN_UID
 from model.uid import UID

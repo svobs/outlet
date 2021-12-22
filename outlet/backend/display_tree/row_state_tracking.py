@@ -5,7 +5,8 @@ from typing import Deque, Set
 
 from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
-from constants import CONFIG_DELIMITER, ROWS_OF_INTEREST_SAVE_HOLDOFF_TIME_MS, SUPER_DEBUG_ENABLED, TreeID
+from constants import CONFIG_DELIMITER, ROWS_OF_INTEREST_SAVE_HOLDOFF_TIME_MS, TreeID
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.display_tree.build_struct import RowsOfInterest
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID

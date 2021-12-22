@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from pydispatch import dispatcher
 
-from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeDisplayMode, TreeID
+from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeDisplayMode, TreeID
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest

@@ -6,7 +6,8 @@ from typing import Dict, Generic, List, Optional, Tuple, TypeVar
 from backend.sqlite.base_db import Table
 from backend.sqlite.uid_mapper_db import UidMapperDb
 from util import file_util
-from constants import CACHE_WRITE_HOLDOFF_TIME_MS, GoogID, ROOT_PATH, ROOT_PATH_UID, SUPER_DEBUG_ENABLED
+from constants import CACHE_WRITE_HOLDOFF_TIME_MS, GoogID, ROOT_PATH, ROOT_PATH_UID
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.uid import UID
 from util.ensure import ensure_uid
 from util.has_lifecycle import HasLifecycle

@@ -18,7 +18,8 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
     RefreshSubtree_Request, RemoveExpandedRow_Request, RequestDisplayTree_Request, SetSelectedRowSet_Request, SignalMsg, SPIDNodePair, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, UpdateFilter_Request
 from backend.backend_interface import OutletBackend
-from constants import DirConflictPolicy, DragOperation, ErrorHandlingStrategy, FileConflictPolicy, IconId, TRACE_ENABLED, TreeID
+from constants import DirConflictPolicy, DragOperation, ErrorHandlingStrategy, FileConflictPolicy, IconId, TreeID
+from logging_constants import TRACE_ENABLED
 from error import ResultsExceededError
 from model.context_menu import ContextMenuItem
 from model.device import Device

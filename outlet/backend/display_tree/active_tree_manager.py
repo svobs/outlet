@@ -12,9 +12,9 @@ from backend.display_tree.change_tree import ChangeTree
 from backend.display_tree.filter_state import FilterState
 from backend.display_tree.root_path_config import RootPathConfigPersister
 from backend.realtime.live_monitor import LiveMonitor
-from constants import DIFF_DEBUG_ENABLED, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, \
-    SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, \
+from constants import GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, TreeDisplayMode, \
     TreeID, TreeLoadState, TreeType
+from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import CacheNotLoadedError, GDriveNodePathNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState

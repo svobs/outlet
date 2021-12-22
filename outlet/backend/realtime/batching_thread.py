@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Set
 
 from backend.executor.central import ExecPriority
-from constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.local_disk_node import LocalDirNode, LocalNode
 from util.ensure import ensure_int
 from util.has_lifecycle import HasLifecycle

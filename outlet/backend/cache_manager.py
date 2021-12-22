@@ -10,10 +10,11 @@ from pydispatch import dispatcher
 
 from backend.cache_registry import CacheRegistry
 from backend.diff.transfer_maker import TransferMaker
+from backend.display_tree.action_manager import ActionManager
 from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
-from backend.display_tree.context_menu_builder import ContextMenuManager
+from backend.display_tree.context_menu_builder import ContextMenuBuilder
 from backend.display_tree.row_state_tracking import RowStateTracking
 from backend.executor.central import ExecPriority
 from backend.executor.command.cmd_interface import Command
@@ -22,7 +23,8 @@ from backend.tree_store.gdrive.gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
-    OPS_FILE_NAME, SUPER_DEBUG_ENABLED, TRACE_ENABLED, TreeDisplayMode, TreeID, TreeLoadState, TreeType
+    OPS_FILE_NAME, TreeDisplayMode, TreeID, TreeLoadState, TreeType
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import ResultsExceededError
 from model.cache_info import PersistedCacheInfo
 from model.context_menu import ContextMenuItem
@@ -92,7 +94,7 @@ class CacheManager(HasLifecycle):
         self._active_tree_manager = ActiveTreeManager(self.backend)
         self._row_state_tracking = RowStateTracking(self.backend, self._active_tree_manager)
         self._context_menu_builder = ContextMenuBuilder(self.backend)
-        self._action_manager = ContextMenuManager(self.backend)
+        self._action_manager = ActionManager(self.backend)
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
         self._op_manager: OpManager = OpManager(self.backend, op_db_path)
