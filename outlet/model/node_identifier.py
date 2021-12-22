@@ -5,6 +5,7 @@ from typing import List, Optional, Union
 
 from constants import NULL_UID, SPIDType, TREE_TYPE_DISPLAY, TreeType
 from error import InvalidOperationError
+from logging_constants import TRACE_ENABLED
 from model.uid import UID
 from util import file_util
 from util.ensure import ensure_uid

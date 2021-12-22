@@ -2,11 +2,9 @@ import os
 import shutil
 import sys
 
-from constants import CONFIG_PY_DIR, LOGGING_CONSTANTS_FILE, PROJECT_DIR, TEMPLATE
+from constants import CONFIG_PY_DIR, INIT_FILE, LOGGING_CONSTANTS_FILE, PROJECT_DIR, TEMPLATE
 from util import file_util
 from util.file_util import get_resource_path
-
-INIT_FILE = '__init__.py'
 
 
 def configure():

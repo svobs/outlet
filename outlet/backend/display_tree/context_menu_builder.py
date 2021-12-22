@@ -1,11 +1,8 @@
-import importlib
 import logging
-import os
 import re
-from pathlib import Path
 from typing import Dict, List, Optional
 
-from constants import ActionID, CONFIG_PY_DIR, CONFIG_PY_MODULE, DATE_REGEX, LOGGING_CONSTANTS_FILE, MenuItemType, TreeID, TreeType
+from constants import ActionID, DATE_REGEX, MenuItemType, TreeID, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -13,53 +10,16 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
 from model.user_op import UserOp
-from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
 
-class CustomMenuAction:
-    def __init__(self, action_id, is_enabled_for, exec_func):
-        self.action_id: ActionID = action_id
-        self._is_enabled_for = is_enabled_for
-        self._exec = exec_func
-
-    def is_enabled_for(self, node_list: List[Node]) -> bool:
-        return self._is_enabled_for(node_list)
-
-    def execute(self, node_list: List[Node]):
-        self._exec(node_list)
-
-
 class ContextMenuBuilder(HasLifecycle):
-    def __init__(self, backend):
+    def __init__(self, backend, action_manager):
         HasLifecycle.__init__(self)
         self.backend = backend
-        self.custom_action_list: List[CustomMenuAction] = self._load_custom_action_list()
-
-    @staticmethod
-    def _load_custom_action_list() -> List[CustomMenuAction]:
-        custom_action_list = []
-        mod_name_list = []
-        for file in os.listdir(get_resource_path(CONFIG_PY_DIR)):
-            if Path(file).suffix == '.py' and file != LOGGING_CONSTANTS_FILE:
-                mod_name_list.append(Path(file).stem)
-
-        for mod_name in mod_name_list:
-            module = importlib.import_module(f'{CONFIG_PY_MODULE}.{mod_name}')
-            try:
-                action_id = getattr(module, 'action_id')
-                exec_func = getattr(module, 'execute')
-                is_enabled_for = getattr(module, 'is_enabled_for')
-
-                if action_id and exec_func and is_enabled_for:
-                    custom_action_list.append(CustomMenuAction(action_id=action_id, is_enabled_for=is_enabled_for, exec_func=exec_func))
-                    logger.info(f'Loaded custom action: "{mod_name}" with action_id {action_id}')
-            except AttributeError as err:
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Skipping load of file: {err}')
-        return custom_action_list
+        self.action_manager = action_manager
 
     def start(self):
         logger.debug(f'[ContextMenuManager] Startup started')
@@ -71,7 +31,7 @@ class ContextMenuBuilder(HasLifecycle):
         HasLifecycle.shutdown(self)
         logger.debug(f'[ContextMenuManager] Shutdown done')
 
-    def get_context_menu(self, tree_id: TreeID, guid_list: List[GUID]) -> List[ContextMenuItem]:
+    def build_context_menu(self, tree_id: TreeID, guid_list: List[GUID]) -> List[ContextMenuItem]:
         sn_list: List[SPIDNodePair] = self.backend.cacheman.get_sn_list_for_guid_list(guid_list, tree_id=tree_id)
 
         if len(sn_list) == 1:
@@ -223,6 +183,13 @@ class ContextMenuBuilder(HasLifecycle):
                 item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
 
+        # Add custom actions, if applicable:
+        for custom_action in self.action_manager.get_custom_action_list():
+            if custom_action.is_enabled_for([sn.node]):
+                item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=custom_action.label, action_id=custom_action.action_id)
+                item.target_guid_list = [sn.spid.guid]
+                menu_item_list.append(item)
+
         return menu_item_list
 
     def _build_context_menu_for_sn_list(self, selected_sn_list: List[SPIDNodePair], selected_guid_list: List[GUID], tree_id: TreeID) \
@@ -275,5 +242,12 @@ class ContextMenuBuilder(HasLifecycle):
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=title, action_id=ActionID.DELETE_SUBTREE_FOR_SINGLE_DEVICE)
             item.target_guid_list = guid_list
             menu_item_list.append(item)
+
+        # Add custom actions, if applicable:
+        for custom_action in self.action_manager.get_custom_action_list():
+            if custom_action.is_enabled_for([sn.node for sn in selected_sn_list]):
+                item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=custom_action.label, action_id=custom_action.action_id)
+                item.target_guid_list = selected_guid_list
+                menu_item_list.append(item)
 
         return menu_item_list

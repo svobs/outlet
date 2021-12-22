@@ -439,8 +439,7 @@ class GRPCConverter:
                 for grpc_node in action_grpc.target_node_list:
                     target_node_list.append(self.node_from_grpc(grpc_node))
 
-            action_id = ActionID(action_grpc.action_id)
-            action_list.append(TreeAction(action_grpc.tree_id, action_id, target_guid_list, target_node_list))
+            action_list.append(TreeAction(action_grpc.tree_id, action_grpc.action_id, target_guid_list, target_node_list))
 
         return action_list
 

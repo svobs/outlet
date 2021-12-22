@@ -6,6 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 action_id = 101
+label = 'Untitled Menu Item'
 
 
 def is_enabled_for(node_list: List[Node]) -> bool:

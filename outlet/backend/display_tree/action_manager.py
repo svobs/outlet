@@ -1,19 +1,38 @@
+import importlib
 import logging
+import os
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, TypeVar
 
 from pydispatch import dispatcher
 
 from backend.executor.central import ExecPriority
-from constants import ActionID, MAX_ROWS_PER_ACTIVATION, TreeID, TreeType
+from constants import ActionID, CONFIG_PY_DIR, CONFIG_PY_MODULE, INIT_FILE, LOGGING_CONSTANTS_FILE, MAX_ROWS_PER_ACTIVATION, TreeID, TreeType
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.display_tree.tree_action import TreeAction
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.user_op import UserOp
 from signal_constants import ID_CONTEXT_MENU_MANAGER, Signal
+from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
+
+
+class CustomMenuAction:
+    def __init__(self, action_id, label, is_enabled_for, exec_func):
+        self.action_id: int = action_id
+        self.label: str = label
+        self._is_enabled_for: Callable = is_enabled_for
+        self._exec: Callable = exec_func
+
+    def is_enabled_for(self, node_list: List[Node]) -> bool:
+        return self._is_enabled_for(node_list)
+
+    def execute(self, node_list: List[Node]):
+        self._exec(node_list)
 
 
 class ActionManager(HasLifecycle):
@@ -21,13 +40,15 @@ class ActionManager(HasLifecycle):
         HasLifecycle.__init__(self)
         self.backend = backend
 
-        self._action_handler_dict: Dict[ActionID, Callable[[TreeAction], None]] = {
+        self._action_handler_dict: Dict[int, Callable[[TreeAction], None]] = {
             ActionID.DELETE_SUBTREE_FOR_SINGLE_DEVICE: self._delete_subtree_for_single_device,
             ActionID.DELETE_SUBTREE: self._delete_subtree_for_single_device,
             ActionID.DELETE_SINGLE_FILE: self._delete_single_file,
             ActionID.ACTIVATE: self._activate,
             ActionID.REFRESH: self._refresh_subtree
         }
+
+        self._custom_action_dict: Dict[int, CustomMenuAction] = self._load_custom_action_list()
 
     def start(self):
         logger.debug(f'[ActionManager] Startup started')
@@ -39,6 +60,41 @@ class ActionManager(HasLifecycle):
         HasLifecycle.shutdown(self)
         logger.debug(f'[ActionManager] Shutdown done')
 
+    @staticmethod
+    def _load_custom_action_list() -> Dict[ActionID, CustomMenuAction]:
+        custom_action_dict = {}
+        mod_name_list = []
+        for file in os.listdir(get_resource_path(CONFIG_PY_DIR)):
+            if Path(file).suffix == '.py' and file != LOGGING_CONSTANTS_FILE and file != INIT_FILE:
+                mod_name_list.append(Path(file).stem)
+
+        for mod_name in mod_name_list:
+            module = importlib.import_module(f'{CONFIG_PY_MODULE}.{mod_name}')
+            try:
+                action_id = getattr(module, 'action_id')
+                label = getattr(module, 'label')
+                execute = getattr(module, 'execute')
+                is_enabled_for = getattr(module, 'is_enabled_for')
+
+                if action_id and execute and is_enabled_for:
+                    if action_id <= ActionID.ACTIVATE:
+                        logger.error(f'Error loading custom action: module "{mod_name}" has an invalid action_id ({action_id}) - skipping')
+                    else:
+                        action = CustomMenuAction(action_id=action_id, label=label, is_enabled_for=is_enabled_for, exec_func=execute)
+                        if action_id in custom_action_dict:
+                            raise RuntimeError(f'Whie loading custom action from module "{mod_name}": '
+                                               f'there is already a custom action with action_id {action_id}')
+                        custom_action_dict[action_id] = action
+                        logger.info(f'Loaded custom action from module "{mod_name}": action_id={action_id} label="{label}"')
+            except AttributeError as err:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Skipping load of file: {err}')
+        return custom_action_dict
+
+    def get_custom_action_list(self) -> List[CustomMenuAction]:
+        # TODO: sort by actionID
+        return list(self._custom_action_dict.values())
+
     def execute_tree_action_list(self, tree_action_list: List[TreeAction]):
         assert tree_action_list, f'tree_action_list is empty!'
         for tree_action in tree_action_list:
@@ -46,12 +102,23 @@ class ActionManager(HasLifecycle):
 
     def _execute_tree_action(self, tree_action: TreeAction):
         action_handler = self._action_handler_dict.get(tree_action.action_id)
-        if not action_handler:
-            raise RuntimeError(f'Backend cannot find an action handler for: {tree_action.action_id.name}')
+        if action_handler:
+            logger.debug(f'[{tree_action.tree_id}] Calling ActionHandler for action {ActionID(tree_action.action_id).name} '
+                         f'target_guid_list={tree_action.target_guid_list}')
+            action_handler(tree_action)
+        else:
+            custom_action_handler = self._custom_action_dict.get(tree_action.action_id)
+            if custom_action_handler:
+                logger.debug(f'[{tree_action.tree_id}] Calling ActionHandler for custom action_id {tree_action.action_id} '
+                             f'target_guid_list={tree_action.target_guid_list}')
+                node_list = self._get_node_list_for_guid_list(tree_action.target_guid_list, tree_action.tree_id)
+                custom_action_handler.execute(node_list)
+            else:
+                raise RuntimeError(f'Backend cannot find an action handler for action_id {tree_action.action_id}')
 
-        logger.debug(f'[{tree_action.tree_id}] Calling ActionHandler for action {tree_action.action_id.name} '
-                     f'target_guid_list={tree_action.target_guid_list}')
-        action_handler(tree_action)
+    def _get_node_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID):
+        sn_list = self._get_sn_list_for_guid_list(guid_list, tree_id)
+        return [sn.node for sn in sn_list]
 
     def _get_sn_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID):
         return [self.backend.cacheman.get_sn_for_guid(guid=guid, tree_id=tree_id) for guid in guid_list]

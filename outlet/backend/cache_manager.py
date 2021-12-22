@@ -93,8 +93,8 @@ class CacheManager(HasLifecycle):
 
         self._active_tree_manager = ActiveTreeManager(self.backend)
         self._row_state_tracking = RowStateTracking(self.backend, self._active_tree_manager)
-        self._context_menu_builder = ContextMenuBuilder(self.backend)
         self._action_manager = ActionManager(self.backend)
+        self._context_menu_builder = ContextMenuBuilder(self.backend, self._action_manager)
 
         op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
         self._op_manager: OpManager = OpManager(self.backend, op_db_path)
