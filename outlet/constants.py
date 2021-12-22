@@ -66,7 +66,8 @@ BADGE_ICON_BASE_DIR = 'resources/Badge'
 
 PROJECT_DIR = '.'
 CONFIG_DIR = f'{PROJECT_DIR}/config'
-CONFIG_PY_DIR = f'{PROJECT_DIR}/config_py'
+CONFIG_PY_MODULE = 'config_py'
+CONFIG_PY_DIR = f'{PROJECT_DIR}/{CONFIG_PY_MODULE}'
 DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 
 UI_STATE_CFG_SEGMENT = 'ui_state'

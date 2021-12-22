@@ -1,8 +1,11 @@
+import importlib
 import logging
+import os
 import re
+from pathlib import Path
 from typing import Dict, List, Optional
 
-from constants import ActionID, DATE_REGEX, MenuItemType, TreeID, TreeType
+from constants import ActionID, CONFIG_PY_DIR, CONFIG_PY_MODULE, DATE_REGEX, LOGGING_CONSTANTS_FILE, MenuItemType, TreeID, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -10,15 +13,53 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
 from model.user_op import UserOp
+from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
+
+
+class CustomMenuAction:
+    def __init__(self, action_id, is_enabled_for, exec_func):
+        self.action_id: ActionID = action_id
+        self._is_enabled_for = is_enabled_for
+        self._exec = exec_func
+
+    def is_enabled_for(self, node_list: List[Node]) -> bool:
+        return self._is_enabled_for(node_list)
+
+    def execute(self, node_list: List[Node]):
+        self._exec(node_list)
 
 
 class ContextMenuBuilder(HasLifecycle):
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         self.backend = backend
+        self.custom_action_list: List[CustomMenuAction] = self._load_custom_action_list()
+
+    @staticmethod
+    def _load_custom_action_list() -> List[CustomMenuAction]:
+        custom_action_list = []
+        mod_name_list = []
+        for file in os.listdir(get_resource_path(CONFIG_PY_DIR)):
+            if Path(file).suffix == '.py' and file != LOGGING_CONSTANTS_FILE:
+                mod_name_list.append(Path(file).stem)
+
+        for mod_name in mod_name_list:
+            module = importlib.import_module(f'{CONFIG_PY_MODULE}.{mod_name}')
+            try:
+                action_id = getattr(module, 'action_id')
+                exec_func = getattr(module, 'execute')
+                is_enabled_for = getattr(module, 'is_enabled_for')
+
+                if action_id and exec_func and is_enabled_for:
+                    custom_action_list.append(CustomMenuAction(action_id=action_id, is_enabled_for=is_enabled_for, exec_func=exec_func))
+                    logger.info(f'Loaded custom action: "{mod_name}" with action_id {action_id}')
+            except AttributeError as err:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Skipping load of file: {err}')
+        return custom_action_list
 
     def start(self):
         logger.debug(f'[ContextMenuManager] Startup started')

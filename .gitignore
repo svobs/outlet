@@ -17,6 +17,7 @@ Pipfile.lock
 .idea
 
 cache
+config_py
 test/BiDirMerge
 test/BiDirMerge.7z
 test/ChangeTest

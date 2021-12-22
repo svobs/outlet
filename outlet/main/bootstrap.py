@@ -17,7 +17,7 @@ def configure():
     logging_constants_py = os.path.join(config_py_dir, LOGGING_CONSTANTS_FILE)
     if not os.path.exists(logging_constants_py):
         template_dir = os.path.join(get_resource_path(PROJECT_DIR), TEMPLATE)
-        template_py = os.path.join(template_dir, f'{LOGGING_CONSTANTS_FILE}.{TEMPLATE}')
+        template_py = os.path.join(template_dir, f'_{LOGGING_CONSTANTS_FILE}')
 
         os.makedirs(name=config_py_dir, exist_ok=True)
         shutil.copyfile(template_py, dst=logging_constants_py, follow_symlinks=False)
