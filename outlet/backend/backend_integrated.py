@@ -62,12 +62,12 @@ class BackendIntegrated(OutletBackend):
         self.executor = None
 
     def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = True) -> Optional[str]:
-        return self._app_config.get(config_key, default_val, required)
+        return self._app_config.get_config(config_key, default_val, required)
 
     def get_config_list(self, config_key_list: List[str]) -> Dict[str, str]:
         response_dict: Dict[str, str] = {}
         for config_key in config_key_list:
-            response_dict[config_key] = self._app_config.get(config_key)
+            response_dict[config_key] = self._app_config.get_config(config_key)
         return response_dict
 
     def put_config(self, config_key: str, config_val: str):

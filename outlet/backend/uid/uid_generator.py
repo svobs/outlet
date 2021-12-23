@@ -80,11 +80,11 @@ class PersistentAtomicIntUidGenerator(SimpleUidGenerator):
     """
     def __init__(self, app_config):
         self._app_config = app_config
-        self._enable_uid_persistence: bool = self._app_config.get(CFG_ENABLE_LAST_UID_PERSISTENCE)
+        self._enable_uid_persistence: bool = self._app_config.get_config(CFG_ENABLE_LAST_UID_PERSISTENCE)
         self._last_uid_written = MIN_FREE_UID
         if self._enable_uid_persistence:
-            self._last_uid_written = self._app_config.get(CFG_LAST_UID, MIN_FREE_UID)
-            self._uid_reservation_block_size = self._app_config.get(CFG_UID_RESERVATION_BLOCK_SIZE)
+            self._last_uid_written = self._app_config.get_config(CFG_LAST_UID, MIN_FREE_UID)
+            self._uid_reservation_block_size = self._app_config.get_config(CFG_UID_RESERVATION_BLOCK_SIZE)
         super().__init__(self._last_uid_written + 1)
 
     def _set(self, new_value):

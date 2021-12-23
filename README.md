@@ -90,3 +90,9 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [5] OpManager: simplify the op tree each time the next change requested
 * [3] Bulk delete dir trees instead of one by one
 * [5] Progress bar for current task + view all pending & current tasks
+
+### Testing TODO
+* Dir replaced with file / vice versa 
+* Symlinks everywhere
+* GDrive nodes with multiple parents
+* Multiple GDrive nodes with same name and same parent

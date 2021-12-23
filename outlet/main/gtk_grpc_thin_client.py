@@ -23,8 +23,8 @@ def main():
     bootstrap.configure()
     app_config = main_util.do_main_boilerplate(executing_script_path=__file__)
 
-    if ensure_bool(app_config.get('thin_client.launch_server_on_start')):
-        kill_existing = ensure_bool(app_config.get('thin_client.kill_existing_server_on_start'))
+    if ensure_bool(app_config.get_config('thin_client.launch_server_on_start')):
+        kill_existing = ensure_bool(app_config.get_config('thin_client.kill_existing_server_on_start'))
         daemon_util.launch_daemon_if_needed(kill_existing=kill_existing)
 
     backend = BackendGRPCClient(app_config)

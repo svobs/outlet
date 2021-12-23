@@ -186,24 +186,18 @@ class LocalDiskScanner:
 
         child_node_list = []
 
+        # FIXME: decide how to handle symlinks
+
         # DIRS
         self._dir_queue += dir_list
         for child_dir_path in dir_list:
             if TRACE_ENABLED:
                 logger.debug(f'[{self.tree_id}] Adding scanned dir: {child_dir_path}')
-            dir_node: LocalDirNode = self.cacheman.get_node_for_local_path(child_dir_path)
-            if dir_node:
-                if not dir_node.is_dir():
-                    # FIXME: handle this
-                    raise RuntimeError(f'Expected dir node from cache but found: {dir_node}')
-                dir_node.set_is_live(True)
-            else:
-                dir_node = self.cacheman.build_local_dir_node(child_dir_path, is_live=True, all_children_fetched=True)
 
+            dir_node = self.cacheman.build_local_dir_node(child_dir_path, is_live=True, all_children_fetched=True)
             if dir_node:
                 child_node_list.append(dir_node)
 
-        # FIXME: handle symlinks
         # FILES
         for child_file_path in nondir_list:
             if TRACE_ENABLED:

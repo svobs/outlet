@@ -37,7 +37,7 @@ class AppConfig:
             print(f'Reading config file: "{config_file_path}"')
             self._cfg = config.Config(config_file_path)
 
-            self.read_only = self.get_config('read_only_config', False, is_required=False)
+            self.read_only = self.get_config('read_only_config', False, required=False)
         except Exception as err:
             raise RuntimeError(f'Could not read config file "{config_file_path}"') from err
 
@@ -58,13 +58,9 @@ class AppConfig:
             logger.info('Config is set to read-only')
 
     def get_config_from_request(self, request: ConfigRequest):
-        return self.get(cfg_path=request.cfg_path, default_val=request.default_val, required=request.is_required)
+        return self.get_config(cfg_path=request.cfg_path, default_val=request.default_val, required=request.is_required)
 
-    def get_config(self, cfg_path: str, default_val=None, is_required: bool = True):
-        return self.get(cfg_path=cfg_path, default_val=default_val, required=is_required)
-
-    # TODO: Deprecate this! use get_config (better name for searches)
-    def get(self, cfg_path: str, default_val=None, required: bool = True):
+    def get_config(self, cfg_path: str, default_val=None, required: bool = True):
         try:
             val = self._cfg[cfg_path]
             if val is None and default_val is None and required:

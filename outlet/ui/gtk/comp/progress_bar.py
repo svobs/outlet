@@ -23,7 +23,7 @@ class ProgressBar(HasLifecycle):
     """
     def __init__(self, app_config, sender_list):
         HasLifecycle.__init__(self)
-        self._update_interval_ms = float(app_config.get('display.progress_bar.max_refresh_interval_sec', 0.001)) * 1000
+        self._update_interval_ms = float(app_config.get_config('display.progress_bar.max_refresh_interval_sec', 0.001)) * 1000
         self.progressbar = Gtk.ProgressBar()
 
         # state:
