@@ -13,7 +13,7 @@ from model.display_tree.tree_action import TreeAction
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.user_op import UserOp
-from signal_constants import ID_CONTEXT_MENU_MANAGER, Signal
+from signal_constants import ID_ACTION_MANAGER, Signal
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task
@@ -22,17 +22,23 @@ logger = logging.getLogger(__name__)
 
 
 class CustomMenuAction:
-    def __init__(self, action_id, label, is_enabled_for, exec_func):
+    def __init__(self, action_id, get_label_func, is_enabled_func, run_func):
         self.action_id: int = action_id
-        self.label: str = label
-        self._is_enabled_for: Callable = is_enabled_for
-        self._exec: Callable = exec_func
+        self._get_label_func: Callable = get_label_func
+        self._is_enabled_func: Callable = is_enabled_func
+        self._run_func: Callable = run_func
+
+    def get_label(self, node_list: List[Node]) -> bool:
+        return self._get_label_func(node_list)
 
     def is_enabled_for(self, node_list: List[Node]) -> bool:
-        return self._is_enabled_for(node_list)
+        return self._is_enabled_func(node_list)
 
     def execute(self, node_list: List[Node]):
-        self._exec(node_list)
+        self._run_func(node_list)
+
+    def __repr__(self):
+        return f'CustomMenuAction[action_id={self.action_id} label="{self.get_label([])}"]'
 
 
 class ActionManager(HasLifecycle):
@@ -48,11 +54,15 @@ class ActionManager(HasLifecycle):
             ActionID.REFRESH: self._refresh_subtree
         }
 
-        self._custom_action_dict: Dict[int, CustomMenuAction] = self._load_custom_action_list()
+        self._custom_module_dict: Dict = {}
+        self._custom_action_dict: Dict[int, CustomMenuAction] = {}
+
+        self.reload_custom_action_handlers_before_invoke: bool = backend.get_config('tree_action.custom.reload_handlers_before_each_invoke')
 
     def start(self):
         logger.debug(f'[ActionManager] Startup started')
         HasLifecycle.start(self)
+        self._load_custom_actions()
         logger.debug(f'[ActionManager] Startup done')
 
     def shutdown(self):
@@ -60,8 +70,8 @@ class ActionManager(HasLifecycle):
         HasLifecycle.shutdown(self)
         logger.debug(f'[ActionManager] Shutdown done')
 
-    @staticmethod
-    def _load_custom_action_list() -> Dict[ActionID, CustomMenuAction]:
+    def _load_custom_actions(self):
+        logger.debug(f'Loading custom actions from disk')
         custom_action_dict = {}
         mod_name_list = []
         for file in os.listdir(get_resource_path(CONFIG_PY_DIR)):
@@ -69,27 +79,36 @@ class ActionManager(HasLifecycle):
                 mod_name_list.append(Path(file).stem)
 
         for mod_name in mod_name_list:
-            module = importlib.import_module(f'{CONFIG_PY_MODULE}.{mod_name}')
+            fullname = f'{CONFIG_PY_MODULE}.{mod_name}'
+            module = self._custom_module_dict.get(fullname)
+            if module:
+                module = importlib.reload(module)
+            else:
+                module = importlib.import_module(f'{CONFIG_PY_MODULE}.{mod_name}')
+
+            self._custom_module_dict[fullname] = module
+
             try:
                 action_id = getattr(module, 'action_id')
-                label = getattr(module, 'label')
-                execute = getattr(module, 'execute')
-                is_enabled_for = getattr(module, 'is_enabled_for')
+                get_label_func = getattr(module, 'get_label')
+                run_func = getattr(module, 'run')
+                is_enabled_func = getattr(module, 'is_enabled')
 
-                if action_id and execute and is_enabled_for:
+                if action_id and get_label_func and run_func and is_enabled_func:
                     if action_id <= ActionID.ACTIVATE:
                         logger.error(f'Error loading custom action: module "{mod_name}" has an invalid action_id ({action_id}) - skipping')
                     else:
-                        action = CustomMenuAction(action_id=action_id, label=label, is_enabled_for=is_enabled_for, exec_func=execute)
+                        action = CustomMenuAction(action_id=action_id, get_label_func=get_label_func,
+                                                  is_enabled_func=is_enabled_func, run_func=run_func)
                         if action_id in custom_action_dict:
                             raise RuntimeError(f'Whie loading custom action from module "{mod_name}": '
                                                f'there is already a custom action with action_id {action_id}')
                         custom_action_dict[action_id] = action
-                        logger.info(f'Loaded custom action from module "{mod_name}": action_id={action_id} label="{label}"')
+                        logger.info(f'Loaded custom action from module "{mod_name}": action_id={action_id}')
             except AttributeError as err:
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Skipping load of file: {err}')
-        return custom_action_dict
+        self._custom_action_dict = custom_action_dict
 
     def get_custom_action_list(self) -> List[CustomMenuAction]:
         # TODO: sort by actionID
@@ -103,18 +122,28 @@ class ActionManager(HasLifecycle):
     def _execute_tree_action(self, tree_action: TreeAction):
         action_handler = self._action_handler_dict.get(tree_action.action_id)
         if action_handler:
-            logger.debug(f'[{tree_action.tree_id}] Calling ActionHandler for action {ActionID(tree_action.action_id).name} '
+            logger.debug(f'[{tree_action.tree_id}] Calling handler for action {ActionID(tree_action.action_id).name} '
                          f'target_guid_list={tree_action.target_guid_list}')
             action_handler(tree_action)
         else:
-            custom_action_handler = self._custom_action_dict.get(tree_action.action_id)
+            if self.reload_custom_action_handlers_before_invoke:
+                self._load_custom_actions()
+
+            custom_action_handler: Optional[CustomMenuAction] = self._custom_action_dict.get(tree_action.action_id)
             if custom_action_handler:
-                logger.debug(f'[{tree_action.tree_id}] Calling ActionHandler for custom action_id {tree_action.action_id} '
-                             f'target_guid_list={tree_action.target_guid_list}')
-                node_list = self._get_node_list_for_guid_list(tree_action.target_guid_list, tree_action.tree_id)
-                custom_action_handler.execute(node_list)
+                self.backend.executor.submit_async_task(Task(ExecPriority.P4_LONG_RUNNING_USER_TASK, self._execute_custom_action,
+                                                             custom_action_handler, tree_action))
             else:
                 raise RuntimeError(f'Backend cannot find an action handler for action_id {tree_action.action_id}')
+
+    def _execute_custom_action(self, this_task: Task, custom_action_handler, tree_action):
+        logger.debug(f'[{tree_action.tree_id}] Calling handler for custom action id={tree_action.action_id} '
+                     f'target_guid_list={tree_action.target_guid_list}')
+        node_list = self._get_node_list_for_guid_list(tree_action.target_guid_list, tree_action.tree_id)
+        try:
+            custom_action_handler.execute(node_list)
+        except RuntimeError as err:
+            self.backend.report_exception(sender=ID_ACTION_MANAGER, msg=f'Error running action', error=err)
 
     def _get_node_list_for_guid_list(self, guid_list: List[GUID], tree_id: TreeID):
         sn_list = self._get_sn_list_for_guid_list(guid_list, tree_id)
@@ -150,7 +179,7 @@ class ActionManager(HasLifecycle):
             raise RuntimeError(f'Cannot do "activation": no nodes provided!')
 
         if len(cxt.target_guid_list) > MAX_ROWS_PER_ACTIVATION:
-            self.backend.report_error(sender=ID_CONTEXT_MENU_MANAGER, msg='Too many rows selected',
+            self.backend.report_error(sender=ID_ACTION_MANAGER, msg='Too many rows selected',
                                       secondary_msg=f'You selected {len(cxt.target_guid_list)} items, which is too many for you.\n\n'
                                                     f'Try selecting less items first. This message exists for your protection. You child.')
 
@@ -174,7 +203,7 @@ class ActionManager(HasLifecycle):
                 # Collapse by default
                 action = TreeAction(cxt.tree_id, action_id=ActionID.COLLAPSE_ROWS, target_guid_list=cxt.target_guid_list)
 
-            dispatcher.send(sender=ID_CONTEXT_MENU_MANAGER, signal=Signal.EXECUTE_ACTION, action_list=[action])
+            dispatcher.send(sender=ID_ACTION_MANAGER, signal=Signal.EXECUTE_ACTION, action_list=[action])
             return
         elif file_count == len(target_sn_list):  # All files
             action_list: [TreeAction] = []
@@ -183,7 +212,7 @@ class ActionManager(HasLifecycle):
                 if action:
                     action_list.append(action)
 
-            dispatcher.send(sender=ID_CONTEXT_MENU_MANAGER, signal=Signal.EXECUTE_ACTION, action_list=action_list)
+            dispatcher.send(sender=ID_ACTION_MANAGER, signal=Signal.EXECUTE_ACTION, action_list=action_list)
 
     def _activate_file_sn(self, sn, cxt: TreeAction):
         """

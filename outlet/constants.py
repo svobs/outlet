@@ -314,6 +314,8 @@ class ActionID(IntEnum):
 
     ACTIVATE = 100
 
+    # 101+ are reserved for custom actions!
+
 
 # Beyond this amount, an error msg will be displayed
 MAX_ROWS_PER_ACTIVATION = 20

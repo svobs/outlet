@@ -6,12 +6,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 action_id = 101
-label = 'Untitled Menu Item'
 
 
-def is_enabled_for(node_list: List[Node]) -> bool:
+def get_label(node_list: List[Node]) -> str:
+    return 'Untitled Menu Item'
+
+
+def is_enabled(node_list: List[Node]) -> bool:
     return True
 
 
-def execute(node_list: List[Node]):
+def run(node_list: List[Node]):
     logger.warning(f'Hello world!')

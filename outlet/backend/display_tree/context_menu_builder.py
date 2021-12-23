@@ -183,12 +183,7 @@ class ContextMenuBuilder(HasLifecycle):
                 item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
 
-        # Add custom actions, if applicable:
-        for custom_action in self.action_manager.get_custom_action_list():
-            if custom_action.is_enabled_for([sn.node]):
-                item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=custom_action.label, action_id=custom_action.action_id)
-                item.target_guid_list = [sn.spid.guid]
-                menu_item_list.append(item)
+        self._add_custom_action_list([sn.node], [sn.spid.guid], menu_item_list)
 
         return menu_item_list
 
@@ -243,11 +238,18 @@ class ContextMenuBuilder(HasLifecycle):
             item.target_guid_list = guid_list
             menu_item_list.append(item)
 
-        # Add custom actions, if applicable:
-        for custom_action in self.action_manager.get_custom_action_list():
-            if custom_action.is_enabled_for([sn.node for sn in selected_sn_list]):
-                item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=custom_action.label, action_id=custom_action.action_id)
-                item.target_guid_list = selected_guid_list
-                menu_item_list.append(item)
+        self._add_custom_action_list([sn.node for sn in selected_sn_list], selected_guid_list, menu_item_list)
 
         return menu_item_list
+
+    # Adds custom actions, if applicable:
+    def _add_custom_action_list(self, node_list: List[Node], guid_list: List[GUID], menu_item_list):
+        for custom_action in self.action_manager.get_custom_action_list():
+            try:
+                if custom_action.is_enabled_for(node_list):
+                    title = custom_action.get_label(node_list)
+                    item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=title, action_id=custom_action.action_id)
+                    item.target_guid_list = guid_list
+                    menu_item_list.append(item)
+            except RuntimeError:
+                logger.exception(f'Failed to evaluate enablement of custom action: {custom_action}')
