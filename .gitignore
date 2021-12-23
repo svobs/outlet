@@ -17,10 +17,9 @@ Pipfile.lock
 .idea
 
 cache
-config_py
 test/BiDirMerge
 test/BiDirMerge.7z
 test/ChangeTest
 test/TestSet
 
-config/device_uuid.txt
+config/config_py
