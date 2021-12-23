@@ -22,4 +22,4 @@ test/BiDirMerge.7z
 test/ChangeTest
 test/TestSet
 
-config/config_py
+config_py

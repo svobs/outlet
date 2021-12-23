@@ -1,8 +1,11 @@
 # Default version of this file: outlet/template/_menu_item.py
 import asyncio
+import os
 import sys
+from collections import deque
 from functools import partial
-from typing import List, Optional
+from pathlib import Path
+from typing import Deque, List, Optional
 from model.node.node import Node
 import logging
 logger = logging.getLogger(__name__)
@@ -25,11 +28,13 @@ DEFAULT_CMD_LINE = [NO_BORDER, START_FROM_BEGINNING, QUIT_WHEN_DONE, AUTOHIDE_CU
 
 SCREENS = [1, 2]
 
+SUFFIX_SET = {'.mov', 'mp4', '.m2ts', '.mkv', '.avi'}
+
 
 class ExecState:
-    def __init__(self, cmd_line_list, node_list):
+    def __init__(self, cmd_line_list, file_deque):
         self.cmd_line_list = cmd_line_list
-        self.node_list: List[Node] = node_list
+        self.file_deque: Deque[str] = file_deque
         self.was_cancelled: bool = False
 
 
@@ -45,17 +50,41 @@ def run(node_list: List[Node]):
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-    # if len(SCREENS) == 2:
-    cmd_line_list = _get_cmd_list_for_two_screens(node_list)
+    file_deque = _find_all_video_files(node_list)
 
-    state = ExecState(cmd_line_list, node_list)
+    # if len(SCREENS) == 2:
+    cmd_line_list = _get_cmd_list_for_two_screens()
+
+    state = ExecState(cmd_line_list, file_deque)
     asyncio.run(_main_loop(state))
 
     logger.info(f'Done running!')
 
 
+def _find_all_video_files(node_list: List[Node]) -> Deque[str]:
+    file_set = set()
+
+    for node in node_list:
+        if node.is_file():
+            file_set.add(node.get_single_path())
+        elif node.is_dir():
+            for root, dirs, files in os.walk(node.get_single_path(), topdown=True):
+                for file_name in files:
+                    file_path = os.path.join(root, file_name)
+                    file_set.add(file_path)
+
+    file_deque: Deque[str] = deque()
+    for file in file_set:
+        suffix = Path(file).suffix
+        if suffix in SUFFIX_SET:
+            file_deque.append(file)
+        else:
+            logger.debug(f'Ignoring file: {file}')
+    return file_deque
+
+
 async def _main_loop(state: ExecState):
-    logger.info(f'Starting main loop!')
+    logger.info(f'Starting main loop for {len(state.file_deque)} files!')
     task_list = []
     for cmd_line in state.cmd_line_list:
         task = _run_single_instance(cmd_line, state, None)
@@ -80,10 +109,10 @@ def _run_single_instance(cmd_line, state: ExecState, task: Optional[asyncio.Task
     if state.was_cancelled:
         return None
 
-    if state.node_list:
-        node = state.node_list.pop()
-        logger.debug(f'Processing (remaining: {len(state.node_list)}) node: {node.node_identifier}')
-        this_cmd_line = cmd_line + [node.node_identifier.get_single_path()]
+    if state.file_deque:
+        file_path = state.file_deque.popleft()
+        logger.debug(f'Processing (remaining: {len(state.file_deque)}) file: {file_path}')
+        this_cmd_line = cmd_line + [file_path]
         task = asyncio.create_task(_play_one(this_cmd_line))
         callback = partial(_run_single_instance, cmd_line, state)
         # This will call back immediately if the task already completed:
@@ -100,7 +129,7 @@ async def _play_one(cmd_line):
     return rc
 
 
-def _get_cmd_list_for_two_screens(node_list: List[Node]) -> List[List[str]]:
+def _get_cmd_list_for_two_screens() -> List[List[str]]:
     cmd_line_list = []
 
     for index, screen in enumerate(SCREENS):
