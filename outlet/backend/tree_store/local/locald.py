@@ -149,10 +149,17 @@ class LocalDiskMasterStore(TreeStore):
                 # Updated node is not a dir!
                 parent_dir = self.build_local_file_node(full_path=parent_full_path)
                 if not parent_dir:
-                    logger.error(f'overwrite_dir_entries_list(): Parent not found! (path={parent_full_path}) Skipping...')
-                    # TODO: distinguish between removable volume dirs (volatile) & regular dirs which should be there
-
-                    # FIXME: if dir is not volatile, delete dir tree from cache
+                    # FIXME: distinguish between removable volume dirs (volatile) & regular dirs which should be there
+                    is_removable_volume = False
+                    if is_removable_volume:
+                        logger.debug(f'overwrite_dir_entries_list(): Dir not found but it is on removable volume; ignoring: "{parent_full_path}"')
+                    else:
+                        cached_parent_node = self.read_node_for_path(parent_full_path)
+                        if cached_parent_node:
+                            logger.info(f'overwrite_dir_entries_list(): givne parent not found ("{parent_full_path}") Removing it from the cache.')
+                            self.remove_subtree(cached_parent_node, to_trash=False)
+                        else:
+                            logger.error(f'overwrite_dir_entries_list(): path does not exist and no record of it found: "{parent_full_path}"')
                     return
 
                 if child_list:
