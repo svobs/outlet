@@ -6,6 +6,7 @@ from typing import Optional
 
 from backend.tree_store.local import content_hasher
 from error import IdenticalFileExistsError
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from util import file_util
 
@@ -148,8 +149,19 @@ class LocalFileUtil:
     
     def copy_meta(self, src_node: LocalFileNode, dst_path: str):
         try:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Copying stats from {src_node.node_identifier} to "{dst_path}"')
+
             # Copy the permission bits, last access time, last modification time, and flags:
             shutil.copystat(src_node.get_single_path(), dst=dst_path, follow_symlinks=False)
+
+            # FIXME: set creation time
+            # from subprocess import call
+            # command = 'SetFile -d ' + '"05/06/2019 "' + '00:00:00 ' + complete_path
+            # call(command, shell=True)
+
+            # OR:
+            # os.system('SetFile -d "{}" {}'.format(date.strftime('%m/%d/%Y %H:%M:%S'), filePath))
         except Exception:
             logger.error(f'Exception while copying file meta (src: "{src_node.get_single_path()}" dst: "{dst_path}"')
             raise

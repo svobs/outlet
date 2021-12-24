@@ -20,7 +20,7 @@ from backend.tree_store.local.master_local_write_op import BatchChangesOp, Delet
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import IS_MACOS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
+from constants import IS_LINUX, IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import NodeNotPresentError
 from model.cache_info import PersistedCacheInfo
@@ -887,7 +887,15 @@ class LocalDiskMasterStore(TreeStore):
         size_bytes = int(stat.st_size)
 
         modify_ts = int(stat.st_mtime * 1000)
-        change_ts = int(stat.st_ctime * 1000)
+        if IS_WINDOWS:
+            # Windows deviates from the standard and stores creation time as ctime, and does not track metadata change time.
+            create_ts = int(stat.st_ctime * 1000)
+            change_ts = 0
+        else:
+            change_ts = int(stat.st_ctime * 1000)
+            # This should work for both Mac and Linux.
+            # To see create_ts via cmd line on Mac: /Developer/Tools/GetFileInfo {filename}
+            create_ts = int(stat.st_birthtime * 1000)
 
         if IS_MACOS and staging_path:
             # MacOS has a bug where moving/copying a file will truncate its timestamps. We'll try to match its behavior.
@@ -902,9 +910,10 @@ class LocalDiskMasterStore(TreeStore):
 
         assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} for path: {path}'
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
+        assert create_ts > 100000000000, f'create_ts too small: {create_ts} for path: {path}'
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
-        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts,
+        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts,
                                  TrashStatus.NOT_TRASHED, is_live)
 
         if TRACE_ENABLED:

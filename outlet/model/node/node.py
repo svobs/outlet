@@ -168,6 +168,10 @@ class Node(BaseNode, HasParentList, ABC):
         raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
 
     @property
+    def create_ts(self):
+        return None
+
+    @property
     def modify_ts(self):
         return None
 

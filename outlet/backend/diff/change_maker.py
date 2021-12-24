@@ -126,7 +126,8 @@ class OneSide:
                                               all_children_fetched=True)
             else:
                 node_dst: Node = LocalFileNode(nid, dst_parent_uid, node_src.md5, node_src.sha256, node_src.get_size_bytes(),
-                                               sync_ts=None, modify_ts=None, change_ts=None, trashed=TrashStatus.NOT_TRASHED, is_live=False)
+                                               sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
+                                               trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
             if node_src.is_dir():
                 node_dst: Node = GDriveFolder(node_identifier=nid, goog_id=dst_node_goog_id, node_name=node_src.name,

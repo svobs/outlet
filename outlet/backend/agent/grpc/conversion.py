@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeContextMenuItem
-from constants import ActionID, ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TreeLoadState, TreeType
+from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TreeLoadState, TreeType
 from logging_constants import TRACE_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -159,8 +159,8 @@ class GRPCConverter:
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta
             assert isinstance(node_identifier, LocalNodeIdentifier)
-            node = LocalFileNode(node_identifier, meta.parent_uid, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.modify_ts,
-                                 meta.change_ts, grpc_node.trashed, meta.is_live)
+            node = LocalFileNode(node_identifier, meta.parent_uid, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.create_ts,
+                                 meta.modify_ts, meta.change_ts, grpc_node.trashed, meta.is_live)
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = ContainerNode(node_identifier)

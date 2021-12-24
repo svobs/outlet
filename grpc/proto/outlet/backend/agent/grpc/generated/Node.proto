@@ -97,17 +97,19 @@ message LocalDirMeta {
   bool is_live = 2;
   uint32 parent_uid = 3;
   bool all_children_fetched = 4;
+  // TODO: add timestamps
 }
 
 message LocalFileMeta {
   uint64 size_bytes = 1;
   uint64 sync_ts = 2;
-  uint64 modify_ts = 3;
-  uint64 change_ts = 4;
-  bool is_live = 5;
-  string md5 = 6;
-  string sha256 = 7;
-  uint32 parent_uid = 8;
+  uint64 create_ts = 3;
+  uint64 modify_ts = 4;
+  uint64 change_ts = 5;
+  bool is_live = 6;
+  string md5 = 7;
+  string sha256 = 8;
+  uint32 parent_uid = 9;
 }
 
 // GDrive nodes:

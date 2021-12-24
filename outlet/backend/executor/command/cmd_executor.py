@@ -7,6 +7,7 @@ from logging_constants import SUPER_DEBUG_ENABLED
 from util import file_util
 from backend.executor.command.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal
+from util.ensure import ensure_bool
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
@@ -33,7 +34,9 @@ class CommandExecutor(HasLifecycle):
         logger.debug('[CommandExecutor] Startup started')
         HasLifecycle.start(self)
 
-        update_meta_for_dst_nodes = self.backend.get_config('user_ops.update_meta_for_dst_nodes')
+        update_meta_for_dst_nodes = ensure_bool(self.backend.get_config('user_ops.update_meta_for_dst_nodes'))
+        if update_meta_for_dst_nodes:
+            logger.debug(f'update_meta_for_dst_nodes = {update_meta_for_dst_nodes}')
 
         # TODO: optionally clean staging dir at startup
         self.global_context = CommandContext(self.staging_dir, self.backend.cacheman, update_meta_for_dst_nodes)

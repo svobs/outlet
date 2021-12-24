@@ -33,7 +33,7 @@ class GDriveNode(Node, ABC):
         assert node_name, f'Node name is null! node_identifier={node_identifier} goog_id={goog_id}'
         self._name = node_name
 
-        self.create_ts = ensure_int(create_ts)
+        self._create_ts = ensure_int(create_ts)
         self._modify_ts = ensure_int(modify_ts)
 
         self.owner_uid: Optional[UID] = ensure_uid(owner_uid)
@@ -58,7 +58,7 @@ class GDriveNode(Node, ABC):
         self.goog_id = other_node.goog_id
         self._name = other_node.name
         self._trashed = other_node.get_trashed_status()
-        self.create_ts = other_node.create_ts
+        self._create_ts = other_node._create_ts
         self._modify_ts = other_node._modify_ts
         self.owner_uid = other_node.owner_uid
         self.drive_id = other_node.drive_id
@@ -213,7 +213,7 @@ class GDriveFolder(GDriveNode):
                 other.goog_id == self.goog_id and \
                 other.name == self.name and \
                 other.get_trashed_status() == self.get_trashed_status() and \
-                other.create_ts == self.create_ts and \
+                other._create_ts == self._create_ts and \
                 other._modify_ts == self._modify_ts and \
                 other.owner_uid == self.owner_uid and \
                 other.drive_id == self.drive_id and \
@@ -265,8 +265,8 @@ class GDriveFile(GDriveNode):
                 other.get_size_bytes() == self.get_size_bytes() and \
                 other.md5 == self._md5 and \
                 other.version == self.version and \
-                other.create_ts == self.create_ts and \
-                other.modify_ts == self.modify_ts and \
+                other._create_ts == self._create_ts and \
+                other._modify_ts == self._modify_ts and \
                 other.owner_uid == self.owner_uid and \
                 other.drive_id == self.drive_id and \
                 other.is_shared == self.is_shared and \
@@ -338,7 +338,7 @@ class GDriveFile(GDriveNode):
         self.modify_ts = other.modify_ts
 
         if isinstance(other, GDriveFile):
-            self.create_ts = other.create_ts
+            self._create_ts = other.create_ts
 
     @classmethod
     def has_tuple(cls) -> bool:

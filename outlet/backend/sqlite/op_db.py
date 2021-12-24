@@ -328,13 +328,14 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
-        op_uid_int, device_uid, uid_int, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
+        op_uid_int, device_uid, uid_int, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, \
+            is_live = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cacheman returned {uid} but op cache returned {uid_int} (from row: {row})')
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid), full_path=full_path)
-        obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
+        obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)
         op_uid = UID(op_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')

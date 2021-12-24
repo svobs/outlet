@@ -145,14 +145,17 @@ class LocalFileNode(LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed,
-                 is_live: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, md5, sha256, size_bytes, sync_ts,
+                 create_ts, modify_ts, change_ts, trashed, is_live: bool):
         super().__init__(node_identifier, parent_uid, trashed, is_live)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
         self._sync_ts: int = ensure_int(sync_ts)
+        self._create_ts: int = ensure_int(create_ts)
         self._modify_ts: int = ensure_int(modify_ts)
+
+        # "Metadata Change Time" (UNIX "ctime") - not available on Windows
         self._change_ts: int = ensure_int(change_ts)
 
     def update_from(self, other_node):
@@ -162,6 +165,7 @@ class LocalFileNode(LocalNode):
         self._sha256: Optional[str] = other_node.sha256
         self._size_bytes: int = ensure_int(other_node.get_size_bytes())
         self._sync_ts: int = ensure_int(other_node.sync_ts)
+        self._create_ts: int = ensure_int(other_node.create_ts)
         self._modify_ts: int = ensure_int(other_node.modify_ts)
         self._change_ts: int = ensure_int(other_node.change_ts)
         self._is_live = ensure_bool(other_node.is_live())
@@ -213,6 +217,14 @@ class LocalFileNode(LocalNode):
         self._sync_ts = sync_ts
 
     @property
+    def create_ts(self):
+        return self._create_ts
+
+    @create_ts.setter
+    def create_ts(self, create_ts):
+        self._create_ts = create_ts
+
+    @property
     def modify_ts(self):
         return self._modify_ts
 
@@ -233,8 +245,8 @@ class LocalFileNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_parent_uid(), self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, \
-               self.get_single_path(), self._trashed, self._is_live
+        return self.uid, self.get_single_parent_uid(), self.md5, self.sha256, self._size_bytes, self.sync_ts, \
+               self.create_ts, self.modify_ts, self.change_ts,  self.get_single_path(), self._trashed, self._is_live
 
     def has_signature(self) -> bool:
         return self._md5 is not None and self._sha256 is not None
@@ -267,6 +279,7 @@ class LocalFileNode(LocalNode):
 
     def meta_matches(self, other_node) -> bool:
         return isinstance(other_node, LocalFileNode) and \
+                other_node.create_ts == self.create_ts and \
                 other_node.modify_ts == self.modify_ts and \
                 other_node.change_ts == self.change_ts and \
                 other_node.get_size_bytes() == self.get_size_bytes()
@@ -288,6 +301,7 @@ class LocalFileNode(LocalNode):
                 other._sha256 == self._sha256 and \
                 other.node_identifier.node_uid == self.node_identifier.node_uid and \
                 other.node_identifier.device_uid == self.node_identifier.device_uid and \
+                other._create_ts == self._create_ts and \
                 other._modify_ts == self._modify_ts and \
                 other._change_ts == self._change_ts and \
                 other.get_trashed_status() == self.get_trashed_status() and \
@@ -302,8 +316,8 @@ class LocalFileNode(LocalNode):
 
     def __repr__(self):
         return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} md5={self._md5} sha256={self.sha256} ' \
-               f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts} ' \
-               f'change_ts={self._change_ts})'
+               f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} ' \
+               f'create_ts={self._create_ts} modify_ts={self._modify_ts} change_ts={self._change_ts})'
 
 
 def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
@@ -321,6 +335,20 @@ def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
 
         if not isinstance(new_node, LocalFileNode):
             raise RuntimeError(f'Invalid node type for new_node: {type(new_node)}')
+
+        if not old_node.create_ts:
+            logger.debug(f'old_node has no create_ts. Skipping create_ts comparison (Old={old_node} New={new_node}')
+        elif not new_node.create_ts:
+            raise RuntimeError(f'new_node is missing create_ts!')
+        elif new_node.create_ts < old_node.create_ts:
+            if IS_MACOS:
+                # Known bug in MacOS
+                logger.debug(
+                    f'File {new_node.node_identifier}: update has older create_ts ({new_node.create_ts}) than prev version ({old_node.create_ts})'
+                    f'(probably MacOS bug)')
+            else:
+                logger.warning(
+                    f'File {new_node.node_identifier}: update has older create_ts ({new_node.create_ts}) than prev version ({old_node.create_ts})')
 
         if not old_node.modify_ts:
             logger.debug(f'old_node has no modify_ts. Skipping modify_ts comparison (Old={old_node} New={new_node}')
