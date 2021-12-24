@@ -33,8 +33,10 @@ class CommandExecutor(HasLifecycle):
         logger.debug('[CommandExecutor] Startup started')
         HasLifecycle.start(self)
 
+        update_meta_for_dst_nodes = self.backend.get_config('user_ops.update_meta_for_dst_nodes')
+
         # TODO: optionally clean staging dir at startup
-        self.global_context = CommandContext(self.staging_dir, self.backend.cacheman)
+        self.global_context = CommandContext(self.staging_dir, self.backend.cacheman, update_meta_for_dst_nodes)
         logger.debug('[CommandExecutor] Startup done')
 
     def shutdown(self):

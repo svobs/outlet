@@ -80,7 +80,7 @@ class CacheManager(HasLifecycle):
         self.sync_from_local_disk_on_cache_load = backend.get_config('cache.local_disk.sync_from_local_disk_on_cache_load')
         self.sync_from_gdrive_on_cache_load = backend.get_config('cache.sync_from_gdrive_on_cache_load')
         self.reload_tree_on_root_path_update = backend.get_config('cache.load_cache_when_tree_root_selected')
-        self.cancel_all_pending_ops_on_startup = backend.get_config('cache.cancel_all_pending_ops_on_startup')
+        self.cancel_all_pending_ops_on_startup = backend.get_config('user_ops.cancel_all_pending_ops_on_startup')
         self.lazy_load_local_file_signatures: bool = backend.get_config('cache.local_disk.signatures.lazy_load')
         logger.debug(f'lazy_load_local_file_signatures = {self.lazy_load_local_file_signatures}')
 

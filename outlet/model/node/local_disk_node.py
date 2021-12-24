@@ -240,34 +240,36 @@ class LocalFileNode(LocalNode):
         return self._md5 is not None and self._sha256 is not None
 
     def copy_signature_if_meta_matches(self, other) -> bool:
-        if isinstance(other, LocalFileNode) and \
-                other.modify_ts == self.modify_ts and \
-                other.change_ts == self.change_ts and \
-                other.get_size_bytes() == self.get_size_bytes() and \
-                (other._md5 or other._sha256):
-            if other._md5:
+        if self.meta_matches(other) and (other.md5 or other.sha256):
+            if other.md5:
                 if SUPER_DEBUG_ENABLED:
-                    if self._md5 and self._md5 != other._md5:
+                    if self._md5 and self._md5 != other.md5:
                         logger.error(f'copy_signature_if_meta_matches(): meta matches but MD5s differ! this={self}, other={other}')
                     else:
                         logger.debug(f'Copying MD5 from node: {other.node_identifier}')
 
-                self._md5 = other._md5
+                self._md5 = other.md5
 
-            if other._sha256:
+            if other.sha256:
                 if SUPER_DEBUG_ENABLED:
-                    if self._sha256 and self._sha256 != other._sha256:
+                    if self._sha256 and self._sha256 != other.sha256:
                         logger.error(f'copy_signature_if_meta_matches(): meta matches but SHA256s differ! this={self}, other={other}')
                     else:
                         logger.debug(f'Copying SHA256 from node: {other.node_identifier}')
 
-                self._sha256 = other._sha256
+                self._sha256 = other.sha256
 
             if SUPER_DEBUG_ENABLED:
                 _check_update_sanity(other, self)
             return True
 
         return False
+
+    def meta_matches(self, other_node) -> bool:
+        return isinstance(other_node, LocalFileNode) and \
+                other_node.modify_ts == self.modify_ts and \
+                other_node.change_ts == self.change_ts and \
+                other_node.get_size_bytes() == self.get_size_bytes()
 
     def update_signature_and_timestamps_from(self, other):
         assert isinstance(other, Node), f'Not a node: {other}'

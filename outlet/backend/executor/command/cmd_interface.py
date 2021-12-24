@@ -17,9 +17,11 @@ class CommandContext:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, staging_dir: str, cacheman):
+    def __init__(self, staging_dir: str, cacheman, update_meta_also):
         self.staging_dir: str = staging_dir
         self.cacheman = cacheman
+        self.update_meta_also: bool = update_meta_also
+        """If true, any moves or copies of nodes should also copy the meta from src to dst"""
 
 
 class Command(BaseNode, ABC):

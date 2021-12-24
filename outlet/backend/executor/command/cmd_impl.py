@@ -1,56 +1,22 @@
 import logging
+import logging
 import os
 from typing import List
 
-from error import GDriveItemNotFoundError, InvalidOperationError
-from util import file_util
-from model.user_op import UserOp, UserOpType
-from backend.executor.command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand
+from backend.executor.command.cmd_interface import Command, CommandContext, CopyNodeCommand, DeleteNodeCommand, UserOpResult, UserOpStatus
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus
-from model.uid import UID
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from error import GDriveItemNotFoundError, InvalidOperationError
 from model.node.gdrive_node import GDriveFile, GDriveNode
-from backend.tree_store.local import content_hasher
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.uid import UID
+from model.user_op import UserOp, UserOpType
+from util import file_util
+from util.local_file_util import LocalFileUtil
 
 logger = logging.getLogger(__name__)
 
 # If true, raise exception if we see something unexpected, even if we could otherwise work around it:
 USE_STRICT_STATE_ENFORCEMENT = True
-
-
-def _ensure_up_to_date(node: LocalFileNode, cxt: CommandContext) -> LocalFileNode:
-    """Returns either a LocalFileNode with a signature, or raises an error."""
-
-    # First, make sure node has a signature:
-    if not node.has_signature():
-        # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-        node_with_signatures = content_hasher.try_calculating_signatures(node)
-        if not node_with_signatures:
-            raise RuntimeError(f'Failed to calculate signature for node: {node}')
-        return node_with_signatures
-    assert node.has_signature()
-
-    # Now, build a new node from scratch to ensure its meta (e.g. modify_ts) is up-to-date.
-    # We'll take a shortcut and assume that if the meta matches what we had, the signature hasn't changed either
-    fresh_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=node.get_single_path(), must_scan_signature=False, is_live=True)
-    if not fresh_node:
-        raise RuntimeError(f'File missing: {node.get_single_path()}')
-    fresh_node.copy_signature_if_meta_matches(node)
-    if fresh_node.has_signature():
-        return fresh_node
-
-    # Otherwise: meta was out-of-date: we do not like this.
-    node_with_signatures = content_hasher.try_calculating_signatures(fresh_node)
-    if not node_with_signatures:
-        raise RuntimeError(f'File has unexpectedly changed, and failed to calculate its new signature: {node.node_identifier}')
-
-    # Was signature also out-of-date?
-    if node_with_signatures.md5 != node.md5:
-        raise RuntimeError(f'File has unexpectedly changed: {node.node_identifier}; expected: {node}, found: {node_with_signatures}')
-    else:
-        # Signature is the same but other meta changed
-        # TODO: maybe allow this?
-        raise RuntimeError(f'File meta has unexpectedly changed: {node.node_identifier}; expected: {node}, found: {node_with_signatures}')
 
 
 # TODO: GDrive 'overwrite' logic. Include switch for choosing whether to delete an item only if you are unlinking it from its last parent,
@@ -77,9 +43,11 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
         assert cxt
         assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'Got {self.op.dst_node}'
+
+        local_file_util = LocalFileUtil(cxt.cacheman)
         src_path = self.op.src_node.get_single_path()
         dst_path = self.op.dst_node.get_single_path()
-        src_node = _ensure_up_to_date(self.op.src_node, cxt)
+        src_node = local_file_util.ensure_up_to_date(self.op.src_node)
         to_upsert = [src_node]
 
         staging_path = os.path.join(cxt.staging_dir, src_node.md5)
@@ -88,12 +56,13 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
         try:
             if self.overwrite:
                 node_dst_old = cxt.cacheman.get_node_for_uid(self.op.dst_node.uid, self.op.dst_node.device_uid)
-                node_dst_old = _ensure_up_to_date(node_dst_old, cxt)
+                node_dst_old = local_file_util.ensure_up_to_date(node_dst_old)
 
-                file_util.copy_file_update(src_path=src_path, staging_path=staging_path, dst_path=dst_path, md5_src=src_node.md5,
-                                           md5_to_overwrite=node_dst_old.md5, verify=True)
+                local_file_util.copy_file_update(src_node=src_node, dst_node=node_dst_old, staging_path=staging_path,
+                                                 verify=True, update_meta_also=cxt.update_meta_also)
             else:
-                file_util.copy_file_new(src_path=src_path, staging_path=staging_path, dst_path=dst_path, md5_src=src_node.md5, verify=True)
+                local_file_util.copy_file_new(src_node=src_node, dst_node=self.op.dst_node, staging_path=staging_path,
+                                              verify=True, copy_meta_also=cxt.update_meta_also)
 
             result = UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert)
         except file_util.IdenticalFileExistsError:
@@ -119,6 +88,7 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, LocalNode), f'Got {self.op.src_node}'
+        local_file_util = LocalFileUtil(cxt.cacheman)
 
         if self.to_trash:
             # TODO: add support for local trash
@@ -127,7 +97,7 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
         if self.op.src_node.is_file():
             assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
             # make sure we are deleting the expected file:
-            src_node = _ensure_up_to_date(self.op.src_node, cxt)
+            src_node = local_file_util.ensure_up_to_date(self.op.src_node, cxt)
             file_util.delete_file(src_node.get_single_path(), self.to_trash)
         elif self.op.src_node.is_dir():
             file_util.delete_empty_dir(self.op.src_node.get_single_path(), self.to_trash)
@@ -149,7 +119,8 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
         assert isinstance(self.op.src_node, LocalFileNode), f'Not a file: {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'Not a file: {self.op.dst_node}'
 
-        src_node = _ensure_up_to_date(self.op.src_node, cxt)
+        local_file_util = LocalFileUtil(cxt.cacheman)
+        src_node = local_file_util.ensure_up_to_date(self.op.src_node)
 
         # Do the move:
         if self.overwrite:
@@ -161,11 +132,14 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
                 else:
                     file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
             else:
-                _ensure_up_to_date(node_dst_old, cxt)
+                local_file_util.ensure_up_to_date(node_dst_old)
 
                 file_util.replace_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
         else:
             file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
+
+        if cxt.update_meta_also:
+            local_file_util.copy_meta(src_node, self.op.dst_node.get_single_path())
 
         # Verify dst was created:
         new_dst_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.get_single_path(), must_scan_signature=True,
@@ -251,11 +225,15 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
         assert isinstance(self.op.src_node, LocalFileNode), f'Expected LocalFileNode but got: {type(self.op.src_node)} for {self.op.src_node}'
         assert isinstance(self.op.dst_node, GDriveNode), f'Expected GDriveNode but got: {type(self.op.dst_node)} for {self.op.dst_node}'
 
+        local_file_util = LocalFileUtil(cxt.cacheman)
+
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
         src_file_path: str = self.op.src_node.get_single_path()
-        src_node = _ensure_up_to_date(self.op.src_node, cxt)
+        src_node = local_file_util.ensure_up_to_date(self.op.src_node)
 
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.dst_node.device_uid)
+
+        # FIXME: need to make sure meta gets uploaded as well!
 
         if self.overwrite:
             assert self.op.dst_node.goog_id, f'Expected dst node to have non-null goog_id because overwrite=true: {self.op.dst_node}'
@@ -337,6 +315,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
         assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.md5, f'Bad src node: {self.op.src_node}'
         src_goog_id = self.op.src_node.goog_id
         dst_path: str = self.op.dst_node.get_single_path()
+        # FIXME: need to make sure meta gets updated as well!
 
         if os.path.exists(dst_path):
             node_dst: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=True, is_live=True)

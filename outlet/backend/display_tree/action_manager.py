@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomMenuAction:
+    """Internal class, used for storing info loaded from custom action Python files"""
     def __init__(self, action_id, get_label_func, is_enabled_func, run_func):
         self.action_id: int = action_id
         self._get_label_func: Callable = get_label_func
