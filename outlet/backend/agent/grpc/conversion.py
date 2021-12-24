@@ -76,6 +76,8 @@ class GRPCConverter:
                     grpc_node.local_file_meta.size_bytes = node.get_size_bytes()
                 if node.sync_ts:
                     grpc_node.local_file_meta.sync_ts = node.sync_ts
+                if node.create_ts:
+                    grpc_node.local_file_meta.create_ts = node.create_ts
                 if node.modify_ts:
                     grpc_node.local_file_meta.modify_ts = node.modify_ts
                 if node.change_ts:

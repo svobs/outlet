@@ -82,6 +82,14 @@ class GDriveNode(Node, ABC):
         self._modify_ts = ensure_int(modify_ts)
 
     @property
+    def create_ts(self):
+        return self._create_ts
+
+    @create_ts.setter
+    def create_ts(self, create_ts):
+        self._create_ts = ensure_int(create_ts)
+
+    @property
     def modify_ts(self):
         return self._modify_ts
 

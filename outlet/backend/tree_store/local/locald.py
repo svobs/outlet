@@ -883,7 +883,12 @@ class LocalDiskMasterStore(TreeStore):
         else:
             path = full_path
 
-        stat = os.stat(path)
+        try:
+            stat = os.stat(path)
+        except FileNotFoundError:
+            # Caller didn't check whether file existed (may also be a missing dir). Let them know:
+            return None
+
         size_bytes = int(stat.st_size)
 
         modify_ts = int(stat.st_mtime * 1000)
