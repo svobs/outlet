@@ -137,6 +137,11 @@ class LocalDiskDiskStore(HasLifecycle):
             dir_list: List[LocalDirNode] = db.get_local_dirs()
             if len(dir_list) == 0:
                 logger.debug('No dirs found in disk cache')
+            for dir_node in dir_list:
+                if dir_node.is_live():
+                    tree.add_to_tree(dir_node)
+                else:
+                    missing_nodes.append(dir_node)
 
             # Files next
             file_list: List[LocalFileNode] = db.get_local_files()

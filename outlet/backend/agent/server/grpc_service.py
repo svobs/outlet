@@ -423,8 +423,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             use_filter = True
             child_list = self.cacheman.get_child_list(parent_spid, request.tree_id, request.is_expanding_parent, use_filter, request.max_results)
             self._converter.sn_list_to_grpc(child_list, response.child_list)
-            if TRACE_ENABLED:
-                logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying children: {child_list}')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying {len(child_list)} children: {child_list}')
             else:
                 logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying {len(child_list)} children for {parent_spid}')
         except ResultsExceededError as err:

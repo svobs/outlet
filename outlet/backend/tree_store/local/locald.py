@@ -140,35 +140,35 @@ class LocalDiskMasterStore(TreeStore):
 
     @locked
     def overwrite_dir_entries_list(self, parent_full_path: str, child_list: List[LocalNode]):
-        parent_dir: Optional[LocalNode] = self.read_node_for_uid(self.get_uid_for_path(parent_full_path))
-        if not parent_dir or not parent_dir.is_dir():
-            # Possibly just the cache for this one node is out-of-date. Let's bring it up to date.
-            if os.path.isdir(parent_full_path):
-                parent_dir = self.build_local_dir_node(full_path=parent_full_path, is_live=True, all_children_fetched=True)
+        logger.debug(f'overwrite_dir_entries_list() called with {len(child_list)} children & parent: "{parent_full_path}"')
+
+        if not os.path.exists(parent_full_path):
+            # TODO: distinguish between removable volume dirs (volatile) & regular dirs which should be there
+            is_removable_volume = False
+            if is_removable_volume:
+                logger.debug(f'overwrite_dir_entries_list(): Dir not found but it is on removable volume; ignoring: "{parent_full_path}"')
             else:
-                # Updated node is not a dir!
-                parent_dir = self.build_local_file_node(full_path=parent_full_path)
-                if not parent_dir:
-                    # FIXME: distinguish between removable volume dirs (volatile) & regular dirs which should be there
-                    is_removable_volume = False
-                    if is_removable_volume:
-                        logger.debug(f'overwrite_dir_entries_list(): Dir not found but it is on removable volume; ignoring: "{parent_full_path}"')
-                    else:
-                        cached_parent_node = self.read_node_for_path(parent_full_path)
-                        if cached_parent_node:
-                            logger.info(f'overwrite_dir_entries_list(): givne parent not found ("{parent_full_path}") Removing it from the cache.')
-                            self.remove_subtree(cached_parent_node, to_trash=False)
-                        else:
-                            logger.error(f'overwrite_dir_entries_list(): path does not exist and no record of it found: "{parent_full_path}"')
-                    return
-
+                # delete subtree and return
                 if child_list:
-                    assert not parent_dir.is_dir()
-                    raise RuntimeError(f'overwrite_dir_entries_list(): Parent (path={parent_full_path}) is not a dir, but we are asked to add '
-                                       f'{len(child_list)} children to it!')
+                    raise RuntimeError(f'Path does not exist but we think it has {len(child_list)} children: "{parent_full_path}"')
 
-        if parent_dir.is_dir():
-            parent_dir.all_children_fetched = True
+                cached_parent_node = self.read_node_for_path(parent_full_path)
+                if cached_parent_node:
+                    logger.info(f'overwrite_dir_entries_list(): given parent not found ("{parent_full_path}") Removing it from the cache.')
+                    self.remove_subtree(cached_parent_node, to_trash=False)
+                else:
+                    logger.error(f'overwrite_dir_entries_list(): path does not exist and no record of it found: "{parent_full_path}"')
+            return
+
+        if os.path.isdir(parent_full_path):
+            parent_dir = self.build_local_dir_node(full_path=parent_full_path, is_live=True, all_children_fetched=True)
+        else:
+            # Updated node is not a dir!
+            parent_dir = self.build_local_file_node(full_path=parent_full_path)
+            if child_list:
+                assert not parent_dir.is_dir()
+                raise RuntimeError(f'overwrite_dir_entries_list(): Parent (path={parent_full_path}) is not a dir, but we are asked to add '
+                                   f'{len(child_list)} children to it!')
 
         parent_spid: LocalNodeIdentifier = parent_dir.node_identifier
 
@@ -201,7 +201,7 @@ class LocalDiskMasterStore(TreeStore):
                 logger.debug(f'overwrite_dir_entries_list(): removing subtree: {dir_node.node_identifier}')
                 self.remove_subtree(dir_node, to_trash=False)
 
-        to_upsert_list = child_list
+        to_upsert_list = copy.copy(child_list)  # Do not modify the members of the caller list!
         to_upsert_list.append(parent_dir)  # Need to update all_children_fetched to True!
         self._execute_write_op(RefreshDirEntriesOp(parent_spid, upsert_node_list=to_upsert_list, remove_node_list=file_node_remove_list))
 
@@ -458,10 +458,10 @@ class LocalDiskMasterStore(TreeStore):
             logger.error(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
-            # If the cache is marked as loaded, then its contents should be represented in the in-memory master tree:
-            if TRACE_ENABLED:
-                logger.debug(f'_read_single_node_for(): Memcache is loaded but node not found for: {node_uid}')
-            return None
+            # If the cache is marked as loaded, then its contents should be represented in the in-memory master tree (queried above):
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'_read_single_node_for(): Memcache ({cache_info.cache_location}) is loaded but node not found for: {node_uid}')
+            # return None
 
         # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
@@ -698,14 +698,21 @@ class LocalDiskMasterStore(TreeStore):
 
         # 1. Use in-memory cache if it exists. This will also allow pending op nodes to be handled
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memstore for: {parent_spid}')
+            logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memstore for: {parent_spid} '
+                         f'(only_if_all_children_fetched={only_if_all_children_fetched})')
+
         parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
         if parent_node:
+            if TRACE_ENABLED:
+                logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memstore: {parent_node}')
+
             if not parent_node.is_dir():
                 logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memstore but it is not a dir: {parent_node}')
                 return None
             elif not only_if_all_children_fetched or parent_node.all_children_fetched:
                 try:
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'_get_child_list_from_cache_for_spid(): Getting child list from memstore for parent: {parent_spid}')
                     return self._memstore.master_tree.get_child_list_for_spid(parent_spid)
                 except NodeNotPresentError:
                     # In-memory cache miss. Try seeing if the relevant cache is loaded:
@@ -715,6 +722,8 @@ class LocalDiskMasterStore(TreeStore):
                 logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in memstore but not all children are fetched: {parent_node}')
                 # we can probably just return None at this point, but this should be such a rare case that there should b be little harm
                 # in trying the disk store...
+        elif SUPER_DEBUG_ENABLED:
+            logger.debug(f'_get_child_list_from_cache_for_spid(): Failed to find parent node in memstore')
 
         # 2. Read from disk cache if it exists:
         cache_info: Optional[PersistedCacheInfo] = \
@@ -746,7 +755,7 @@ class LocalDiskMasterStore(TreeStore):
         return None
 
     def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
-        if TRACE_ENABLED:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
 
         if filter_state and filter_state.has_criteria():
@@ -755,15 +764,21 @@ class LocalDiskMasterStore(TreeStore):
             if not self.is_cache_loaded_for(parent_spid):
                 raise RuntimeError(f'Cannot load filtered child list: cache not yet loaded for: {parent_spid}')
 
-            return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
-
-        child_list = self._get_child_list_from_cache_for_spid(parent_spid, only_if_all_children_fetched=True)
-        if child_list is None:
-            # 3. No cache hits. Must do a live scan:
-            logger.debug(f'Caches are missing or only partial for children of parent: "{parent_spid.get_single_path()}"; will attempt disk scan')
-            return self._scan_and_cache_dir(parent_spid)
+            child_list = filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
+            logger.debug(f'get_child_list_for_spid(): Returning {len(child_list)} filtered children for parent {parent_spid.guid}')
         else:
-            return child_list
+            child_list = self._get_child_list_from_cache_for_spid(parent_spid, only_if_all_children_fetched=True)
+            if child_list is None:
+                # 3. No cache hits. Must do a live scan:
+                logger.debug(f'get_child_list_for_spid(): Caches are missing or only partial for children of parent {parent_spid}; '
+                             f'will attempt disk scan')
+                child_list = self._scan_and_cache_dir(parent_spid)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'get_child_list_for_spid(): Scanner returned {len(child_list)} children for parent: {parent_spid.guid}')
+            elif SUPER_DEBUG_ENABLED:
+                logger.debug(f'get_child_list_for_spid(): Returning {len(child_list)} children from cache for parent {parent_spid.guid}')
+
+        return child_list
 
     def _scan_and_cache_dir(self, parent_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
         # Scan dir on disk (read-through)

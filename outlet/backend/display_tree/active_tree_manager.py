@@ -123,6 +123,7 @@ class ActiveTreeManager(HasLifecycle):
             return None
 
         sn.spid.parent_guid = parent_sn.spid.guid
+        assert sn.spid.parent_guid != sn.spid.guid, f'Parent GUID ({sn.spid.parent_guid}) should not be the same as: {sn.spid}'
         # Will need to refresh stats for parent, even if the node is filtered out:
         self._enqueue_stat_refresh_for_dir(sn.spid.parent_guid, tree_meta.tree_id)
 
@@ -307,8 +308,11 @@ class ActiveTreeManager(HasLifecycle):
                     removed_sn_list = removed_sn_list + self._to_subtree_sn_list(node, tree_meta)
 
                 if upserted_sn_list or removed_sn_list:
-                    logger.debug(f'[{tree_id}] Notifying tree of batch update at {subtree_root_spid} '
-                                 f'with {len(upserted_sn_list)} upserts & {len(removed_sn_list)} removes')
+                    if SUPER_DEBUG_ENABLED:
+                        upserts = ', '.join([f'(guid={sn.spid.guid} parent={sn.spid.parent_guid})' for sn in upserted_sn_list])
+                        removes = ', '.join([f'(guid={sn.spid.guid} parent={sn.spid.parent_guid})' for sn in removed_sn_list])
+                        logger.debug(f'[{tree_id}] Notifying tree of batch update at {subtree_root_spid} '
+                                     f'with upserts={upserts} & removes={removes}')
                     dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED, sender=tree_id, subtree_root_spid=subtree_root_spid,
                                     upserted_sn_list=upserted_sn_list, removed_sn_list=removed_sn_list)
                 elif SUPER_DEBUG_ENABLED:

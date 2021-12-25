@@ -191,27 +191,31 @@ class LocalDiskScanner:
         # DIRS
         self._dir_queue += dir_list
         for child_dir_path in dir_list:
-            if TRACE_ENABLED:
-                logger.debug(f'[{self.tree_id}] Adding scanned dir: {child_dir_path}')
+            if child_dir_path != target_dir:  # Do not include parent dir in child list
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.tree_id}] Adding scanned dir: {child_dir_path}')
 
-            dir_node = self.cacheman.build_local_dir_node(child_dir_path, is_live=True, all_children_fetched=True)
-            if dir_node:
-                child_node_list.append(dir_node)
+                dir_node = self.cacheman.build_local_dir_node(child_dir_path, is_live=True, all_children_fetched=True)
+                if dir_node:
+                    child_node_list.append(dir_node)
 
         # FILES
         for child_file_path in nondir_list:
-            if TRACE_ENABLED:
-                logger.debug(f'[{self.tree_id}] Adding scanned file: {child_file_path}')
-            file_node = self.cacheman.build_local_file_node(full_path=child_file_path)
-            if file_node:
-                child_node_list.append(file_node)
+            if child_file_path != target_dir:   # Do not include parent dir in child list (if it was actually a file)
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.tree_id}] Adding scanned file: {child_file_path}')
+                file_node = self.cacheman.build_local_file_node(full_path=child_file_path)
+                if file_node:
+                    child_node_list.append(file_node)
 
-            if self.tree_id:
-                dispatcher.send(Signal.PROGRESS_MADE, sender=self.tree_id, progress=1)
-                self.progress += 1
-                msg = f'Scanning file {self.progress} of {self.total}'
-                dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                if self.tree_id:
+                    dispatcher.send(Signal.PROGRESS_MADE, sender=self.tree_id, progress=1)
+                    self.progress += 1
+                    msg = f'Scanning file {self.progress} of {self.total}'
+                    dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{self.tree_id}] scan_single_dir(): calling overwrite_dir_entries_list() with {len(child_node_list)} children')
         self.master_local.overwrite_dir_entries_list(parent_full_path=target_dir, child_list=child_node_list)
 
         return child_node_list

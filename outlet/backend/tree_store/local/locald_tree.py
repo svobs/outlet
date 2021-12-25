@@ -73,14 +73,14 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                 parent = child
 
         # Finally, add the node itself:
-        child: Node = self.get_node_for_uid(node.uid)
-        if child:
-            if child.is_dir() and node.is_dir():
+        existing: Node = self.get_node_for_uid(node.uid)
+        if existing:
+            if existing.is_dir() and node.is_dir():
                 # Just update
-                assert isinstance(child, LocalNode)
-                child.set_is_live(node.is_live())
+                assert isinstance(existing, LocalDirNode)
+                existing.update_from(node)
             else:
-                raise RuntimeError(f'New node is not a dir node! old={child}, new={node}, path_segments={path_segments}')
+                raise RuntimeError(f'New node is not a dir node! old={existing}, new={node}, path_segments={path_segments}')
         else:
             if not parent:
                 logger.error(f'Parent is None for node: {node}')
@@ -94,8 +94,8 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                          f'(root: {sub_tree_root_node.node_identifier}): it and its ancestors will be added')
             assert isinstance(sub_tree_root_node, LocalNode)
             self.add_to_tree(sub_tree_root_node)
-            # if SUPER_DEBUG_ENABLED:
-            #     logger.debug(f'Tree contents (after adding subtree root): \n{self.show(show_identifier=True)}')
+            if TRACE_ENABLED:
+                logger.debug(f'Tree contents (after adding subtree root): \n{self.show(show_identifier=True)}')
 
         assert sub_tree_root_node.get_single_parent_uid(), f'Node is missing parent: {sub_tree_root_node}'
         if sub_tree_root_node.get_single_parent_uid() != self.get_parent(sub_tree_root_node.uid).uid:
