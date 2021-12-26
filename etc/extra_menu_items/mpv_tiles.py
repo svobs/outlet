@@ -16,19 +16,27 @@ APP_NAMES = ['mpv.app', 'mpv2.app', 'mpv3.app', 'mpv4.app']
 EXE_PARENT_DIR = '/Applications/$APP_NAME/Contents/MacOS/mpv'
 
 # MPV options: see https://mpv.io/manual/master/
-FULLSCREEN = '--fs'
 NO_BORDER = '-no-border'
 QUIT_WHEN_DONE = '--keep-open=no'
 START_FROM_BEGINNING = '--no-resume-playback'
-QUARTER_SCREEN_SIZE = f'--autofit=50%x50%'
 AUTOHIDE_CURSOR_AFTER_1_SEC = '--cursor-autohide=1000'
 MUTE_ON = '--mute=yes'
+NO_FOCUS_ON_OPEN = f'--no-focus-on-open'
+
+FULLSCREEN = '--fs'
+QUARTER_SCREEN_SIZE = f'--autofit=50%x50%'
+
+TOP_LEFT = '--geometry=0%:0%'
+TOP_RIGHT = '--geometry=100%:0%'
+BOTTOM_LEFT = '--geometry=0%:100%'
+BOTTOM_RIGHT = '--geometry=100%:100%'
 
 DEFAULT_CMD_LINE = [NO_BORDER, START_FROM_BEGINNING, QUIT_WHEN_DONE, AUTOHIDE_CURSOR_AFTER_1_SEC, MUTE_ON]
 
 SCREENS = [1, 2]
+QUARTER_SCREEN_CMD_LINE_LIST = [[TOP_LEFT], [TOP_RIGHT], [BOTTOM_LEFT], [BOTTOM_RIGHT]]
 
-SUFFIX_SET = {'.mov', 'mp4', '.m2ts', '.mkv', '.avi'}
+SUFFIX_SET = {'.mov', '.mp4', '.m2ts', '.mkv', '.avi'}
 
 
 class ExecState:
@@ -39,7 +47,7 @@ class ExecState:
 
 
 def get_label(node_list: List[Node]) -> str:
-    return f'Tile with MPV for {len(SCREENS)} Screens'
+    return f'Play Fullscreen on Screen{"" if len(SCREENS) == 1 else "s"} {", ".join([f"#{i + 1}" for i in SCREENS])}'
 
 
 def is_enabled(node_list: List[Node]) -> bool:
@@ -52,7 +60,6 @@ def run(node_list: List[Node]):
 
     file_deque = _find_all_video_files(node_list)
 
-    # if len(SCREENS) == 2:
     cmd_line_list = _get_cmd_list_for_two_screens()
 
     state = ExecState(cmd_line_list, file_deque)
@@ -113,14 +120,14 @@ def _run_single_instance(cmd_line, state: ExecState, task: Optional[asyncio.Task
         file_path = state.file_deque.popleft()
         logger.debug(f'Processing (remaining: {len(state.file_deque)}) file: {file_path}')
         this_cmd_line = cmd_line + [file_path]
-        task = asyncio.create_task(_play_one(this_cmd_line))
+        task = asyncio.create_task(_exec_process_async(this_cmd_line))
         callback = partial(_run_single_instance, cmd_line, state)
         # This will call back immediately if the task already completed:
         task.add_done_callback(callback)
         return task
 
 
-async def _play_one(cmd_line):
+async def _exec_process_async(cmd_line):
     logger.debug(f'Executing: {cmd_line}')
     process = await asyncio.create_subprocess_exec(
         *cmd_line, stdout=None, stderr=None
@@ -137,16 +144,16 @@ def _get_cmd_list_for_two_screens() -> List[List[str]]:
         cmd_line = [exe, f'-screen={screen}', FULLSCREEN] + DEFAULT_CMD_LINE
 
         cmd_line_list.append(cmd_line)
-        # output = subprocess.check_output(cmd_line).decode().split('\n')[0]
-
-        # execute(*runners(cmds))
     return cmd_line_list
 
 
-async def _read_stream(stream, cb):
-    while True:
-        line = await stream.readline()
-        if line:
-            cb(line)
-        else:
-            break
+def _get_cmd_list_for_one_screen_4_tiles() -> List[List[str]]:
+    cmd_line_list = []
+
+    for index, custom_cmd_line in enumerate(QUARTER_SCREEN_CMD_LINE_LIST):
+        exe = EXE_PARENT_DIR.replace('$APP_NAME', APP_NAMES[index])
+        cmd_line = [exe, f'-screen={SCREENS[0]}', QUARTER_SCREEN_SIZE, NO_FOCUS_ON_OPEN] + DEFAULT_CMD_LINE + custom_cmd_line
+
+        cmd_line_list.append(cmd_line)
+        logger.debug(f'CMD LINE #{index}: {cmd_line}')
+    return cmd_line_list

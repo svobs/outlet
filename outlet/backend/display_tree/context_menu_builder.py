@@ -244,12 +244,17 @@ class ContextMenuBuilder(HasLifecycle):
 
     # Adds custom actions, if applicable:
     def _add_custom_action_list(self, node_list: List[Node], guid_list: List[GUID], menu_item_list):
-        for custom_action in self.action_manager.get_custom_action_list():
-            try:
-                if custom_action.is_enabled_for(node_list):
-                    title = custom_action.get_label(node_list)
-                    item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=title, action_id=custom_action.action_id)
-                    item.target_guid_list = guid_list
-                    menu_item_list.append(item)
-            except RuntimeError:
-                logger.exception(f'Failed to evaluate enablement of custom action: {custom_action}')
+        custom_action_list = self.action_manager.get_custom_action_list()
+
+        if custom_action_list:
+            menu_item_list.append(ContextMenuItem.separator())
+
+            for custom_action in self.action_manager.get_custom_action_list():
+                try:
+                    if custom_action.is_enabled_for(node_list):
+                        title = custom_action.get_label(node_list)
+                        item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=title, action_id=custom_action.action_id)
+                        item.target_guid_list = guid_list
+                        menu_item_list.append(item)
+                except RuntimeError:
+                    logger.exception(f'Failed to evaluate enablement of custom action: {custom_action}')
