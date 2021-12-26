@@ -49,6 +49,10 @@ class LocalDiskDatabase(MetaDatabase):
         ('full_path', 'TEXT'),
         ('trashed', 'INTEGER'),
         ('live', 'INTEGER'),
+        ('sync_ts', 'INTEGER'),
+        ('create_ts', 'INTEGER'),
+        ('modify_ts', 'INTEGER'),
+        ('change_ts', 'INTEGER'),
         ('all_children_fetched', 'INTEGER')
     ]))
 
@@ -110,13 +114,14 @@ class LocalDiskDatabase(MetaDatabase):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
-        uid_int, parent_uid_int, full_path, trashed, is_live, all_children_fetched = row
+        uid_int, parent_uid_int, full_path, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts, all_children_fetched = row
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} from memstore but read from disk: {uid_int}'
         parent_uid: UID = self._get_parent_uid(full_path)
         assert parent_uid == parent_uid_int, f'UID conflict! Got {parent_uid} from memstore but read from disk: {parent_uid_int}'
         return LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, full_path=full_path), parent_uid=parent_uid,
-                            trashed=trashed, is_live=bool(is_live), all_children_fetched=bool(all_children_fetched))
+                            trashed=trashed, is_live=bool(is_live), sync_ts=sync_ts, create_ts=create_ts, modify_ts=modify_ts,
+                            change_ts=change_ts, all_children_fetched=bool(all_children_fetched))
 
     def has_local_dirs(self):
         return self.table_local_dir.has_rows()
@@ -177,8 +182,6 @@ class LocalDiskDatabase(MetaDatabase):
         file_list: List[LocalFileNode] = []
         for node in node_list:
             if node.is_dir():
-                if not isinstance(node, LocalDirNode):
-                    raise NotImplementedError('TODO')  # TODO
                 assert isinstance(node, LocalDirNode), f'Not a LocalDirNode: {node}'
                 dir_list.append(node)
             else:

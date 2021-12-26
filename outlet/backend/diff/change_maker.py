@@ -123,6 +123,7 @@ class OneSide:
             dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
             if node_src.is_dir():
                 node_dst: Node = LocalDirNode(nid, dst_parent_uid, trashed=TrashStatus.NOT_TRASHED, is_live=False,
+                                              sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
                                               all_children_fetched=True)
             else:
                 node_dst: Node = LocalFileNode(nid, dst_parent_uid, node_src.md5, node_src.sha256, node_src.get_size_bytes(),

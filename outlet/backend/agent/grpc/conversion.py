@@ -71,9 +71,18 @@ class GRPCConverter:
                 grpc_node.local_dir_meta.is_live = node.is_live()
                 grpc_node.local_dir_meta.parent_uid = node.get_single_parent_uid()
                 grpc_node.local_dir_meta.all_children_fetched = node.all_children_fetched
+                if node.sync_ts:
+                    grpc_node.local_dir_meta.sync_ts = node.sync_ts
+                if node.create_ts:
+                    grpc_node.local_dir_meta.create_ts = node.create_ts
+                if node.modify_ts:
+                    grpc_node.local_dir_meta.modify_ts = node.modify_ts
+                if node.change_ts:
+                    grpc_node.local_dir_meta.change_ts = node.change_ts
             else:
                 if node.get_size_bytes():
                     grpc_node.local_file_meta.size_bytes = node.get_size_bytes()
+                grpc_node.local_file_meta.is_live = node.is_live()
                 if node.sync_ts:
                     grpc_node.local_file_meta.sync_ts = node.sync_ts
                 if node.create_ts:
@@ -82,7 +91,6 @@ class GRPCConverter:
                     grpc_node.local_file_meta.modify_ts = node.modify_ts
                 if node.change_ts:
                     grpc_node.local_file_meta.change_ts = node.change_ts
-                grpc_node.local_file_meta.is_live = node.is_live()
                 if node.md5:
                     grpc_node.local_file_meta.md5 = node.md5
                 if node.sha256:
@@ -156,7 +164,8 @@ class GRPCConverter:
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)
             node = LocalDirNode(node_identifier, grpc_node.local_dir_meta.parent_uid, grpc_node.trashed, grpc_node.local_dir_meta.is_live,
-                                grpc_node.all_children_fetched)
+                                grpc_node.local_dir_meta.sync_ts, grpc_node.local_dir_meta.create_ts, grpc_node.local_dir_meta.modify_ts,
+                                grpc_node.local_dir_meta.change_ts, grpc_node.all_children_fetched)
             node.dir_stats = self.dir_stats_from_grpc(grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta

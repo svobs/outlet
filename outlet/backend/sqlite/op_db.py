@@ -290,7 +290,7 @@ class OpDatabase(MetaDatabase):
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFolder:
         op_uid_int, device_uid, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, \
-        is_shared, shared_by_user_uid, sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
+            is_shared, shared_by_user_uid, sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
         obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
                            goog_id=goog_id, node_name=node_name, trashed=item_trashed,
@@ -303,7 +303,7 @@ class OpDatabase(MetaDatabase):
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
         op_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, \
-        owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
+            owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
 
         obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
                          goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
@@ -315,12 +315,14 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
-        op_uid_int, device_uid, uid_int, parent_uid, full_path, trashed_status, is_live, all_children_fetched = row
+        op_uid_int, device_uid, uid_int, parent_uid, full_path, trashed_status, is_live, sync_ts, create_ts, modify_ts, change_ts, \
+            all_children_fetched = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         obj = LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid),
-                                               full_path=full_path), parent_uid, trashed_status, bool(is_live), bool(all_children_fetched))
+                           full_path=full_path), parent_uid, trashed_status, bool(is_live),
+                           sync_ts, create_ts, modify_ts, change_ts,  bool(all_children_fetched))
         op_uid = UID(op_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')

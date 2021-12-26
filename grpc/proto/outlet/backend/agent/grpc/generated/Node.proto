@@ -93,23 +93,26 @@ message RootTypeNodeMeta {
 // Local nodes:
 
 message LocalDirMeta {
-  DirMeta dir_meta = 1;
+  uint32 parent_uid = 1;
   bool is_live = 2;
-  uint32 parent_uid = 3;
-  bool all_children_fetched = 4;
-  // TODO: add timestamps
+  DirMeta dir_meta = 3;
+  bool all_children_fetched = 5;
+  uint64 sync_ts = 6;
+  uint64 create_ts = 7;
+  uint64 modify_ts = 8;
+  uint64 change_ts = 9;
 }
 
 message LocalFileMeta {
-  uint64 size_bytes = 1;
-  uint64 sync_ts = 2;
-  uint64 create_ts = 3;
-  uint64 modify_ts = 4;
-  uint64 change_ts = 5;
-  bool is_live = 6;
-  string md5 = 7;
-  string sha256 = 8;
-  uint32 parent_uid = 9;
+  uint32 parent_uid = 1;
+  bool is_live = 2;
+  uint64 size_bytes = 3;
+  uint64 sync_ts = 4;
+  uint64 create_ts = 5;
+  uint64 modify_ts = 6;
+  uint64 change_ts = 7;
+  string md5 = 8;
+  string sha256 = 9;
 }
 
 // GDrive nodes:

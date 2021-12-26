@@ -62,9 +62,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                                            f'while inserting non-live node ({node.node_identifier})')
                     if TRACE_ENABLED:
                         logger.debug(f'Creating missing dir node: uid={uid} full_path="{path_so_far}", all_children_fetched=False')
-                    node_identifier = LocalNodeIdentifier(full_path=path_so_far, uid=uid, device_uid=root_node_identifier.device_uid)
-                    child = LocalDirNode(node_identifier=node_identifier,
-                                         parent_uid=parent.uid, trashed=TrashStatus.NOT_TRASHED, is_live=True, all_children_fetched=False)
+                    child = self.backend.cacheman.build_local_dir_node(full_path=path_so_far, is_live=True, all_children_fetched=False)
                     try:
                         self.add_node(node=child, parent=parent)
                     except Exception:

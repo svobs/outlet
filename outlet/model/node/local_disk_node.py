@@ -21,10 +21,18 @@ class LocalNode(Node, ABC):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, trashed: TrashStatus, is_live: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, trashed: TrashStatus, is_live: bool, sync_ts: int,
+                 create_ts: int, modify_ts: int, change_ts: int):
         super().__init__(node_identifier, parent_uids=parent_uid)
         self._trashed: TrashStatus = trashed
         self._is_live = ensure_bool(is_live)
+
+        self._sync_ts: int = ensure_int(sync_ts)
+        self._create_ts: int = ensure_int(create_ts)
+        self._modify_ts: int = ensure_int(modify_ts)
+
+        # "Metadata Change Time" (UNIX "ctime") - not available on Windows
+        self._change_ts: int = ensure_int(change_ts)
 
     def is_live(self) -> bool:
         """Whether the object represented by this node actually is live currently, or it is just planned to exist or is an ephemeral node."""
@@ -37,6 +45,10 @@ class LocalNode(Node, ABC):
         Node.update_from(self, other_node)
         self._trashed = other_node.get_trashed_status()
         self._is_live = other_node.is_live()
+        self._sync_ts: int = ensure_int(other_node.sync_ts)
+        self._create_ts: int = ensure_int(other_node.create_ts)
+        self._modify_ts: int = ensure_int(other_node.modify_ts)
+        self._change_ts: int = ensure_int(other_node.change_ts)
 
     def derive_parent_path(self) -> str:
         return str(pathlib.Path(self.get_single_path()).parent)
@@ -49,6 +61,38 @@ class LocalNode(Node, ABC):
         assert isinstance(self._parent_uids, UID)
         return self._parent_uids
 
+    @property
+    def sync_ts(self):
+        return self._sync_ts
+
+    @sync_ts.setter
+    def sync_ts(self, sync_ts: int):
+        self._sync_ts = sync_ts
+
+    @property
+    def create_ts(self):
+        return self._create_ts
+
+    @create_ts.setter
+    def create_ts(self, create_ts):
+        self._create_ts = create_ts
+
+    @property
+    def modify_ts(self):
+        return self._modify_ts
+
+    @modify_ts.setter
+    def modify_ts(self, modify_ts):
+        self._modify_ts = modify_ts
+
+    @property
+    def change_ts(self):
+        return self._change_ts
+
+    @change_ts.setter
+    def change_ts(self, change_ts):
+        self._change_ts = change_ts
+
 
 class LocalDirNode(LocalNode):
     """
@@ -59,8 +103,9 @@ class LocalDirNode(LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool, all_children_fetched: bool):
-        LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool, sync_ts: int,
+                 create_ts: int, modify_ts: int, change_ts: int, all_children_fetched: bool):
+        LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts)
         self.dir_stats: Optional[DirectoryStats] = None
         self.all_children_fetched: bool = ensure_bool(all_children_fetched)
 
@@ -94,7 +139,8 @@ class LocalDirNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_parent_uid(), self.get_single_path(), self.get_trashed_status(), self.is_live(), self.all_children_fetched
+        return self.uid, self.get_single_parent_uid(), self.get_single_path(), self.get_trashed_status(), self.is_live(), \
+               self.sync_ts, self.create_ts, self.modify_ts, self.change_ts, self.all_children_fetched
 
     @classmethod
     def get_obj_type(cls):
@@ -111,10 +157,11 @@ class LocalDirNode(LocalNode):
     def is_dir(cls):
         return True
 
-    @property
-    def sync_ts(self):
-        # Local dirs are not currently synced to disk
-        return None
+    def meta_matches(self, other_node) -> bool:
+        return isinstance(other_node, LocalDirNode) and \
+               other_node.create_ts == self.create_ts and \
+               other_node.modify_ts == self.modify_ts and \
+               other_node.change_ts == self.change_ts
 
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
@@ -122,6 +169,9 @@ class LocalDirNode(LocalNode):
                 other.node_identifier.node_uid == self.node_identifier.node_uid and \
                 other.node_identifier.device_uid == self.node_identifier.device_uid and \
                 other.name == self.name and \
+                other._create_ts == self._create_ts and \
+                other._modify_ts == self._modify_ts and \
+                other._change_ts == self._change_ts and \
                 other.get_trashed_status() == self.get_trashed_status() and \
                 other._is_live == self._is_live and \
                 other.all_children_fetched == self.all_children_fetched and \
@@ -135,7 +185,8 @@ class LocalDirNode(LocalNode):
 
     def __repr__(self):
         return f'LocalDirNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} trashed={self._trashed} is_live={self.is_live()} ' \
-               f'size_bytes={self.get_size_bytes()} all_children_fetched={self.all_children_fetched}")'
+               f'create_ts={self._create_ts} modify_ts={self._modify_ts} change_ts={self._change_ts} size_bytes={self.get_size_bytes()} ' \
+               f'all_children_fetched={self.all_children_fetched}")'
 
 
 class LocalFileNode(LocalNode):
@@ -147,28 +198,17 @@ class LocalFileNode(LocalNode):
 
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, md5, sha256, size_bytes, sync_ts,
                  create_ts, modify_ts, change_ts, trashed, is_live: bool):
-        super().__init__(node_identifier, parent_uid, trashed, is_live)
+        super().__init__(node_identifier, parent_uid, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
-        self._sync_ts: int = ensure_int(sync_ts)
-        self._create_ts: int = ensure_int(create_ts)
-        self._modify_ts: int = ensure_int(modify_ts)
-
-        # "Metadata Change Time" (UNIX "ctime") - not available on Windows
-        self._change_ts: int = ensure_int(change_ts)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalFileNode)
-        Node.update_from(self, other_node)
+        LocalNode.update_from(self, other_node)
         self._md5: Optional[str] = other_node.md5
         self._sha256: Optional[str] = other_node.sha256
         self._size_bytes: int = ensure_int(other_node.get_size_bytes())
-        self._sync_ts: int = ensure_int(other_node.sync_ts)
-        self._create_ts: int = ensure_int(other_node.create_ts)
-        self._modify_ts: int = ensure_int(other_node.modify_ts)
-        self._change_ts: int = ensure_int(other_node.change_ts)
-        self._is_live = ensure_bool(other_node.is_live())
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
         # A file can never be the parent of anything
@@ -207,38 +247,6 @@ class LocalFileNode(LocalNode):
     @sha256.setter
     def sha256(self, sha256):
         self._sha256 = sha256
-
-    @property
-    def sync_ts(self):
-        return self._sync_ts
-
-    @sync_ts.setter
-    def sync_ts(self, sync_ts: int):
-        self._sync_ts = sync_ts
-
-    @property
-    def create_ts(self):
-        return self._create_ts
-
-    @create_ts.setter
-    def create_ts(self, create_ts):
-        self._create_ts = create_ts
-
-    @property
-    def modify_ts(self):
-        return self._modify_ts
-
-    @modify_ts.setter
-    def modify_ts(self, modify_ts):
-        self._modify_ts = modify_ts
-
-    @property
-    def change_ts(self):
-        return self._change_ts
-
-    @change_ts.setter
-    def change_ts(self, change_ts):
-        self._change_ts = change_ts
 
     @classmethod
     def has_tuple(cls) -> bool:

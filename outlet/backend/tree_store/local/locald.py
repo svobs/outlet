@@ -635,7 +635,7 @@ class LocalDiskMasterStore(TreeStore):
         return self.get_uid_for_path(domain_id, uid_suggestion)
 
     def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        assert isinstance(full_path, str)
+        assert isinstance(full_path, str), f'Expected a string but got: {type(full_path)}'
         return self.uid_path_mapper.get_uid_for_path(full_path, uid_suggestion)
 
     def get_path_for_uid(self, path_uid: UID) -> str:
@@ -843,17 +843,72 @@ class LocalDiskMasterStore(TreeStore):
             logger.error(f'Error getting parent for node: {node}, required_path: {required_subtree_path}')
             raise
 
-    def build_local_dir_node(self, full_path: str, is_live: bool, all_children_fetched: bool) -> LocalDirNode:
+    def _get_stats(self, full_path: str, staging_path: Optional[str]):
+        if staging_path:
+            path = staging_path
+        else:
+            path = full_path
+
+        stat = os.stat(path)
+
+        size_bytes = int(stat.st_size)
+
+        modify_ts = int(stat.st_mtime * 1000)
+        if IS_WINDOWS:
+            # Windows deviates from the standard and stores creation time as ctime, and does not track metadata change time.
+            create_ts = int(stat.st_ctime * 1000)
+            change_ts = 0
+        else:
+            change_ts = int(stat.st_ctime * 1000)
+            # This should work for both Mac and Linux.
+            # To see create_ts via cmd line on Mac: /Developer/Tools/GetFileInfo {filename}
+            create_ts = int(stat.st_birthtime * 1000)
+
+        if IS_MACOS and staging_path:
+            # MacOS has a bug where moving/copying a file will truncate its timestamps. We'll try to match its behavior.
+            # See https://macperformanceguide.com/blog/2019/20190903_1600-macOS-truncates-file-dates.html
+            modify_ts_mac = math.trunc(modify_ts / 1000) * 1000
+            change_ts_mac = math.trunc(change_ts / 1000) * 1000
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'MACOS: tweaked modify_ts ({modify_ts}->{modify_ts_mac}) & change_ts ({change_ts}->{change_ts_mac}) for '
+                             f'device {self.device.uid}: "{full_path}"')
+            modify_ts = modify_ts_mac
+            change_ts = change_ts_mac
+
+        assert create_ts > 100000000000, f'create_ts too small: {create_ts} for path: {path}'
+        assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} for path: {path}'
+        assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
+
+        # Get "now" in UNIX time:
+        sync_ts = time_util.now_sec()
+
+        return size_bytes, sync_ts, create_ts, modify_ts, change_ts
+
+    def build_local_dir_node(self, full_path: str, is_live: bool, all_children_fetched: bool) -> Optional[LocalDirNode]:
         uid = self.get_uid_for_path(full_path)
 
-        if is_live and not os.path.isdir(full_path):
+        if is_live:
+            if not os.path.isdir(full_path):
+                raise RuntimeError(f'build_local_dir_node(): path is not a dir: {full_path}')
+
+            try:
+                size_bytes, sync_ts, create_ts, modify_ts, change_ts = self._get_stats(full_path, None)
+            except FileNotFoundError:
+                # Caller didn't check whether file existed (may also be a missing dir). Let them know:
+                return None
+
+        else:
             # if is_live==false, we don't even expect it to exist
-            raise RuntimeError(f'build_local_dir_node(): path is not a dir: {full_path}')
+            create_ts = None
+            modify_ts = None
+            change_ts = None
+            sync_ts = time_util.now_sec()
 
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
         return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path), parent_uid=parent_uid,
-                            trashed=TrashStatus.NOT_TRASHED, is_live=is_live, all_children_fetched=all_children_fetched)
+                            trashed=TrashStatus.NOT_TRASHED, is_live=is_live, sync_ts=sync_ts, create_ts=create_ts,
+                            modify_ts=modify_ts, change_ts=change_ts, all_children_fetched=all_children_fetched)
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False, is_live: bool = True) \
             -> Optional[LocalFileNode]:
@@ -897,47 +952,11 @@ class LocalDiskMasterStore(TreeStore):
                 # bad link
                 return None
 
-        # Get "now" in UNIX time:
-        sync_ts = time_util.now_sec()
-
-        if staging_path:
-            path = staging_path
-        else:
-            path = full_path
-
         try:
-            stat = os.stat(path)
+            size_bytes, sync_ts, create_ts, modify_ts, change_ts = self._get_stats(full_path, staging_path)
         except FileNotFoundError:
             # Caller didn't check whether file existed (may also be a missing dir). Let them know:
             return None
-
-        size_bytes = int(stat.st_size)
-
-        modify_ts = int(stat.st_mtime * 1000)
-        if IS_WINDOWS:
-            # Windows deviates from the standard and stores creation time as ctime, and does not track metadata change time.
-            create_ts = int(stat.st_ctime * 1000)
-            change_ts = 0
-        else:
-            change_ts = int(stat.st_ctime * 1000)
-            # This should work for both Mac and Linux.
-            # To see create_ts via cmd line on Mac: /Developer/Tools/GetFileInfo {filename}
-            create_ts = int(stat.st_birthtime * 1000)
-
-        if IS_MACOS and staging_path:
-            # MacOS has a bug where moving/copying a file will truncate its timestamps. We'll try to match its behavior.
-            # See https://macperformanceguide.com/blog/2019/20190903_1600-macOS-truncates-file-dates.html
-            modify_ts_mac = math.trunc(modify_ts / 1000) * 1000
-            change_ts_mac = math.trunc(change_ts / 1000) * 1000
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'MACOS: tweaked modify_ts ({modify_ts}->{modify_ts_mac}) & change_ts ({change_ts}->{change_ts_mac}) for '
-                             f'{self.device.uid}:{uid}, "{full_path}"')
-            modify_ts = modify_ts_mac
-            change_ts = change_ts_mac
-
-        assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} for path: {path}'
-        assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
-        assert create_ts > 100000000000, f'create_ts too small: {create_ts} for path: {path}'
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
         new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts,
