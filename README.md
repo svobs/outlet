@@ -69,6 +69,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
 2. Iterate over all nodes
 
 #### ESSENTIAL FOR FIRST RELEASE
+* [3] Give local dirs first-class support (copy stats, allow more operations than just MKDIR)
 * [3] Google Drive connect flow
 * [5] Mac installer
 * [3] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)
@@ -76,7 +77,6 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
   
 #### FUTURE / NON-ESSENTIAL
-* [3] Add support for dir stats (crtime, ctime, mtime) for LocalDirNodes
 * [3] Support for extra GDrive types (e.g. shortcuts, Google Docs files)
 * [3] Cascade failures and allow recovery
 * [1] Copy metadata when copying files (MAC times)
