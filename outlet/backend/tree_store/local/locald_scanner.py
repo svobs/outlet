@@ -142,9 +142,9 @@ class LocalDiskScanner:
             logger.debug(f'[{self.tree_id}] Sending START_PROGRESS with total={self.total}')
             dispatcher.send(signal=Signal.START_PROGRESS, sender=self.tree_id, total=self.total)
 
-        this_task.add_next_task(self.scan_next_batch)
+        this_task.add_next_task(self.scan_next_batch_of_dirs)
 
-    def scan_next_batch(self, this_task: Task):
+    def scan_next_batch_of_dirs(self, this_task: Task):
         nodes_scanned_this_task = 0
         dirs_scanned_this_task = 0
 
@@ -173,7 +173,7 @@ class LocalDiskScanner:
                 break
 
         # Run next iteration next:
-        this_task.add_next_task(self.scan_next_batch)
+        this_task.add_next_task(self.scan_next_batch_of_dirs)
 
     def scan_single_dir(self, target_dir: str) -> List[LocalNode]:
         if SUPER_DEBUG_ENABLED:

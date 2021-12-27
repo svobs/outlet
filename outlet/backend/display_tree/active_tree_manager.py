@@ -54,6 +54,8 @@ class ActiveTreeManager(HasLifecycle):
 
         self._display_tree_dict: Dict[TreeID, ActiveDisplayTreeMeta] = {}
         """Keeps track of which display trees are currently being used in the UI"""
+        self._display_tree_dict_lock = threading.Lock()
+        """Need to use this to lock putters and iterators. Looks like getters should be fine though..."""
 
         self._is_live_monitoring_enabled = backend.get_config('cache.monitoring.live_monitoring_enabled')
 
@@ -235,34 +237,36 @@ class ActiveTreeManager(HasLifecycle):
         return []
 
     def _on_node_upserted(self, sender: str, node: Node):
-        for tree_id, tree_meta in self._display_tree_dict.items():
-            if not tree_meta.is_first_order():
+        with self._display_tree_dict_lock:
+            for tree_id, tree_meta in self._display_tree_dict.items():
+                if not tree_meta.is_first_order():
+                    if TRACE_ENABLED:
+                        logger.debug(f'[{tree_id}] Tree is not first-order; ignoring upserted node {node.device_uid}:{node.uid}')
+                    continue
+                subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
                 if TRACE_ENABLED:
-                    logger.debug(f'[{tree_id}] Tree is not first-order; ignoring upserted node {node.device_uid}:{node.uid}')
-                continue
-            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
-            if TRACE_ENABLED:
-                logger.debug(f'[{tree_id}] Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs')
+                    logger.debug(f'[{tree_id}] Upserted node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs')
 
-            for sn in subtree_sn_list:
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Notifying tree of upserted node {sn} parent_guid={sn.spid.parent_guid} icon={sn.node.get_icon()}')
-                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
+                for sn in subtree_sn_list:
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'[{tree_id}] Notifying tree of upserted node {sn} parent_guid={sn.spid.parent_guid} icon={sn.node.get_icon()}')
+                    dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
 
     def _on_node_removed(self, sender: str, node: Node):
-        for tree_id, tree_meta in self._display_tree_dict.items():
-            if not tree_meta.is_first_order():
+        with self._display_tree_dict_lock:
+            for tree_id, tree_meta in self._display_tree_dict.items():
+                if not tree_meta.is_first_order():
+                    if TRACE_ENABLED:
+                        logger.debug(f'[{tree_id}] Tree is not first-order; ignoring removed node {node.device_uid}:{node.uid}')
+                    continue
+                subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
                 if TRACE_ENABLED:
-                    logger.debug(f'[{tree_id}] Tree is not first-order; ignoring removed node {node.device_uid}:{node.uid}')
-                continue
-            subtree_sn_list = self._to_subtree_sn_list(node, tree_meta)
-            if TRACE_ENABLED:
-                logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
+                    logger.debug(f'Removed node {node.device_uid}:{node.uid} resolved to {len(subtree_sn_list)} SPIDs in {tree_id}')
 
-            for sn in subtree_sn_list:
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Notifying tree of removed node {sn.spid} parent_guid={sn.spid.parent_guid}')
-                dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=sn)
+                for sn in subtree_sn_list:
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'[{tree_id}] Notifying tree of removed node {sn.spid} parent_guid={sn.spid.parent_guid}')
+                    dispatcher.send(signal=Signal.NODE_REMOVED, sender=tree_id, sn=sn)
 
     def _get_intersecting_spid_for_subtree_root(self, tree_meta, subtree_root: NodeIdentifier) -> Optional[SinglePathNodeIdentifier]:
         if subtree_root.is_spid():
@@ -287,36 +291,37 @@ class ActiveTreeManager(HasLifecycle):
                 logger.debug(f'Ignoring batch update at {subtree_root}: batch contains no nodes')
             return
 
-        for tree_id, tree_meta in self._display_tree_dict.items():
-            if tree_meta.root_sn.spid.device_uid == subtree_root.device_uid:
-                subtree_root_spid = self._get_intersecting_spid_for_subtree_root(tree_meta, subtree_root)
-                if not subtree_root_spid:
-                    continue
-                assert isinstance(subtree_root_spid, SinglePathNodeIdentifier), f'Not a SPID: {subtree_root_spid}'
+        with self._display_tree_dict_lock:
+            for tree_id, tree_meta in self._display_tree_dict.items():
+                if tree_meta.root_sn.spid.device_uid == subtree_root.device_uid:
+                    subtree_root_spid = self._get_intersecting_spid_for_subtree_root(tree_meta, subtree_root)
+                    if not subtree_root_spid:
+                        continue
+                    assert isinstance(subtree_root_spid, SinglePathNodeIdentifier), f'Not a SPID: {subtree_root_spid}'
 
-                upserted_sn_list = []
-                removed_sn_list = []
+                    upserted_sn_list = []
+                    removed_sn_list = []
 
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Examining {len(upserted_node_list)} upserts & {len(removed_node_list)} removes at {subtree_root_spid}')
-
-                # Just do the easiest and least-error prone thing for now:
-                for node in upserted_node_list:
-                    upserted_sn_list = upserted_sn_list + self._to_subtree_sn_list(node, tree_meta)
-
-                for node in removed_node_list:
-                    removed_sn_list = removed_sn_list + self._to_subtree_sn_list(node, tree_meta)
-
-                if upserted_sn_list or removed_sn_list:
                     if SUPER_DEBUG_ENABLED:
-                        upserts = ', '.join([f'(guid={sn.spid.guid} parent={sn.spid.parent_guid})' for sn in upserted_sn_list])
-                        removes = ', '.join([f'(guid={sn.spid.guid} parent={sn.spid.parent_guid})' for sn in removed_sn_list])
-                        logger.debug(f'[{tree_id}] Notifying tree of batch update at {subtree_root_spid} '
-                                     f'with upserts={upserts} & removes={removes}')
-                    dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED, sender=tree_id, subtree_root_spid=subtree_root_spid,
-                                    upserted_sn_list=upserted_sn_list, removed_sn_list=removed_sn_list)
-                elif SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{tree_id}] Ignoring batch update at {subtree_root_spid}; it does not apply to this tree')
+                        logger.debug(f'[{tree_id}] Examining {len(upserted_node_list)} upserts & {len(removed_node_list)} removes at {subtree_root_spid}')
+
+                    # Just do the easiest and least-error prone thing for now:
+                    for node in upserted_node_list:
+                        upserted_sn_list = upserted_sn_list + self._to_subtree_sn_list(node, tree_meta)
+
+                    for node in removed_node_list:
+                        removed_sn_list = removed_sn_list + self._to_subtree_sn_list(node, tree_meta)
+
+                    if upserted_sn_list or removed_sn_list:
+                        if SUPER_DEBUG_ENABLED:
+                            upserts = ', '.join([f'(guid={sn.spid.guid} parent={sn.spid.parent_guid})' for sn in upserted_sn_list])
+                            removes = ', '.join([f'(guid={sn.spid.guid} parent={sn.spid.parent_guid})' for sn in removed_sn_list])
+                            logger.debug(f'[{tree_id}] Notifying tree of batch update at {subtree_root_spid} '
+                                         f'with upserts={upserts} & removes={removes}')
+                        dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED, sender=tree_id, subtree_root_spid=subtree_root_spid,
+                                        upserted_sn_list=upserted_sn_list, removed_sn_list=removed_sn_list)
+                    elif SUPER_DEBUG_ENABLED:
+                        logger.debug(f'[{tree_id}] Ignoring batch update at {subtree_root_spid}; it does not apply to this tree')
 
     def _on_merge_requested(self, sender: str):
         logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')
@@ -368,9 +373,10 @@ class ActiveTreeManager(HasLifecycle):
 
         try:
             tree_id_list: List[str] = []
-            for tree_meta in self._display_tree_dict.values():
-                if tree_meta.root_sn.spid.device_uid == device_uid:
-                    tree_id_list.append(tree_meta.tree_id)
+            with self._display_tree_dict_lock:
+                for tree_meta in self._display_tree_dict.values():
+                    if tree_meta.root_sn.spid.device_uid == device_uid:
+                        tree_id_list.append(tree_meta.tree_id)
 
             gdrive_root_spid = NodeIdentifierFactory.get_root_constant_gdrive_spid(device_uid)
             for tree_id in tree_id_list:
@@ -386,7 +392,8 @@ class ActiveTreeManager(HasLifecycle):
         if self.on_deregister_tree_hook:
             self.on_deregister_tree_hook()
 
-        display_tree = self._display_tree_dict.pop(sender, None)
+        with self._display_tree_dict_lock:
+            display_tree = self._display_tree_dict.pop(sender, None)
         if display_tree:
             logger.debug(f'[{sender}] Display tree deregistered in backend')
         else:
@@ -412,7 +419,8 @@ class ActiveTreeManager(HasLifecycle):
         meta = ActiveDisplayTreeMeta(self.backend, change_tree.state, filter_state)
         meta.change_tree = change_tree
         meta.src_tree_id = src_tree_id
-        self._display_tree_dict[change_tree.tree_id] = meta
+        with self._display_tree_dict_lock:
+            self._display_tree_dict[change_tree.tree_id] = meta
 
         # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
         return change_tree.state.to_display_tree(self.backend)
@@ -480,8 +488,9 @@ class ActiveTreeManager(HasLifecycle):
                     response_tree_id = display_tree_meta.src_tree_id
                     display_tree_meta = self.get_active_display_tree_meta(response_tree_id)
 
-                    if self._display_tree_dict.pop(sender_tree_id):
-                        logger.debug(f'Discarded meta for tree: {sender_tree_id}')
+                    with self._display_tree_dict_lock:
+                        if self._display_tree_dict.pop(sender_tree_id):
+                            logger.debug(f'Discarded meta for tree: {sender_tree_id}')
 
                 else:
                     # ChangeDisplayTrees are already loaded, and live capture should not apply
@@ -549,7 +558,8 @@ class ActiveTreeManager(HasLifecycle):
             display_tree_meta = ActiveDisplayTreeMeta(self.backend, state, filter_state)
 
             # Store in dict here:
-            self._display_tree_dict[response_tree_id] = display_tree_meta
+            with self._display_tree_dict_lock:
+                self._display_tree_dict[response_tree_id] = display_tree_meta
 
         if root_path_persister:
             # Write updates to app_config if applicable

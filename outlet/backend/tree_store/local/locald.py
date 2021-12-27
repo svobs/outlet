@@ -104,11 +104,9 @@ class LocalDiskMasterStore(TreeStore):
     def is_gdrive(self) -> bool:
         return False
 
-    @ensure_locked
     def _execute_write_op(self, operation: LocalWriteThroughOp):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Executing operation: {operation}')
-        assert self._struct_lock.locked()
 
         # 1. Update memory
         operation.update_memstore(self._memstore)
@@ -816,7 +814,8 @@ class LocalDiskMasterStore(TreeStore):
             logger.debug(f'Entered get_single_parent_for_node(); node={node}, required_subtree_path={required_subtree_path}')
 
         if node.get_single_path() == ROOT_PATH:
-            logger.debug(f'get_single_parent_for_node(): mode ({node}) is already root (required_path={required_subtree_path}))')
+            if TRACE_ENABLED:
+                logger.debug(f'get_single_parent_for_node(): mode ({node}) is already root (required_path={required_subtree_path}))')
             return None
 
         try:

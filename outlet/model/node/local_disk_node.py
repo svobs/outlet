@@ -286,21 +286,11 @@ class LocalFileNode(LocalNode):
         return False
 
     def meta_matches(self, other_node) -> bool:
+        # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
         return isinstance(other_node, LocalFileNode) and \
                 other_node.create_ts == self.create_ts and \
                 other_node.modify_ts == self.modify_ts and \
-                other_node.change_ts == self.change_ts and \
                 other_node.get_size_bytes() == self.get_size_bytes()
-
-    def update_signature_and_timestamps_from(self, other):
-        assert isinstance(other, Node), f'Not a node: {other}'
-        self.md5 = other.md5
-        self.set_size_bytes(other.get_size_bytes())
-        self.modify_ts = other.modify_ts
-
-        if isinstance(other, LocalFileNode):
-            self.change_ts = other.change_ts
-            self.sha256 = other.sha256
 
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""

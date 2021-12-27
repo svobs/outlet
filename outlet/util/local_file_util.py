@@ -1,14 +1,18 @@
 import errno
 import logging
 import os
+import platform
 import shutil
+import subprocess
+from datetime import datetime
 from typing import Optional
 
 from backend.tree_store.local import content_hasher
+from constants import IS_MACOS, IS_WINDOWS, MACOS_SETFILE_DATETIME_FMT
 from error import IdenticalFileExistsError
-from logging_constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
-from util import file_util
+from util import file_util, time_util
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +98,6 @@ class LocalFileUtil:
     
         dst_path = dst_node.get_single_path()
         if not os.path.exists(dst_path):
-            # TODO: custom exception class
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), dst_path)
 
         dst_node = content_hasher.try_calculating_signatures(dst_node)
@@ -152,16 +155,42 @@ class LocalFileUtil:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Copying stats from {src_node.node_identifier} to "{dst_path}"')
 
-            # Copy the permission bits, last access time, last modification time, and flags:
+            if IS_WINDOWS:
+                if TRACE_ENABLED:
+                    logger.debug(f'OS is Windows; no need for special handling of creation time')
+            elif IS_MACOS:
+                """
+                MacOS:
+                The command for setting creation time via the command line is for example:
+                    SetFile -d "05/06/2019 00:00:00" path/to/myfile
+                    
+                HOWEVER:
+                The above command only guarantees second precision! We'll exploit a feature of the operating system to get milliseconds.
+                If we set a modification time (which has millis) which is earlier than the existing creation time, the OS will set its creation
+                time identically.
+                """
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'(MacOS): Setting creation date to now()')
+                now_ts = time_util.now_ms()
+                _macos_set_file_create_ts(dst_path, now_ts)
+                create_ts_python = src_node.create_ts / 1000
+                if TRACE_ENABLED:
+                    logger.debug(f'(MacOS): Setting modify time to now: "{dst_path}" = {create_ts_python}')
+                os.utime(dst_path, (create_ts_python, create_ts_python))
+
+                dst_stat = os.stat(dst_path)
+                create_ts = int(dst_stat.st_birthtime * 1000)
+                if create_ts == src_node.create_ts:
+                    logger.debug(f'Creation time already matches: "{dst_path}" = {create_ts}')
+                else:
+                    logger.error(f'Creation time incorrect: "{dst_path}" = {create_ts} (should be: {src_node.create_ts})')
+            else:
+                # FIXME: Set Linux create_ts
+                logger.error(f'Possible meta loss! Setting local node creation time is not yet implemented on {platform.system().lower()}')
+
+            # Copy the permission bits, last access time, last modification time, and flags. Note that this won't change ctime:
             shutil.copystat(src_node.get_single_path(), dst=dst_path, follow_symlinks=False)
 
-            # FIXME: set creation time
-            # from subprocess import call
-            # command = 'SetFile -d ' + '"05/06/2019 "' + '00:00:00 ' + complete_path
-            # call(command, shell=True)
-
-            # OR:
-            # os.system('SetFile -d "{}" {}'.format(date.strftime('%m/%d/%Y %H:%M:%S'), filePath))
         except Exception:
             logger.error(f'Exception while copying file meta (src: "{src_node.get_single_path()}" dst: "{dst_path}"')
             raise
@@ -171,3 +200,16 @@ class LocalFileUtil:
             raise RuntimeError(f'Failed to build fresh node after copying meta for path: {dst_path}')
         if not dst_node.meta_matches(src_node):
             raise RuntimeError(f'Dst node meta does not match src node! src={src_node} dst={dst_node}')
+
+
+def _macos_set_file_create_ts(dst_path: str, create_ts: int):
+    create_ts_datetime = datetime.fromtimestamp(create_ts / 1000)
+    create_ts_formatted = create_ts_datetime.strftime(MACOS_SETFILE_DATETIME_FMT)
+    command = ['SetFile', '-d', f'{create_ts_formatted}', dst_path]
+    if SUPER_DEBUG_ENABLED:
+        logger.debug(f'(MacOS): Setting creation date with cmd_line: {command}')
+    rc = subprocess.call(command, shell=False)
+    if rc != 0:
+        raise RuntimeError(f'Failed to set the creation time ("SetFile" returned code={rc}) of "{dst_path}"')
+    if SUPER_DEBUG_ENABLED:
+        logger.debug(f'(MacOS): SetFile returned code={rc}')

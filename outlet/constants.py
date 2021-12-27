@@ -7,6 +7,8 @@ IS_WINDOWS = _system == 'windows'
 IS_LINUX = _system == 'linux'
 IS_MACOS = _system == 'darwin'
 
+MACOS_SETFILE_DATETIME_FMT = '%m/%d/%Y %H:%M:%S'
+
 GDRIVE_FIX_ORPHANS_ON_LOAD = True
 GDRIVE_CHECK_FOR_BROKEN_NODES = True
 GDRIVE_FIND_DUPLICATE_NODE_NAMES = False

@@ -96,7 +96,7 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
         if self.op.src_node.is_file():
             assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
             # make sure we are deleting the expected file:
-            src_node = local_file_util.ensure_up_to_date(self.op.src_node, cxt)
+            src_node = local_file_util.ensure_up_to_date(self.op.src_node)
             file_util.delete_file(src_node.get_single_path(), self.to_trash)
         elif self.op.src_node.is_dir():
             file_util.delete_empty_dir(self.op.src_node.get_single_path(), self.to_trash)
@@ -138,6 +138,7 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
             file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
 
         if cxt.update_meta_also:
+            # Moving a file shouldn't change its meta (almost possibly on MacOS), but let's update it to be sure:
             local_file_util.copy_meta(src_node, self.op.dst_node.get_single_path())
 
         # Verify dst was created:
