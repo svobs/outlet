@@ -209,6 +209,12 @@ class Node(BaseNode, HasParentList, ABC):
             return IconId.ICON_GENERIC_FILE
         return IconId.ICON_FILE_CP_DST
 
+    def meta_matches(self, other_node) -> bool:
+        # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
+        return other_node.create_ts == self.create_ts and \
+               other_node.modify_ts == self.modify_ts and \
+               other_node.get_size_bytes() == self.get_size_bytes()
+
     def is_signature_match(self, other_node) -> bool:
         assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
         if other_node.device_uid == self.device_uid and other_node.uid == self.uid:

@@ -157,12 +157,6 @@ class LocalDirNode(LocalNode):
     def is_dir(cls):
         return True
 
-    def meta_matches(self, other_node) -> bool:
-        return isinstance(other_node, LocalDirNode) and \
-               other_node.create_ts == self.create_ts and \
-               other_node.modify_ts == self.modify_ts and \
-               other_node.change_ts == self.change_ts
-
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
         if isinstance(other, LocalDirNode) and \
@@ -284,13 +278,6 @@ class LocalFileNode(LocalNode):
             return True
 
         return False
-
-    def meta_matches(self, other_node) -> bool:
-        # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
-        return isinstance(other_node, LocalFileNode) and \
-                other_node.create_ts == self.create_ts and \
-                other_node.modify_ts == self.modify_ts and \
-                other_node.get_size_bytes() == self.get_size_bytes()
 
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""

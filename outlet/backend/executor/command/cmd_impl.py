@@ -1,10 +1,12 @@
 import logging
+import mimetypes
 import os
-from typing import List
+from typing import List, Optional
 
 from backend.executor.command.cmd_interface import Command, CommandContext, CopyNodeCommand, DeleteNodeCommand, UserOpResult, UserOpStatus
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus
 from error import GDriveItemNotFoundError, InvalidOperationError
+from model.gdrive_meta import MimeType
 from model.node.gdrive_node import GDriveFile, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.uid import UID
@@ -22,7 +24,12 @@ USE_STRICT_STATE_ENFORCEMENT = True
 #  or to delete it from all locations.
 # TODO: also include both options in context menu
 
+# FIXME: Handle GDrive shortcuts & Google Docs nodes differently - will these commands even work for them?
+
+# TODO: resumable GDrive upload: https://developers.google.com/drive/api/v3/manage-uploads#python
+
 # TODO: what if staging dir is not on same file system?
+
 
 # LOCAL COMMANDS begin
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -138,7 +145,7 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
             file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
 
         if cxt.update_meta_also:
-            # Moving a file shouldn't change its meta (almost possibly on MacOS), but let's update it to be sure:
+            # Moving a file shouldn't change its meta (except possibly on MacOS), but let's update it to be sure:
             local_file_util.copy_meta(src_node, self.op.dst_node.get_single_path())
 
         # Verify dst was created:
@@ -203,7 +210,6 @@ class CreatLocalDirCommand(Command):
 
 # GOOGLE DRIVE COMMANDS begin
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-# FIXME: Handle GDrive shortcuts & Google Docs nodes differently - will these commands even work for them?
 
 class CopyFileLocalToGDriveCommand(CopyNodeCommand):
     """
@@ -233,8 +239,6 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
 
         gdrive_client = cxt.cacheman.get_gdrive_client(self.op.dst_node.device_uid)
 
-        # FIXME: need to make sure meta gets uploaded as well!
-
         if self.overwrite:
             assert self.op.dst_node.goog_id, f'Expected dst node to have non-null goog_id because overwrite=true: {self.op.dst_node}'
 
@@ -242,23 +246,40 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
             existing_dst_node = gdrive_client.get_existing_node_by_id(self.op.dst_node.goog_id)
 
             if not existing_dst_node:
+                # Possibility #1: no node at dst
+                msg = f'Could not find target node to overwrite in Google Drive (using strict={USE_STRICT_STATE_ENFORCEMENT}): ' \
+                      f'{self.op.dst_node.node_identifier}'
                 if USE_STRICT_STATE_ENFORCEMENT:
-                    raise RuntimeError(f'Could not find target node to overwrite in Google Drive (using strict=true): '
-                                       f'{self.op.dst_node.node_identifier}')
-            elif existing_dst_node.name == self.op.src_node.name and existing_dst_node.md5 == src_node.md5 \
-                    and existing_dst_node.get_size_bytes() == src_node.get_size_bytes():
-                # Possibility #1: same exact node at dst -> no op
+                    raise RuntimeError(msg)
+                else:
+                    logger.debug(msg)
+                    return self._upload_new_file(cxt, gdrive_client, src_node)
+            elif self._relevant_fields_match(existing_dst_node, src_node):
+                # Possibility #2: same exact node at dst -> no op
                 logger.info(f'Identical node (uid={existing_dst_node.uid}) already exists in Google Drive with same name, '
                             f'md5={existing_dst_node.md5}, size={existing_dst_node.get_size_bytes()} as src node ({src_node})')
                 return self._maybe_delete_src_node_and_finish(src_node, existing_dst_node, UserOpStatus.COMPLETED_NO_OP)
 
-            # FIXME: we should not just be using the previous mime_type. We need to determine the mime_type from the local file
-            mime_type = gdrive_client.gdrive_store.get_mime_type_for_uid(self.op.dst_node.mime_type_uid)
-            if not mime_type:
-                raise RuntimeError(f'Failed to resolve mime type for UID: {self.op.dst_node.mime_type_uid}')
-            existing_dst_node = gdrive_client.upload_update_to_existing_file(name=self.op.src_node.name, mime_type=mime_type.type_string,
+            if not self._relevant_fields_match(existing_dst_node, self.op.dst_node):
+                # Possibility #3: unexpected content at dst
+                msg = f'Dst node to overwrite has different meta/content than expected (using strict={USE_STRICT_STATE_ENFORCEMENT}): ' \
+                      f'{self.op.dst_node.node_identifier}'
+                if USE_STRICT_STATE_ENFORCEMENT:
+                    raise RuntimeError(msg)
+                else:
+                    logger.debug(msg)
+
+            # Possibility #4: found exactly what expected -> do the overwrite
+            mime_type: MimeType = self._resolve_mime_type(gdrive_client, self.op.dst_node.mime_type_uid, src_node.get_single_path())
+
+            existing_dst_node = gdrive_client.upload_update_to_existing_file(name=src_node.name, mime_type=mime_type.type_string,
                                                                              goog_id=self.op.dst_node.goog_id,
-                                                                             local_file_full_path=src_file_path)
+                                                                             local_file_full_path=src_file_path,
+                                                                             create_ts=src_node.create_ts,
+                                                                             modify_ts=src_node.modify_ts)
+            if not self._relevant_fields_match(existing_dst_node, src_node):
+                raise RuntimeError(f'Result of upload does not match expected: upload={existing_dst_node}, expected={src_node}')
+
             return self._maybe_delete_src_node_and_finish(src_node, existing_dst_node, UserOpStatus.COMPLETED_OK)
         else:
             assert not self.op.dst_node.goog_id, f'Expected dst node to have null goog_id because overwrite=false: {self.op.dst_node}'
@@ -267,7 +288,7 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
             existing_dst_node = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
 
             if existing_dst_node:
-                if existing_dst_node.md5 == src_node.md5 and existing_dst_node.get_size_bytes() == src_node.get_size_bytes():
+                if self._relevant_fields_match(existing_dst_node, src_node):
                     # Possibility #1: same exact node at dst -> no op
                     logger.info(f'Identical node (uid={existing_dst_node.uid}) already exists in Google Drive with same name and parent, '
                                 f'md5={src_node.md5}, size={src_node.get_size_bytes()} (orig dst node uid={self.op.dst_node.uid})')
@@ -280,10 +301,21 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
                     return self.set_error_result(f'While trying to add: found unexpected node(s) with the same name and parent: {existing_dst_node}')
             else:
                 # Possibility #5: no node at dst -> OK to upload
-                parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.dst_node)
-                dst_node: GDriveFile = gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id_list, uid=self.op.dst_node.uid)
-                assert dst_node.uid == self.op.dst_node.uid
-                return self._maybe_delete_src_node_and_finish(src_node, dst_node, UserOpStatus.COMPLETED_OK)
+                return self._upload_new_file(cxt, gdrive_client, src_node)
+
+    @staticmethod
+    def _relevant_fields_match(actual_node, expected_node) -> bool:
+        return actual_node.name == expected_node.name and actual_node.is_signature_match(expected_node) and actual_node.meta_matches(expected_node)
+
+    def _upload_new_file(self, cxt, gdrive_client, src_node) -> UserOpResult:
+        parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.dst_node)
+        # Let Google figure out the mime_type (might want to change this later...)
+        new_dst_node: GDriveFile = gdrive_client.upload_new_file(src_node.get_single_path(), parent_goog_ids=parent_goog_id_list,
+                                                                 uid=self.op.dst_node.uid, create_ts=src_node.create_ts, modify_ts=src_node.modify_ts)
+        assert new_dst_node.uid == self.op.dst_node.uid
+        if not self._relevant_fields_match(new_dst_node, src_node):
+            raise RuntimeError(f'Result of new file upload does not match expected: upload={new_dst_node}, expected={src_node}')
+        return self._maybe_delete_src_node_and_finish(src_node, new_dst_node, UserOpStatus.COMPLETED_OK)
 
     def _maybe_delete_src_node_and_finish(self, node_src: LocalFileNode, node_dst: GDriveFile, status_up_to_now: UserOpStatus) -> UserOpResult:
         if not self.delete_src_node_after:
@@ -292,6 +324,20 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
         assert isinstance(node_src, LocalFileNode)
         file_util.delete_file(node_src.get_single_path(), to_trash=False)
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[node_dst], to_remove=[node_src])
+
+    @staticmethod
+    def _resolve_mime_type(gdrive_client, mime_type_uid: Optional[UID], file_path: str) -> MimeType:
+        if mime_type_uid:
+            mime_type: MimeType = gdrive_client.gdrive_store.get_mime_type_for_uid(mime_type_uid)
+            if not mime_type:
+                raise RuntimeError(f'Failed to resolve mime type for UID: {mime_type_uid}')
+        else:
+            mimetype_guess = mimetypes.guess_type(file_path)
+            if not mimetype_guess:
+                raise RuntimeError(f'Failed to guess MIMEType for path: "{file_path}"')
+            mime_type_string = mimetype_guess[0]
+            mime_type: MimeType = gdrive_client.gdrive_store.get_or_create_mime_type(mime_type_string)[0]
+        return mime_type
 
 
 class CopyFileGDriveToLocalCommand(CopyNodeCommand):
@@ -315,7 +361,6 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
         assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.md5, f'Bad src node: {self.op.src_node}'
         src_goog_id = self.op.src_node.goog_id
         dst_path: str = self.op.dst_node.get_single_path()
-        # FIXME: need to make sure meta gets updated as well!
 
         if os.path.exists(dst_path):
             node_dst: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=True, is_live=True)
@@ -366,6 +411,10 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
         # This will overwrite if the file already exists:
         file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path, replace=self.overwrite)
 
+        if cxt.update_meta_also:
+            local_file_util = LocalFileUtil(cxt.cacheman)
+            local_file_util.copy_meta(self.op.src_node, self.op.dst_node.get_single_path())
+
         return self._maybe_delete_src_node_and_finish(cxt, node_dst, UserOpStatus.COMPLETED_OK)
 
     def _maybe_delete_src_node_and_finish(self, cxt: CommandContext, node_dst: LocalFileNode, status_up_to_now: UserOpStatus) -> UserOpResult:
@@ -383,7 +432,6 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
                 logger.info(f'Could not find expected src node in Google Drive (goog_id={self.op.src_node.goog_id}): will skip delete of it')
                 return UserOpResult(status_up_to_now, to_upsert=[node_dst], to_remove=[self.op.src_node])
         else:
-            # TODO: in future, let's find a create a new version of the existing file, rather than doing an explicit delete
             gdrive_client.hard_delete(self.op.src_node.goog_id)
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[node_dst], to_remove=[self.op.src_node])
 
@@ -486,7 +534,7 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
                 else:
                     logger.info(f'Could not find expected dst node in Google Drive (goog_id={self.op.dst_node.goog_id}): will skip delete of it')
             else:
-                # TODO: in future, let's find a create a new version of the existing file, rather than doing an explicit delete
+                # TODO: in future, let's find a way to create a new version of the existing file, rather than doing an explicit delete
                 gdrive_client.hard_delete(self.op.dst_node.goog_id)
         else:
             assert self.op.src_node.uid == self.op.dst_node.uid, \
@@ -501,10 +549,13 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[existing_src_node], to_remove=[])
 
         goog_node = gdrive_client.modify_meta(goog_id=self.op.src_node.goog_id, remove_parents=[src_parent_goog_id_list],
-                                              add_parents=[dst_parent_goog_id_list], name=self.op.dst_node.name)
+                                              add_parents=[dst_parent_goog_id_list], new_name=self.op.dst_node.name,
+                                              create_ts=self.op.src_node.create_ts, modify_ts=self.op.src_node.modify_ts)
 
         assert goog_node.name == self.op.dst_node.name and goog_node.uid == self.op.src_node.uid and goog_node.goog_id == self.op.src_node.goog_id, \
             f'Bad result: {goog_node}'
+
+        # TODO: verify meta
 
         # Update master cache. Treat as an upsert, and let the master cache figure out what nodes need to be removed
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node])
@@ -567,7 +618,7 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
                 else:
                     logger.info(f'Could not find expected dst node in Google Drive (goog_id={self.op.dst_node.goog_id}): will skip delete of it')
 
-            # TODO: in future, let's find a create a new version of the existing file, rather than doing an explicit delete
+            # TODO: in future, let's find a way to create a new version of the existing file, rather than doing an explicit delete
             gdrive_client.hard_delete(self.op.dst_node.goog_id)
         else:
             # Do not overwrite: dst_node should not have goog_id:
@@ -579,6 +630,8 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
                                                     new_parent_goog_ids=dst_parent_goog_id_list, uid=self.op.dst_node.uid)
         if not new_node:
             raise RuntimeError(f'Copy failed to return a new Google Drive node! (src_id={self.op.src_node.goog_id})')
+
+        # TODO: verify meta
 
         if new_node.uid != self.op.dst_node.uid:
             assert self.overwrite, f'new_node={new_node}, orig_dst={self.op.dst_node}'

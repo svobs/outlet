@@ -10,6 +10,7 @@ from functools import partial
 from typing import Callable, Deque, Dict, List, Optional, Tuple, Union
 
 import humanfriendly
+import pytz
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build, Resource
@@ -560,7 +561,8 @@ class GDriveClient(HasLifecycle):
 
         GDriveClient._try_repeatedly(download)
 
-    def upload_new_file(self, local_file_full_path: str, parent_goog_ids: Union[str, List[str]], uid: UID) -> GDriveFile:
+    def upload_new_file(self, local_file_full_path: str, parent_goog_ids: Union[str, List[str]], uid: UID, create_ts: int, modify_ts: int) \
+            -> GDriveFile:
         """Upload a single file based on its path. If successful, returns the newly created GDriveFile"""
         if not local_file_full_path:
             raise RuntimeError(f'No path specified for file!')
@@ -569,14 +571,22 @@ class GDriveClient(HasLifecycle):
             parent_goog_ids = [parent_goog_ids]
 
         parent_path, file_name = os.path.split(local_file_full_path)
-        file_metadata = {'name': file_name, 'parents': parent_goog_ids}
+        meta = {'name': file_name, 'parents': parent_goog_ids}
+
+        if create_ts:
+            # formatted RFC 3339 timestamp
+            meta['createdTime'] = time_util.ts_to_rfc_3339(create_ts)
+
+        if modify_ts:
+            meta['modifiedTime'] = time_util.ts_to_rfc_3339(modify_ts)
 
         media = MediaFileUpload(filename=local_file_full_path, resumable=True)
 
         def request():
             logger.debug(f'Uploading local file: "{local_file_full_path}" to parents: {parent_goog_ids}')
 
-            response = self.service.files().create(body=file_metadata, media_body=media, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
+            # https://developers.google.com/drive/api/v3/reference/files/create
+            response = self.service.files().create(body=meta, media_body=media, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
             return response
 
         file_meta = GDriveClient._try_repeatedly(request)
@@ -587,23 +597,21 @@ class GDriveClient(HasLifecycle):
 
         return gdrive_file
 
-    def upload_update_to_existing_file(self, name: str, mime_type: str, goog_id: str, local_file_full_path: str) -> GDriveFile:
+    def upload_update_to_existing_file(self, new_name: str, mime_type: str, goog_id: str, local_file_full_path: str,
+                                       create_ts: Optional[int] = None, modify_ts: Optional[int] = None) -> GDriveFile:
         if not local_file_full_path:
             raise RuntimeError(f'No path specified for file!')
+        if not create_ts:
+            raise RuntimeError(f'No create_ts specified for file!')
+        if not modify_ts:
+            raise RuntimeError(f'No modify_ts specified for file!')
+        if not mime_type:
+            raise RuntimeError(f'No mime_type specified for file!')
 
-        file_metadata = {'name': name, 'mimeType': mime_type}
-
-        media = MediaFileUpload(filename=local_file_full_path, resumable=True)
-
-        def request():
-            logger.debug(f'Updating node "{goog_id}" with local file: "{local_file_full_path}"')
-
-            # Send the request to the API.
-            return self.service.files().update(fileId=goog_id, body=file_metadata, media_body=media,
-                                               fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
-
-        updated_file_meta = GDriveClient._try_repeatedly(request)
-        gdrive_file: GDriveFile = self._converter.dict_to_gdrive_file(updated_file_meta)
+        gdrive_file: GDriveNode = self.modify_meta(goog_id=goog_id, new_name=new_name, mime_type=mime_type,
+                                                   local_file_full_path=local_file_full_path,
+                                                   create_ts=create_ts, modify_ts=modify_ts, add_parents=[], remove_parents=[])
+        assert isinstance(gdrive_file, GDriveFile), f'Not a GDriveFile: {gdrive_file}'
 
         logger.info(
             f'File update uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", '
@@ -614,28 +622,54 @@ class GDriveClient(HasLifecycle):
     # MISC
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def modify_meta(self, goog_id: str, remove_parents: List[str], add_parents: List[str], name: str = None) -> GDriveNode:
+    def modify_meta(self, goog_id: str, remove_parents: List[str], add_parents: List[str], new_name: Optional[str] = None,
+                    create_ts: Optional[int] = None, modify_ts: Optional[int] = None, mime_type: Optional[str] = None,
+                    local_file_full_path: Optional[str] = None) -> GDriveNode:
         assert isinstance(add_parents, list), f'For goog_id={goog_id}: {add_parents}'
         assert isinstance(remove_parents, list), f'For goog_id={goog_id}: {remove_parents}'
+        if not goog_id:
+            raise RuntimeError(f'No goog_id specified for file!')
 
-        if name:
-            meta = None
+        meta = {}
+        if new_name:
+            meta['name'] = new_name
+
+        if create_ts:
+            # formatted RFC 3339 timestamp
+            meta['createdTime'] = time_util.ts_to_rfc_3339(create_ts)
+
+        if modify_ts:
+            # formatted RFC 3339 timestamp
+            meta['modifiedTime'] = time_util.ts_to_rfc_3339(modify_ts)
+            modified_date_behavior = 'fromBody'
         else:
-            meta = {'name': name}
+            modified_date_behavior = 'noChange'
+
+        if mime_type:
+            meta['mimeType'] = mime_type
+
+        if local_file_full_path:
+            logger.debug(f'Updating node "{goog_id}" with local file: "{local_file_full_path}"')
+            media = MediaFileUpload(filename=local_file_full_path, resumable=True)
+        else:
+            media = None
 
         def request():
-            # Move the file to the new folder
-            file = self.service.files().update(fileId=goog_id, body=meta, addParents=add_parents,
-                                               removeParents=remove_parents, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
+            # https://developers.google.com/drive/api/v3/reference/files/update
+            file = self.service.files().update(fileId=goog_id, body=meta, addParents=add_parents, removeParents=remove_parents,
+                                               media_body=media, newRevision=True,
+                                               modifiedDateBehavior=modified_date_behavior,
+                                               updateViewedDate=False, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
             return file
 
-        item = GDriveClient._try_repeatedly(request)
+        updated_meta = GDriveClient._try_repeatedly(request)
 
-        mime_type = item['mimeType']
+        mime_type = updated_meta['mimeType']
+        # these will look up the UID which matches the goog_id:
         if mime_type == MIME_TYPE_FOLDER:
-            goog_node = self._converter.dict_to_gdrive_folder(item)
+            goog_node = self._converter.dict_to_gdrive_folder(updated_meta)
         else:
-            goog_node = self._converter.dict_to_gdrive_file(item)
+            goog_node = self._converter.dict_to_gdrive_file(updated_meta)
         return goog_node
 
     def trash(self, goog_id: str):
@@ -645,7 +679,8 @@ class GDriveClient(HasLifecycle):
         file_metadata = {'trashed': True}
 
         def request():
-            return self.service.files().update(fileId=goog_id, body=file_metadata, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
+            return self.service.files().update(fileId=goog_id, body=file_metadata, modifiedDateBehavior='noChange',
+                                               updateViewedDate=False, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
         file_meta = GDriveClient._try_repeatedly(request)
         gdrive_file: GDriveFile = self._converter.dict_to_gdrive_file(file_meta)

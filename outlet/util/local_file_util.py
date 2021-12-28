@@ -12,6 +12,7 @@ from constants import IS_MACOS, IS_WINDOWS, MACOS_SETFILE_DATETIME_FMT
 from error import IdenticalFileExistsError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
+from model.node.node import Node
 from util import file_util, time_util
 
 logger = logging.getLogger(__name__)
@@ -150,7 +151,9 @@ class LocalFileUtil:
                 raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
                                    f'src_md5={src_node.md5}, staging_file="{staging_path}", staging_md5={staging_node.md5}')
     
-    def copy_meta(self, src_node: LocalFileNode, dst_path: str):
+    def copy_meta(self, src_node: Node, dst_path: str):
+        """Sets create_ts, modify_ts (and access_ts) for dst_path, using the values found in src_node.
+        Note that src_node does not need to be a LocalNode."""
         try:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Copying stats from {src_node.node_identifier} to "{dst_path}"')
@@ -163,7 +166,7 @@ class LocalFileUtil:
                 MacOS:
                 The command for setting creation time via the command line is for example:
                     SetFile -d "05/06/2019 00:00:00" path/to/myfile
-                    
+
                 HOWEVER:
                 The above command only guarantees second precision! We'll exploit a feature of the operating system to get milliseconds.
                 If we set a modification time (which has millis) which is earlier than the existing creation time, the OS will set its creation
@@ -188,11 +191,15 @@ class LocalFileUtil:
                 # FIXME: Set Linux create_ts
                 logger.error(f'Possible meta loss! Setting local node creation time is not yet implemented on {platform.system().lower()}')
 
+            # Set modify_ts (also set access_ts to same)
+            modify_ts_python = src_node.modify_ts / 1000
+            os.utime(dst_path, (modify_ts_python, modify_ts_python))
+
             # Copy the permission bits, last access time, last modification time, and flags. Note that this won't change ctime:
-            shutil.copystat(src_node.get_single_path(), dst=dst_path, follow_symlinks=False)
+            # shutil.copystat(src_node.get_single_path(), dst=dst_path, follow_symlinks=False)
 
         except Exception:
-            logger.error(f'Exception while copying file meta (src: "{src_node.get_single_path()}" dst: "{dst_path}"')
+            logger.error(f'Exception while copying file meta (src: "{src_node.node_identifier}" dst: "{dst_path}"')
             raise
     
         dst_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=False, is_live=True)
