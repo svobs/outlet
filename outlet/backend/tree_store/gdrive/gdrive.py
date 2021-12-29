@@ -325,6 +325,8 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.generate_dir_stats(tree_id=tree_id, subtree_root_node=subtree_root_node)
 
     def populate_filter(self, filter_state: FilterState):
+        if not self._memstore.is_loaded():
+            raise CacheNotLoadedError(f'populate_filter(): GDrive cache not loaded!')
         filter_state.ensure_cache_populated(self._memstore.master_tree)
 
     def submit_batch_of_changes(self, subtree_root: GDriveIdentifier,  upsert_node_list: List[GDriveNode] = None,
@@ -474,6 +476,8 @@ class GDriveMasterStore(TreeStore):
             raise
 
     def get_goog_id_list_for_uid_list(self, uid_list: List[UID], fail_if_missing: bool = True) -> List[str]:
+        if not self._memstore.is_loaded():
+            raise CacheNotLoadedError(f'get_goog_id_list_for_uid_list(): GDrive cache not loaded!')
         try:
             return self._memstore.master_tree.resolve_uids_to_goog_ids(uid_list, fail_if_missing=fail_if_missing)
         except RuntimeError:
@@ -660,6 +664,9 @@ class GDriveMasterStore(TreeStore):
         return [self.to_sn_from_node_and_parent_spid(child_node, parent_spid) for child_node in child_node_list]
 
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        if not self._memstore.is_loaded():
+            # Just fail for now:
+            raise RuntimeError(f'Cannot get parent for SN: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_parent_for_sn(sn)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
@@ -676,14 +683,22 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
     def get_subtree_bfs_node_list(self, subtree_root: GDriveIdentifier) -> List[GDriveNode]:
-        """NODES!"""
+        if not self._memstore.is_loaded():
+            # Just fail for now:
+            raise RuntimeError(f'Cannot get subtree nodes: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_subtree_bfs_node_list(subtree_root.node_uid)
 
     def get_subtree_bfs_sn_list(self, subtree_root_spid: GDriveSPID) -> List[SPIDNodePair]:
         """SPIDNodePairs!"""
+        if not self._memstore.is_loaded():
+            # Just fail for now:
+            raise RuntimeError(f'Cannot get subtree SNs: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_subtree_bfs_sn_list(subtree_root_spid)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
+        if not self._memstore.is_loaded():
+            # Just fail for now:
+            raise RuntimeError(f'Cannot get files and dirs: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:

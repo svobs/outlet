@@ -401,7 +401,7 @@ class GRPCConverter:
         # Recurse for all submenu items:
         for submenu_item in menu_item.submenu_item_list:
             submenu_item_grpc = menu_item_grpc.submenu_item_list.add()
-            self.menu_item_list_to_grpc(submenu_item, submenu_item_grpc)
+            self.menu_item_to_grpc(submenu_item, submenu_item_grpc)
 
     def menu_item_list_from_grpc(self, menu_item_list_grpc) -> List[ContextMenuItem]:
         menu_item_list = []

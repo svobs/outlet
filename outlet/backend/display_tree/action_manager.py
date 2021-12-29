@@ -224,10 +224,8 @@ class ActionManager(HasLifecycle):
         if sn.node.is_live():
             return self._create_action_for_file_node(sn.node, cxt.tree_id)
 
-        op: Optional[UserOp] = self.backend.get_last_pending_op(sn.node.uid)
+        op: Optional[UserOp] = self.backend.get_last_pending_op(device_uid=sn.node.device_uid, node_uid=sn.node.uid)
         if op and op.has_dst():
-            logger.warning('TODO: test this!')
-
             if op.src_node.is_live():
                 return self._create_action_for_file_node(op.src_node, cxt.tree_id)
             elif op.dst_node.is_live():

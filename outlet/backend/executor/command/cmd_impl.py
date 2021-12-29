@@ -208,7 +208,7 @@ class CreatLocalDirCommand(Command):
 # LOCAL COMMANDS end
 
 
-# GOOGLE DRIVE COMMANDS begin
+# LOCAL-GDRIVE COMMANDS begin
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
 class CopyFileLocalToGDriveCommand(CopyNodeCommand):
@@ -435,6 +435,9 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
             gdrive_client.hard_delete(self.op.src_node.goog_id)
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[node_dst], to_remove=[self.op.src_node])
 
+
+# PURE GDRIVE COMMANDS begin
+# ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
 class CreateGDriveFolderCommand(Command):
     """
@@ -700,5 +703,5 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
 
-# ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-# GOOGLE DRIVE COMMANDS end
+# ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
+# PURE GDRIVE COMMANDS end

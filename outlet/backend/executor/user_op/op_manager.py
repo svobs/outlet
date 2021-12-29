@@ -14,7 +14,7 @@ from backend.executor.user_op.op_disk_store import OpDiskStore
 from backend.executor.user_op.op_graph import OpGraph
 from backend.executor.user_op.op_graph_node import RootNode
 from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId
-from logging_constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import UnsuccessfulBatchInsertError
 from model.node.node import Node
 from model.uid import UID
@@ -270,6 +270,9 @@ class OpManager(HasLifecycle):
 
         logger.info(f'Got next batch to submit: batch_uid={next_batch.batch_uid} with {len(next_batch.op_list)} ops')
 
+        if self._cancel_batch_if_needed(batch=next_batch):
+            return
+
         try:
             batch_graph_root: RootNode = self._batch_builder.build_batch_graph(next_batch.op_list, self)
         except RuntimeError as err:
@@ -349,7 +352,26 @@ class OpManager(HasLifecycle):
                 elif SUPER_DEBUG_ENABLED:
                     logger.debug(f'Could not find busy ancestor node: {device_uid}:{ancestor_node_uid}')
 
+    def _cancel_batch_if_needed(self, batch: Batch) -> bool:
+        with self._lock:
+            # Pop the batch override (if any) - it is only good for a single use
+            error_strategy: ErrorHandlingStrategy = self._error_handling_batch_override_dict.get(batch.batch_uid)
+            if error_strategy == ErrorHandlingStrategy.CANCEL_BATCH:
+                logger.debug(f'User cancelled batch {batch.batch_uid}')
+                # remove from dict:
+                self._error_handling_batch_override_dict.pop(batch.batch_uid)
+                self._cancel_batch(batch)
+            else:
+                if TRACE_ENABLED:
+                    logger.debug(f'No user cancellation for batch {batch.batch_uid}')
+                return False
+
+        # There may be another batch in the queue: try to process that if applicable
+        self.try_batch_submit()
+        return True
+
     def _on_batch_error_fight_or_flight(self, msg: str, secondary_msg: str, batch: Batch):
+        """Executed AFTER batch insert error occured"""
         with self._lock:
             # Pop the batch override (if any) - it is only good for a single use
             error_strategy: ErrorHandlingStrategy = self._error_handling_batch_override_dict.pop(batch.batch_uid, None)
@@ -365,11 +387,7 @@ class OpManager(HasLifecycle):
                             batch_uid=batch.batch_uid)
         elif error_strategy == ErrorHandlingStrategy.CANCEL_BATCH:
             with self._lock:
-                logger.debug(f'OnBatchError(): removing batch {batch.batch_uid} from disk')
-                self._disk_store.cancel_op_list(batch.op_list, reason_msg=f'{msg}: {batch.batch_uid}')
-                logger.debug(f'OnBatchError(): removing batch {batch.batch_uid} from memory structures')
-                self._pending_batch_dict.pop(batch.batch_uid, None)
-                self._error_handling_batch_override_dict.pop(batch.batch_uid, None)
+                self._cancel_batch(batch)
 
             # There may be another batch in the queue: try to process that if applicable
             self.try_batch_submit()
@@ -378,6 +396,13 @@ class OpManager(HasLifecycle):
             raise NotImplementedError(f'Cannot handle ErrorHandlingStrategy.CANCEL_FAILED_OPS_AND_ALL_DESCENDANT_OPS yet!')
         else:
             raise RuntimeError(f'Invalid error handling strategy for batches: {error_strategy.name}')
+
+    def _cancel_batch(self, batch: Batch):
+        logger.debug(f'CancelBatch(): removing batch {batch.batch_uid} from disk')
+        self._disk_store.cancel_op_list(batch.op_list, reason_msg=f'User cancel (err on batch insert: {batch.batch_uid})')
+        logger.debug(f'CancelBatch(): removing batch {batch.batch_uid} from memory structures')
+        self._pending_batch_dict.pop(batch.batch_uid, None)
+        self._error_handling_batch_override_dict.pop(batch.batch_uid, None)
 
     def _add_batch_to_main_graph(self, op_root: RootNode) -> List[UserOp]:
         """Inserts into the main OpGraph a batch which is represented by its own OpGraph.
@@ -451,7 +476,7 @@ class OpManager(HasLifecycle):
                 self.backend.cacheman.remove_node(removed_node, to_trash=False)
 
         if result.status == UserOpStatus.STOPPED_ON_ERROR:
-            logger.info(f'Command {command.uid} ({command.op.op_type}) stopped on error')
+            logger.info(f'Command {command.uid} ({command.op.op_type.name}) stopped on error')
         elif not (result.status == UserOpStatus.COMPLETED_OK or result.status == UserOpStatus.COMPLETED_NO_OP):
             raise RuntimeError(f'Command completed but status ({result.status}) is invalid: {command}')
         else:

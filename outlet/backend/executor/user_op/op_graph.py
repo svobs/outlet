@@ -502,6 +502,9 @@ class OpGraph(HasLifecycle):
         for tgt_node_parent_uid in target_node.get_parent_uids():
             prev_ogn_for_target_node_parent: Optional[OpGraphNode] = self._get_last_pending_ogn_for_node(target_device_uid, tgt_node_parent_uid)
             if prev_ogn_for_target_node_parent:
+                if prev_ogn_for_target_node_parent.is_remove_type():
+                    raise RuntimeError(f'Invalid operation: cannot {new_ogn.op.op_type.name} {target_node.node_identifier} when its '
+                                       f'parent node ({prev_ogn_for_target_node_parent.get_tgt_node().node_identifier}) will first be removed!')
                 if prev_ogn_for_target:
                     logger.debug(f'Found both OGN for tgt ({prev_ogn_for_target}) and OGN for parent of tgt ({prev_ogn_for_target_node_parent})')
                     if not prev_ogn_for_target.is_child_of(prev_ogn_for_target_node_parent):
@@ -843,8 +846,8 @@ class OpGraph(HasLifecycle):
                 self._process_and_enqueue_children(op.dst_node, op, queue)
 
     def _process_and_enqueue_children(self, tgt_node: Node, op: UserOp, queue: Deque[UserOp]):
-        ogn: OpGraphNode = self._get_last_pending_ogn_for_node(tgt_node.device_uid, op.src_node.uid)
-        assert ogn and ogn.op.op_uid == op.op_uid, f'Op (UID {op.op_uid}) does not match last node popped from its node\'s queue ({ogn})'
+        ogn: OpGraphNode = self._get_last_pending_ogn_for_node(tgt_node.device_uid, tgt_node.uid)
+        assert ogn and ogn.op.op_uid == op.op_uid, f'Op (UID {op.op_uid}) does not match last OGN in its target node\'s queue ({ogn})'
 
         self._add_tgt_node_to_icon_changes_dict(tgt_node)
 

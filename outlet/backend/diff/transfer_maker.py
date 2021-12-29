@@ -11,7 +11,7 @@ from constants import DEFAULT_REPLACE_DIR_WITH_FILE_POLICY, DEFAULT_SRC_NODE_MOV
     ReplaceDirWithFilePolicy, SrcNodeMovePolicy, TreeID
 from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import SPIDNodePair
-from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.user_op import Batch, UserOpType
 from util import time_util
 from util.ensure import ensure_bool
@@ -272,7 +272,7 @@ class TransferMaker(ChangeMaker):
                 # Get children for src & dst, compare all
                 for sn_src_child in self.backend.cacheman.get_child_list(sn_dir_src.spid, self.left_side.tree_id_src):
                     # see if there is a corresponding dst node:
-                    list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name)
+                    list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name, [])
 
                     if DIFF_DEBUG_ENABLED:
                         logger.debug(f'DirMerge: found {len(list_sn_dst_conflicting)} conflicts for child dir: {sn_src_child.spid}')

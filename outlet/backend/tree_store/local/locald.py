@@ -453,7 +453,7 @@ class LocalDiskMasterStore(TreeStore):
 
         cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, full_path)
         if not cache_info:
-            logger.error(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
+            logger.info(f'_read_single_node_for(): Could not find cache containing path: "{full_path}"')
             return None
         if cache_info.is_loaded:
             # If the cache is marked as loaded, then its contents should be represented in the in-memory master tree (queried above):

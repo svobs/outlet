@@ -72,7 +72,6 @@ class ContextMenuBuilder(HasLifecycle):
         if op and op.has_dst():
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Building context menu for op: {op}')
-            logger.warning('TODO: test this!')  # FIXME: test and then remove this msg
             # Split into separate entries for src and dst.
 
             # (1/2) Source:
@@ -86,28 +85,33 @@ class ContextMenuBuilder(HasLifecycle):
             item = self._build_submenu_for_op_node(op, op.dst_node, 'Dst', sn, tree_id)
             menu_item_list.append(item)
 
-            # MenuItem: ---
-            menu_item_list.append(ContextMenuItem.separator())
-
         else:
             # Single item
             item = ContextMenuItem(item_type=MenuItemType.ITALIC_DISABLED, title=single_path, action_id=ActionID.NO_ACTION)
             menu_item_list.append(item)
 
-            # MenuItem: ---
-            menu_item_list.append(ContextMenuItem.separator())
+            did_add_separator = False
 
             for item in self._build_menu_items_for_single_node(sn, tree_id):
+                # Add separator before the first custom action, if there are any
+                if not did_add_separator:
+                    did_add_separator = self._add_separator_if_missing(menu_item_list)
+
                 menu_item_list.append(item)
 
+        did_add_separator = False
         if sn.node.is_dir():
+            # MenuItem: ---
+            did_add_separator = self._add_separator_if_missing(menu_item_list)
+
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Expand All', action_id=ActionID.EXPAND_ALL)
             item.target_guid_list = [sn.spid.guid]
             menu_item_list.append(item)
 
         if sn.node.is_live():
             # MenuItem: ---
-            menu_item_list.append(ContextMenuItem.separator())
+            if not did_add_separator:
+                self._add_separator_if_missing(menu_item_list)
 
             # MenuItem: Refresh
             item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Refresh', action_id=ActionID.REFRESH)
@@ -115,6 +119,16 @@ class ContextMenuBuilder(HasLifecycle):
             menu_item_list.append(item)
 
         return menu_item_list
+
+    @staticmethod
+    def _add_separator_if_missing(menu_item_list: List[ContextMenuItem]) -> bool:
+        """Returns True if a separator was added; False if not"""
+        if not menu_item_list:
+            return False
+        if menu_item_list[-1].item_type != MenuItemType.SEPARATOR:
+            menu_item_list.append(ContextMenuItem.separator())
+            return True
+        return False
 
     def _build_menu_items_for_single_node(self, sn: SPIDNodePair, tree_id: TreeID) -> List[ContextMenuItem]:
         if sn.node.is_container_node():
@@ -183,7 +197,8 @@ class ContextMenuBuilder(HasLifecycle):
                 item.target_guid_list = [sn.spid.guid]
                 menu_item_list.append(item)
 
-        self._add_custom_action_list([sn.node], [sn.spid.guid], menu_item_list)
+        if sn.node.is_live():
+            self._add_custom_action_list([sn.node], [sn.spid.guid], menu_item_list)
 
         return menu_item_list
 
