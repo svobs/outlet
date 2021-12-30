@@ -161,6 +161,12 @@ TreeID = str
 GoogID = str
 
 
+class DeleteBehavior(IntEnum):
+    TO_CUSTOM_TRASH = 1
+    TO_NATIVE_TRASH = 2
+    DELETE_IMMEDIATELY = 3
+
+
 # Trashed state
 class TrashStatus(IntEnum):
     NOT_TRASHED = 0

@@ -39,7 +39,7 @@ class LocalFileUtil:
         fresh_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=node.get_single_path(), must_scan_signature=False, is_live=True)
         if not fresh_node:
             raise RuntimeError(f'File missing: {node.get_single_path()}')
-        fresh_node.copy_signature_if_meta_matches(node)
+        fresh_node.copy_signature_if_is_meta_equal(node)
         if fresh_node.has_signature():
             return fresh_node
 
@@ -49,7 +49,7 @@ class LocalFileUtil:
             raise RuntimeError(f'File has unexpectedly changed, and failed to calculate its new signature: {node.node_identifier}')
 
         # Was signature also out-of-date?
-        if not node_with_signatures.is_signature_match(node):
+        if not node_with_signatures.is_signature_equal(node):
             raise RuntimeError(f'File has unexpectedly changed: {node.node_identifier}; expected: {node}, found: {node_with_signatures}')
         else:
             # Signature is the same but other meta changed
@@ -67,7 +67,7 @@ class LocalFileUtil:
         # dst node actually exists? (this implies our cached copy is not accurate):
         if os.path.exists(dst_path):
             existing_dst_node = content_hasher.try_calculating_signatures(dst_node)
-            if existing_dst_node and existing_dst_node.is_signature_match(src_node):
+            if existing_dst_node and existing_dst_node.is_signature_equal(src_node):
                 msg = f'File with identical content already exists at dst: {dst_path}'
                 logger.info(msg)
 
@@ -104,7 +104,7 @@ class LocalFileUtil:
         dst_node = content_hasher.try_calculating_signatures(dst_node)
         if not dst_node:
             raise RuntimeError(f'Failed to calculate signature for: {dst_path}')
-        if dst_node.is_signature_match(src_node):
+        if dst_node.is_signature_equal(src_node):
             msg = f'Identical file already exists at dst: {dst_path}'
             logger.info(msg)
     
@@ -147,7 +147,7 @@ class LocalFileUtil:
             staging_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=staging_path, must_scan_signature=True, is_live=True)
             if not staging_node:
                 raise RuntimeError(f'Failed to calculate signature for staging file: "{staging_path}"')
-            if not staging_node.is_signature_match(src_node):
+            if not staging_node.is_signature_equal(src_node):
                 raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
                                    f'src_md5={src_node.md5}, staging_file="{staging_path}", staging_md5={staging_node.md5}')
     
@@ -205,7 +205,7 @@ class LocalFileUtil:
         dst_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=False, is_live=True)
         if not dst_node:
             raise RuntimeError(f'Failed to build fresh node after copying meta for path: {dst_path}')
-        if not dst_node.meta_matches(src_node):
+        if not dst_node.is_meta_equal(src_node):
             raise RuntimeError(f'Dst node meta does not match src node! src={src_node} dst={dst_node}')
 
 

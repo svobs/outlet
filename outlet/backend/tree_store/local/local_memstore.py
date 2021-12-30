@@ -90,8 +90,8 @@ class LocalDiskMemoryStore:
                 # equals comparison
                 assert isinstance(node, LocalFileNode) and isinstance(cached_node, LocalFileNode)
                 if TRACE_ENABLED:
-                    logger.debug(f'MD5 before merging: cached={cached_node.md5} fresh={node.md5}')
-                node.copy_signature_if_meta_matches(cached_node)
+                    logger.debug(f'Before merging: cached_node={cached_node} fresh_node={node}')
+                node.copy_signature_if_is_meta_equal(cached_node)
 
             if cached_node == node:
                 if SUPER_DEBUG_ENABLED:

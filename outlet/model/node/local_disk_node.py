@@ -253,12 +253,12 @@ class LocalFileNode(LocalNode):
     def has_signature(self) -> bool:
         return self._md5 is not None and self._sha256 is not None
 
-    def copy_signature_if_meta_matches(self, other) -> bool:
-        if self.meta_matches(other) and (other.md5 or other.sha256):
+    def copy_signature_if_is_meta_equal(self, other) -> bool:
+        if self.is_meta_equal(other) and (other.md5 or other.sha256):
             if other.md5:
                 if SUPER_DEBUG_ENABLED:
                     if self._md5 and self._md5 != other.md5:
-                        logger.error(f'copy_signature_if_meta_matches(): meta matches but MD5s differ! this={self}, other={other}')
+                        logger.error(f'copy_signature_if_is_meta_equal(): meta matches but MD5s differ! this={self}, other={other}')
                     else:
                         logger.debug(f'Copying MD5 from node: {other.node_identifier}')
 
@@ -267,7 +267,7 @@ class LocalFileNode(LocalNode):
             if other.sha256:
                 if SUPER_DEBUG_ENABLED:
                     if self._sha256 and self._sha256 != other.sha256:
-                        logger.error(f'copy_signature_if_meta_matches(): meta matches but SHA256s differ! this={self}, other={other}')
+                        logger.error(f'copy_signature_if_is_meta_equal(): meta matches but SHA256s differ! this={self}, other={other}')
                     else:
                         logger.debug(f'Copying SHA256 from node: {other.node_identifier}')
 

@@ -95,7 +95,7 @@ class OneSide:
                 dst_node_uid = existing_node.uid
                 dst_node_goog_id = existing_node.goog_id
             elif len(existing_dst_node_list) > 1:
-                if self._is_same_md5_and_name_for_all(existing_dst_node_list):
+                if self._is_same_signature_and_name_for_all(existing_dst_node_list):
                     logger.warning(f'Found {len(existing_dst_node_list)} identical nodes already present at at GDrive dst path '
                                    f'("{repr(dst_path)}"). Will overwrite all starting with UID {existing_dst_node_list[0].uid}')
                     existing_node = existing_dst_node_list[0]
@@ -157,11 +157,11 @@ class OneSide:
         return sn_dst
 
     @staticmethod
-    def _is_same_md5_and_name_for_all(existing_node_list: List[Node]) -> bool:
+    def _is_same_signature_and_name_for_all(existing_node_list: List[Node]) -> bool:
         first_node: Node = existing_node_list[0]
         for node in existing_node_list[1:]:
             assert isinstance(node, GDriveNode)
-            if node.name != first_node.name or node.md5 != first_node.md5:
+            if node.name != first_node.name or not node.is_signature_equal(first_node):
                 return False
         return True
 

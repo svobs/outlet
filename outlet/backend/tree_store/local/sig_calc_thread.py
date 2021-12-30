@@ -145,7 +145,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             logger.warning(f'[{self.name}] Skipping signature calculation: node is no longer present in the cache: {node}')
             return
 
-        if node.md5 or node.sha256:
+        if node.has_signature():
             # Other threads, e.g., CommandExecutor, can also fill this in asynchronously
             logger.debug(f'[{self.name}] Node already has signature; skipping; {node}')
             return

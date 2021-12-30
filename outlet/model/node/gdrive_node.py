@@ -305,6 +305,9 @@ class GDriveFile(GDriveNode):
         # A file can never be the parent of anything
         return False
 
+    def has_signature(self) -> bool:
+        return self._md5 is not None
+
     @property
     def md5(self):
         return self._md5

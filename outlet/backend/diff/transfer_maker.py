@@ -349,7 +349,7 @@ class TransferMaker(ChangeMaker):
         self._calculate_signatures_if_missing_and_local(sn_dst)
 
         # TODO: decide how to handle GDrive non-file types which don't have signatures (e.g. shortcuts, Google Docs...)
-        return sn_src.node.is_signature_match(sn_dst.node)
+        return sn_src.node.is_signature_equal(sn_dst.node)
 
     # SKIP CONDITION:
     def _is_same_content_and_not_older(self, sn_src: SPIDNodePair, sn_dst: SPIDNodePair) -> bool:
@@ -364,7 +364,7 @@ class TransferMaker(ChangeMaker):
         if sn_src.node.modify_ts == 0 or sn_dst.node.modify_ts == 0:
             logger.error(f'One of these has modify_ts=0. Src: {sn_src.node}, Dst: {sn_dst.node}')
             raise RuntimeError(f'Cannot compare modification times: at least one node is missing modify_ts')
-        return sn_src.node.is_signature_match(sn_dst.node) and sn_src.node.modify_ts <= sn_dst.node.modify_ts
+        return sn_src.node.is_signature_equal(sn_dst.node) and sn_src.node.modify_ts <= sn_dst.node.modify_ts
 
     def _handle_replace_with_file(self, dd_meta: TransferMeta, sn_src_file: SPIDNodePair, sn_dst_conflicting: SPIDNodePair,
                                   skip_condition_func: Optional[Callable[[SPIDNodePair, SPIDNodePair], bool]] = None):

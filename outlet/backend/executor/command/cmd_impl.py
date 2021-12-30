@@ -136,13 +136,13 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
                 if USE_STRICT_STATE_ENFORCEMENT:
                     raise RuntimeError(f'Node no longer found in cache (using strict=true): {self.op.dst_node.node_identifier}')
                 else:
-                    file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
+                    file_util.move_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
             else:
                 local_file_util.ensure_up_to_date(node_dst_old)
 
-                file_util.replace_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
+                file_util.replace_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
         else:
-            file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
+            file_util.move_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
 
         if cxt.update_meta_also:
             # Moving a file shouldn't change its meta (except possibly on MacOS), but let's update it to be sure:
@@ -154,9 +154,13 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
         if not new_dst_node:
             raise RuntimeError(f'Dst node not found after move: {self.op.dst_node.get_single_path()}')
         assert new_dst_node.uid == self.op.dst_node.uid
-        if not new_dst_node.is_signature_match(src_node):
+        if not new_dst_node.is_signature_equal(src_node):
             raise RuntimeError(f'Signature incorrect after move to "{self.op.dst_node.get_single_path()}" '
                                f'(expected: {src_node.md5}; found: {new_dst_node.md5})')
+
+        if cxt.update_meta_also and not new_dst_node.is_meta_equal(src_node):
+            raise RuntimeError(f'Meta incorrect after move to "{self.op.dst_node.get_single_path()}" '
+                               f'(expected: {src_node}; found: {new_dst_node})')
 
         # Verify src was deleted:
         if os.path.exists(src_node.get_single_path()):
@@ -171,6 +175,10 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
     def _cleanup_after_error(self):
         if os.path.exists(self.op.dst_node.get_single_path()):
             file_util.delete_file(self.op.dst_node.get_single_path(), to_trash=False)
+
+    @staticmethod
+    def _relevant_fields_match(actual_node, expected_node) -> bool:
+        return actual_node.name == expected_node.name and actual_node.is_signature_equal(expected_node) and actual_node.is_meta_equal(expected_node)
 
 
 class CreatLocalDirCommand(Command):
@@ -305,7 +313,7 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
 
     @staticmethod
     def _relevant_fields_match(actual_node, expected_node) -> bool:
-        return actual_node.name == expected_node.name and actual_node.is_signature_match(expected_node) and actual_node.meta_matches(expected_node)
+        return actual_node.name == expected_node.name and actual_node.is_signature_equal(expected_node) and actual_node.is_meta_equal(expected_node)
 
     def _upload_new_file(self, cxt, gdrive_client, src_node) -> UserOpResult:
         parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.dst_node)

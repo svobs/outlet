@@ -185,7 +185,7 @@ class LocalDiskMasterStore(TreeStore):
                 # attempt to avoid signature recalculations by checking one against the other and merging old into new:
                 if existing_child and existing_child.is_file() and new_child.is_file():
                     assert isinstance(new_child, LocalFileNode), f'Bad: {new_child}'
-                    new_child.copy_signature_if_meta_matches(existing_child)
+                    new_child.copy_signature_if_is_meta_equal(existing_child)
 
             dir_node_remove_list = []
             for node_to_remove in existing_child_dict.values():
@@ -313,7 +313,7 @@ class LocalDiskMasterStore(TreeStore):
             logger.debug(f'[{tree_id}] Disk scan was skipped; checking cached nodes for missing signatures')
             # Check whether any nodes still need their signatures filled in, and enqueue them if so:
             for node in self._memstore.master_tree.get_subtree_bfs_node_list(requested_subtree_root.node_uid):
-                if node.is_file() and not node.md5:
+                if node.is_file() and not node.has_signature():
                     dispatcher.send(signal=Signal.NODE_NEEDS_SIG_CALC, sender=tree_id, node=node)
 
         def _after_load_complete(_this_task):
