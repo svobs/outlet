@@ -3,8 +3,6 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
-from model.node.node import BaseNode
-from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
 
 logger = logging.getLogger(__name__)
@@ -17,14 +15,18 @@ class CommandContext:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, staging_dir: str, cacheman, update_meta_also):
+    def __init__(self, staging_dir: str, cacheman, update_meta_also: bool, use_strict_state_enforcement: bool):
         self.staging_dir: str = staging_dir
         self.cacheman = cacheman
+
         self.update_meta_also: bool = update_meta_also
         """If true, any moves or copies of nodes should also copy the meta from src to dst"""
 
+        self.use_strict_state_enforcement: bool = use_strict_state_enforcement
+        """If true, raise exception if we see something unexpected in src and dst nodes, even if we could otherwise work around it"""
 
-class Command(BaseNode, ABC):
+
+class Command(ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ABSTRACT CLASS Command
@@ -32,26 +34,19 @@ class Command(BaseNode, ABC):
     Every command has an associated target node and a UserOp.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp):
-        BaseNode.__init__(self)
-        self.uid: UID = uid
+    def __init__(self, op: UserOp):
         assert op
 
         self.op: UserOp = op
-        self.tag: str = f'{self.__class__.__name__}(cmd_uid={self.identifier}) op={op.op_type.name} ({op.op_uid}) ' \
-                        f'tgt={self.op.src_node.node_identifier})'
 
     def get_description(self) -> str:
+        """A brief summary of the command."""
         # default
-        return self.tag
+        return f'{self.__class__.__name__} op={self.op}'
 
     @property
-    def type(self) -> UserOpType:
+    def op_type(self) -> UserOpType:
         return self.op.op_type
-
-    @property
-    def identifier(self) -> UID:
-        return self.uid
 
     @abstractmethod
     def execute(self, context: CommandContext):
@@ -61,17 +56,12 @@ class Command(BaseNode, ABC):
         """Return the total work needed to complete this task, as an integer for a progressbar widget"""
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def needs_gdrive(self):
-        return False
-
     def completed_without_error(self) -> bool:
         status = self.get_status()
         return status == UserOpStatus.COMPLETED_OK or status == UserOpStatus.COMPLETED_NO_OP
 
     def get_status(self) -> UserOpStatus:
-        if self.op.result:
-            return self.op.result.status
-        return UserOpStatus.NOT_STARTED
+        return self.op.get_status()
 
     def set_error_result(self, err: Union[str, Exception]) -> UserOpResult:
         result = UserOpResult(UserOpStatus.STOPPED_ON_ERROR, error=err)
@@ -84,9 +74,9 @@ class Command(BaseNode, ABC):
         return None
 
     def __repr__(self):
+        """For debugging."""
         # default
-        return f'{self.__class__.__name__}(uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()} ' \
-               f'user_op={self.op})'
+        return f'{self.__class__.__name__} total_work={self.get_total_work()} op={self.op})'
 
 
 class DeleteNodeCommand(Command, ABC):
@@ -97,15 +87,17 @@ class DeleteNodeCommand(Command, ABC):
     A Command which deletes the target node. If to_trash is true, it's more of a move/update.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp, to_trash: bool):
-        Command.__init__(self, uid, op)
+    def __init__(self, op: UserOp, to_trash: bool):
+        Command.__init__(self, op)
         assert op.op_type == UserOpType.RM
         self.to_trash = to_trash
-        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} tgt={self.op.src_node.dn_uid} to_trash={self.to_trash})'
+
+    def get_description(self) -> str:
+        """A brief summary of the command."""
+        return f'{self.__class__.__name__} op_uid={self.op.op_uid} tgt={self.op.src_node.dn_uid} to_trash={self.to_trash})'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={self.op.op_uid} status={self.get_status()} ' \
-               f'total_work={self.get_total_work()} to_trash={self.to_trash} tgt={self.op.src_node.node_identifier}'
+        return f'{self.__class__.__name__} to_trash={self.to_trash} total_work={self.get_total_work()} op={self.op})'
 
 
 class TwoNodeCommand(Command, ABC):
@@ -116,13 +108,12 @@ class TwoNodeCommand(Command, ABC):
     Same functionality as Command but with an additional "source" node. Its "target" node represents the destination node.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp):
-        Command.__init__(self, uid, op)
-        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} src={self.op.src_node.uid} ' \
-                   f'dst={self.op.src_node.uid}'
+    def __init__(self, op: UserOp):
+        Command.__init__(self, op)
+        self.tag = f'{self.__class__.__name__} op_uid={op.op_uid} src={self.op.src_node.uid} dst={self.op.src_node.uid}'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()}' \
+        return f'{self.__class__.__name__} status={self.get_status()} total_work={self.get_total_work()}' \
                f' src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'
 
 
@@ -134,12 +125,12 @@ class CopyNodeCommand(TwoNodeCommand, ABC):
     A TwoNodeCommand which does a copy from src to tgt.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
-        TwoNodeCommand.__init__(self, uid, op)
+    def __init__(self, op: UserOp, overwrite: bool):
+        TwoNodeCommand.__init__(self, op)
         self.overwrite = overwrite
-        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} overwrite={self.overwrite} ' \
+        self.tag = f'{self.__class__.__name__} op_uid={op.op_uid} overwrite={self.overwrite} ' \
                    f'src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.get_status()} total_work={self.get_total_work()}' \
+        return f'{self.__class__.__name__} status={self.get_status()} total_work={self.get_total_work()}' \
                f' overwrite={self.overwrite} src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'

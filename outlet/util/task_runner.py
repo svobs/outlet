@@ -60,6 +60,7 @@ class Task:
             GlobalActions.display_error_in_ui(ID_CENTRAL_EXEC, msg, repr(err))
             raise
         finally:
+            # TODO: success msg
             logger.info(f'{task_time} Task returned: "{self.task_func.__name__}", {self.priority.name}, {self.task_uuid}')
 
     def add_next_task(self, next_task_func: Callable, *args):

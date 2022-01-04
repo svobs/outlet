@@ -24,9 +24,10 @@ class CommandExecutor(HasLifecycle):
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         self.backend = backend
-        val = self.backend.get_config('agent.local_disk.staging_dir')
-        self.staging_dir: str = file_util.get_resource_path(val)
+        self.staging_dir: str = file_util.get_resource_path(self.backend.get_config('agent.local_disk.staging_dir.location'))
         logger.debug(f'Staging dir: "{self.staging_dir}"')
+
+        self.clear_staging_dir_on_startup = self.backend.get_config('agent.local_disk.staging_dir.clear_on_startup')
 
         self.global_context: Optional[CommandContext] = None
 
@@ -38,8 +39,11 @@ class CommandExecutor(HasLifecycle):
         if update_meta_for_dst_nodes:
             logger.debug(f'update_meta_for_dst_nodes = {update_meta_for_dst_nodes}')
 
-        # TODO: optionally clean staging dir at startup
-        self.global_context = CommandContext(self.staging_dir, self.backend.cacheman, update_meta_for_dst_nodes)
+        if self.clear_staging_dir_on_startup:
+            # TODO: optionally clean staging dir at startup
+            pass
+
+        self.global_context = CommandContext(self.staging_dir, self.backend.cacheman, update_meta_for_dst_nodes, use_strict_state_enforcement=True)
         logger.debug('[CommandExecutor] Startup done')
 
     def shutdown(self):
@@ -47,7 +51,7 @@ class CommandExecutor(HasLifecycle):
         self.global_context = None
         logger.debug('[CommandExecutor] Shutdown done')
 
-    def execute_command(self, this_task: Task, command: Command, context: CommandContext = None, start_stop_progress: bool = False):
+    def execute_command(self, this_task: Task, command: Command, context: CommandContext, start_stop_progress: bool = False):
         if not command:
             logger.error(f'No command!')
             return
@@ -56,9 +60,6 @@ class CommandExecutor(HasLifecycle):
             dispatcher.send(signal=Signal.START_PROGRESS, sender=ID_COMMAND_EXECUTOR, total=command.get_total_work())
 
         try:
-            if not context:
-                context = CommandContext(self.staging_dir, self.backend.cacheman)
-
             if command.get_status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.get_status()}')
             else:
@@ -76,7 +77,7 @@ class CommandExecutor(HasLifecycle):
             command.set_error_result(err)
 
             # Report error to the UI:
-            detail = f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}'
+            detail = f'Command {command.__class__.__name__} (op {command.op.op_uid} {command.op.op_type}) failed with error: {command.get_error()}'
             self.backend.report_error(ID_COMMAND_EXECUTOR, msg=description, secondary_msg=detail)
 
         dispatcher.send(signal=Signal.COMMAND_COMPLETE, sender=ID_COMMAND_EXECUTOR, command=command)

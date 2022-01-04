@@ -16,9 +16,6 @@ from util.local_file_util import LocalFileUtil
 
 logger = logging.getLogger(__name__)
 
-# If true, raise exception if we see something unexpected, even if we could otherwise work around it:
-USE_STRICT_STATE_ENFORCEMENT = True
-
 
 # TODO: GDrive 'overwrite' logic. Include switch for choosing whether to delete an item only if you are unlinking it from its last parent,
 #  or to delete it from all locations.
@@ -38,8 +35,8 @@ USE_STRICT_STATE_ENFORCEMENT = True
 class CopyFileLocalToLocalCommand(CopyNodeCommand):
     """Local-to-local add or update"""
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool = False):
-        super().__init__(uid, op, overwrite)
+    def __init__(self, op: UserOp, overwrite: bool = False):
+        super().__init__(op, overwrite)
         assert op.op_type == UserOpType.CP
 
     def get_total_work(self) -> int:
@@ -89,8 +86,8 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
     Delete Local. This supports deleting either a single file or an empty dir.
     """
 
-    def __init__(self, uid: UID, op: UserOp, to_trash=True):
-        super().__init__(uid, op, to_trash)
+    def __init__(self, op: UserOp, to_trash=True):
+        super().__init__(op, to_trash)
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, LocalNode), f'Got {self.op.src_node}'
@@ -118,8 +115,8 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
     Move/Rename Local -> Local
     """
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
-        super().__init__(uid, op, overwrite)
+    def __init__(self, op: UserOp, overwrite: bool):
+        super().__init__(op, overwrite)
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, LocalFileNode), f'Not a file: {self.op.src_node}'
@@ -133,7 +130,7 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
             node_dst_old = cxt.cacheman.get_node_for_uid(self.op.dst_node.uid, self.op.dst_node.device_uid)
 
             if not node_dst_old:
-                if USE_STRICT_STATE_ENFORCEMENT:
+                if cxt.use_strict_state_enforcement:
                     raise RuntimeError(f'Node no longer found in cache (using strict=true): {self.op.dst_node.node_identifier}')
                 else:
                     file_util.move_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
@@ -186,8 +183,8 @@ class CreatLocalDirCommand(Command):
     Create Local dir
     """
 
-    def __init__(self, uid: UID, op: UserOp):
-        super().__init__(uid, op)
+    def __init__(self, op: UserOp):
+        super().__init__(op)
         assert op.op_type == UserOpType.MKDIR
 
     def get_total_work(self) -> int:
@@ -224,16 +221,13 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
     Copy Local -> GDrive (AKA upload)
     """
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool, delete_src_node_after: bool):
-        super().__init__(uid, op, overwrite)
+    def __init__(self, op: UserOp, overwrite: bool, delete_src_node_after: bool):
+        super().__init__(op, overwrite)
         self.delete_src_node_after: bool = delete_src_node_after
         assert isinstance(self.op.dst_node, GDriveNode)
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
-
-    def needs_gdrive(self):
-        return True
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, LocalFileNode), f'Expected LocalFileNode but got: {type(self.op.src_node)} for {self.op.src_node}'
@@ -255,9 +249,9 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
 
             if not existing_dst_node:
                 # Possibility #1: no node at dst
-                msg = f'Could not find target node to overwrite in Google Drive (using strict={USE_STRICT_STATE_ENFORCEMENT}): ' \
+                msg = f'Could not find target node to overwrite in Google Drive (using strict={cxt.use_strict_state_enforcement}): ' \
                       f'{self.op.dst_node.node_identifier}'
-                if USE_STRICT_STATE_ENFORCEMENT:
+                if cxt.use_strict_state_enforcement:
                     raise RuntimeError(msg)
                 else:
                     logger.debug(msg)
@@ -270,9 +264,9 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
 
             if not self._relevant_fields_match(existing_dst_node, self.op.dst_node):
                 # Possibility #3: unexpected content at dst
-                msg = f'Dst node to overwrite has different meta/content than expected (using strict={USE_STRICT_STATE_ENFORCEMENT}): ' \
+                msg = f'Dst node to overwrite has different meta/content than expected (using strict={cxt.use_strict_state_enforcement}): ' \
                       f'{self.op.dst_node.node_identifier}'
-                if USE_STRICT_STATE_ENFORCEMENT:
+                if cxt.use_strict_state_enforcement:
                     raise RuntimeError(msg)
                 else:
                     logger.debug(msg)
@@ -353,17 +347,14 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
     Copy GDrive -> Local (AKA download)
     """
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool, delete_src_node_after: bool):
-        super().__init__(uid, op, overwrite)
+    def __init__(self, op: UserOp, overwrite: bool, delete_src_node_after: bool):
+        super().__init__(op, overwrite)
         self.delete_src_node_after: bool = delete_src_node_after
         assert isinstance(self.op.src_node, GDriveNode), f'For {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'For {self.op.dst_node}'
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
-
-    def needs_gdrive(self):
-        return True
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.md5, f'Bad src node: {self.op.src_node}'
@@ -380,7 +371,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
                                    f'(found size={node_dst.get_size_bytes()}, MD5={node_dst.md5}, '
                                    f'expected size={self.op.src_node.get_size_bytes()}, MD5={self.op.src_node.md5})')
         elif self.overwrite:
-            if USE_STRICT_STATE_ENFORCEMENT:
+            if cxt.use_strict_state_enforcement:
                 raise RuntimeError(f'Cannot overwrite a file which does not exist (using strict=true): {dst_path}')
             else:
                 logger.warning(f'Cmd has "overwrite" specified for a local file which does not exist: {dst_path}')
@@ -434,7 +425,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
 
         existing_src_node = gdrive_client.get_existing_node_by_id(self.op.src_node.goog_id)
         if not existing_src_node:
-            if USE_STRICT_STATE_ENFORCEMENT:
+            if cxt.use_strict_state_enforcement:
                 raise RuntimeError(f'Could not find expected src node in Google Drive (using strict=true) with goog_id={self.op.src_node.goog_id}')
             else:
                 logger.info(f'Could not find expected src node in Google Drive (goog_id={self.op.src_node.goog_id}): will skip delete of it')
@@ -452,15 +443,12 @@ class CreateGDriveFolderCommand(Command):
     Create GDrive FOLDER (sometimes a prerequisite to uploading a file)
     """
 
-    def __init__(self, uid: UID, op: UserOp):
-        super().__init__(uid, op)
+    def __init__(self, op: UserOp):
+        super().__init__(op)
         assert op.op_type == UserOpType.MKDIR
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
-
-    def needs_gdrive(self):
-        return True
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, GDriveNode) and self.op.src_node.is_dir() and not self.op.src_node.goog_id, f'For {self.op.src_node}'
@@ -504,15 +492,12 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
     of the src node to the dst node's parent.
     """
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
-        super().__init__(uid, op, overwrite)
+    def __init__(self, op: UserOp, overwrite: bool):
+        super().__init__(op, overwrite)
         assert op.op_type == UserOpType.MV
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
-
-    def needs_gdrive(self):
-        return True
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.uid and self.op.src_node.is_live(), f'Invalid: {self.op.src_node}'
@@ -539,7 +524,7 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
 
             existing_dst_node = gdrive_client.get_existing_node_by_id(self.op.dst_node.goog_id)
             if not existing_dst_node:
-                if USE_STRICT_STATE_ENFORCEMENT:
+                if cxt.use_strict_state_enforcement:
                     raise RuntimeError(f'Could not find expected dst node in Google Drive (using strict=true)'
                                        f' with goog_id={self.op.dst_node.goog_id}')
                 else:
@@ -577,15 +562,12 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
     Copy GDrive -> GDrive, same account
     """
 
-    def __init__(self, uid: UID, op: UserOp, overwrite: bool = False):
-        super().__init__(uid, op, overwrite)
+    def __init__(self, op: UserOp, overwrite: bool = False):
+        super().__init__(op, overwrite)
         assert op.op_type == UserOpType.CP
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
-
-    def needs_gdrive(self):
-        return True
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.dst_node, GDriveFile), f'For {self.op.dst_node}'
@@ -622,7 +604,7 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
                 assert node_dst_updated.uid == self.op.dst_node.uid and node_dst_updated.goog_id == self.op.dst_node.goog_id, \
                     f'Expected uid and goog_id of node from server {node_dst_updated} to match param {self.op.dst_node}'
             else:
-                if USE_STRICT_STATE_ENFORCEMENT:
+                if cxt.use_strict_state_enforcement:
                     raise RuntimeError(
                         f'Cannot overwrite file in GDrive: target not found in Google Drive (maybe already deleted?) (using strict=true):'
                         f' {self.op.dst_node}')
@@ -660,14 +642,11 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
     Delete GDrive Node. This supports either deleting a file or an empty folder.
     """
 
-    def __init__(self, uid: UID, op: UserOp, to_trash=True):
-        super().__init__(uid, op, to_trash)
+    def __init__(self, op: UserOp, to_trash=True):
+        super().__init__(op, to_trash)
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
-
-    def needs_gdrive(self):
-        return True
 
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, GDriveNode)
