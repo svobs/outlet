@@ -38,7 +38,7 @@ from util.task_runner import Task
 logger = logging.getLogger(__name__)
 
 
-# TODO: seriously need to rethink the whole locking solution.
+# FIXME: this doesn't work and may fail
 def ensure_locked(func):
     """DECORATOR: make sure _struct_lock is locked when executing func. If it is not currently locked,
     then lock it around the function.

@@ -151,7 +151,7 @@ class LocalFileUtil:
                 raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
                                    f'src_md5={src_node.md5}, staging_file="{staging_path}", staging_md5={staging_node.md5}')
     
-    def copy_meta(self, src_node: Node, dst_path: str):
+    def copy_meta(self, src_node: Node, dst_path: str) -> LocalNode:
         """Sets create_ts, modify_ts (and access_ts) for dst_path, using the values found in src_node.
         Note that src_node does not need to be a LocalNode."""
         try:
@@ -207,6 +207,8 @@ class LocalFileUtil:
             raise RuntimeError(f'Failed to build fresh node after copying meta for path: {dst_path}')
         if not dst_node.is_meta_equal(src_node):
             raise RuntimeError(f'Dst node meta does not match src node! src={src_node} dst={dst_node}')
+
+        return dst_node
 
 
 def _macos_set_file_create_ts(dst_path: str, create_ts: int):

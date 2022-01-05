@@ -3,12 +3,15 @@ import mimetypes
 import os
 from typing import List, Optional
 
-from backend.executor.command.cmd_interface import Command, CommandContext, CopyNodeCommand, DeleteNodeCommand, UserOpResult, UserOpStatus
-from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus
+from backend.executor.command.cmd_interface import Command, CommandContext, CopyNodeCommand, DeleteNodeCommand, FinishCopyToDirCommand, \
+    TwoNodeCommand, UserOpResult, \
+    UserOpStatus
+from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus, TreeType
 from error import GDriveItemNotFoundError, InvalidOperationError
 from model.gdrive_meta import MimeType
-from model.node.gdrive_node import GDriveFile, GDriveNode
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.node import Node
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from util import file_util
@@ -191,23 +194,81 @@ class CreatLocalDirCommand(Command):
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
-        logger.debug(f'MKDIR: dst={self.op.src_node.get_single_path()}')
-        os.makedirs(name=self.op.src_node.get_single_path(), exist_ok=True)
-
-        # Add to cache:
+        logger.debug(f'MKDIR: src={self.op.src_node.get_single_path()}')
         assert isinstance(self.op.src_node, LocalDirNode)
+        CreatLocalDirCommand.execute_static(cxt, tgt_node=self.op.src_node)
+
+    # TODO: put this in its own class
+    @staticmethod
+    def execute_static(cxt: CommandContext, tgt_node: LocalDirNode):
+        os.makedirs(name=tgt_node.get_single_path(), exist_ok=True)
 
         # Verify dst was created:
-        new_dir_node: LocalDirNode = cxt.cacheman.build_local_dir_node(full_path=self.op.src_node.get_single_path(),
-                                                                       is_live=True, all_children_fetched=True)
-
-        # TODO: induce a failure here to test to make sure that a CP of dir properly cascades a failure
-
-        if not new_dir_node:
-            raise RuntimeError(f'Dir not found after MKDIR: {self.op.src_node.get_single_path()}')
-        assert new_dir_node.uid == self.op.src_node.uid
+        new_dir_node: LocalDirNode = CreatLocalDirCommand.ensure_dir_up_to_date(cxt, tgt_node)
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dir_node])
 
+    # TODO: put this in its own class
+    @staticmethod
+    def ensure_dir_up_to_date(cxt: CommandContext, tgt_node: LocalDirNode) -> LocalDirNode:
+        fresh_dir_node: LocalDirNode = cxt.cacheman.build_local_dir_node(full_path=tgt_node.get_single_path(),
+                                                                         is_live=True, all_children_fetched=True)
+        if not fresh_dir_node:
+            raise RuntimeError(f'Dir not found: {tgt_node.get_single_path()}')
+        assert fresh_dir_node.uid == tgt_node.uid, f'Unexpected UID! Expected={tgt_node}, got={fresh_dir_node}'
+        return fresh_dir_node
+
+
+class StartCopyToLocalDirCommand(TwoNodeCommand):
+    """
+    Start Copy: dst = Local dir; src = some dir, agnostic of tree type.
+    Currently, this is nearly identical to MKDIR.
+    """
+
+    def __init__(self, op: UserOp):
+        super().__init__(op)
+        assert op.op_type == UserOpType.START_DIR_CP or op.op_type == UserOpType.START_DIR_MV
+
+    def get_total_work(self) -> int:
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+
+    def execute(self, cxt: CommandContext):
+        logger.debug(f'{self.op.op_type.name}: src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier}')
+        assert isinstance(self.op.dst_node, LocalDirNode)
+        return CreatLocalDirCommand.execute_static(cxt, tgt_node=self.op.dst_node)
+
+
+class FinishCopyToLocalDirCommand(FinishCopyToDirCommand):
+    """
+    Finish Copy: dst = Local dir; src = some dir, agnostic of tree type.
+    Currently, this copies the meta from src to dst, optionally deleting the src node after.
+    """
+
+    def __init__(self, op: UserOp, delete_src_node_after: bool):
+        super().__init__(op, delete_src_node_after)
+        assert op.op_type == UserOpType.FINISH_DIR_CP or op.op_type == UserOpType.FINISH_DIR_MV
+
+    def get_total_work(self) -> int:
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+
+    def execute(self, cxt: CommandContext):
+        logger.debug(f'{self.op.op_type.name}: src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier}')
+
+        # Verify dst exists:
+        assert isinstance(self.op.dst_node, LocalDirNode), f'Expected a LocalDirNode: {self.op.dst_node}'
+        new_dst_node: LocalDirNode = CreatLocalDirCommand.ensure_dir_up_to_date(cxt, self.op.dst_node)
+
+        if cxt.update_meta_also:
+            local_file_util = LocalFileUtil(cxt.cacheman)
+            # Moving a file shouldn't change its meta (except possibly on MacOS), but let's update it to be sure:
+            fresh_node = local_file_util.copy_meta(self.op.src_node, new_dst_node.get_single_path())
+            assert isinstance(fresh_node, LocalDirNode), f'Expected a LocalDirNode: {fresh_node}'
+            new_dst_node = fresh_node
+
+        if self.delete_src_node_after:
+            # TODO: put this logic in separate class[es]
+            return FinishCopyToGDriveFolderCommand.delete_src_node(cxt, self.op.src_node, new_dst_node)
+        else:
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dst_node])
 
 # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
 # LOCAL COMMANDS end
@@ -440,7 +501,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
 
 class CreateGDriveFolderCommand(Command):
     """
-    Create GDrive FOLDER (sometimes a prerequisite to uploading a file)
+    Create GDrive FOLDER.
     """
 
     def __init__(self, op: UserOp):
@@ -451,13 +512,18 @@ class CreateGDriveFolderCommand(Command):
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
-        assert isinstance(self.op.src_node, GDriveNode) and self.op.src_node.is_dir() and not self.op.src_node.goog_id, f'For {self.op.src_node}'
+        assert isinstance(self.op.src_node, GDriveNode), f'Expected to be GDrive node: {self.op.src_node}'
+        return CreateGDriveFolderCommand.execute_static(cxt, self.op.src_node)
 
-        parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.src_node)
+    @staticmethod
+    def execute_static(cxt: CommandContext, tgt_node: GDriveNode) -> UserOpResult:
+        assert isinstance(tgt_node, GDriveNode) and tgt_node.is_dir() and not tgt_node.goog_id, f'For {tgt_node}'
+
+        parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(tgt_node)
         if not parent_goog_id_list:
-            raise RuntimeError(f'No parents found for: {self.op.src_node}')
-        name = self.op.src_node.name
-        gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
+            raise RuntimeError(f'No parents found for: {tgt_node}')
+        name = tgt_node.name
+        gdrive_client = cxt.cacheman.get_gdrive_client(tgt_node.device_uid)
         existing = gdrive_client.get_folders_with_parent_and_name(parent_goog_id=parent_goog_id_list[0], name=name)
         if len(existing.nodes) > 0:
             if len(existing.nodes) > 1:
@@ -465,23 +531,90 @@ class CreateGDriveFolderCommand(Command):
                                    f'expected at most 1')
 
             existing_folder = existing.nodes[0]
-            if existing_folder.uid != self.op.src_node.uid:
+            if existing_folder.uid != tgt_node.uid:
                 raise RuntimeError(f'Found unexpected existing folder with parent={parent_goog_id_list[0]} and name="{name}": '
                                    f'uid={existing_folder.uid}, goog_id={existing_folder.goog_id}')
 
             logger.info(f'Looks like folder was already created: uid={existing_folder.uid}, goog_id={existing_folder.goog_id}')
             goog_node: GDriveNode = existing.nodes[0]
         else:
-            goog_node = gdrive_client.create_folder(name=self.op.src_node.name, parent_goog_ids=parent_goog_id_list, uid=self.op.src_node.uid)
+            goog_node = gdrive_client.create_folder(name=tgt_node.name, parent_goog_ids=parent_goog_id_list, uid=tgt_node.uid)
             logger.info(f'Created GDrive folder successfully: uid={goog_node.uid} name="{goog_node.name}", goog_id="{goog_node.goog_id}"')
 
         assert goog_node.is_dir()
         assert goog_node.get_parent_uids(), f'Expected some parent_uids for: {goog_node}'
-        if goog_node.uid != self.op.src_node.uid:
-            to_remove = [self.op.src_node]
+        if goog_node.uid != tgt_node.uid:
+            to_remove = [tgt_node]
         else:
             to_remove = []
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node], to_remove=to_remove)
+
+
+class StartCopyToGDriveFolderCommand(Command):
+    """
+    Start Copy: dst = GDrive folder; src = some dir, agnostic of tree type.
+    Currently, this is nearly identical to CreateGDriveFolderCommand.
+    """
+
+    def __init__(self, op: UserOp):
+        super().__init__(op)
+        assert op.op_type == UserOpType.START_DIR_CP or op.op_type == UserOpType.START_DIR_MV
+
+    def get_total_work(self) -> int:
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+
+    def execute(self, cxt: CommandContext):
+        assert isinstance(self.op.dst_node, GDriveNode), f'Expected to be GDrive node: {self.op.dst_node}'
+        return CreateGDriveFolderCommand.execute_static(cxt, self.op.dst_node)
+
+
+class FinishCopyToGDriveFolderCommand(FinishCopyToDirCommand):
+    """
+    Finish Copy: dst = GDrive folder; src = some dir, agnostic of tree type.
+    Currently, this copies the meta from src to dst, optionally deleting the src node after.
+    """
+
+    def __init__(self, op: UserOp, delete_src_node_after: bool):
+        super().__init__(op, delete_src_node_after)
+        assert op.op_type == UserOpType.FINISH_DIR_CP or op.op_type == UserOpType.FINISH_DIR_MV
+
+    def get_total_work(self) -> int:
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+
+    def execute(self, cxt: CommandContext):
+        logger.debug(f'{self.op.op_type.name}: src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier}')
+
+        # Verify dst exists:
+        assert isinstance(self.op.dst_node, GDriveFolder), f'Expected a GDriveFolder: {self.op.dst_node}'
+        gdrive_client = cxt.cacheman.get_gdrive_client(self.op.dst_node.device_uid)
+        new_dst_node = gdrive_client.get_existing_node_by_id(self.op.dst_node.goog_id)
+        if not new_dst_node:
+            raise RuntimeError(f'Could not find expected src node in Google Drive (goog_id={self.op.dst_node.goog_id})')
+
+        if cxt.update_meta_also:
+            new_dst_node = gdrive_client.modify_meta(goog_id=new_dst_node.goog_id, remove_parents=[],
+                                                  add_parents=[], new_name=self.op.src_node.name,
+                                                  create_ts=self.op.src_node.create_ts, modify_ts=self.op.src_node.modify_ts)
+            assert isinstance(new_dst_node, GDriveFolder), f'Expected a GDriveFolder: {new_dst_node}'
+
+        if self.delete_src_node_after:
+            return FinishCopyToGDriveFolderCommand.delete_src_node(cxt, self.op.src_node, new_dst_node)
+        else:
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dst_node])
+
+    @staticmethod
+    def delete_src_node(cxt, src_node: Node, new_dst_node: Node) -> UserOpResult:
+        # TODO: put this logic in separate class[es]
+        if src_node.tree_type == TreeType.LOCAL_DISK:
+            file_util.delete_empty_dir(src_node.get_single_path(), to_trash=False)
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[src_node], to_upsert=[new_dst_node])
+        elif src_node.tree_type == TreeType.GDRIVE:
+            assert isinstance(src_node, GDriveFolder), f'Expected a GDriveFolder: {src_node}'
+            result = DeleteGDriveNodeCommand.delete_node(cxt, src_node, to_trash=False)
+            result.nodes_to_upsert.append(new_dst_node)
+            return result
+        else:
+            assert False
 
 
 class MoveFileWithinGDriveCommand(CopyNodeCommand):
@@ -651,26 +784,30 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, GDriveNode)
 
-        gdrive_client = cxt.cacheman.get_gdrive_client(self.op.src_node.device_uid)
+        return DeleteGDriveNodeCommand.delete_node(cxt, self.op.src_node, self.to_trash)
 
-        existing = gdrive_client.get_existing_node_by_id(self.op.src_node.goog_id)
+    @staticmethod
+    def delete_node(cxt: CommandContext, tgt_node: GDriveNode, to_trash: bool) -> UserOpResult:
+        gdrive_client = cxt.cacheman.get_gdrive_client(tgt_node.device_uid)
+
+        existing = gdrive_client.get_existing_node_by_id(tgt_node.goog_id)
         if not existing:
-            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_remove=[self.op.src_node])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_remove=[tgt_node])
 
         if existing.owner_uid != GDRIVE_ME_USER_UID:
             logger.warning(f'It appears the user does not own this file! We will see if this works (owner_uid={existing.owner_uid})')
 
-        if self.to_trash and existing.get_trashed_status() != TrashStatus.NOT_TRASHED:
+        if to_trash and existing.get_trashed_status() != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[existing])
 
-        if self.to_trash:
-            node_updated = gdrive_client.trash(self.op.src_node.goog_id)
+        if to_trash:
+            node_updated = gdrive_client.trash(tgt_node.goog_id)
             to_upsert = [node_updated]
 
             # Verify that Google did what it said it did...
             # TODO: this is really time consuming and we probably don't need it - revisit with testing
-            for descendant in gdrive_client.get_subtree_bfs_node_list(self.op.src_node.goog_id):
+            for descendant in gdrive_client.get_subtree_bfs_node_list(tgt_node.goog_id):
                 if descendant.get_trashed_status() == TrashStatus.NOT_TRASHED:
                     raise RuntimeError(f'Found a descendant ("{descendant.name}", id={descendant.goog_id}) which was not already trashed')
 
@@ -678,17 +815,18 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert)
         else:
-            existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(self.op.src_node.goog_id)
+            existing_child_list: List[GDriveNode] = gdrive_client.get_all_children_for_parent(tgt_node.goog_id)
             if len(existing_child_list) > 0:
-                raise RuntimeError(f'Folder has {len(existing_child_list)} children; will not delete non-empty folder ({self.op.src_node})')
+                raise RuntimeError(f'Folder has {len(existing_child_list)} children; will not delete non-empty folder ({tgt_node})')
 
             try:
-                gdrive_client.hard_delete(self.op.src_node.goog_id)
+                gdrive_client.hard_delete(tgt_node.goog_id)
             except GDriveItemNotFoundError:
-                logger.warning(f'GDrive item not found while deleting: {self.op.src_node.goog_id} - assuming it was deleted externally')
-                return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
+                logger.warning(f'GDrive item not found while deleting: {tgt_node.goog_id} - assuming it was deleted externally')
+                return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[tgt_node])
 
-            return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[self.op.src_node])
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[tgt_node])
+
 
 # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
 # PURE GDRIVE COMMANDS end

@@ -457,26 +457,26 @@ class OpManager(HasLifecycle):
 
         if result.nodes_to_upsert:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert: '
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.op.op_uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert: '
                              f'{result.nodes_to_upsert}')
             else:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert')
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.op.op_uid} resulted in {len(result.nodes_to_upsert)} nodes to upsert')
 
             for node_to_upsert in result.nodes_to_upsert:
                 self.backend.cacheman.upsert_single_node(node_to_upsert)
 
         if result.nodes_to_remove:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove: '
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.op.op_uid} resulted in {len(result.nodes_to_remove)} nodes to remove: '
                              f'{result.nodes_to_remove}')
             else:
-                logger.debug(f'Cmd {command.__class__.__name__}:{command.uid} resulted in {len(result.nodes_to_remove)} nodes to remove')
+                logger.debug(f'Cmd {command.__class__.__name__}:{command.op.op_uid} resulted in {len(result.nodes_to_remove)} nodes to remove')
 
             for removed_node in result.nodes_to_remove:
                 self.backend.cacheman.remove_node(removed_node, to_trash=False)
 
         if result.status == UserOpStatus.STOPPED_ON_ERROR:
-            logger.info(f'Command {command.uid} ({command.op.op_type.name}) stopped on error')
+            logger.info(f'Command {command.op.op_uid} ({command.op.op_type.name}) stopped on error')
         elif not (result.status == UserOpStatus.COMPLETED_OK or result.status == UserOpStatus.COMPLETED_NO_OP):
             raise RuntimeError(f'Command completed but status ({result.status}) is invalid: {command}')
         else:

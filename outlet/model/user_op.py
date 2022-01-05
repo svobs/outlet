@@ -3,7 +3,7 @@ import logging
 from typing import Dict, List, Optional, Set, Union
 
 from constants import IconId, TreeID
-from model.node_identifier import GUID, NodeIdentifier
+from model.node_identifier import GUID
 from model.uid import UID
 from model.node.node import BaseNode, Node
 from util import time_util
@@ -15,40 +15,66 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class UserOpType(IntEnum):
-    RM = 1
-    """Remove src node (single-node op)"""
+    """UserOps are agnostic of tree types"""
+    # --- 1-digit enum = 1 node op ---
 
-    UNLINK = 2
+    RM = 1
+    """Remove src node: file or empty dir"""
+
+    MKDIR = 2
+    """Make dir represented by src node."""
+
+    UNLINK = 3
     """Will (a) just remove from parent, for GDrive nodes, or (b) unlink shortcuts/links, if those type"""
 
-    MKDIR = 3
-    """Make dir represented by src node (single-node op)"""
+    # --- 2-node ops ---
 
-    CP = 4
-    """Copy content of src node to dst node, where dst node does not yet exist"""
+    CP = 10
+    """Copy content of src node to dst node, where dst node does not yet exist. Does not work for dirs."""
 
-    CP_ONTO = 5
+    CP_ONTO = 11
     """AKA "Update".
-    Copy content of src node to existing dst node, overwriting the previous contents of dst.
+    Copy content of src node to existing dst node, overwriting the previous contents of dst. Does not work for dirs.
     
-    Implmeentation note: unlike its CP op counterpart, the dst node of this operation should stay the same as the node about to be removed
-    (which likely has is_live=true). We need to retain the information about the node being replaced. The UI will need to add special logic of
+    Implmeentation note: unlike its CP op counterpart, the dst node of this operation should be the node about to be removed
+    (with is_live=true). We need to retain the information about the node being replaced. The UI will need to add special logic of
     its own if it wants to display info about the node overwriting it."""
 
-    MV = 6
-    """Equivalent to CP followed by RM: copy src node to dst node, then delete src node.
+    START_DIR_CP = 12
+    """Creates a dir at dst, copying the attributes of the src dir if possible. If not possible, this may be equivalent to MKDIR [dst].
+    This operation is distinct from MKDIR both to avoid confusion about intent, and in the hope that some platforms may be able to accomplish
+    both the MKDIR and meta copy in a single atomic operation."""
+
+    FINISH_DIR_CP = 13
+    """Copies the meta from an existing (src) dir to an existing dst dir.
+    This will fail if the dst dir does not exist (the dst dir is assumed to have already been created with START_DIR_CP)."""
+
+    MV = 20
+    """Equivalent to CP followed by RM: copy src node to dst node, then delete src node. Does not work for dirs.
     I would actually get rid of this and replace it with a CP followed with an RM, but most file systems provide an atomic operation for this,
     so let's honor that."""
 
-    MV_ONTO = 7
+    MV_ONTO = 21
     """Similar to MV, but replace node at dst with src. Copy content of src node to dst node, overwriting the contents of dst, then delete src.
     
     Implmeentation note: unlike its MV op counterpart, the dst node of this operation should stay the same as the node about to be removed
     (which likely has is_live=true). We need to retain the information about the node being replaced. The UI will need to add special logic of
     its own if it wants to display info about the node overwriting it."""
 
+    START_DIR_MV = 22
+    """Creates a dir at dst, copying the attributes of the src dir if possible. If not possible, this may just be equivalent to MKDIR [dst].
+    This operation is distinct from MKDIR both to avoid confusion about intent, and in the hope that some platforms may be able to accomplish
+    both the MKDIR and meta copy in a single atomic operation."""
+
+    FINISH_DIR_MV = 23
+    """Copies the meta from an existing (src) dir to an existing dst dir, then deletes src dir, which must be empty.
+    This will fail if the dst dir does not exist (the dst dir is assumed to have already been created with START_DIR_CP)."""
+
+    CREATE_LINK = 30
+    """Create a link at dst which points to src."""
+
     def has_dst(self) -> bool:
-        return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.CP_ONTO or self == UserOpType.MV_ONTO
+        return self.value >= 10
 
 
 # ENUM UserOpStatus
@@ -65,7 +91,7 @@ class UserOpStatus(IntEnum):
     COMPLETED_NO_OP = 11
 
     def is_completed(self) -> bool:
-        """Note: "completed" set includes possible errors"""
+        """Completed" set DOES NOT include stopped on error"""
         return self.value >= UserOpStatus.COMPLETED_OK
 
 
@@ -87,8 +113,7 @@ class UserOpResult:
         return self.status.is_completed()
 
     def __repr__(self):
-        return f'UserOpResult(status={self.status.name} ' \
-               f'error={self.error} to_upsert={self.nodes_to_upsert} to_remove={self.nodes_to_remove}'
+        return f'UserOpResult(status={self.status.name} error={self.error} to_upsert={self.nodes_to_upsert} to_remove={self.nodes_to_remove}'
 
 
 class UserOp(BaseNode):
