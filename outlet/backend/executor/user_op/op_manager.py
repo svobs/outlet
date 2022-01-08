@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 from backend.executor.central import ExecPriority
 from backend.executor.command.cmd_builder import CommandBuilder
 from backend.executor.command.cmd_interface import Command
-from backend.executor.user_op.batch_builder import BatchBuilder
+from backend.executor.user_op.batch_graph_builder import BatchGraphBuilder
 from backend.executor.user_op.op_disk_store import OpDiskStore
 from backend.executor.user_op.op_graph import OpGraph
 from backend.executor.user_op.op_graph_node import RootNode
@@ -53,7 +53,7 @@ class OpManager(HasLifecycle):
         self._op_graph: OpGraph = OpGraph('MainGraph')
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
-        self._batch_builder: BatchBuilder = BatchBuilder(self.backend)
+        self._batch_graph_builder: BatchGraphBuilder = BatchGraphBuilder(self.backend)
         self._are_batches_loaded_from_last_run: bool = False
 
         self._lock = threading.Lock()
@@ -162,7 +162,7 @@ class OpManager(HasLifecycle):
         logger.debug(f'enqueue_new_pending_op_batch(): Validating batch {batch_uid} with {len(batch.op_list)} ops')
 
         # Simplify and remove redundancies in op_list, then sort by ascending op_uid:
-        self._batch_builder.preprocess_batch(batch)
+        self._batch_graph_builder.preprocess_batch(batch)
 
         try:
             with self._lock:
@@ -243,7 +243,7 @@ class OpManager(HasLifecycle):
         batch.op_list.sort(key=lambda _op: _op.op_uid)
 
         # Make sure all relevant caches are loaded. Do this via child tasks:
-        big_node_list: List[Node] = BatchBuilder.get_all_nodes_in_batch(batch.op_list)
+        big_node_list: List[Node] = BatchGraphBuilder.get_all_nodes_in_batch(batch.op_list)
         logger.debug(f'Batch {batch.batch_uid} contains {len(big_node_list)} affected nodes. Adding task to ensure they are in memstore')
         self.backend.cacheman.ensure_cache_loaded_for_node_list(this_task, big_node_list)
 
@@ -274,7 +274,7 @@ class OpManager(HasLifecycle):
             return
 
         try:
-            batch_graph_root: RootNode = self._batch_builder.build_batch_graph(next_batch.op_list, self)
+            batch_graph_root: RootNode = self._batch_graph_builder.build_batch_graph(next_batch.op_list, self)
         except RuntimeError as err:
             logger.exception(f'[Batch-{next_batch.batch_uid}] Failed to build operation graph for batch')
             self._on_batch_error_fight_or_flight('Failed to build operation graph', str(err), batch=next_batch)
@@ -282,7 +282,7 @@ class OpManager(HasLifecycle):
 
         sw = Stopwatch()
         try:
-            inserted_op_list = self._add_batch_to_main_graph(batch_graph_root)
+            inserted_op_list = self._append_batch_graph_to_main_graph(batch_graph_root)
         except UnsuccessfulBatchInsertError as ubie:
             msg = str(ubie)
             logger.info(f'[Batch-{next_batch.batch_uid}] {sw} Caught UnsuccessfulBatchInsertError: {msg}')
@@ -298,7 +298,8 @@ class OpManager(HasLifecycle):
         # The lists are returned in order of BFS of their op graph. However, when upserting to the cache we need them in BFS order of the tree
         # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
         inserted_op_list.sort(key=lambda op: op.op_uid)
-        logger.debug(f'[Batch-{next_batch.batch_uid}] {sw} Batch insert succesful. InsertedOpList: {",".join([str(op.op_uid) for op in inserted_op_list])}')
+        logger.debug(f'[Batch-{next_batch.batch_uid}] {sw} Batch insert succesful. InsertedOpList: '
+                     f'{",".join([str(op.op_uid) for op in inserted_op_list])}')
         actual_op_uid_list = [op.op_uid for op in inserted_op_list]
         expected_op_uid_list = [op.op_uid for op in next_batch.op_list]
         if not actual_op_uid_list == expected_op_uid_list:
@@ -404,7 +405,7 @@ class OpManager(HasLifecycle):
         self._pending_batch_dict.pop(batch.batch_uid, None)
         self._error_handling_batch_override_dict.pop(batch.batch_uid, None)
 
-    def _add_batch_to_main_graph(self, op_root: RootNode) -> List[UserOp]:
+    def _append_batch_graph_to_main_graph(self, op_root: RootNode) -> List[UserOp]:
         """Inserts into the main OpGraph a batch which is represented by its own OpGraph.
          Returns a list of inserted user ops if successful, or raises a UnsuccessfulBatchInsertError if it failed but managed to back out any
          data from the batch which was already inserted. Any other exception indicates that something Bad happened and the main OpGraph may

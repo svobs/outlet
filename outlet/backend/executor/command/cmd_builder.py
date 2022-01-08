@@ -102,8 +102,8 @@ def _populate_build_dict():
         UserOpType.CP_ONTO: {
             LO_same_LO: lambda change: CopyFileLocalToLocalCommand(change, overwrite=True),
             GD_same_GD: lambda change: CopyFileWithinGDriveCommand(change, overwrite=True),
-            LO_GD: lambda change: CopyFileLocalToGDriveCommand(change, overwrite=True),
-            GD_LO: lambda change: CopyFileGDriveToLocalCommand(change, overwrite=True),
+            LO_GD: lambda change: CopyFileLocalToGDriveCommand(change, overwrite=True, delete_src_node_after=False),
+            GD_LO: lambda change: CopyFileGDriveToLocalCommand(change, overwrite=True, delete_src_node_after=False),
             LO_different_LO: lambda change: _fail(change, LO_different_LO),  # TODO: support > 1 of same tree type
             GD_different_GD: lambda change: _fail(change, GD_different_GD),  # TODO: support > 1 of same tree type
         },

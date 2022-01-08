@@ -13,7 +13,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import Batch, UserOp, UserOpType
+from model.user_op import UserOp, UserOpType
 from util import file_util
 
 logger = logging.getLogger(__name__)

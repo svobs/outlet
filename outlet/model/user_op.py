@@ -177,13 +177,18 @@ class UserOp(BaseNode):
 
 
 class OpTypeMeta:
-    # currently we only use these labels for displaying diff previews - thus the 'To Update' name. Also 'To Replace' will never be used for diff prev
+    # We use these labels for displaying diff previews - thus the 'To Update' name for CP_ONTO.
+    # But we also use these for printing nodes to the log
     _display_label_dict: Dict[UserOpType, str] = {
         UserOpType.RM: 'To Delete',
         UserOpType.CP: 'To Add',
         UserOpType.CP_ONTO: 'To Update',
         UserOpType.MV: 'To Move',
-        UserOpType.MV_ONTO: 'To Replace'
+        UserOpType.MV_ONTO: 'To Replace',
+        UserOpType.START_DIR_MV: 'To Move [Dir Start]',
+        UserOpType.FINISH_DIR_MV: 'To Move [Dir Finish]',
+        UserOpType.START_DIR_CP: 'To Add [Dir Start]',
+        UserOpType.FINISH_DIR_CP: 'To Add [Dir Finish]'
     }
 
     _icon_src_file_dict = {
@@ -204,14 +209,22 @@ class OpTypeMeta:
         UserOpType.RM: IconId.ICON_DIR_RM,
         UserOpType.MV: IconId.ICON_DIR_MV_SRC,
         UserOpType.MV_ONTO: IconId.ICON_DIR_MV_SRC,
+        UserOpType.START_DIR_MV: IconId.ICON_DIR_MV_SRC,
+        UserOpType.FINISH_DIR_MV: IconId.ICON_DIR_MV_SRC,
         UserOpType.CP: IconId.ICON_DIR_CP_SRC,
-        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_SRC
+        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_SRC,
+        UserOpType.START_DIR_CP: IconId.ICON_DIR_CP_SRC,
+        UserOpType.FINISH_DIR_CP: IconId.ICON_DIR_CP_SRC
     }
     _icon_dst_dir_dict = {
         UserOpType.MV: IconId.ICON_DIR_MV_DST,
         UserOpType.MV_ONTO: IconId.ICON_DIR_MV_DST,
+        UserOpType.START_DIR_MV: IconId.ICON_DIR_MV_DST,
+        UserOpType.FINISH_DIR_MV: IconId.ICON_DIR_MV_DST,
         UserOpType.CP: IconId.ICON_DIR_CP_DST,
-        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_DST
+        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_DST,
+        UserOpType.START_DIR_CP: IconId.ICON_DIR_CP_DST,
+        UserOpType.FINISH_DIR_CP: IconId.ICON_DIR_CP_DST
     }
     _icon_cat_node = {
         UserOpType.RM: IconId.ICON_TO_DELETE,
@@ -282,6 +295,7 @@ class Batch:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS Batch
+    Container for a list of UserOps within a single transaction, such as a single drag & drop.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 

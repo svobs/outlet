@@ -30,7 +30,19 @@ class TransferMeta:
         self.src_node_move_policy: SrcNodeMovePolicy = DEFAULT_SRC_NODE_MOVE_POLICY
         self.replace_dir_with_file_policy: ReplaceDirWithFilePolicy = DEFAULT_REPLACE_DIR_WITH_FILE_POLICY
 
-        self.op_type = UserOpType.CP if drag_op == DragOperation.COPY else UserOpType.MV
+        if drag_op == DragOperation.MOVE:
+            self.op_type_file = UserOpType.MV
+            self.op_type_file_replace = UserOpType.MV_ONTO
+            self.op_type_dir_start = UserOpType.START_DIR_MV
+            self.op_type_dir_finish = UserOpType.FINISH_DIR_MV
+        elif drag_op == DragOperation.COPY:
+            self.op_type_file = UserOpType.CP
+            self.op_type_file_replace = UserOpType.CP_ONTO
+            self.op_type_dir_start = UserOpType.START_DIR_CP
+            self.op_type_dir_finish = UserOpType.FINISH_DIR_CP
+        else:
+            # This shouldn't happen currently because we have not yet added support for additional ops
+            raise RuntimeError(f'Unsupported drag op ({drag_op.name})!')
 
         self.sn_dst_parent: SPIDNodePair = sn_dst_parent
 
@@ -39,6 +51,12 @@ class TransferMeta:
 
 
 class TransferMaker(ChangeMaker):
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS TransferMaker
+    Implements drag & drop
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
                  tree_id_left_src: TreeID, tree_id_right_src: TreeID):
         super().__init__(backend, left_tree_root_sn, right_tree_root_sn, tree_id_left_src, tree_id_right_src)
@@ -242,70 +260,71 @@ class TransferMaker(ChangeMaker):
                         self._add_ops_for_delete_subtree(sn_dst_child)
 
     def _handle_dir_merge(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, sn_dst_conflicting: SPIDNodePair):
-        assert sn_src.node.is_dir()
+        assert sn_src.node.is_dir(), f'Expected a dir: {sn_src.node}'
 
         logger.debug(f'Merging {sn_dst_conflicting.spid} with dir {sn_src.spid}...')
 
         queue_dir: Deque[Tuple[SPIDNodePair, SPIDNodePair]] = collections.deque()
-        # assume this dir has already been validated and has exactly 1 conflict
+        # assume src dir has already been validated and has exactly 1 conflict
         queue_dir.append((sn_src, sn_dst_conflicting))
 
-        queue_rm_dir: Deque[SPIDNodePair] = collections.deque()
+        # queue_dir_finish: Deque[Tuple[SPIDNodePair, SPIDNodePair]] = collections.deque()  # FIXME
 
         while len(queue_dir) > 0:
-            sn_dir_src, sn_dir_dst_existing = queue_dir.popleft()
+            sn_dir_src, sn_dst_existing = queue_dir.popleft()
             if DIFF_DEBUG_ENABLED:
-                logger.debug(f'DirMerge: examining src dir {sn_dir_src.spid} and dst {sn_dir_dst_existing.node}')
+                logger.debug(f'DirMerge: examining src dir {sn_dir_src.spid} and dst {sn_dst_existing.node}')
 
-            if dd_meta.drag_op == DragOperation.MOVE:
-                # When all nodes in a dir have been moved, the src dir itself should be deleted.
-                # We need to do the RMs in reverse. So push them to a separate queue and then pop from that at the end.
-                logger.debug(f'DirMerge: DragOperation is MOVE; queuing RM op for src dir: {sn_dir_src.spid}')
-                queue_rm_dir.append(sn_dir_src)
-
-            if sn_dir_dst_existing.node.is_file():
+            assert sn_dir_src.node.is_dir(), f'Expected a dir: {sn_dir_src.node}'
+            if sn_dst_existing.node.is_file():
                 # TODO: maybe just follow the file conflict policy in this case?
                 raise RuntimeError(f'Cannot merge: {dd_meta.drag_op.name} of a directory onto a file!')
-            else:
-                dict_sn_dst_existing_child_list = self._get_dict_of_name_to_child_list(sn_dir_dst_existing.spid, self.right_side.tree_id_src)
 
-                # Get children for src & dst, compare all
-                for sn_src_child in self.backend.cacheman.get_child_list(sn_dir_src.spid, self.left_side.tree_id_src):
-                    # see if there is a corresponding dst node:
-                    list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name, [])
+            # Add START and FINISH ops for src-dst pair of dir nodes:
+            assert dd_meta.op_type_dir_start == UserOpType.START_DIR_MV or dd_meta.op_type_dir_start == UserOpType.START_DIR_CP
+            self.right_side.add_node_and_new_op(op_type=dd_meta.op_type_dir_start, sn_src=sn_dir_src, sn_dst=sn_dst_existing)
+            # queue_dir_finish.append((sn_dir_src, sn_dst_existing))    # FIXME
 
-                    if DIFF_DEBUG_ENABLED:
-                        logger.debug(f'DirMerge: found {len(list_sn_dst_conflicting)} conflicts for child dir: {sn_src_child.spid}')
+            dict_sn_dst_existing_child_list = self._get_dict_of_name_to_child_list(sn_dst_existing.spid, self.right_side.tree_id_src)
 
-                    if len(list_sn_dst_conflicting) == 0:
-                        # No conflicts? Just transfer the file or dir subtree:
-                        self._handle_no_conflicts_found(dd_meta, sn_src_child)
+            # Get children for src & dst, compare all
+            for sn_src_child in self.backend.cacheman.get_child_list(sn_dir_src.spid, self.left_side.tree_id_src):
+                # see if there is a corresponding dst node:
+                list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name, [])
+
+                if DIFF_DEBUG_ENABLED:
+                    logger.debug(f'DirMerge: found {len(list_sn_dst_conflicting)} conflicts for child dir: {sn_src_child.spid}')
+
+                if len(list_sn_dst_conflicting) == 0:
+                    # No conflicts? Just transfer the file or dir subtree:
+                    self._handle_no_conflicts_found(dd_meta, sn_src_child)
+                else:
+                    # CONFLICTS
+                    if sn_src_child.node.is_dir():
+                        # SRC is DIR:
+                        if len(list_sn_dst_conflicting) > 1:
+                            raise RuntimeError(f'For folder "{sn_src_child}": found {len(list_sn_dst_conflicting) > 1} items '
+                                               f'at the destination with the same name, and cannot determine which to merge with!')
+
+                        # DIR with exactly 1 conflict: dive in deeper
+                        queue_dir.append((sn_src_child, list_sn_dst_conflicting[0]))
                     else:
-                        # CONFLICTS
-                        if sn_src_child.node.is_dir():
-                            # SRC is DIR:
-                            if len(list_sn_dst_conflicting) > 1:
-                                raise RuntimeError(f'For folder "{sn_src_child}": found {len(list_sn_dst_conflicting) > 1} items '
-                                                   f'at the destination with the same name, and cannot determine which to merge with!')
+                        # SRC is FILE: replace
+                        if len(list_sn_dst_conflicting) > 1:
+                            # Just fail: the user may not have considered this scenario.
+                            raise RuntimeError(f'For item "{sn_src.node.name}": found {len(list_sn_dst_conflicting) > 1} items '
+                                               f'at the destination with the same name, and cannot determine which to replace!')
 
-                            # DIR with exactly 1 conflict: dive in deeper
-                            queue_dir.append((sn_src_child, list_sn_dst_conflicting[0]))
-                        else:
-                            # SRC is FILE: replace
-                            if len(list_sn_dst_conflicting) > 1:
-                                # Just fail: the user may not have considered this scenario.
-                                raise RuntimeError(f'For item "{sn_src.node.name}": found {len(list_sn_dst_conflicting) > 1} items '
-                                                   f'at the destination with the same name, and cannot determine which to replace!')
+                        self._handle_replace_with_file(dd_meta, sn_src_child, list_sn_dst_conflicting[0])
 
-                            self._handle_replace_with_file(dd_meta, sn_src_child, list_sn_dst_conflicting[0])
-
-        if queue_rm_dir:
-            if DIFF_DEBUG_ENABLED:
-                logger.debug(f'DirMerge: adding RM DIR ops for {len(queue_rm_dir)} queued MOVE SRC dirs')
-
-            while len(queue_rm_dir) > 0:
-                sn_dir_src = queue_rm_dir.pop()  # LIFO order
-                self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_dir_src)
+        # FIXME: implement this in OpGraph!
+        # if queue_dir_finish:
+        #     if DIFF_DEBUG_ENABLED:
+        #         logger.debug(f'DirMerge: adding {dd_meta.op_type_dir_finish.name} ops for {len(queue_dir_finish)} queued dir pairs')
+        #
+        #     while len(queue_dir_finish) > 0:
+        #         sn_dir_src, sn_dir_dst = queue_dir_finish.pop()  # LIFO order
+        #         self.right_side.add_node_and_new_op(op_type=dd_meta.op_type_dir_finish, sn_src=sn_dir_src, sn_dst=sn_dir_dst)
 
     def _add_ops_for_delete_subtree(self, sn_dst_subtree_root: SPIDNodePair):
         assert sn_dst_subtree_root.spid.has_path_in_subtree(self.right_side.root_sn.spid.get_single_path()), \
@@ -395,11 +414,8 @@ class TransferMaker(ChangeMaker):
                 self._handle_no_conflicts_found(dd_meta, sn_src_file)
         else:
             sn_dst = sn_dst_conflicting
-
-            if dd_meta.drag_op == DragOperation.COPY:
-                self.right_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_src_file, sn_dst=sn_dst)
-            elif dd_meta.drag_op == DragOperation.MOVE:
-                self.right_side.add_node_and_new_op(op_type=UserOpType.MV_ONTO, sn_src=sn_src_file, sn_dst=sn_dst)
+            # Use one of the *_ONO op types:
+            self.right_side.add_node_and_new_op(op_type=dd_meta.op_type_file_replace, sn_src=sn_src_file, sn_dst=sn_dst)
 
     def _handle_rename(self, dd_meta: TransferMeta, sn_src: SPIDNodePair,
                        skip_condition_func: Optional[Callable[[SPIDNodePair, SPIDNodePair], bool]] = None):
@@ -448,7 +464,7 @@ class TransferMaker(ChangeMaker):
                                 skip_condition_func: Optional[Callable[[SPIDNodePair, SPIDNodePair], bool]]) -> bool:
         if skip_condition_func(sn_src, sn_dst_conflicting):
             # True -> Do skip
-            if dd_meta.op_type == UserOpType.MV:
+            if dd_meta.drag_op == DragOperation.MOVE:
                 mv_policy = dd_meta.src_node_move_policy
 
                 if mv_policy == SrcNodeMovePolicy.DELETE_SRC_IF_NOT_SKIPPED:
@@ -473,7 +489,7 @@ class TransferMaker(ChangeMaker):
         """COPY or MOVE where target does not already exist. Source node can either be a file or dir (in which case all its descendants will
         also be handled.
         The optional "name_new_dst" param, if supplied, will rename the target."""
-        queue_rm_dir: Deque[SPIDNodePair] = collections.deque()
+        # queue_dir_finish: Deque[Tuple[SPIDNodePair, SPIDNodePair]] = collections.deque()  # FIXME
 
         if sn_src.node.is_dir():
             orig_parent_path = sn_src.spid.get_single_parent_path()
@@ -481,7 +497,7 @@ class TransferMaker(ChangeMaker):
 
             # Need to get all the nodes in its whole subtree and add them individually:
             list_sn_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.spid)
-            logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for {dd_meta.op_type.name} '
+            logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for {dd_meta.drag_op.name} '
                          f'to dst parent {dd_meta.sn_dst_parent.spid}')
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'NoConflicts: src subtree nodes: {", ".join([str(sn.spid) for sn in list_sn_subtree])}')
@@ -494,27 +510,27 @@ class TransferMaker(ChangeMaker):
                 sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path)
 
                 if sn_src_descendent.node.is_dir():
-                    if dd_meta.drag_op == DragOperation.MOVE:
-                        # When all nodes in a dir have been moved, the src dir itself should be deleted.
-                        queue_rm_dir.append(sn_src_descendent)
+                    assert dd_meta.op_type_dir_start == UserOpType.START_DIR_MV or dd_meta.op_type_dir_start == UserOpType.START_DIR_CP
+                    # queue_dir_finish.append((sn_src_descendent, sn_dst_descendent))   # FIXME
 
-                    # Add explicit MKDIR here, so that we don't omit empty dirs
-                    self.right_side.add_node_and_new_op(op_type=UserOpType.MKDIR, sn_src=sn_dst_descendent)
+                    # Add an op to make the dir:
+                    self.right_side.add_node_and_new_op(op_type=dd_meta.op_type_dir_start, sn_src=sn_src_descendent, sn_dst=sn_dst_descendent)
                 else:
                     # this will add any missing ancestors, and populate the parent list if applicable:
-                    self.right_side.add_node_and_new_op(op_type=dd_meta.op_type, sn_src=sn_src_descendent, sn_dst=sn_dst_descendent)
+                    self.right_side.add_node_and_new_op(op_type=dd_meta.op_type_file, sn_src=sn_src_descendent, sn_dst=sn_dst_descendent)
         else:
             # Src node is file: easy case:
             sn_dst: SPIDNodePair = self._migrate_sn_to_right(sn_src, dd_meta.sn_dst_parent, name_new_dst)
-            self.right_side.add_node_and_new_op(op_type=dd_meta.op_type, sn_src=sn_src, sn_dst=sn_dst)
+            self.right_side.add_node_and_new_op(op_type=dd_meta.op_type_file, sn_src=sn_src, sn_dst=sn_dst)
 
-        if queue_rm_dir:
-            if DIFF_DEBUG_ENABLED:
-                logger.debug(f'NoConflicts: adding RM DIR ops for {len(queue_rm_dir)} queued MOVE SRC dirs')
-
-            while len(queue_rm_dir) > 0:
-                sn_dir_src = queue_rm_dir.pop()  # LIFO order
-                self.left_side.add_node_and_new_op(op_type=UserOpType.RM, sn_src=sn_dir_src)
+        # FIXME: implement in OpGraph!
+        # if queue_dir_finish:
+        #     if DIFF_DEBUG_ENABLED:
+        #         logger.debug(f'NoConflicts: adding RM DIR ops for {len(queue_dir_finish)} queued MOVE SRC dirs')
+        #
+        #     while len(queue_dir_finish) > 0:
+        #         sn_dir_src, sn_dir_dst = queue_dir_finish.pop()  # LIFO order
+        #         self.right_side.add_node_and_new_op(op_type=dd_meta.op_type_dir_finish, sn_src=sn_dir_src, sn_dst=sn_dir_dst)
 
     def _migrate_sn_to_right(self, sn_src: SPIDNodePair, sn_dst_parent: SPIDNodePair, sn_dst_name: Optional[str] = None) -> SPIDNodePair:
         # note: sn_dst_parent should be on right side

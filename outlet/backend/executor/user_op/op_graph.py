@@ -533,14 +533,16 @@ class OpGraph(HasLifecycle):
 
     def insert_ogn(self, new_ogn: OpGraphNode):
         """
-        This method is executed as a transaction, but if a
+        This method is executed as a transaction: if an exception is thrown, the OpGraph can be assumed to be left in a valid state.
 
-        The node shall be added as a child dependency of either the last operation which affected its target,
-        or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
-        in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
-        to the top of the dependency tree.
+        However, this method should not be used if inserting multiple related OGNs is required (such as a batch of OGNs, or even a src-dst pair)
+        and this thread is not the sole owner of the OpGraph. To insert a batch of OGNs transactionally, use insert_batch_graph().
 
-        A successful return indicates that the node was successfully nq'd; raises InvalidInsertOpGraphError otherwise
+        The node shall be added as a child dependency of either the last operation which affected its target, or as a child dependency of the last
+        operation which affected its parent, whichever has lower priority (i.e. has a lower level in the dependency tree). In the case where
+        neither the node nor its parent has a pending operation, we obviously can just add to the top of the dependency tree.
+
+        A successful return indicates that the node was successfully enqueued; raises InvalidInsertOpGraphError otherwise
         """
         with self._cv_can_get:
             self._insert_ogn(new_ogn)
@@ -603,7 +605,8 @@ class OpGraph(HasLifecycle):
         self._print_current_state()
 
     def insert_batch_graph(self, batch_root: RootNode) -> List[UserOp]:
-        """Inserts all the OGNs from an OpGraph which contains a single batch.
+        """Merges an OpGraph which contains a single batch into this OpGraph by inserting all of
+        its OGNs (from its root to its leaves) as descendents of this graph's existing OGNs.
         Tries to make this atomic by locking the graph for the duration of the work [*grits teeth*].
         Tries to make this transactional by failing at standardized intervals and then backing out any already-completed work in the reverse order
         in which it was done."""
@@ -784,7 +787,8 @@ class OpGraph(HasLifecycle):
                     #
                     # Note that we only need to do this at the moment of failure cuz we need to update nodes which are [possibly] already displayed.
                     # Any new nodes (unknown to us now) which need to be displayed thereafter will already call get_icon_for_node() prior to display.
-                    logger.debug(f'[{self.name}] pop_completed_op(): Op stopped on error; will populate error dict (currently = {self._changed_node_dict})')
+                    logger.debug(f'[{self.name}] pop_completed_op(): Op stopped on error; '
+                                 f'will populate error dict (currently = {self._changed_node_dict})')
                     self._block_downstream_ogns_for_failed_op(op)
                     logger.debug(f'[{self.name}] pop_completed_op(): Error dict is now = {self._changed_node_dict}')
             else:

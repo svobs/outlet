@@ -289,8 +289,11 @@ class GDriveWholeTree(BaseTree):
                 identifiers = self._get_identifier_list_for_single_path(single_path, error_if_not_found)
                 if identifiers:
                     identifiers_found = identifiers_found + identifiers
-            except GDriveNodePathNotFoundError:
-                logger.warning(f'No node identifier(s) found for path, skipping: "{single_path}"')
+            except GDriveNodePathNotFoundError as err:
+                if error_if_not_found:
+                    raise err
+                else:
+                    logger.warning(f'No node identifier(s) found for path, skipping: "{single_path}"')
         return identifiers_found
 
     def _get_identifier_list_for_single_path(self, full_path: str, error_if_not_found: bool) -> List[NodeIdentifier]:

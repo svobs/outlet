@@ -14,7 +14,7 @@ from model.user_op import Batch, UserOp, UserOpType
 logger = logging.getLogger(__name__)
 
 
-class BatchBuilder:
+class BatchGraphBuilder:
     """Support class for OpManager. For reducing and validating a batch of UserOps, and generating a detached OpGraph from them."""
     def __init__(self, backend):
         self.backend = backend
@@ -309,8 +309,8 @@ class BatchBuilder:
                 if not parent_found:
                     logger.error(f'Could not find parent(s) in cache with device_uid {tgt_node.device_uid} & UID(s) {tgt_parent_uid_list} '
                                  f'for "{op_type}" operation node: {tgt_node}')
-                    raise RuntimeError(f'Could not find any parents in cache with '
-                                       f'device_uid {tgt_node.device_uid} & UIDs {tgt_parent_uid_list} for "{op_type}"')
+                    raise RuntimeError(f'Could not find parents in cache with device_uid {tgt_node.device_uid} & UIDs {tgt_parent_uid_list}'
+                                       f' for "{op_type}"')
 
                 if op_node.op.op_type == UserOpType.MKDIR:
                     assert not mkdir_node_dict.get(op_node.op.src_node.dn_uid, None), f'Duplicate MKDIR: {op_node.op.src_node}'
