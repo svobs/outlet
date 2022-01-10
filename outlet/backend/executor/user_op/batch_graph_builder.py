@@ -15,7 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class BatchGraphBuilder:
-    """Support class for OpManager. For reducing and validating a batch of UserOps, and generating a detached OpGraph from them."""
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS BatchGraphBuilder
+    Support class for OpManager.
+    For reducing and validating a batch of UserOps, and generating a standalone OpGraph from them."""
     def __init__(self, backend):
         self.backend = backend
 
@@ -279,6 +283,8 @@ class BatchGraphBuilder:
         and not already scheduled for RM
         """
 
+        logger.debug(f'[{batch_graph.name}] Validating OpGraph of batch against central cache...')
+
         ogn_root = batch_graph.root
         assert isinstance(ogn_root, RootNode)
         assert ogn_root.get_child_list(), f'no ops in batch!'
@@ -286,46 +292,76 @@ class BatchGraphBuilder:
         # Invert RM nodes when inserting into tree
         batch_uid: UID = ogn_root.get_first_child().op.batch_uid
 
-        mkdir_node_dict: Dict[DN_UID] = {}
+        mkdir_node_dict: Dict[DN_UID, Node] = {}
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
+
+        # For matching pairs of START & FINISH for dir mv/cp:
+        start_x_dst_node_dict: Dict[DN_UID, Node] = {}
+        finish_x_dst_node_dict: Dict[DN_UID, Node] = {}
 
         min_op_uid: UID = ogn_root.get_first_child().op.op_uid
 
-        for op_node in skip_root(ogn_root.get_subgraph_bfs_list()):
-            tgt_node: Node = op_node.get_tgt_node()
-            op_type: str = op_node.op.op_type.name
-            if min_op_uid > op_node.op.op_uid:
-                min_op_uid = op_node.op.op_uid
+        for ogn in skip_root(ogn_root.get_subgraph_bfs_list()):
+            tgt_node: Node = ogn.get_tgt_node()
+            op_type_name: str = ogn.op.op_type.name
+            if min_op_uid > ogn.op.op_uid:
+                min_op_uid = ogn.op.op_uid
 
-            if op_node.is_create_type():
+            logger.debug(f'[{batch_graph.name}] ValidateOpGraphVsCache: checking OGN: {ogn}')
+
+            if ogn.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
                 tgt_parent_uid_list: List[UID] = tgt_node.get_parent_uids()
                 parent_found: bool = False
                 for tgt_parent_uid in tgt_parent_uid_list:
                     tgt_parent_dn_uid = Node.format_dn_uid(tgt_node.device_uid, tgt_parent_uid)
-                    if self.backend.cacheman.get_node_for_uid(tgt_parent_uid, tgt_node.device_uid) or mkdir_node_dict.get(tgt_parent_dn_uid, None):
+                    if self.backend.cacheman.get_node_for_uid(tgt_parent_uid, tgt_node.device_uid) \
+                            or mkdir_node_dict.get(tgt_parent_dn_uid, None) \
+                            or start_x_dst_node_dict.get(tgt_parent_dn_uid, None) \
+                            or finish_x_dst_node_dict.get(tgt_parent_dn_uid, None):
                         parent_found = True
 
                 if not parent_found:
                     logger.error(f'Could not find parent(s) in cache with device_uid {tgt_node.device_uid} & UID(s) {tgt_parent_uid_list} '
-                                 f'for "{op_type}" operation node: {tgt_node}')
-                    raise RuntimeError(f'Could not find parents in cache with device_uid {tgt_node.device_uid} & UIDs {tgt_parent_uid_list}'
-                                       f' for "{op_type}"')
+                                 f'for "{op_type_name}" operation node: {tgt_node}')
+                    raise RuntimeError(f'Could not find parent(s) in cache with device_uid {tgt_node.device_uid} & UIDs {tgt_parent_uid_list}'
+                                       f' for "{op_type_name}"')
 
-                if op_node.op.op_type == UserOpType.MKDIR:
-                    assert not mkdir_node_dict.get(op_node.op.src_node.dn_uid, None), f'Duplicate MKDIR: {op_node.op.src_node}'
-                    mkdir_node_dict[op_node.op.src_node.dn_uid] = op_node.op.src_node
+                if tgt_node.is_dir():
+                    # Track dir creations in appropriate maps and check for redundancies
+                    op_type = ogn.op.op_type
+
+                    exist_mkdir = mkdir_node_dict.get(ogn.op.src_node.dn_uid, None)
+                    exist_start_dir = start_x_dst_node_dict.get(ogn.op.src_node.dn_uid, None)
+                    exist_finish_dir = finish_x_dst_node_dict.get(ogn.op.src_node.dn_uid, None)
+
+                    if exist_mkdir:
+                        raise RuntimeError(f'Batch has redundant operations for: {ogn.op.src_node} (MKDIR and {op_type_name})')
+                    if exist_start_dir and not (op_type == UserOpType.FINISH_DIR_CP or op_type == UserOpType.FINISH_DIR_MV):
+                        raise RuntimeError(f'Batch has redundant operations for: {ogn.op.src_node} (START_DIR_* and {op_type_name})')
+                    if exist_finish_dir and not (op_type == UserOpType.START_DIR_CP or op_type == UserOpType.START_DIR_MV):
+                        raise RuntimeError(f'Batch has redundant operations for: {ogn.op.src_node} (FINISH_DIR_* and {op_type_name})')
+
+                    if op_type == UserOpType.MKDIR:
+                        mkdir_node_dict[tgt_node.dn_uid] = tgt_node
+                    elif op_type == UserOpType.START_DIR_CP or op_type == UserOpType.START_DIR_MV:
+                        assert ogn.is_dst(), f'Expected DstOGN: {ogn}'
+                        start_x_dst_node_dict[tgt_node.dn_uid] = tgt_node
+                    elif op_type == UserOpType.FINISH_DIR_CP or op_type == UserOpType.FINISH_DIR_MV:
+                        assert ogn.is_dst(), f'Expected DstOGN: {ogn}'
+                        finish_x_dst_node_dict[tgt_node.dn_uid] = tgt_node
+
             else:
                 # Enforce Rule 2: ensure target node is valid
                 if not self.backend.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.device_uid):
-                    logger.error(f'Could not find node in cache for "{op_type}" operation node: {tgt_node}')
-                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node {tgt_node.dn_uid} in cache for "{op_type}"')
+                    logger.error(f'Could not find node in cache for "{op_type_name}" operation node: {tgt_node}')
+                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): no node {tgt_node.dn_uid} in cache for "{op_type_name}"')
 
             # More of Rule 2: ensure target node is not scheduled for deletion:
             most_recent_op = op_manager.get_last_pending_op_for_node(tgt_node.device_uid, tgt_node.uid)
-            if most_recent_op and most_recent_op.op_type == UserOpType.RM and op_node.is_src() and op_node.op.has_dst():
+            if most_recent_op and most_recent_op.op_type == UserOpType.RM and ogn.is_src() and ogn.op.has_dst():
                 # CP, MV, and UP ops cannot logically have a src node which is not present:
-                raise RuntimeError(f'Invalid operation: attempting to do a {op_node.op.op_type} '
+                raise RuntimeError(f'Invalid operation: attempting to do a {ogn.op.op_type} '
                                    f'from a node which is being removed ({tgt_node.dn_uid}, "{tgt_node.name}")')
 
         # The OpGraph keeps track of the largest op UID it has added to its graph.

@@ -1,13 +1,13 @@
 import os
 from typing import List, Optional
 
-from constants import IconId, OBJ_TYPE_DIR, TreeType
+from constants import ChangeTreeCategory, IconId, OBJ_TYPE_DIR, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import ChangeTreeSPID, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import OpTypeMeta, UserOpType
+from model.user_op import ChangeTreeCategoryMeta, UserOpType
 
 
 class ContainerNode(Node):
@@ -101,12 +101,11 @@ class CategoryNode(ContainerNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType):
+    def __init__(self, node_identifier: ChangeTreeSPID):
         super().__init__(node_identifier=node_identifier)
-        self.op_type = UserOpType(op_type)
 
     def __repr__(self):
-        return f'CategoryNode(type={self.op_type.name}, node_id="{self.node_identifier}")'
+        return f'CategoryNode(cat={self.category}, node_id="{self.node_identifier}")'
 
     def __eq__(self, other):
         if not isinstance(other, ContainerNode):
@@ -116,13 +115,18 @@ class CategoryNode(ContainerNode):
 
     def get_tag(self) -> str:
         return self.name
+    
+    @property
+    def category(self) -> ChangeTreeCategory:
+        assert isinstance(self.node_identifier, ChangeTreeSPID)
+        return self.node_identifier.category
 
     @property
     def name(self):
-        return OpTypeMeta.display_label(self.op_type)
+        return ChangeTreeCategoryMeta.category_label(self.category)
 
     def get_default_icon(self) -> IconId:
-        return OpTypeMeta.icon_cat_node(op_type=self.op_type)
+        return ChangeTreeCategoryMeta.icon_cat_node(category=self.category)
 
 
 class RootTypeNode(ContainerNode):

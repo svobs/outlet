@@ -629,20 +629,18 @@ class ActiveTreeManager(HasLifecycle):
 
             # TODO: this is really ugly code, hastily written, hastily maintained. Clean up!
             if len(new_root_spid.get_path_list()) > 0:
-                # must have single path
-                tree_type = new_root_spid.tree_type
-                new_root_spid = self.backend.node_identifier_factory.for_values(uid=new_root_spid.node_uid, device_uid=new_root_spid.device_uid,
-                                                                                path_list=full_path, must_be_single_path=True)
+                new_root_spid = self.backend.node_identifier_factory.build_spid(node_uid=new_root_spid.node_uid, device_uid=new_root_spid.device_uid,
+                                                                                single_path=full_path)
 
             root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
         except GDriveNodePathNotFoundError as ginf:
             root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
             root_path_meta.offending_path = ginf.offending_path
-        except FileNotFoundError as fnf:
-            root = self.backend.node_identifier_factory.for_values(device_uid=device_uid, path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+        except FileNotFoundError:
+            root = self.backend.node_identifier_factory.build_spid(device_uid=device_uid, single_path=full_path, node_uid=NULL_UID)
             root_path_meta = RootPathMeta(root, root_exists=False)
-        except CacheNotLoadedError as cnlf:
-            root = self.backend.node_identifier_factory.for_values(device_uid=device_uid, path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+        except CacheNotLoadedError:
+            root = self.backend.node_identifier_factory.build_spid(device_uid=device_uid, path_list=full_path, node_uid=NULL_UID)
             root_path_meta = RootPathMeta(root, root_exists=False)
 
         logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')

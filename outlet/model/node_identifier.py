@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
-from constants import NULL_UID, SPIDType, TREE_TYPE_DISPLAY, TreeType
+from constants import ChangeTreeCategory, NodeIdentifierType, NULL_UID, TREE_TYPE_DISPLAY, TreeType
 from error import InvalidOperationError
 from logging_constants import TRACE_ENABLED
 from model.uid import UID
@@ -38,23 +38,9 @@ class NodeIdentifier(ABC):
         self.set_path_list(path_list)
 
     @property
-    def guid(self) -> GUID:
-        """Currently, all node identifiers can be uniquely specified by device_uid + node_uid, except for GDrive and Mixed tree nodes,
-        which also require a path_uid."""
-        return f'{self.device_uid}:{self.node_uid}'
-
-    @property
     @abstractmethod
     def tree_type(self) -> TreeType:
         return TreeType.NA
-
-    @staticmethod
-    def is_spid():
-        return False
-
-    @staticmethod
-    def get_spid_type() -> SPIDType:
-        return SPIDType.NOT_A_SPID
 
     @property
     def dn_uid(self) -> DN_UID:
@@ -63,8 +49,24 @@ class NodeIdentifier(ABC):
         (i.e. this is sometimes the same as the node's GUID, but not for all tree types)"""
         return f'{self.device_uid}:{self.node_uid}'
 
+    @staticmethod
+    def get_type() -> NodeIdentifierType:
+        return NodeIdentifierType.GENERIC_MULTI_PATH  # the default; most classes should override
+
+    @staticmethod
+    def is_spid():
+        return False
+
+    @property
+    def guid(self) -> GUID:
+        """SPID-only"""
+        assert not self.is_spid(), f'Cannot call get_single_path() for {type(self)}: it is not a SPID'
+        raise InvalidOperationError(f'Cannot call .guid for {type(self)}: it is not a SPID')
+
     def get_single_path(self) -> str:
-        raise InvalidOperationError(f'Cannot call get_single_path() for {type(self)}')
+        """SPID-only"""
+        assert not self.is_spid(), f'Cannot call get_single_path() for {type(self)}: it is not a SPID'
+        raise InvalidOperationError(f'Cannot call get_single_path() for {type(self)}: it is not a SPID')
 
     def get_path_list(self) -> List[str]:
         if self._path_list:
@@ -148,8 +150,8 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
             raise RuntimeError(f'SinglePathNodeIdentifier must have exactly 1 path, but was given: {self.get_path_list()}')
 
     @staticmethod
-    def get_spid_type() -> SPIDType:
-        return SPIDType.STANDARD
+    def get_type() -> NodeIdentifierType:
+        return NodeIdentifierType.GENERIC_SPID
 
     # Currently this is only exposed for gRPC
     @property
@@ -164,6 +166,11 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
     @staticmethod
     def is_spid():
         return True
+
+    @property
+    def guid(self) -> GUID:
+        """Override if more info is required to ensure uniqueness in a SPID-based tree"""
+        return f'{self.device_uid}:{self.path_uid}'
 
     def get_single_path(self) -> str:
         """This will only work for SPIDs"""
@@ -183,17 +190,6 @@ class SinglePathNodeIdentifier(NodeIdentifier, ABC):
             return self.get_single_path() == other.get_single_path() and self.guid == other.guid
         return False
 
-    @staticmethod
-    def from_node_identifier(node_identifier, path_uid: UID, single_path: str):
-        if single_path not in node_identifier.get_path_list():
-            raise RuntimeError('bad!')
-        if node_identifier.tree_type == TreeType.GDRIVE:
-            return GDriveSPID(node_uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, path_uid=path_uid, full_path=single_path)
-        elif node_identifier.tree_type == TreeType.LOCAL_DISK:
-            return LocalNodeIdentifier(uid=node_identifier.node_uid, device_uid=node_identifier.device_uid, full_path=single_path)
-        else:
-            raise RuntimeError('Invalid!')
-
 
 class GDriveIdentifier(NodeIdentifier):
     """
@@ -211,6 +207,10 @@ class GDriveIdentifier(NodeIdentifier):
 
     def __repr__(self):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.device_uid}:{self.node_uid}:X⩨{self.get_path_list()}∣'
+
+    @staticmethod
+    def get_type() -> NodeIdentifierType:
+        return NodeIdentifierType.GDRIVE_MPID
 
     @property
     def tree_type(self) -> TreeType:
@@ -260,6 +260,10 @@ class GDriveSPID(SinglePathNodeIdentifier):
     def guid(self) -> GUID:
         return f'{self.device_uid}:{self.node_uid}:{self._path_uid}'
 
+    @staticmethod
+    def get_type() -> NodeIdentifierType:
+        return NodeIdentifierType.GDRIVE_SPID
+
     def __repr__(self):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{repr(self.get_single_path())}∣'
 
@@ -290,6 +294,10 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
     def guid(self) -> GUID:
         return f'{self.device_uid}:{self.node_uid}:{self._path_uid}'
 
+    @staticmethod
+    def get_type() -> NodeIdentifierType:
+        return NodeIdentifierType.MIXED_TREE_SPID
+
     def __repr__(self):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{repr(self.get_single_path())}∣'
 
@@ -298,10 +306,15 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
         CLASS LocalNodeIdentifier
+        TODO: change name to LocalDiskSPID
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
     def __init__(self, uid: UID, device_uid: UID, full_path: str, parent_guid: Optional[GUID] = None):
         super().__init__(uid, device_uid, full_path, parent_guid)
+
+    @staticmethod
+    def get_type() -> NodeIdentifierType:
+        return NodeIdentifierType.LOCAL_DISK_SPID
 
     @property
     def tree_type(self) -> TreeType:
@@ -313,18 +326,18 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
     NOTE: path_uid is stored as node_uid for ChangeTreeSPIDs, but node_uid is not used and should not be assumed to be the same value as
     the underlying Node. ChangeTreeSPIDs do not correspond to actual node_uids
     """
-    def __init__(self, path_uid: UID, device_uid: UID, full_path: str, op_type: Optional, parent_guid: Optional[GUID] = None):
+    def __init__(self, path_uid: UID, device_uid: UID, full_path: str, category: ChangeTreeCategory, parent_guid: Optional[GUID] = None):
         super().__init__(path_uid, device_uid, full_path, parent_guid)
-        self.op_type: Optional = op_type
+        self.category: ChangeTreeCategory = category
 
     @property
     def path_uid(self) -> UID:
         # default
         return self.node_uid
 
-    @staticmethod
-    def get_spid_type() -> SPIDType:
-        return SPIDType.CHANGE_TREE
+    def get_type(self) -> NodeIdentifierType:
+        # Both enums have 1:1 mappings with identical values, so we can do this:
+        return NodeIdentifierType(self.category)
 
     @property
     def tree_type(self) -> TreeType:
@@ -333,39 +346,28 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
 
     @property
     def guid(self) -> GUID:
-        if self.op_type:
-            return f'{self.device_uid}:{self.op_type.name}:{self.path_uid}'
-        else:
-            return f'{self.device_uid}'
+        return f'{self.device_uid}:{self.category.name}:{self.path_uid}'
 
     def __lt__(self, other):
         if self.device_uid == other.device_uid:
-            if self.op_type == other.op_type:
+            if self.category == other.category:
                 return self.device_uid < other.device_uid
-            elif self.op_type is None:
-                return True
-            elif other.op_type is None:
-                return False
             else:
-                return self.op_type < other.op_type
+                return self.category < other.category
         else:
             return self.device_uid < other.device_uid
 
     def __gt__(self, other):
         if self.device_uid == other.device_uid:
-            if self.op_type == other.op_type:
+            if self.category == other.category:
                 return self.device_uid > other.device_uid
-            elif self.op_type is None:
-                return False
-            elif other.op_type is None:
-                return True
             else:
-                return self.op_type > other.op_type
+                return self.category > other.category
         else:
             return self.device_uid > other.device_uid
 
     def __eq__(self, other):
-        return self.device_uid == other.device_uid and self.op_type == other.op_type and self.device_uid == other.device_uid
+        return self.device_uid == other.device_uid and self.category == other.category and self.device_uid == other.device_uid
 
     def __ne__(self, other):
         return not self == other

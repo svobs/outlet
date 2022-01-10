@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Optional
 
 import backend.agent.grpc.generated.Node_pb2
 from backend.agent.grpc.generated.Outlet_pb2 import SignalMsg, TreeContextMenuItem
-from constants import ErrorHandlingStrategy, GRPC_CHANGE_TREE_NO_OP, IconId, MenuItemType, SPIDType, TreeLoadState, TreeType
+from constants import ErrorHandlingStrategy, IconId, MenuItemType, NodeIdentifierType, TreeLoadState, TreeType
 from logging_constants import TRACE_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -15,7 +15,7 @@ from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, NonexistentDirNode, SPIDNodePair
-from model.node_identifier import GDriveIdentifier, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from outlet.backend.agent.grpc.generated import Outlet_pb2
 from signal_constants import Signal
@@ -173,15 +173,15 @@ class GRPCConverter:
             node = LocalFileNode(node_identifier, meta.parent_uid, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.create_ts,
                                  meta.modify_ts, meta.change_ts, grpc_node.trashed, meta.is_live)
         elif grpc_node.HasField("container_meta"):
-            assert isinstance(node_identifier, SinglePathNodeIdentifier)
+            assert isinstance(node_identifier, ChangeTreeSPID)
             node = ContainerNode(node_identifier)
             node.dir_stats = self.dir_stats_from_grpc(grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("category_meta"):
-            assert isinstance(node_identifier, SinglePathNodeIdentifier)
-            node = CategoryNode(node_identifier, grpc_node.category_meta.op_type)
+            assert isinstance(node_identifier, ChangeTreeSPID)
+            node = CategoryNode(node_identifier)
             node.dir_stats = self.dir_stats_from_grpc(grpc_node.category_meta.dir_meta)
         elif grpc_node.HasField("root_type_meta"):
-            assert isinstance(node_identifier, SinglePathNodeIdentifier)
+            assert isinstance(node_identifier, ChangeTreeSPID)
             node = RootTypeNode(node_identifier)
             node.dir_stats = self.dir_stats_from_grpc(grpc_node.root_type_meta.dir_meta)
         elif grpc_node.HasField("nonexistent_dir_meta"):
@@ -257,36 +257,36 @@ class GRPCConverter:
         if not node_identifier:
             return
 
+        # Common fields for all NodeIdentifiers:
+        grpc_node_identifier.identifier_type = node_identifier.get_type()
         grpc_node_identifier.device_uid = node_identifier.device_uid
-        path_list = node_identifier.get_path_list()
+        grpc_node_identifier.node_uid = node_identifier.node_uid
 
-        if node_identifier.get_spid_type() == SPIDType.CHANGE_TREE:
-            # ChangeTreeSPIDs use path_uids instead of node_uids. We can use this field to smuggle the path_uid across gRPC
-            grpc_node_identifier.uid = node_identifier.path_uid
-            if not node_identifier.op_type:
-                grpc_node_identifier.op_type = GRPC_CHANGE_TREE_NO_OP
-            else:
-                grpc_node_identifier.op_type = node_identifier.op_type
-        else:
-            grpc_node_identifier.uid = node_identifier.node_uid
-
-        for full_path in path_list:
-            grpc_node_identifier.path_list.append(full_path)
-
+        # Subtype-specific fields:
         if node_identifier.is_spid():
-            assert isinstance(node_identifier, SinglePathNodeIdentifier), f'Not a SPID: {node_identifier}'
+            assert node_identifier.is_spid() and isinstance(node_identifier, SinglePathNodeIdentifier), f'Not a SPID: {node_identifier}'
             assert node_identifier.path_uid > 0, f'SPID path_uid must positive number: {node_identifier}'
-            grpc_node_identifier.path_uid = node_identifier.path_uid
+
+            grpc_node_identifier.spid_meta.path_uid = node_identifier.path_uid
+            grpc_node_identifier.spid_meta.single_path = node_identifier.get_single_path()
             if node_identifier.parent_guid:
                 grpc_node_identifier.parent_guid = node_identifier.parent_guid
-        assert grpc_node_identifier.path_uid == 0 or len(list(grpc_node_identifier.path_list)) <= 1, f'Wrong: {node_identifier}'
+        else:
+            grpc_node_identifier.multi_path_id_meta.path_list = node_identifier.get_path_list()
 
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
-        return self.backend.node_identifier_factory.for_values(uid=grpc_node_identifier.uid, device_uid=grpc_node_identifier.device_uid,
-                                                               path_list=list(grpc_node_identifier.path_list), path_uid=grpc_node_identifier.path_uid,
-                                                               op_type=grpc_node_identifier.op_type,
-                                                               must_be_single_path=grpc_node_identifier.path_uid > 0,
-                                                               parent_guid=grpc_node_identifier.parent_guid)
+        if grpc_node_identifier.multi_path_id_meta:
+            return self.backend.node_identifier_factory.build_node_id(node_uid=UID(grpc_node_identifier.node_uid),
+                                                                   device_uid=UID(grpc_node_identifier.device_uid),
+                                                                   identifier_type=NodeIdentifierType(grpc_node_identifier.identifier_type),
+                                                                   path_list=list(grpc_node_identifier.multi_path_id_meta.path_list))
+        else:
+            return self.backend.node_identifier_factory.build_spid(node_uid=UID(grpc_node_identifier.node_uid),
+                                                                   device_uid=UID(grpc_node_identifier.device_uid),
+                                                                   identifier_type=NodeIdentifierType(grpc_node_identifier.identifier_type),
+                                                                   single_path=grpc_node_identifier.spid_meta.single_path,
+                                                                   path_uid=UID(grpc_node_identifier.spid_meta.path_uid),
+                                                                   parent_guid=grpc_node_identifier.parent_guid)
 
     # SPIDNodePair
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

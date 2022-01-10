@@ -12,7 +12,7 @@ from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
-from model.user_op import OpTypeMeta, UserOp, UserOpType
+from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpType
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 
 logger = logging.getLogger(__name__)
@@ -125,13 +125,12 @@ class ChangeTree(DisplayTree):
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
         assert isinstance(sn.spid, ChangeTreeSPID), f'Not a ChangeTreeSPID: {sn.spid}'
-        op_type: UserOpType = sn.spid.op_type
 
-        cat_spid = ChangeTreeSPID(self.get_root_sn().spid.path_uid, sn.spid.device_uid, self.root_path, op_type=sn.spid.op_type)
+        cat_spid = ChangeTreeSPID(self.get_root_sn().spid.path_uid, sn.spid.device_uid, self.root_path, category=sn.spid.category)
         cat_sn = self._category_tree.get_node_for_identifier(cat_spid.guid)
         if cat_sn:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.tree_id}] Found existing CategoryNode with OpType={op_type.name} guid="{cat_spid.guid}"')
+                logger.debug(f'[{self.tree_id}] Found existing CategoryNode with cat={cat_sn.spid.category.name} guid="{cat_spid.guid}"')
             assert isinstance(cat_sn.node, ContainerNode)
             return cat_sn
 
@@ -155,7 +154,7 @@ class ChangeTree(DisplayTree):
             parent_sn = device_sn
 
         assert not cat_sn
-        cat_node = CategoryNode(node_identifier=cat_spid, op_type=op_type)
+        cat_node = CategoryNode(node_identifier=cat_spid)
         # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
         cat_sn: SPIDNodePair = SPIDNodePair(cat_spid, cat_node)
         if SUPER_DEBUG_ENABLED:
@@ -196,7 +195,7 @@ class ChangeTree(DisplayTree):
 
             # Need some work to assemble the GUID to look up the ancestor:
             ancestor_path_uid = self.backend.cacheman.get_uid_for_local_path(full_path)  # TODO: take "_local" out of this
-            ancestor_spid: ChangeTreeSPID = ChangeTreeSPID(ancestor_path_uid, ancestor_spid.device_uid, full_path, ancestor_spid.op_type)
+            ancestor_spid: ChangeTreeSPID = ChangeTreeSPID(ancestor_path_uid, ancestor_spid.device_uid, full_path, ancestor_spid.category)
             ancestor_sn = self._category_tree.get_node_for_identifier(ancestor_spid.guid)
             if ancestor_sn:
                 if SUPER_DEBUG_ENABLED:
@@ -209,7 +208,7 @@ class ChangeTree(DisplayTree):
                     logger.debug(f'[{self.tree_id}] Ancestor not found: {ancestor_spid.guid}; creating dummy node"')
                 # create ancestor & push to stack for later insertion in correct order
                 ancestor_dir = ContainerNode(ancestor_spid)
-                ancestor_dir.set_icon(OpTypeMeta.icon_src_dir(ancestor_spid.op_type))
+                ancestor_dir.set_icon(ChangeTreeCategoryMeta.icon_src_dir(ancestor_spid.category))
                 dummy_stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
 
         if SUPER_DEBUG_ENABLED:
@@ -232,15 +231,11 @@ class ChangeTree(DisplayTree):
     @staticmethod
     def _make_change_node_pair(from_sn: SPIDNodePair, op: UserOp) -> SPIDNodePair:
         change_spid = ChangeTreeSPID(path_uid=from_sn.spid.path_uid, device_uid=from_sn.spid.device_uid,
-                                     full_path=from_sn.spid.get_single_path(), op_type=op.op_type)
-        if change_spid.op_type == UserOpType.MKDIR:
-            assert from_sn.node.is_dir(), f'Should be a dir: {from_sn.node}'
-            # For display purposes, group "mkdir" with "copy":
-            change_spid.op_type = UserOpType.CP
+                                     full_path=from_sn.spid.get_single_path(), category=op.op_type.category)
         change_node: Node = copy.deepcopy(from_sn.node)
 
         is_dst = op.has_dst() and op.dst_node.node_identifier == change_node.node_identifier
-        change_node.set_icon(OpTypeMeta.get_icon_for_node(change_node.is_dir(), is_dst, op))
+        change_node.set_icon(ChangeTreeCategoryMeta.get_icon_for_node(change_node.is_dir(), is_dst, op))
         return SPIDNodePair(change_spid, change_node)
 
     def add_sn_and_op(self, sn: SPIDNodePair, op: UserOp):

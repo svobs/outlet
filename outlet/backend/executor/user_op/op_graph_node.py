@@ -118,6 +118,7 @@ class OpGraphNode(BaseNode, ABC):
         return False
 
     def is_create_type(self) -> bool:
+        """Is the target of this OGN going to be created/updated? (i.e. not removed and not just read)"""
         return False
 
     def get_level(self) -> int:

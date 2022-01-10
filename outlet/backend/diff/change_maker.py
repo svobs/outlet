@@ -114,7 +114,7 @@ class OneSide:
             raise RuntimeError(f'Invalid tree_type: {dst_tree_type}')
 
         # Now build the node:
-        nid = self.backend.node_identifier_factory.for_values(device_uid=dst_device_uid, path_list=[dst_path], uid=dst_node_uid)
+        nid = self.backend.node_identifier_factory.build_node_id(node_uid=dst_node_uid, device_uid=dst_device_uid, path_list=[dst_path])
 
         node_src: Node = sn_src.node
         if dst_tree_type == TreeType.LOCAL_DISK:
@@ -142,8 +142,7 @@ class OneSide:
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={nid}")
 
-        spid = self.backend.node_identifier_factory.for_values(path_list=[dst_path], uid=dst_node_uid,
-                                                               device_uid=dst_device_uid, must_be_single_path=True)
+        spid = self.backend.node_identifier_factory.build_spid(node_uid=dst_node_uid, device_uid=dst_device_uid, single_path=dst_path)
         sn_dst: SPIDNodePair = SPIDNodePair(spid, node_dst)
 
         if node_dst.is_dir():
@@ -230,8 +229,8 @@ class OneSide:
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')
 
-            spid = self.backend.node_identifier_factory.for_values(uid=new_ancestor_node.uid, device_uid=device_uid,
-                                                                   path_list=parent_path, must_be_single_path=True)
+            spid = self.backend.node_identifier_factory.build_spid(node_uid=new_ancestor_node.uid, device_uid=device_uid,
+                                                                   single_path=parent_path)
             new_ancestor_sn: SPIDNodePair = SPIDNodePair(spid, new_ancestor_node)
             self._dict_added_dirs_by_path[parent_path] = new_ancestor_sn
             ancestor_stack.append(new_ancestor_sn)
@@ -248,6 +247,7 @@ class ChangeMaker:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS ChangeMaker
+    Base class for building list of UserOps
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 

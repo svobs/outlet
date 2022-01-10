@@ -21,7 +21,7 @@ from backend.tree_store.gdrive.op_write import BatchChangesOp, CreateUserOp, Del
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, ROOT_PATH, TrashStatus, \
+from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, NodeIdentifierType, ROOT_PATH, TrashStatus, \
     TreeID
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import CacheNotLoadedError, NodeNotPresentError
@@ -573,8 +573,8 @@ class GDriveMasterStore(TreeStore):
             return None
 
     def to_sn(self, node: GDriveNode, single_path: str) -> SPIDNodePair:
-        spid = self.backend.node_identifier_factory.for_values(uid=node.uid, device_uid=node.device_uid,
-                                                               path_list=single_path, must_be_single_path=True)
+        spid = self.backend.node_identifier_factory.build_spid(node_uid=node.uid, device_uid=node.device_uid,
+                                                               identifier_type=NodeIdentifierType.GDRIVE_SPID, single_path=single_path)
         return SPIDNodePair(spid, node)
 
     def to_sn_from_node_and_parent_spid(self, node: GDriveNode, parent_spid: SinglePathNodeIdentifier) -> SPIDNodePair:

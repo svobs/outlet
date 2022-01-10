@@ -54,9 +54,8 @@ class RootPathConfigPersister:
         root_path = self.backend.get_config(self._root_path_config_key, required=True)
         root_uid = ensure_uid(self.backend.get_config(self._root_uid_config_key, required=True))
 
-        root_identifier: SinglePathNodeIdentifier = self.backend.node_identifier_factory.for_values(device_uid=device_uid,
-                                                                                                    path_list=root_path, uid=root_uid,
-                                                                                                    must_be_single_path=True)
+        root_identifier: SinglePathNodeIdentifier = self.backend.node_identifier_factory.build_spid(node_uid=root_uid, device_uid=device_uid,
+                                                                                                    single_path=root_path)
 
         root_exists = ensure_bool(self.backend.get_config(self._root_exists_config_key))
         offending_path = self.backend.get_config(self._root_offending_path_config_key)

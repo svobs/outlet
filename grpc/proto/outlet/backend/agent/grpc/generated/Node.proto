@@ -30,13 +30,24 @@ message SPIDNodePair {
   Node node = 2;
 }
 
+message MultiPathIdentifierMeta {
+  repeated string path_list = 4;
+}
+
+message SinglePathIdentifierMeta {
+  uint32 path_uid = 5;  // Only nonzero for SPIDs
+  string single_path = 6;
+  string parent_guid = 7; // Optional. For SPIDs only (needed for: NODE_UPSERTED, NODE_REMOVED, SUBTREE_NODES_CHANGED)
+}
+
 message NodeIdentifier {
-  uint32 uid = 1;
+  uint32 identifier_type = 1;  // Indicates the class of this NodeIdentifier. CategorySPIDs have an entry for each category
   uint32 device_uid = 2;
-  repeated string path_list = 3;
-  uint32 path_uid = 4;  // If nonzero, is single path
-  uint32 op_type = 5;   // If nonzero, is ChangeTreeSPID. 1 to 5 = UserOpType. 9 = no UserOpType.
-  string parent_guid = 6; // Optional. For SPIDs only (needed for: NODE_UPSERTED, NODE_REMOVED, SUBTREE_NODES_CHANGED)
+  uint32 node_uid = 3;
+  oneof subtype_meta {
+    MultiPathIdentifierMeta multi_path_id_meta = 4;  // AKA "not a SPID"
+    SinglePathIdentifierMeta spid_meta = 5;  // SPIDs
+  }
 }
 
 message Node {
@@ -83,7 +94,6 @@ message ContainerNodeMeta {
 
 message CategoryNodeMeta {
   DirMeta dir_meta = 1;
-  uint32 op_type = 2;
 }
 
 message RootTypeNodeMeta {

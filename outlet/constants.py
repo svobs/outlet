@@ -21,8 +21,6 @@ LOGGING_CONSTANTS_FILE = 'logging_constants.py'
 INIT_FILE = '__init__.py'
 TEMPLATE = 'template'
 
-GRPC_CHANGE_TREE_NO_OP = 9
-
 MAX_FS_LINK_DEPTH = 10
 
 CACHE_LOAD_TIMEOUT_SEC = 3000
@@ -185,10 +183,33 @@ class TreeType(IntEnum):
     GDRIVE = 3
 
 
-class SPIDType(IntEnum):
-    NOT_A_SPID = 0
-    STANDARD = 1
-    CHANGE_TREE = 2
+class NodeIdentifierType(IntEnum):
+    NULL = 0
+
+    GENERIC_MULTI_PATH = 1
+    GENERIC_SPID = 2
+
+    MIXED_TREE_SPID = 3
+    LOCAL_DISK_SPID = 4
+    GDRIVE_MPID = 10
+    GDRIVE_SPID = 11
+
+    # Sub-types of SPIDs. We have so few categories, we can just embed the category type in here rather than buy a new field:
+    CHANGE_TREE_CATEGORY_NONE = 90
+    CHANGE_TREE_CATEGORY_RM = 91
+    CHANGE_TREE_CATEGORY_CP = 92
+    CHANGE_TREE_CATEGORY_CP_ONTO = 93
+    CHANGE_TREE_CATEGORY_MV = 94
+    CHANGE_TREE_CATEGORY_MV_ONTO = 95
+
+
+class ChangeTreeCategory(IntEnum):
+    NONE = NodeIdentifierType.CHANGE_TREE_CATEGORY_NONE
+    RM = NodeIdentifierType.CHANGE_TREE_CATEGORY_RM
+    CP = NodeIdentifierType.CHANGE_TREE_CATEGORY_CP
+    CP_ONTO = NodeIdentifierType.CHANGE_TREE_CATEGORY_CP_ONTO
+    MV = NodeIdentifierType.CHANGE_TREE_CATEGORY_MV
+    MV_ONTO = NodeIdentifierType.CHANGE_TREE_CATEGORY_MV_ONTO
 
 
 class DragOperation(IntEnum):

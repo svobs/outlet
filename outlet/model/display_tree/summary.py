@@ -11,7 +11,7 @@ from model.node.container_node import CategoryNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node_identifier import GUID
 from model.uid import UID
-from model.user_op import OpTypeMeta
+from model.user_op import ChangeTreeCategoryMeta
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +106,8 @@ class TreeSummarizer:
     @staticmethod
     def _make_cat_map():
         cm = {}
-        for op_type, disp_str in OpTypeMeta.all_display_labels():
-            cm[op_type] = f'{disp_str}: 0'
+        for category, disp_str in ChangeTreeCategoryMeta.all_display_labels():
+            cm[category] = f'{disp_str}: 0'
         return cm
 
     @staticmethod
@@ -120,9 +120,9 @@ class TreeSummarizer:
 
     @staticmethod
     def _build_summary_cat_map(tree: ChangeTree, spid, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats]):
-        include_empty_op_types = False
+        include_empty_categories = False
         cat_count = 0
-        if include_empty_op_types:
+        if include_empty_categories:
             cat_map = TreeSummarizer._make_cat_map()
         else:
             cat_map = {}
@@ -133,7 +133,7 @@ class TreeSummarizer:
             if not cat_stats:
                 raise RuntimeError(f'[{tree.tree_id}] (is_filtered={filter_state.has_criteria()}) No stats found for cat node {cat_sn.spid}')
             summary = TreeSummarizer._build_simple_summary(cat_stats, 'dir')
-            cat_map[cat_sn.spid.op_type] = f'{cat_sn.node.name}: {summary}'
+            cat_map[cat_sn.spid.category] = f'{cat_sn.node.name}: {summary}'
         if cat_count:
             return cat_map
         else:

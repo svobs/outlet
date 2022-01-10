@@ -90,8 +90,8 @@ class CacheRegistryDatabase(MetaDatabase):
         for row in rows:
             cache_location, device_uid, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
             subtree_root_path = file_util.normalize_path(subtree_root_path)
-            node_identifier = self.node_identifier_factory.for_values(uid=subtree_root_uid, device_uid=device_uid,
-                                                                      path_list=subtree_root_path, must_be_single_path=True)
+            node_identifier = self.node_identifier_factory.build_spid(node_uid=subtree_root_uid, device_uid=device_uid,
+                                                                      single_path=subtree_root_path)
             assert node_identifier.is_spid(), f'Not a SPID: {node_identifier}'
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier,
                                           sync_ts=sync_ts, is_complete=is_complete))

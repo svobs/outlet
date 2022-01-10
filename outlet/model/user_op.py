@@ -2,7 +2,7 @@ from enum import IntEnum
 import logging
 from typing import Dict, List, Optional, Set, Union
 
-from constants import IconId, TreeID
+from constants import ChangeTreeCategory, IconId, TreeID
 from model.node_identifier import GUID
 from model.uid import UID
 from model.node.node import BaseNode, Node
@@ -11,11 +11,14 @@ from util import time_util
 logger = logging.getLogger(__name__)
 
 
-# ENUM UserOpType
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
 class UserOpType(IntEnum):
-    """UserOps are agnostic of tree types"""
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    ENUM UserOpType
+    UserOps are agnostic of tree types, but they distinguish between file and dir node operations.
+    TODO: rename to TNOType
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
     # --- 1-digit enum = 1 node op ---
 
     RM = 1
@@ -120,6 +123,7 @@ class UserOp(BaseNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS UserOp
+    TODO: rename to TreeNodeOperation (TNO)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -176,95 +180,103 @@ class UserOp(BaseNode):
                f'src={self.src_node.node_identifier} dst={dst}'
 
 
-class OpTypeMeta:
+class ChangeTreeCategoryMeta:
+    _category_enum_name_dict: Dict[str, ChangeTreeCategory] = {
+        ChangeTreeCategory.RM.name: ChangeTreeCategory.RM,
+        ChangeTreeCategory.CP.name: ChangeTreeCategory.CP,
+        ChangeTreeCategory.CP_ONTO.name: ChangeTreeCategory.CP_ONTO,
+        ChangeTreeCategory.MV.name: ChangeTreeCategory.MV,
+        ChangeTreeCategory.MV_ONTO.name: ChangeTreeCategory.MV_ONTO
+    }
+
+    _op_type_dict: Dict[UserOpType, ChangeTreeCategory] = {
+        UserOpType.RM: ChangeTreeCategory.RM,
+        UserOpType.MKDIR: ChangeTreeCategory.CP,  # TODO: is this a good idea?
+        UserOpType.CP: ChangeTreeCategory.CP,
+        UserOpType.START_DIR_CP: ChangeTreeCategory.CP,
+        UserOpType.FINISH_DIR_CP: ChangeTreeCategory.CP,
+        UserOpType.CP_ONTO: ChangeTreeCategory.CP_ONTO,
+        UserOpType.MV: ChangeTreeCategory.MV,
+        UserOpType.START_DIR_MV: ChangeTreeCategory.MV,
+        UserOpType.FINISH_DIR_MV: ChangeTreeCategory.MV,
+        UserOpType.MV_ONTO: ChangeTreeCategory.MV_ONTO,
+    }
+
     # We use these labels for displaying diff previews - thus the 'To Update' name for CP_ONTO.
     # But we also use these for printing nodes to the log
-    _display_label_dict: Dict[UserOpType, str] = {
-        UserOpType.RM: 'To Delete',
-        UserOpType.CP: 'To Add',
-        UserOpType.CP_ONTO: 'To Update',
-        UserOpType.MV: 'To Move',
-        UserOpType.MV_ONTO: 'To Replace',
-        UserOpType.START_DIR_MV: 'To Move [Dir Start]',
-        UserOpType.FINISH_DIR_MV: 'To Move [Dir Finish]',
-        UserOpType.START_DIR_CP: 'To Add [Dir Start]',
-        UserOpType.FINISH_DIR_CP: 'To Add [Dir Finish]'
+    _display_label_dict: Dict[ChangeTreeCategory, str] = {
+        ChangeTreeCategory.RM: 'To Delete',
+        ChangeTreeCategory.CP: 'To Add',
+        ChangeTreeCategory.CP_ONTO: 'To Update',
+        ChangeTreeCategory.MV: 'To Move',
+        ChangeTreeCategory.MV_ONTO: 'To Replace'
     }
 
     _icon_src_file_dict = {
-        UserOpType.RM: IconId.ICON_FILE_RM,
-        UserOpType.MV: IconId.ICON_FILE_MV_SRC,
-        UserOpType.MV_ONTO: IconId.ICON_FILE_MV_SRC,
-        UserOpType.CP: IconId.ICON_FILE_CP_SRC,
-        UserOpType.CP_ONTO: IconId.ICON_FILE_UP_SRC
+        ChangeTreeCategory.RM: IconId.ICON_FILE_RM,
+        ChangeTreeCategory.MV: IconId.ICON_FILE_MV_SRC,
+        ChangeTreeCategory.MV_ONTO: IconId.ICON_FILE_MV_SRC,
+        ChangeTreeCategory.CP: IconId.ICON_FILE_CP_SRC,
+        ChangeTreeCategory.CP_ONTO: IconId.ICON_FILE_UP_SRC
     }
     _icon_dst_file_dict = {
-        UserOpType.MV: IconId.ICON_FILE_MV_DST,
-        UserOpType.MV_ONTO: IconId.ICON_FILE_MV_DST,
-        UserOpType.CP: IconId.ICON_FILE_CP_DST,
-        UserOpType.CP_ONTO: IconId.ICON_FILE_UP_DST
+        ChangeTreeCategory.MV: IconId.ICON_FILE_MV_DST,
+        ChangeTreeCategory.MV_ONTO: IconId.ICON_FILE_MV_DST,
+        ChangeTreeCategory.CP: IconId.ICON_FILE_CP_DST,
+        ChangeTreeCategory.CP_ONTO: IconId.ICON_FILE_UP_DST
     }
     _icon_src_dir_dict = {
-        UserOpType.MKDIR: IconId.ICON_DIR_MK,
-        UserOpType.RM: IconId.ICON_DIR_RM,
-        UserOpType.MV: IconId.ICON_DIR_MV_SRC,
-        UserOpType.MV_ONTO: IconId.ICON_DIR_MV_SRC,
-        UserOpType.START_DIR_MV: IconId.ICON_DIR_MV_SRC,
-        UserOpType.FINISH_DIR_MV: IconId.ICON_DIR_MV_SRC,
-        UserOpType.CP: IconId.ICON_DIR_CP_SRC,
-        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_SRC,
-        UserOpType.START_DIR_CP: IconId.ICON_DIR_CP_SRC,
-        UserOpType.FINISH_DIR_CP: IconId.ICON_DIR_CP_SRC
+        ChangeTreeCategory.RM: IconId.ICON_DIR_RM,
+        ChangeTreeCategory.MV: IconId.ICON_DIR_MV_SRC,
+        ChangeTreeCategory.MV_ONTO: IconId.ICON_DIR_MV_SRC,
+        ChangeTreeCategory.CP: IconId.ICON_DIR_CP_SRC,
+        ChangeTreeCategory.CP_ONTO: IconId.ICON_DIR_UP_SRC
     }
     _icon_dst_dir_dict = {
-        UserOpType.MV: IconId.ICON_DIR_MV_DST,
-        UserOpType.MV_ONTO: IconId.ICON_DIR_MV_DST,
-        UserOpType.START_DIR_MV: IconId.ICON_DIR_MV_DST,
-        UserOpType.FINISH_DIR_MV: IconId.ICON_DIR_MV_DST,
-        UserOpType.CP: IconId.ICON_DIR_CP_DST,
-        UserOpType.CP_ONTO: IconId.ICON_DIR_UP_DST,
-        UserOpType.START_DIR_CP: IconId.ICON_DIR_CP_DST,
-        UserOpType.FINISH_DIR_CP: IconId.ICON_DIR_CP_DST
+        ChangeTreeCategory.MV: IconId.ICON_DIR_MV_DST,
+        ChangeTreeCategory.MV_ONTO: IconId.ICON_DIR_MV_DST,
+        ChangeTreeCategory.CP: IconId.ICON_DIR_CP_DST,
+        ChangeTreeCategory.CP_ONTO: IconId.ICON_DIR_UP_DST
     }
     _icon_cat_node = {
-        UserOpType.RM: IconId.ICON_TO_DELETE,
-        UserOpType.MV: IconId.ICON_TO_MOVE,
-        UserOpType.MV_ONTO: IconId.ICON_TO_MOVE,
-        UserOpType.CP: IconId.ICON_TO_ADD,
-        UserOpType.CP_ONTO: IconId.ICON_TO_UPDATE,
+        ChangeTreeCategory.RM: IconId.ICON_TO_DELETE,
+        ChangeTreeCategory.MV: IconId.ICON_TO_MOVE,
+        ChangeTreeCategory.MV_ONTO: IconId.ICON_TO_MOVE,
+        ChangeTreeCategory.CP: IconId.ICON_TO_ADD,
+        ChangeTreeCategory.CP_ONTO: IconId.ICON_TO_UPDATE
     }
 
     @staticmethod
-    def has_dst(op_type: UserOpType) -> bool:
-        return op_type.has_dst()
+    def category_for_name(cat_enum_name: str) -> Optional[ChangeTreeCategory]:
+        return ChangeTreeCategoryMeta._category_enum_name_dict.get(cat_enum_name)
 
     @staticmethod
-    def display_label(op_type: UserOpType) -> str:
-        return OpTypeMeta._display_label_dict[op_type]
+    def category_label(category: ChangeTreeCategory) -> str:
+        return ChangeTreeCategoryMeta._display_label_dict[category]
 
     @staticmethod
     def all_display_labels():
-        return OpTypeMeta._display_label_dict.items()
+        return ChangeTreeCategoryMeta._display_label_dict.items()
 
     @staticmethod
-    def icon_src_file(op_type: UserOpType) -> IconId:
-        return OpTypeMeta._icon_src_file_dict[op_type]
+    def icon_cat_node(category: ChangeTreeCategory) -> IconId:
+        return ChangeTreeCategoryMeta._icon_cat_node[category]
 
     @staticmethod
-    def icon_dst_file(op_type: UserOpType) -> IconId:
-        return OpTypeMeta._icon_dst_file_dict[op_type]
+    def icon_src_file(category: ChangeTreeCategory) -> IconId:
+        return ChangeTreeCategoryMeta._icon_src_file_dict[category]
 
     @staticmethod
-    def icon_src_dir(op_type: UserOpType) -> IconId:
-        return OpTypeMeta._icon_src_dir_dict[op_type]
+    def icon_dst_file(category: ChangeTreeCategory) -> IconId:
+        return ChangeTreeCategoryMeta._icon_dst_file_dict[category]
 
     @staticmethod
-    def icon_dst_dir(op_type: UserOpType) -> IconId:
-        return OpTypeMeta._icon_dst_dir_dict[op_type]
+    def icon_src_dir(category: ChangeTreeCategory) -> IconId:
+        return ChangeTreeCategoryMeta._icon_src_dir_dict[category]
 
     @staticmethod
-    def icon_cat_node(op_type: UserOpType) -> IconId:
-        return OpTypeMeta._icon_cat_node[op_type]
+    def icon_dst_dir(category: ChangeTreeCategory) -> IconId:
+        return ChangeTreeCategoryMeta._icon_dst_dir_dict[category]
 
     @staticmethod
     def get_icon_for_node(is_dir: bool, is_dst: bool, op: UserOp) -> IconId:
@@ -279,23 +291,25 @@ class OpTypeMeta:
             else:
                 return IconId.ICON_FILE_WARNING
         else:
+            category = ChangeTreeCategoryMeta._op_type_dict[op.op_type]
             if is_dir:
                 if is_dst:
-                    return OpTypeMeta._icon_dst_dir_dict[op.op_type]
+                    return ChangeTreeCategoryMeta._icon_dst_dir_dict[category]
                 else:
-                    return OpTypeMeta._icon_src_dir_dict[op.op_type]
+                    return ChangeTreeCategoryMeta._icon_src_dir_dict[category]
             else:
                 if is_dst:
-                    return OpTypeMeta._icon_dst_file_dict[op.op_type]
+                    return ChangeTreeCategoryMeta._icon_dst_file_dict[category]
                 else:
-                    return OpTypeMeta._icon_src_file_dict[op.op_type]
+                    return ChangeTreeCategoryMeta._icon_src_file_dict[category]
 
 
 class Batch:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS Batch
-    Container for a list of UserOps within a single transaction, such as a single drag & drop.
+    # TODO: think of better name for this class
+    Container for a list of UserOps comprising a single transaction, such as a single drag & drop.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 

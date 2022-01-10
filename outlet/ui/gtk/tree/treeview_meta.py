@@ -144,8 +144,8 @@ class TreeViewMeta(HasLifecycle):
             return
 
         if type(sn.node) == CategoryNode:
-            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {sn.spid.op_type.name} = {is_expanded}')
-            cfg_path = f'ui_state.{self.tree_id}.expanded_state.{sn.spid.op_type.name}'
+            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {sn.spid.category.name} = {is_expanded}')
+            cfg_path = f'ui_state.{self.tree_id}.expanded_state.{sn.spid.category.name}'
             self.backend.put_config(cfg_path, is_expanded)
         # Allow other listeners to handle this also:
         return False
@@ -153,7 +153,7 @@ class TreeViewMeta(HasLifecycle):
     def is_category_node_expanded(self, node: Node):
         if self.is_display_persisted:
             assert isinstance(node, CategoryNode)
-            cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.op_type.name}'
+            cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.category.name}'
             return ensure_bool(self.backend.get_config(cfg_path, True))
 
         # Default if no config:

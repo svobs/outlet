@@ -9,7 +9,7 @@ from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidInsertOpGraphError, OpGraphError, UnsuccessfulBatchInsertError
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import OpTypeMeta, UserOp, UserOpResult, UserOpStatus
+from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpResult, UserOpStatus
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -80,7 +80,7 @@ class OpGraph(HasLifecycle):
         with self._cv_can_get:
             ogn: OpGraphNode = self._get_last_pending_ogn_for_node(device_uid, node_uid)
             if ogn and not ogn.op.is_completed():
-                icon = OpTypeMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
+                icon = ChangeTreeCategoryMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): returning icon')
                 return icon
