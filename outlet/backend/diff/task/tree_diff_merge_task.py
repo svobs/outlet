@@ -33,9 +33,9 @@ class TreeDiffMergeTask:
     @staticmethod
     def _add_node_and_op(src_tree: ChangeTree, guid, merged_tree):
         sn = src_tree.get_sn_for_guid(guid)
-        op = src_tree.get_op_for_guid(guid)
-        if op:
-            merged_tree.add_sn_and_op(sn, op)
+        op_list = src_tree.get_op_list_for_guid(guid)
+        if op_list:
+            merged_tree.add_op_list_with_target_sn(sn, op_list)
         else:
             if sn and sn.node.is_container_node():
                 logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
@@ -89,7 +89,7 @@ class TreeDiffMergeTask:
         super_root_sn = SPIDNodePair(super_root_spid, RootTypeNode(super_root_spid))
         state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn,
                                                        tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
-        merged_tree = ChangeTree(backend=self.backend, state=state, show_whole_forest=True)
+        merged_tree = ChangeTree(backend=self.backend, state=state, is_super_root_tree=True)
 
         for guid in selected_guid_list_left:
             self._add_node_and_op(tree_left, guid, merged_tree)

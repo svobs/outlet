@@ -560,6 +560,7 @@ class CacheManager(HasLifecycle):
         return self._cache_registry.get_store_for_device_uid(sn.spid.device_uid).get_parent_for_sn(sn)
 
     def get_ancestor_list_for_spid(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Deque[SPIDNodePair]:
+        """Will not work for ChangeTreeSPIDs (tree_id is not provided)"""
         if not spid:
             raise RuntimeError('get_ancestor_list_for_spid(): SPID not provided!')
         if not isinstance(spid, SinglePathNodeIdentifier):

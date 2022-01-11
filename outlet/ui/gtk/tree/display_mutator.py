@@ -213,12 +213,13 @@ class DisplayMutator(HasLifecycle):
         tree_path = self.con.display_store.model.get_path(tree_iter)
         self.con.tree_view.scroll_to_cell(path=tree_path, column=None, use_align=True, row_align=0.5, col_align=0)
 
-    def expand_and_select_node(self, selection: SinglePathNodeIdentifier):
-        assert isinstance(selection, SinglePathNodeIdentifier), f'Expected instance of SinglePathNodeIdentifier but got: {type(selection)}'
+    def expand_and_select_node(self, selection_spid: SinglePathNodeIdentifier):
+        assert isinstance(selection_spid, SinglePathNodeIdentifier), f'Expected instance of SinglePathNodeIdentifier but got: {type(selection_spid)}'
 
         def do_in_ui():
             with self._lock:
-                ancestor_sn_list: Iterable[SPIDNodePair] = self.con.get_tree().get_ancestor_list(selection)
+                ancestor_sn_list: Iterable[SPIDNodePair] = self.con.backend.get_ancestor_list(selection_spid,
+                                                                                              stop_at_path=self.con.get_tree().root_path)
 
                 # Expand all ancestors one by one:
                 tree_iter = None
@@ -232,7 +233,7 @@ class DisplayMutator(HasLifecycle):
                         self._expand_subtree(tree_path, expand_all=False)
 
                 # Now select target node:
-                self.select_guid(selection.guid)
+                self.select_guid(selection_spid.guid)
 
         GLib.idle_add(do_in_ui)
 

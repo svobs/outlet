@@ -289,7 +289,7 @@ class ContentFirstDiffer(ChangeMaker):
                                  f'{sn_s.spid} md5={sn_s.node.md5}')
 
                 self.append_cp_op_s_to_r(sn_s)
-                self.left_side.add_node_and_new_op(UserOpType.RM, sn_s)
+                self.left_side.add_new_op_and_target_sn_to_tree(UserOpType.RM, sn_s)
 
                 state.count_add_delete_pairs += 1
         logger.info(f'{sw} Finished path comparison for left tree (2/3)')
@@ -308,7 +308,7 @@ class ContentFirstDiffer(ChangeMaker):
                              f'{sn_r.spid} md5={sn_r.node.md5}')
 
             self.append_cp_op_r_to_s(sn_r)
-            self.right_side.add_node_and_new_op(UserOpType.RM, sn_r)
+            self.right_side.add_new_op_and_target_sn_to_tree(UserOpType.RM, sn_r)
             state.count_add_delete_pairs += 1
 
         logger.info(f'{sw} Finished path comparison for right tree (3/3)')

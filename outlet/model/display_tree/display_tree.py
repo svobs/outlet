@@ -95,12 +95,13 @@ class DisplayTree:
         return self.state.root_sn.spid.get_single_path()
 
     @property
-    def uid(self):
+    def root_uid(self) -> UID:
         return self.state.root_sn.spid.node_uid
 
     @property
-    def root_uid(self) -> UID:
-        return self.uid
+    def uid(self):
+        logger.warning(f'DisplayTree property "uid" is deprecated (use "root_uid" instead)')
+        return self.root_uid
 
     # More root meta
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -138,9 +139,6 @@ class DisplayTree:
         assert parent_spid, 'Arg "parent_spid" cannot be null!'
         return self.backend.get_child_list(parent_spid, self.tree_id, is_expanding_parent=is_expanding_parent, use_filter=True,
                                            max_results=MAX_NUMBER_DISPLAYABLE_CHILD_NODES)
-
-    def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Iterable[SPIDNodePair]:
-        return self.backend.get_ancestor_list(spid, stop_at_path=self.root_path)
 
     # Stats
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

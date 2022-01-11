@@ -247,6 +247,10 @@ class ChangeTreeCategoryMeta:
     }
 
     @staticmethod
+    def category_for_op_type(op_type: UserOpType) -> Optional[ChangeTreeCategory]:
+        return ChangeTreeCategoryMeta._op_type_dict.get(op_type)
+
+    @staticmethod
     def category_for_name(cat_enum_name: str) -> Optional[ChangeTreeCategory]:
         return ChangeTreeCategoryMeta._category_enum_name_dict.get(cat_enum_name)
 
@@ -291,17 +295,21 @@ class ChangeTreeCategoryMeta:
             else:
                 return IconId.ICON_FILE_WARNING
         else:
-            category = ChangeTreeCategoryMeta._op_type_dict[op.op_type]
-            if is_dir:
-                if is_dst:
-                    return ChangeTreeCategoryMeta._icon_dst_dir_dict[category]
-                else:
-                    return ChangeTreeCategoryMeta._icon_src_dir_dict[category]
+            category = ChangeTreeCategoryMeta.category_for_op_type(op.op_type)
+            return ChangeTreeCategoryMeta.get_icon_for_node_with_category(is_dir, is_dst, category)
+
+    @staticmethod
+    def get_icon_for_node_with_category(is_dir: bool, is_dst: bool, category: ChangeTreeCategory) -> IconId:
+        if is_dir:
+            if is_dst:
+                return ChangeTreeCategoryMeta._icon_dst_dir_dict[category]
             else:
-                if is_dst:
-                    return ChangeTreeCategoryMeta._icon_dst_file_dict[category]
-                else:
-                    return ChangeTreeCategoryMeta._icon_src_file_dict[category]
+                return ChangeTreeCategoryMeta._icon_src_dir_dict[category]
+        else:
+            if is_dst:
+                return ChangeTreeCategoryMeta._icon_dst_file_dict[category]
+            else:
+                return ChangeTreeCategoryMeta._icon_src_file_dict[category]
 
 
 class Batch:

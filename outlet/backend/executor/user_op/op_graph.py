@@ -499,20 +499,28 @@ class OpGraph(HasLifecycle):
         target_device_uid: UID = target_node.device_uid
         parent_ogn_list: List[OpGraphNode] = []
 
+        # Check for pending operations for parent node(s) of target:
         for tgt_node_parent_uid in target_node.get_parent_uids():
             prev_ogn_for_target_node_parent: Optional[OpGraphNode] = self._get_last_pending_ogn_for_node(target_device_uid, tgt_node_parent_uid)
             if prev_ogn_for_target_node_parent:
+                # FIXME: check if parent's last op is FINISH_DIR_MV/CP, and if so, find its companion START_DIR_MV/CP.
+                # If we're in the same batch as START & FINISH: insert this OGN as child of START and parent of FINISH
+                # (reconnecting START & FINISH if needed)
+
+                # Sanity check:
                 if prev_ogn_for_target_node_parent.is_remove_type():
                     raise RuntimeError(f'Invalid operation: cannot {new_ogn.op.op_type.name} {target_node.node_identifier} when its '
                                        f'parent node ({prev_ogn_for_target_node_parent.get_tgt_node().node_identifier}) will first be removed!')
+
                 if prev_ogn_for_target:
                     logger.debug(f'Found both OGN for tgt ({prev_ogn_for_target}) and OGN for parent of tgt ({prev_ogn_for_target_node_parent})')
+                    # Sanity check: 99% sure this should never happen, but let's check for it
                     if not prev_ogn_for_target.is_child_of(prev_ogn_for_target_node_parent):
-                        # 99% sure this should never happen, but let's check for it
                         logger.error(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Prev OGN ({prev_ogn_for_target}) for tgt node '
                                      f'is not a child of its parent node\'s OGN ({prev_ogn_for_target_node_parent})')
                         raise RuntimeError(f'Invalid state of OpGraph: previous operation for tgt node {target_node.node_identifier} is not connected'
                                            f'to its parent\'s operation!')
+                    # else fall through and attach to prev_ogn_for_target
                 else:
                     logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent '
                                  f'{target_device_uid}:{tgt_node_parent_uid}; '
@@ -915,6 +923,8 @@ class OpGraph(HasLifecycle):
         return tgt_ogn
 
     def _unlink_ogn_from_graph(self, tgt_ogn: OpGraphNode):
+        # FIXME: attach to parents, not root!
+
         for ogn_parent in tgt_ogn.get_parent_list():
             ogn_parent.unlink_child(tgt_ogn)
 

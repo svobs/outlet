@@ -32,7 +32,7 @@ class BatchGraphBuilder:
                 big_node_list.append(user_op.dst_node)
         return big_node_list
 
-    # Reduce Changes logic
+    # Validation & Reduction logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
@@ -181,7 +181,7 @@ class BatchGraphBuilder:
                 eval_func(op, ancestor)
 
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
-    # Reduce Changes logic
+    # Validation & Reduction logic
 
     def build_batch_graph(self, op_batch: List[UserOp], op_manager) -> RootNode:
         batch_uid = op_batch[0].batch_uid
@@ -220,21 +220,21 @@ class BatchGraphBuilder:
         return batch_graph.root
 
     def _insert_for_op(self, op: UserOp, graph: OpGraph, tgt_node_dict):
-        # make src OGN:
+        # 1a. Build src OGN:
         ancestor_uid_list = self._build_ancestor_uid_list(op.src_node, tgt_node_dict)
         if op.op_type == UserOpType.RM:
-            src_node: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
+            src_ogn: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
         else:
-            src_node: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
+            src_ogn: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
 
-        # add src OGN:
-        graph.insert_ogn(src_node)
+        # 1b. Insert src OGN:
+        graph.insert_ogn(src_ogn)
 
-        # make dst OGN (if op has dst):
+        # 2a. Build dst OGN (if op has dst):
         if op.has_dst():
             ancestor_uid_list = self._build_ancestor_uid_list(op.dst_node, tgt_node_dict)
             dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
-            # add dst OGN:
+            # 2b. Insert dst OGN:
             graph.insert_ogn(dst_node)
 
     def _build_ancestor_uid_list(self, tgt_node: Node, tgt_node_dict: Dict[UID, Dict[UID, Node]]) -> List[UID]:

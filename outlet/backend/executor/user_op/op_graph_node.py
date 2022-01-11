@@ -386,7 +386,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 
     def is_remove_type(self) -> bool:
         # remember, the src node of a MV gets removed
-        return self.op.op_type == UserOpType.MV or self.op.op_type == UserOpType.MV_ONTO
+        return self.op.op_type == UserOpType.MV or self.op.op_type == UserOpType.MV_ONTO or self.op.op_type == UserOpType.FINISH_DIR_MV
 
     def clear_relationships(self):
         HasSingleParent.clear_relationships(self)

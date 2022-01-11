@@ -273,7 +273,7 @@ class MixedTreeSPID(SinglePathNodeIdentifier):
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
         CLASS MixedTreeSPID
 
-        Currently only used for the super-root node in a ChangeTree (I think...)
+        Currently only used for the super-root node in a ChangeTree.
     ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
     def __init__(self, node_uid: UID, device_uid: UID, path_uid: UID, full_path: str, parent_guid: Optional[GUID] = None):
@@ -324,7 +324,8 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
 class ChangeTreeSPID(SinglePathNodeIdentifier):
     """
     NOTE: path_uid is stored as node_uid for ChangeTreeSPIDs, but node_uid is not used and should not be assumed to be the same value as
-    the underlying Node. ChangeTreeSPIDs do not correspond to actual node_uids
+    the underlying Node. ChangeTreeSPIDs do not correspond to actual node_uids because their nodes are usually not live
+    TODO: consider including tree_id in here so that global lookup is possible
     """
     def __init__(self, path_uid: UID, device_uid: UID, full_path: str, category: ChangeTreeCategory, parent_guid: Optional[GUID] = None):
         super().__init__(path_uid, device_uid, full_path, parent_guid)

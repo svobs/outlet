@@ -143,7 +143,7 @@ class TreeSummarizer:
     def _build_change_tree_summary(tree: ChangeTree, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats], device_list: List[Device])\
             -> str:
         # TODO: do we want to create a different summary for filtered views?
-        if tree.show_whole_forest:
+        if tree.is_super_root_tree:
             # need to preserve ordering...
             type_summaries = []
             device_map = {}

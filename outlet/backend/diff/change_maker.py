@@ -53,8 +53,11 @@ class OneSide:
     def get_root_sn(self) -> SPIDNodePair:
         return self.change_tree.get_root_sn()
 
-    def add_node_and_new_op(self, op_type: UserOpType, sn_src: SPIDNodePair, sn_dst: SPIDNodePair = None):
-        """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a UserOp
+    def _build_new_op(self, src_node: Node, dst_node: Node, op_type: UserOpType) -> UserOp:
+        return UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type, src_node=src_node, dst_node=dst_node)
+
+    def add_new_compound_op_and_target_sn_to_tree(self, op_type_list: List[UserOpType], sn_src: SPIDNodePair, sn_dst: SPIDNodePair = None):
+        """Adds a node to the ChangeTree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a UserOp
         of the given type"""
 
         if sn_dst:
@@ -64,13 +67,22 @@ class OneSide:
             target_sn = sn_src
             dst_node = None
 
-        op: UserOp = UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
-                            src_node=sn_src.node, dst_node=dst_node)
-        if DIFF_DEBUG_ENABLED:
-            logger.debug(f'[{self.change_tree.tree_id}] Created new UserOp(uid={op.op_uid} op_type={op.op_type.name}). '
-                         f'Adding to ChangeTree along with node: {target_sn.spid}')
+        op_list: List[UserOp] = []
+        for op_type in op_type_list:
+            new_op = self._build_new_op(src_node=sn_src.node, dst_node=dst_node, op_type=op_type)
+            op_list.append(new_op)
 
-        self.change_tree.add_sn_and_op(target_sn, op)
+        if DIFF_DEBUG_ENABLED:
+            logger.debug(f'[{self.change_tree.tree_id}] Created new UserOp(s): {op_list}. '
+                         f'Adding to ChangeTree along with: {target_sn.spid}')
+
+        self.change_tree.add_op_list_with_target_sn(target_sn, op_list)
+
+    def add_new_op_and_target_sn_to_tree(self, op_type: UserOpType, sn_src: SPIDNodePair, sn_dst: SPIDNodePair = None):
+        """Adds a node to the ChangeTree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a UserOp
+        of the given type"""
+
+        self.add_new_compound_op_and_target_sn_to_tree([op_type], sn_src, sn_dst)
 
     def derive_relative_path(self, spid: SinglePathNodeIdentifier) -> str:
         return file_util.strip_root(spid.get_single_path(), self.root_sn.spid.get_single_path())
@@ -173,7 +185,7 @@ class OneSide:
         while len(ancestor_stack) > 0:
             ancestor_sn: SPIDNodePair = ancestor_stack.pop()
             # Create an accompanying MKDIR action which will create the new folder/dir
-            self.add_node_and_new_op(op_type=UserOpType.MKDIR, sn_src=ancestor_sn)
+            self.add_new_op_and_target_sn_to_tree(op_type=UserOpType.MKDIR, sn_src=ancestor_sn)
 
     def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[SPIDNodePair]:
         tree_type: int = new_sn.spid.tree_type
@@ -303,24 +315,24 @@ class ChangeMaker:
 
     def append_mv_op_r_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a dst node which will rename a file within the right tree to match the relative path of the file on the left"""
-        self.right_side.add_node_and_new_op(op_type=UserOpType.MV, sn_src=sn_r, sn_dst=self._migrate_node_to_right(sn_s))
+        self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.MV, sn_src=sn_r, sn_dst=self._migrate_node_to_right(sn_s))
 
     def append_mv_op_s_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
-        self.left_side.add_node_and_new_op(op_type=UserOpType.MV, sn_src=sn_s, sn_dst=self._migrate_node_to_left(sn_r))
+        self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.MV, sn_src=sn_s, sn_dst=self._migrate_node_to_left(sn_r))
 
     def append_cp_op_s_to_r(self, sn_s: SPIDNodePair):
         """COPY: Left -> Right. (Node on Right does not yet exist)"""
-        self.right_side.add_node_and_new_op(op_type=UserOpType.CP, sn_src=sn_s, sn_dst=self._migrate_node_to_right(sn_s))
+        self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.CP, sn_src=sn_s, sn_dst=self._migrate_node_to_right(sn_s))
 
     def append_cp_op_r_to_s(self, sn_r: SPIDNodePair):
         """COPY: Left <- Right. (Node on Left does not yet exist)"""
-        self.left_side.add_node_and_new_op(op_type=UserOpType.CP, sn_src=sn_r, sn_dst=self._migrate_node_to_left(sn_r))
+        self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.CP, sn_src=sn_r, sn_dst=self._migrate_node_to_left(sn_r))
 
     def append_up_op_s_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left -> Right. Both nodes already exist, but one will overwrite the other"""
-        self.right_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_s, sn_dst=sn_r)
+        self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.CP_ONTO, sn_src=sn_s, sn_dst=sn_r)
 
     def append_up_op_r_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left <- Right. Both nodes already exist, but one will overwrite the other"""
-        self.left_side.add_node_and_new_op(op_type=UserOpType.CP_ONTO, sn_src=sn_r, sn_dst=sn_s)
+        self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.CP_ONTO, sn_src=sn_r, sn_dst=sn_s)
