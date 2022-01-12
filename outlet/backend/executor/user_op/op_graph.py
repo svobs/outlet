@@ -210,13 +210,17 @@ class OpGraph(HasLifecycle):
         for qd_line in qd_line_list:
             logger.debug(f'[{self.name}] {qd_line}')
 
-    def _get_last_pending_ogn_for_node(self, device_uid: UID, node_uid: UID) -> Optional[OpGraphNode]:
+    def _get_ogn_queue_for_node(self, device_uid: UID, node_uid: UID) -> Optional[Deque[OpGraphNode]]:
         node_dict = self._node_ogn_q_dict.get(device_uid, None)
         if node_dict:
-            node_list = node_dict.get(node_uid, None)
-            if node_list:
-                # last element in list is lowest priority:
-                return node_list[-1]
+            return node_dict.get(node_uid, None)
+        return None
+
+    def _get_last_pending_ogn_for_node(self, device_uid: UID, node_uid: UID) -> Optional[OpGraphNode]:
+        ogn_list = self._get_ogn_queue_for_node(device_uid=device_uid, node_uid=node_uid)
+        if ogn_list:
+            # last element in list is lowest priority:
+            return ogn_list[-1]
         return None
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
@@ -495,33 +499,32 @@ class OpGraph(HasLifecycle):
                          f'adding to root')
             return [self.root]
 
-    @staticmethod
-    def _find_matching_start_ancestor_for_finish(ogn_finish: OpGraphNode, ogn_first_ancestor: OpGraphNode = None) -> OpGraphNode:
-        if ogn_first_ancestor:
-            ogn_ancestor = ogn_first_ancestor
-        else:
-            ogn_ancestor: OpGraphNode = ogn_finish.get_first_parent()
-
-        while not ogn_ancestor.is_root():
-            if not ogn_finish.is_in_same_batch(ogn_ancestor):
+    def _find_matching_start_dir_ogn_for_finish_dir_ogn(self, ogn_finish: OpGraphNode) -> OpGraphNode:
+        tgt_node = ogn_finish.get_tgt_node()
+        ogn_queue: Deque[OpGraphNode] = self._get_ogn_queue_for_node(device_uid=tgt_node.device_uid, node_uid=tgt_node.uid)
+        for ogn in reversed(ogn_queue):
+            if ogn.node_uid == ogn_finish.node_uid:
+                continue
+                
+            if not ogn.is_in_same_batch(ogn_finish):
                 # corrupt graph state!
-                raise RuntimeError(f'Found ancestor OGN ({ogn_ancestor}) which is not in the same batch as its descendent FINISH ({ogn_finish})')
-            if ogn_ancestor.op.is_start_dir_type():
+                raise RuntimeError(f'Found ancestor OGN ({ogn}) which is not in the same batch as its descendent FINISH ({ogn_finish})')
+            if ogn.op.is_start_dir_type():
+                logger.debug(f'Found ancestor OGN ({ogn}) which is not in the same batch as its descendent FINISH ({ogn_finish})')
+                assert ogn.is_src() == ogn_finish.is_src()
                 if ogn_finish.op.op_type == UserOpType.FINISH_DIR_MV:
-                    assert ogn_ancestor.op.op_type == UserOpType.START_DIR_MV
+                    assert ogn.op.op_type == UserOpType.START_DIR_MV
                 elif ogn_finish.op.op_type == UserOpType.FINISH_DIR_CP:
-                    assert ogn_ancestor.op.op_type == UserOpType.START_DIR_CP
+                    assert ogn.op.op_type == UserOpType.START_DIR_CP
                 else:
                     assert False
-                return ogn_ancestor
-            else:
-                ogn_ancestor = ogn_ancestor.get_first_parent()
+                return ogn
 
-        raise RuntimeError(f'Failed to find ancestor START matching descendent FINISH ({ogn_finish})')
+        raise RuntimeError(f'Failed to find earlier queued START OGN matching new FINISH ({ogn_finish})')
 
     def _insert_ogn_between_start_and_finish(self, ogn_new: OpGraphNode, ogn_finish: OpGraphNode):
         assert ogn_finish.op.is_finish_dir_type()
-        ogn_start = self._find_matching_start_ancestor_for_finish(ogn_finish)
+        ogn_start = self._find_matching_start_dir_ogn_for_finish_dir_ogn(ogn_finish)
         ogn_start.link_child(ogn_new)
         ogn_new.link_child(ogn_finish)
         if ogn_finish.is_child_of(ogn_start):
@@ -571,7 +574,7 @@ class OpGraph(HasLifecycle):
             assert not parent_ogn_list, f'Did not expect: {parent_ogn_list}'
 
             if new_ogn.op.is_finish_dir_type():
-                ogn_start: OpGraphNode = self._find_matching_start_ancestor_for_finish(ogn_finish=new_ogn, ogn_first_ancestor=prev_ogn_for_target)
+                ogn_start: OpGraphNode = self._find_matching_start_dir_ogn_for_finish_dir_ogn(ogn_finish=new_ogn)
                 ogn_leaf_list: List[OpGraphNode] = ogn_start.get_all_downstream_leaves()
                 # these will be our parents. Validate:
                 for ogn_leaf in ogn_leaf_list:
