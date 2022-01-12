@@ -1,7 +1,7 @@
 import collections
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional, Set
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
 from model.node.node import BaseNode, Node
@@ -90,6 +90,9 @@ class OpGraphNode(BaseNode, ABC):
     def is_child_of(self, other_ogn) -> bool:
         return not self.is_root() and other_ogn.node_uid in [p.node_uid for p in self.get_parent_list()]
 
+    def is_in_same_batch(self, other_ogn) -> bool:
+        return other_ogn.op.batch_uid == self.op.batch_uid
+
     @abstractmethod
     def clear_relationships(self):
         pass
@@ -100,6 +103,7 @@ class OpGraphNode(BaseNode, ABC):
 
     @classmethod
     def is_src(cls) -> bool:
+        # Default is src
         return True
 
     @classmethod
@@ -183,7 +187,7 @@ class OpGraphNode(BaseNode, ABC):
                             f'Expected a new parent for {child} but found existing {og_node}'
                         assert len(child.get_parent_list()) > 1, \
                             f'Expected child OGN ({child}) to have multiple parents but found {child.get_parent_list()}'
-                        logger.debug(f'Child OG node {child.node_uid} has a parent we have not yet encountered ({parent_of_child.node_uid}); '
+                        logger.debug(f'Child OGN {child.node_uid} has a parent we have not yet encountered ({parent_of_child.node_uid}); '
                                      f'skipping for now')
                         all_parents_seen = False
 
@@ -204,6 +208,31 @@ class OpGraphNode(BaseNode, ABC):
                     return True
 
         return False
+
+    def get_all_downstream_leaves(self) -> List:
+        """Includes self, if self has no children."""
+        leaf_list: List[OpGraphNode] = []
+
+        queue: Deque[OpGraphNode] = collections.deque()
+        queue.append(self)
+        coverage_set: Set[UID] = set()
+
+        while len(queue) > 0:
+            ogn: OpGraphNode = queue.popleft()
+
+            if not ogn.get_child_list():
+                leaf_list.append(ogn)
+            else:
+                for child in ogn.get_child_list():
+                    if child.node_uid not in coverage_set:
+                        coverage_set.add(child.node_uid)
+                        if child.get_child_list():
+                            leaf_list.append(child)
+                        else:
+                            queue.append(child)
+
+        logger.debug(f'Returning {len(leaf_list)} downstream leaf OGNs for OGN {self}')
+        return leaf_list
 
 
 class HasSingleParent(ABC):
@@ -363,7 +392,7 @@ class RootNode(HasMultiChild, OpGraphNode):
         return f'ROOT_no_op'
 
 
-class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
+class SrcOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS SrcOpNode
@@ -371,7 +400,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     """
     def __init__(self, uid: UID, op: UserOp, target_ancestor_uid_list: List[UID]):
         OpGraphNode.__init__(self, uid, op=op, target_ancestor_uid_list=target_ancestor_uid_list)
-        HasSingleParent.__init__(self)
+        HasMultiParent.__init__(self)
         HasMultiChild.__init__(self)
 
     def is_reentrant(self) -> bool:
@@ -389,7 +418,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
         return self.op.op_type == UserOpType.MV or self.op.op_type == UserOpType.MV_ONTO or self.op.op_type == UserOpType.FINISH_DIR_MV
 
     def clear_relationships(self):
-        HasSingleParent.clear_relationships(self)
+        HasMultiParent.clear_relationships(self)
         HasMultiChild.clear_relationships(self)
 
     def print_me(self, full=True) -> str:
@@ -400,7 +429,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
             return string
 
 
-class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
+class DstOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS DstOpNode
@@ -409,7 +438,7 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def __init__(self, uid: UID, op: UserOp, target_ancestor_uid_list: List[UID]):
         assert op.has_dst()
         OpGraphNode.__init__(self, uid, op=op, target_ancestor_uid_list=target_ancestor_uid_list)
-        HasSingleParent.__init__(self)
+        HasMultiParent.__init__(self)
         HasMultiChild.__init__(self)
 
     def is_reentrant(self) -> bool:
@@ -430,7 +459,7 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
         return True
 
     def clear_relationships(self):
-        HasSingleParent.clear_relationships(self)
+        HasMultiParent.clear_relationships(self)
         HasMultiChild.clear_relationships(self)
 
     def print_me(self, full=True) -> str:

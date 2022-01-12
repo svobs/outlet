@@ -168,6 +168,12 @@ class UserOp(BaseNode):
         status = self.get_status()
         return status == UserOpStatus.STOPPED_ON_ERROR or status == UserOpStatus.BLOCKED_BY_ERROR
 
+    def is_start_dir_type(self) -> bool:
+        return self.op_type == UserOpType.START_DIR_MV or self.op_type == UserOpType.START_DIR_CP
+
+    def is_finish_dir_type(self) -> bool:
+        return self.op_type == UserOpType.FINISH_DIR_MV or self.op_type == UserOpType.FINISH_DIR_CP
+
     def has_dst(self) -> bool:
         return self.op_type.has_dst()
 
