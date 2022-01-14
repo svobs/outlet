@@ -8,7 +8,7 @@ from backend.display_tree.change_tree import ChangeTree
 from constants import SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTreeUiState
-from model.node.container_node import CategoryNode, RootTypeNode
+from model.node.container_node import RootTypeNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory

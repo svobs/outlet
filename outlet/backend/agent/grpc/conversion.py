@@ -58,7 +58,6 @@ class GRPCConverter:
             # ContainerNode or subclass
             if isinstance(node, CategoryNode):
                 self.dir_stats_to_grpc(node.dir_stats, grpc_node.category_meta)
-                grpc_node.category_meta.op_type = node.op_type
             elif isinstance(node, RootTypeNode):
                 self.dir_stats_to_grpc(node.dir_stats, grpc_node.root_type_meta)
             else:
@@ -277,9 +276,9 @@ class GRPCConverter:
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         if grpc_node_identifier.multi_path_id_meta:
             return self.backend.node_identifier_factory.build_node_id(node_uid=UID(grpc_node_identifier.node_uid),
-                                                                   device_uid=UID(grpc_node_identifier.device_uid),
-                                                                   identifier_type=NodeIdentifierType(grpc_node_identifier.identifier_type),
-                                                                   path_list=list(grpc_node_identifier.multi_path_id_meta.path_list))
+                                                                      device_uid=UID(grpc_node_identifier.device_uid),
+                                                                      identifier_type=NodeIdentifierType(grpc_node_identifier.identifier_type),
+                                                                      path_list=list(grpc_node_identifier.multi_path_id_meta.path_list))
         else:
             return self.backend.node_identifier_factory.build_spid(node_uid=UID(grpc_node_identifier.node_uid),
                                                                    device_uid=UID(grpc_node_identifier.device_uid),

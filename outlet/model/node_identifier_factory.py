@@ -194,12 +194,12 @@ class NodeIdentifierFactory:
 
         if not path_uid or not single_path:
             if not path_uid and single_path:
-                path_uid = self.backend.get_uid_for_local_path(single_path)
+                path_uid = self.backend.cacheman.get_uid_for_local_path(single_path)
             elif path_uid and not single_path:
-                single_path = self.backend.get_path_for_uid(path_uid)
+                single_path = self.backend.cacheman.get_path_for_uid(path_uid)
             elif identifier_type == NodeIdentifierType.LOCAL_DISK_SPID:
                 path_uid = node_uid
-                single_path = self.backend.get_path_for_uid(path_uid)
+                single_path = self.backend.cacheman.get_path_for_uid(path_uid)
             else:
                 raise RuntimeError('Neither path_uid nor single_path provided!')
 
