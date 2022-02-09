@@ -63,10 +63,7 @@ class CommandExecutor(HasLifecycle):
             if command.get_status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.get_status()}')
             else:
-                status_str: str = f'[CommandExecutor] Executing command: {repr(command)}'
-                logger.info(status_str)
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Command(uid={command.uid}): src={command.op.src_node}) dst={command.op.dst_node}')
+                logger.info(f'[CommandExecutor] Executing command: {repr(command)}')
                 cmd_sw = Stopwatch()
                 command.op.result = command.execute(context)
                 logger.info(f'[CommandExecutor] {cmd_sw} Cmd completed with status {command.get_status().name}: {command.get_description()}')

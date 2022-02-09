@@ -477,7 +477,7 @@ class OpManager(HasLifecycle):
                 self.backend.cacheman.remove_node(removed_node, to_trash=False)
 
         if result.status == UserOpStatus.STOPPED_ON_ERROR:
-            logger.info(f'Command {command.op.op_uid} ({command.op.op_type.name}) stopped on error')
+            logger.info(f'Command (op uid={command.op.op_uid} type={command.op.op_type.name}) stopped on error')
         elif not (result.status == UserOpStatus.COMPLETED_OK or result.status == UserOpStatus.COMPLETED_NO_OP):
             raise RuntimeError(f'Command completed but status ({result.status}) is invalid: {command}')
         else:

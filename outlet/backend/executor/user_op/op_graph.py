@@ -837,11 +837,11 @@ class OpGraph(HasLifecycle):
 
         with self._cv_can_get:
             if not self._outstanding_op_dict.pop(op.op_uid, None):
-                raise RuntimeError(f'Complated op not found in outstanding op list (action UID {op.op_uid}')
+                raise RuntimeError(f'Complated op (UID {op.op_uid}) not found in outstanding op list!')
 
             status = op.get_status()
             if status != UserOpStatus.COMPLETED_OK and status != UserOpStatus.COMPLETED_NO_OP:
-                logger.info(f'[{self.name}] pop_completed_op(): will not pop OGNs for op ({op.op_uid}) as it did not complete OK (status: {status}) ')
+                logger.info(f'[{self.name}] pop_completed_op(): will not pop OGNs for op ({op.op_uid}) as it did not complete OK (status: {status.name}) ')
 
                 if status == UserOpStatus.STOPPED_ON_ERROR:
                     # Mark affected nodes, and also any nodes from dependent OGNs, as needing icon updates.

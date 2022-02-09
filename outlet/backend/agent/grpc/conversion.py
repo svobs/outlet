@@ -269,12 +269,12 @@ class GRPCConverter:
             grpc_node_identifier.spid_meta.path_uid = node_identifier.path_uid
             grpc_node_identifier.spid_meta.single_path = node_identifier.get_single_path()
             if node_identifier.parent_guid:
-                grpc_node_identifier.parent_guid = node_identifier.parent_guid
+                grpc_node_identifier.spid_meta.parent_guid = node_identifier.parent_guid
         else:
             grpc_node_identifier.multi_path_id_meta.path_list = node_identifier.get_path_list()
 
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
-        if grpc_node_identifier.multi_path_id_meta:
+        if grpc_node_identifier.HasField('multi_path_id_meta'):
             return self.backend.node_identifier_factory.build_node_id(node_uid=UID(grpc_node_identifier.node_uid),
                                                                       device_uid=UID(grpc_node_identifier.device_uid),
                                                                       identifier_type=NodeIdentifierType(grpc_node_identifier.identifier_type),
@@ -285,7 +285,7 @@ class GRPCConverter:
                                                                    identifier_type=NodeIdentifierType(grpc_node_identifier.identifier_type),
                                                                    single_path=grpc_node_identifier.spid_meta.single_path,
                                                                    path_uid=UID(grpc_node_identifier.spid_meta.path_uid),
-                                                                   parent_guid=grpc_node_identifier.parent_guid)
+                                                                   parent_guid=grpc_node_identifier.spid_meta.parent_guid)
 
     # SPIDNodePair
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

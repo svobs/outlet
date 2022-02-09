@@ -183,11 +183,11 @@ class NodeIdentifierFactory:
 
         device_uid = ensure_uid(device_uid)
         if not device_uid:
-            raise RuntimeError('No device_uid provided!')
+            raise RuntimeError('build_spid(): No device_uid provided!')
 
         node_uid = ensure_uid(node_uid)
         if node_uid is None:  # although ==0 is allowed for legacy behavior
-            raise RuntimeError('No node_uid provided!')
+            raise RuntimeError('build_spid(): No node_uid provided!')
 
         if not identifier_type:
             identifier_type = self._derive_spid_type_from_device_uid(device_uid)
@@ -201,7 +201,7 @@ class NodeIdentifierFactory:
                 path_uid = node_uid
                 single_path = self.backend.cacheman.get_path_for_uid(path_uid)
             else:
-                raise RuntimeError('Neither path_uid nor single_path provided!')
+                raise RuntimeError('build_spid(): Neither path_uid nor single_path provided!')
 
         # We may be coming from gRPC
         if parent_guid == "":
