@@ -41,10 +41,11 @@ def _mime_type_to_tuple(mime_type: MimeType) -> Tuple:
     return mime_type.uid, mime_type.type_string
 
 
-class CurrentDownload:
+class GDriveMetaDownload:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS CurrentDownload
+    CLASS GDriveMetaDownload
+    Represents a download in progress of GDrive meta.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, download_type: int, current_state: int, page_token: Optional[str], update_ts: int):
@@ -60,17 +61,17 @@ class CurrentDownload:
         return self.current_state == GDRIVE_DOWNLOAD_STATE_COMPLETE
 
     def __repr__(self):
-        return f'CurrentDownload(type={self.download_type}, state={self.current_state}, page_token={self.page_token}, update_ts={self.update_ts})'
+        return f'GDriveMetaDownload(type={self.download_type}, state={self.current_state}, page_token={self.page_token}, update_ts={self.update_ts})'
 
 
-def _download_to_tuple(d: CurrentDownload) -> Tuple:
-    assert isinstance(d, CurrentDownload), f'Expected CurrentDownload; got instead: {d}'
+def _download_to_tuple(d: GDriveMetaDownload) -> Tuple:
+    assert isinstance(d, GDriveMetaDownload), f'Expected GDriveMetaDownload; got instead: {d}'
     return d.to_tuple()
 
 
-def _tuple_to_download(row: Tuple) -> CurrentDownload:
+def _tuple_to_download(row: Tuple) -> GDriveMetaDownload:
     assert isinstance(row, Tuple), f'Expected Tuple; got instead: {row}'
-    return CurrentDownload(*row)
+    return GDriveMetaDownload(*row)
 
 
 class GDriveDatabase(MetaDatabase):
@@ -279,11 +280,11 @@ class GDriveDatabase(MetaDatabase):
     # TABLE current_download operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def upsert_download(self, download: CurrentDownload, commit: bool = True):
+    def upsert_download(self, download: GDriveMetaDownload, commit: bool = True):
         self.table_current_download.create_table_if_not_exist(commit=False)
         self.table_current_download.upsert_object(download, commit=commit)
 
-    def get_current_download_list(self) -> List[CurrentDownload]:
+    def get_current_download_list(self) -> List[GDriveMetaDownload]:
         return self.table_current_download.select_object_list()
 
     def update_changes_download_start_token(self, new_page_token, commit: bool = True):

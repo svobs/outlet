@@ -10,7 +10,7 @@ from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
 from backend.executor.central import ExecPriority
-from backend.sqlite.gdrive_db import CurrentDownload
+from backend.sqlite.gdrive_db import GDriveMetaDownload
 from backend.tree_store.gdrive.client.change_observer import GDriveChange, PagePersistingChangeObserver
 from backend.tree_store.gdrive.client.gdrive_client import GDriveClient
 from backend.tree_store.gdrive.gdrive_tree_loader import GDriveTreeLoader
@@ -277,7 +277,7 @@ class GDriveMasterStore(TreeStore):
             logger.warning(f'GDrive master tree is not loaded! Aborting sync.')
             return
 
-        changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
+        changes_download: GDriveMetaDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
         if not changes_download:
             raise RuntimeError(f'Download state not found for GDrive change log!')
 

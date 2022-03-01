@@ -5,7 +5,7 @@ from typing import Callable, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
-from backend.sqlite.gdrive_db import CurrentDownload
+from backend.sqlite.gdrive_db import GDriveMetaDownload
 from backend.tree_store.gdrive.client.gdrive_client import GDriveClient
 from backend.tree_store.gdrive.gdrive_tree import GDriveWholeTree
 from backend.tree_store.gdrive.gdrive_diskstore import GDriveDiskStore
@@ -65,17 +65,17 @@ class GDriveTreeLoader:
         master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid(self.device_uid)
         cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root, create_if_not_found=False)
 
-        changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
+        changes_download: GDriveMetaDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
         if not changes_download or invalidate_cache:
             logger.debug(f'Getting a new start token for changes (invalidate_cache={invalidate_cache})')
             token: str = self.gdrive_client.get_changes_start_token()
-            changes_download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, token, sync_ts)
+            changes_download = GDriveMetaDownload(GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, token, sync_ts)
             self._diskstore.create_or_update_download(changes_download)
 
-        initial_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD)
+        initial_download: GDriveMetaDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD)
         if not initial_download or invalidate_cache:
             logger.debug(f'Starting a fresh download for entire Google Drive tree meta (invalidate_cache={invalidate_cache})')
-            initial_download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, None, sync_ts)
+            initial_download = GDriveMetaDownload(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, None, sync_ts)
             self._diskstore.create_or_update_download(initial_download)
 
             # Notify UI trees that their old roots are invalid:
@@ -129,7 +129,7 @@ class GDriveTreeLoader:
         subtask_5 = this_task.create_child_task(self._do_post_load_processing, tree, initial_download, cache_info, after_tree_loaded)
         self.backend.executor.submit_async_task(subtask_5)
 
-    def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload, sync_ts: int):
+    def _download_gdrive_root_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: GDriveMetaDownload, sync_ts: int):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             self.backend.cacheman.delete_all_gdrive_data(self.device_uid)
 
@@ -149,7 +149,7 @@ class GDriveTreeLoader:
             self._diskstore.insert_gdrive_folder_list(folder_list=[gdrive_root_node, drive_root], commit=False)
             self._diskstore.create_or_update_download(download=initial_download)
 
-    def _download_all_gdrive_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
+    def _download_all_gdrive_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: GDriveMetaDownload):
         # for all of these steps, make sure we are in the correct state, and do nothing if not.
         # We do not know if the previous tasks have failed and we are here anyway
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
@@ -159,7 +159,7 @@ class GDriveTreeLoader:
             logger.debug(f'_download_all_gdrive_dir_meta(): skipping because download state = {initial_download.current_state} '
                          f'(was expecting {GDRIVE_DOWNLOAD_STATE_GETTING_DIRS})')
 
-    def _download_all_gdrive_non_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
+    def _download_all_gdrive_non_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: GDriveMetaDownload):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
             observer = FileMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer, this_task)
@@ -167,7 +167,7 @@ class GDriveTreeLoader:
             logger.debug(f'_download_all_gdrive_non_dir_meta(): skipping because download state = {initial_download.current_state} '
                          f'(was expecting {GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS})')
 
-    def _compile_downloaded_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: CurrentDownload):
+    def _compile_downloaded_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: GDriveMetaDownload):
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
             # Some additional work needed after downloading...
 

@@ -14,7 +14,7 @@ from model.uid import UID
 from backend.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
 from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from backend.tree_store.gdrive.op_write import GDriveWriteThroughOp
-from backend.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
+from backend.sqlite.gdrive_db import GDriveMetaDownload, GDriveDatabase
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
@@ -168,7 +168,7 @@ class GDriveDiskStore(HasLifecycle):
         operation.update_diskstore(self._db)
         self._db.commit()
 
-    def create_or_update_download(self, download: CurrentDownload, commit: bool = True):
+    def create_or_update_download(self, download: GDriveMetaDownload, commit: bool = True):
         self._db.upsert_download(download, commit=commit)
 
     def update_changes_download_start_token(self, new_page_token, commit: bool = True):
@@ -191,13 +191,13 @@ class GDriveDiskStore(HasLifecycle):
             return None
 
     def insert_gdrive_files_and_parents(self, file_list: List[GDriveFile], parent_mappings: List[Tuple],
-                                        current_download: CurrentDownload, commit: bool = True):
+                                        current_download: GDriveMetaDownload, commit: bool = True):
         self._db.insert_gdrive_files(file_list=file_list, commit=False)
         self._db.insert_id_parent_mappings(parent_mappings, commit=False)
         self._db.upsert_download(current_download, commit=commit)
 
     def insert_gdrive_folder_list_and_parents(self, folder_list: List[GDriveFolder], parent_mappings: List[Tuple],
-                                              current_download: CurrentDownload, commit: bool = True):
+                                              current_download: GDriveMetaDownload, commit: bool = True):
         self._db.insert_gdrive_folder_list(folder_list=folder_list, commit=False)
         self._db.insert_id_parent_mappings(parent_mappings, commit=False)
         self._db.upsert_download(current_download, commit=commit)

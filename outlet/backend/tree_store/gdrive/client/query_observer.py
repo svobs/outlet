@@ -6,7 +6,7 @@ import logging
 from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, \
     GDRIVE_ROOT_UID, MIME_TYPE_SHORTCUT
 from backend.tree_store.gdrive.gdrive_diskstore import GDriveDiskStore
-from backend.sqlite.gdrive_db import CurrentDownload
+from backend.sqlite.gdrive_db import GDriveMetaDownload
 from model.uid import UID
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from backend.tree_store.gdrive.gdrive_tree import GDriveWholeTree
@@ -95,11 +95,11 @@ class FolderMetaPersister(GDriveQueryObserver):
     Collects GDrive folder metas for mass insertion into database
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, diskstore: GDriveDiskStore, cacheman):
+    def __init__(self, tree: GDriveWholeTree, download: GDriveMetaDownload, diskstore: GDriveDiskStore, cacheman):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
-        self.download: CurrentDownload = download
+        self.download: GDriveMetaDownload = download
         self.diskstore: GDriveDiskStore = diskstore
 
         self.meta_collector: MetaCollector = MetaCollector(cacheman)
@@ -143,11 +143,11 @@ class FileMetaPersister(GDriveQueryObserver):
     Collects GDrive file metas for mass insertion into database
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, diskstore: GDriveDiskStore, cacheman):
+    def __init__(self, tree: GDriveWholeTree, download: GDriveMetaDownload, diskstore: GDriveDiskStore, cacheman):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
-        self.download: CurrentDownload = download
+        self.download: GDriveMetaDownload = download
         self.diskstore: GDriveDiskStore = diskstore
 
         self.meta_collector: MetaCollector = MetaCollector(cacheman)
