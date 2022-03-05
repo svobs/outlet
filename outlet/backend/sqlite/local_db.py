@@ -11,16 +11,6 @@ from model.node_identifier import LocalNodeIdentifier
 logger = logging.getLogger(__name__)
 
 
-def _file_to_tuple(f: LocalFileNode):
-    assert isinstance(f, LocalFileNode), f'Expected LocalFileNode; got instead: {f}'
-    return f.to_tuple()
-
-
-def _dir_to_tuple(d):
-    assert isinstance(d, LocalDirNode), f'Expected LocalDirNode; got instead: {d}'
-    return d.to_tuple()
-
-
 class LocalDiskDatabase(MetaDatabase):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -30,9 +20,7 @@ class LocalDiskDatabase(MetaDatabase):
     TABLE_LOCAL_FILE = Table(name='local_file', cols=OrderedDict([
         ('uid', 'INTEGER PRIMARY KEY'),
         ('parent_uid', 'INTEGER'),
-        ('md5', 'TEXT'),
-        ('sha256', 'TEXT'),
-        ('size_bytes', 'INTEGER'),
+        ('content_uid', 'INTEGER'),
         ('sync_ts', 'INTEGER'),
         ('create_ts', 'INTEGER'),
         ('modify_ts', 'INTEGER'),
@@ -60,8 +48,8 @@ class LocalDiskDatabase(MetaDatabase):
         super().__init__(db_path)
         self.cacheman = backend.cacheman
         self.device_uid: UID = device_uid
-        self.table_local_file = LiveTable(LocalDiskDatabase.TABLE_LOCAL_FILE, self.conn, _file_to_tuple, self._tuple_to_file)
-        self.table_local_dir = LiveTable(LocalDiskDatabase.TABLE_LOCAL_DIR, self.conn, _dir_to_tuple, self._tuple_to_dir)
+        self.table_local_file = LiveTable(LocalDiskDatabase.TABLE_LOCAL_FILE, self.conn, self._file_to_tuple, self._tuple_to_file)
+        self.table_local_dir = LiveTable(LocalDiskDatabase.TABLE_LOCAL_DIR, self.conn, self._dir_to_tuple, self._tuple_to_dir)
 
     def _get_parent_uid(self, full_path: str) -> UID:
         parent_path = str(pathlib.Path(full_path).parent)
@@ -70,8 +58,13 @@ class LocalDiskDatabase(MetaDatabase):
     # LOCAL_FILE operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    @staticmethod
+    def _file_to_tuple(f: LocalFileNode) -> Tuple:
+        assert isinstance(f, LocalFileNode), f'Expected LocalFileNode; got instead: {f}'
+        return f.to_tuple()
+
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
-        uid_int, parent_uid_int, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, is_live = row
+        uid_int, parent_uid_int, content_uid_int, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
         # make sure we call get_uid_for_local_path() for both the node's path and its parent's path, so that UID mapper has a chance to store it
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
@@ -79,7 +72,9 @@ class LocalDiskDatabase(MetaDatabase):
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, full_path=full_path)
         parent_uid: UID = self._get_parent_uid(full_path)
         assert parent_uid == parent_uid_int, f'UID conflict! Got {uid} but read {parent_uid_int} in row: {row}'
-        return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)
+
+        content_meta = self.cacheman.get_content_meta_for_uid(content_uid_int)
+        return LocalFileNode(node_identifier, parent_uid, content_meta, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)
 
     def has_local_files(self):
         return self.table_local_file.has_rows()
@@ -112,6 +107,11 @@ class LocalDiskDatabase(MetaDatabase):
 
     # LOCAL_DIR operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    @staticmethod
+    def _dir_to_tuple(d) -> Tuple:
+        assert isinstance(d, LocalDirNode), f'Expected LocalDirNode; got instead: {d}'
+        return d.to_tuple()
 
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
         uid_int, parent_uid_int, full_path, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts, all_children_fetched = row
@@ -151,11 +151,6 @@ class LocalDiskDatabase(MetaDatabase):
 
     def truncate_local_dirs(self, commit=True):
         self.table_local_dir.truncate_table(commit=commit)
-
-    def get_child_list_for_node_uid(self, node_uid: UID) -> List[LocalNode]:
-        child_dir_list = self.table_local_dir.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
-        child_file_list = self.table_local_file.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
-        return child_dir_list + child_file_list
 
     # Mixed type operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -218,13 +213,7 @@ class LocalDiskDatabase(MetaDatabase):
 
         return None
 
-    def get_file_or_dir_for_path(self, full_path: str) -> Optional[LocalNode]:
-        dir_list = self.table_local_dir.select_object_list(where_clause='WHERE full_path = ?', where_tuple=(full_path,))
-        if dir_list:
-            return dir_list[0]
-
-        file_list = self.table_local_file.select_object_list(where_clause='WHERE full_path = ?', where_tuple=(full_path,))
-        if file_list:
-            return file_list[0]
-
-        return None
+    def get_child_list_for_node_uid(self, node_uid: UID) -> List[LocalNode]:
+        child_dir_list = self.table_local_dir.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
+        child_file_list = self.table_local_file.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
+        return child_dir_list + child_file_list

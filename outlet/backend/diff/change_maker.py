@@ -138,7 +138,8 @@ class OneSide:
                                               sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
                                               all_children_fetched=True)
             else:
-                node_dst: Node = LocalFileNode(nid, dst_parent_uid, node_src.md5, node_src.sha256, node_src.get_size_bytes(),
+                assert isinstance(node_src, LocalFileNode)
+                node_dst: Node = LocalFileNode(nid, dst_parent_uid, node_src.content_meta,
                                                sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
                                                trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
@@ -147,9 +148,10 @@ class OneSide:
                                               trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None, drive_id=None,
                                               is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             else:
+                assert isinstance(node_src, GDriveFile)
                 node_dst: Node = GDriveFile(node_identifier=nid, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
-                                            mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None, md5=node_src.md5,
-                                            is_shared=False, create_ts=None, modify_ts=None, size_bytes=node_src.get_size_bytes(),
+                                            mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None,
+                                            content_meta=node_src.content_meta, is_shared=False, create_ts=None, modify_ts=None,
                                             owner_uid=None, shared_by_user_uid=None, sync_ts=None)
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={nid}")

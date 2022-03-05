@@ -19,13 +19,14 @@ from backend.display_tree.row_state_tracking import RowStateTracking
 from backend.executor.central import ExecPriority
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_manager import OpManager
+from backend.sqlite.content_meta_db import ContentMeta
 from backend.tree_store.gdrive.gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
     OPS_FILE_NAME, TreeDisplayMode, TreeID, TreeLoadState, TreeType
-from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import ResultsExceededError
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
 from model.context_menu import ContextMenuItem
 from model.display_tree.build_struct import DisplayTreeRequest, RowsOfInterest
@@ -410,7 +411,7 @@ class CacheManager(HasLifecycle):
         self._cache_registry.save_all_cache_info_to_disk()
 
     def ensure_cache_loaded_for_node_list(self, this_task: Task, node_list: List[Node]):
-        """Ensures that all the necessary caches are loaded for all of the given nodes.
+        """Ensures that all the necessary caches are loaded for all the given nodes.
         We launch separate executor tasks for each cache load that we require."""
         self._cache_registry.ensure_cache_loaded_for_node_list(this_task, node_list)
 
@@ -965,3 +966,9 @@ class CacheManager(HasLifecycle):
 
     def execute_tree_action_list(self, tree_action_list: List[TreeAction]):
         self._action_manager.execute_tree_action_list(tree_action_list)
+
+    def get_content_meta_for_uid(self, content_uid: UID) -> ContentMeta:
+        return self._cache_registry.get_content_meta_for_uid(content_uid)
+
+    def get_content_meta_for(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None):
+        return self._cache_registry.get_content_meta_for(size_bytes, md5, sha256)

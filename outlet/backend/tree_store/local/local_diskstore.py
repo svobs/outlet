@@ -1,15 +1,17 @@
 import logging
 import threading
-from typing import Dict, List, Optional
+from collections import deque
+from typing import Deque, Dict, List, Optional
 
 from pydispatch import dispatcher
 
 from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local.locald_tree import LocalDiskTree
-from backend.tree_store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskMultiNodeOp
-from constants import TrashStatus, TreeType
+from backend.tree_store.local.master_local_write_op import LocalDiskMultiNodeOp, LocalDiskSingleNodeOp
+from constants import TreeType
 from model.cache_info import PersistedCacheInfo
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
@@ -24,7 +26,10 @@ class LocalDiskDiskStore(HasLifecycle):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDiskDiskStore
 
-    Wrapper for OpDatabase; adds lifecycle and possibly complex logic
+    Wrapper for set of LocalDiskDatabases, each of which covers a different tree but all corresponding to the same device; adds lifecycle and
+    possibly complex logic.
+
+    An instance of this class should be encapsulated within a LocalDiskMasterStore for the same device.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, device_uid: UID):
@@ -51,6 +56,7 @@ class LocalDiskDiskStore(HasLifecycle):
                 except RuntimeError:
                     logger.exception(f'Failed to close database "{cache_location}"')
 
+    # NOTE: This should be the ONLY place LocalDiskDatabase is instantiated!
     def _get_or_open_db(self, cache_info: PersistedCacheInfo) -> LocalDiskDatabase:
         db = self._open_db_dict.get(cache_info.cache_location, None)
         if not db:
@@ -177,3 +183,52 @@ class LocalDiskDiskStore(HasLifecycle):
             cache_info.needs_save = False
 
             logger.info(f'[{tree_id}] {sw} Wrote {len(file_list)} files and {len(dir_list)} dirs to "{cache_info.cache_location}"')
+
+    def get_file_or_dir_for_uid(self, cache_info: PersistedCacheInfo, node_uid: UID) -> Optional[LocalNode]:
+        with self._struct_lock:
+            db: LocalDiskDatabase = self._get_or_open_db(cache_info)
+            return db.get_file_or_dir_for_uid(node_uid)
+
+    def get_subtree_bfs_from_cache(self, cache_info, node_uid: UID):
+        assert isinstance(cache_info.subtree_root, LocalNodeIdentifier)
+        with self._struct_lock:
+            db: LocalDiskDatabase = self._get_or_open_db(cache_info)
+            subtree_node_list: List[LocalNode] = []
+            dir_queue: Deque[LocalDirNode] = deque()
+
+            # Compare logic with _get_child_list_from_cache_for_spid():
+            parent_dir_node = db.get_file_or_dir_for_uid(node_uid)
+            subtree_node_list.append(parent_dir_node)
+            if parent_dir_node.is_dir():  # note: we don't care if all_children_fetched: we want to collect any children which were fetched
+                assert isinstance(parent_dir_node, LocalDirNode)
+                dir_queue.append(parent_dir_node)
+
+            while len(dir_queue) > 0:
+                parent_dir_node = dir_queue.popleft()
+                child_node_list = db.get_child_list_for_node_uid(parent_dir_node.uid)
+                subtree_node_list += child_node_list
+
+                for child_node in child_node_list:
+                    if child_node.is_dir():
+                        assert isinstance(child_node, LocalDirNode)
+                        dir_queue.append(child_node)
+
+            return subtree_node_list
+
+    def get_child_list_for_node_uid(self, cache_info, node_uid: UID, only_if_all_children_fetched: bool) -> Optional[List[SPIDNodePair]]:
+        with self._struct_lock:
+            db: LocalDiskDatabase = self._get_or_open_db(cache_info)
+            parent_node = db.get_file_or_dir_for_uid(node_uid)
+            if parent_node:
+                if not parent_node.is_dir():
+                    logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in diskstore but it is not a dir: {parent_node}')
+                    return None
+                elif not only_if_all_children_fetched or parent_node.all_children_fetched:
+                    return [self._to_sn(x) for x in db.get_child_list_for_node_uid(node_uid)]
+                else:
+                    logger.debug(f'_get_child_list_from_cache_for_spid(): Disk cache ({cache_info.cache_location}) contains parent but '
+                                 f'not all children fetched: {parent_node}')
+
+    @staticmethod
+    def _to_sn(node: LocalNode):
+        return SPIDNodePair(node.node_identifier, node)

@@ -80,7 +80,8 @@ class GDriveAPIConverter:
 
         modify_ts = GDriveAPIConverter._parse_gdrive_date(item, 'modifiedTime')
 
-        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, device_uid=self._gdrive_store.device_uid, path_list=None), goog_id=goog_id, node_name=item['name'],
+        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, device_uid=self._gdrive_store.device_uid, path_list=None), goog_id=goog_id,
+                                 node_name=item['name'],
                                  trashed=GDriveAPIConverter._convert_trashed(item), create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid,
                                  drive_id=item.get('driveId', None), is_shared=item.get('shared', None), shared_by_user_uid=sharing_user_uid,
                                  sync_ts=sync_ts, all_children_fetched=False)
@@ -114,7 +115,8 @@ class GDriveAPIConverter:
         modify_ts = GDriveAPIConverter._parse_gdrive_date(item, 'modifiedTime')
 
         size_str = item.get('size', None)
-        size = None if size_str is None else int(size_str)
+        size_bytes = None if size_str is None else int(size_str)
+        md5 = item.get('md5Checksum', None)
         version = item.get('version', None)
         mime_type_string = item.get('mimeType', None)
         mime_type: MimeType = self._gdrive_store.get_or_create_gdrive_mime_type(mime_type_string)
@@ -123,12 +125,13 @@ class GDriveAPIConverter:
 
         uid = self._gdrive_store.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
         assert isinstance(uid, UID), f'Not a UID: {uid}'
+        content_meta = self._gdrive_store.backend.cacheman.get_content_meta_for(size_bytes=size_bytes, md5=md5)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, device_uid=self._gdrive_store.device_uid, path_list=None),
                                            goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveAPIConverter._convert_trashed(item),
                                            drive_id=item.get('driveId', None), version=version,
-                                           md5=item.get('md5Checksum', None), is_shared=item.get('shared', None), create_ts=create_ts,
-                                           modify_ts=modify_ts, size_bytes=size, shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid,
+                                           content_meta=content_meta, is_shared=item.get('shared', None), create_ts=create_ts,
+                                           modify_ts=modify_ts, shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid,
                                            sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])

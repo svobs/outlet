@@ -65,6 +65,10 @@ def try_calculating_signatures(node) -> Optional:
         if md5:
             # Do not modify the original node, or cacheman will not detect that it has changed. Edit and submit a copy instead:
             node_with_signature = copy.deepcopy(node)
+
+            # FIXME: this won't work anymore! Need to integrate this dumb class with ContentMetaManager
+            raise RuntimeError()
+
             node_with_signature.md5 = md5
             node_with_signature.sha256 = sha256
             return node_with_signature

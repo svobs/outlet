@@ -7,13 +7,14 @@ from typing import Dict, List, Optional, Set
 
 from pydispatch import dispatcher
 
+from backend.content_meta_manager import ContentMetaManager
 from backend.executor.central import ExecPriority
 from backend.sqlite.cache_registry_db import CacheRegistryDatabase
 from backend.tree_store.gdrive.gdrive import GDriveMasterStore
 from backend.tree_store.local.locald import LocalDiskMasterStore
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
-from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, CONTENT_META_FILE_NAME, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, \
     IS_LINUX, IS_MACOS, IS_WINDOWS, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
     SUPER_ROOT_DEVICE_UID, TreeType, UID_GOOG_ID_FILE_NAME, \
     UID_PATH_FILE_NAME
@@ -66,6 +67,9 @@ class CacheRegistry(HasLifecycle):
         self._uid_goog_id_mapper = UidGoogIdMapper(backend, uid_goog_id_cache_path)
         """Same deal with GoogID mapper. We init it here, so that we can load in all the cached GoogIDs ASAP"""
 
+        content_meta_path = os.path.join(self.cache_dir_path, CONTENT_META_FILE_NAME)
+        self.content_meta_manager: ContentMetaManager = ContentMetaManager(content_meta_path, backend)
+
         self._device_uuid: str = self._get_or_set_local_device_uuid()
         logger.debug(f'LocalDisk device UUID is: {self._device_uuid}')
 
@@ -93,6 +97,8 @@ class CacheRegistry(HasLifecycle):
         self._uid_path_mapper.start()
         # same deal with GoogIDs
         self._uid_goog_id_mapper.start()
+
+        self.content_meta_manager.start()
 
         self._init_store_dict()
         self._update_cached_device_list()
@@ -122,6 +128,12 @@ class CacheRegistry(HasLifecycle):
 
     def shutdown(self):
         logger.debug(f'[CacheRegistry] Shutdown started')
+
+        try:
+            if self.content_meta_manager:
+                self.content_meta_manager.shutdown()
+        except (AttributeError, NameError):
+            pass
 
         try:
             if self._uid_path_mapper:
@@ -240,7 +252,7 @@ class CacheRegistry(HasLifecycle):
         else:
             device = Device(NULL_UID, 'GDriveTODO', TreeType.GDRIVE, "My Google Drive")
             self._write_new_device(device)
-            store = GDriveMasterStore(self.backend, device)
+            store = GDriveMasterStore(self.backend, self._uid_goog_id_mapper, device)
             self._store_dict[device.uid] = store
 
     def _load_registry(self):
@@ -635,3 +647,12 @@ class CacheRegistry(HasLifecycle):
         """Deterministically gets or creates a UID corresponding to the given path string"""
         assert full_path and isinstance(full_path, str), f'full_path value is invalid: {full_path}'
         return self._uid_path_mapper.get_uid_for_path(full_path, uid_suggestion)
+
+    # ContentMeta
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def get_content_meta_for_uid(self, content_uid: UID):
+        return self.content_meta_manager.get_content_meta_for_uid(content_uid)
+
+    def get_content_meta_for(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None):
+        return self.content_meta_manager.get_content_meta_for(size_bytes, md5, sha256)

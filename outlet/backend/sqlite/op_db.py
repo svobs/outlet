@@ -302,13 +302,14 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
-        op_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, \
+        op_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, content_uid, create_ts, modify_ts, \
             owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
 
+        content_meta = self.cacheman.get_content_meta_for_uid(content_uid)
         obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), device_uid=UID(device_uid), path_list=None),
                          goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
-                         trashed=item_trashed, drive_id=drive_id, version=version, md5=md5, is_shared=is_shared,
-                         create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid,
+                         trashed=item_trashed, drive_id=drive_id, version=version, content_meta=content_meta, is_shared=is_shared,
+                         create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid,
                          sync_ts=sync_ts)
 
         self._collect_gdrive_object(obj, goog_id, parent_uid_int, op_uid_int, nodes_by_action_uid)
@@ -330,14 +331,15 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
-        op_uid_int, device_uid, uid_int, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, \
+        op_uid_int, device_uid, uid_int, parent_uid, content_uid, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, \
             is_live = row
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cacheman returned {uid} but op cache returned {uid_int} (from row: {row})')
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=UID(device_uid), full_path=full_path)
-        obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)
+        content_meta = self.cacheman.get_content_meta_for_uid(content_uid)
+        obj = LocalFileNode(node_identifier, parent_uid, content_meta, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)
         op_uid = UID(op_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')

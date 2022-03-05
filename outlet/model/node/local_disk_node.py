@@ -3,6 +3,7 @@ import pathlib
 from abc import ABC
 from typing import Optional, Tuple
 
+from backend.sqlite.content_meta_db import ContentMeta
 from constants import IconId, IS_MACOS, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.directory_stats import DirectoryStats
@@ -190,19 +191,15 @@ class LocalFileNode(LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, md5, sha256, size_bytes, sync_ts,
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, content_meta: ContentMeta, sync_ts,
                  create_ts, modify_ts, change_ts, trashed, is_live: bool):
         super().__init__(node_identifier, parent_uid, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts)
-        self._md5: Optional[str] = md5
-        self._sha256: Optional[str] = sha256
-        self._size_bytes: int = ensure_int(size_bytes)
+        self.content_meta: ContentMeta = content_meta
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalFileNode)
         LocalNode.update_from(self, other_node)
-        self._md5: Optional[str] = other_node.md5
-        self._sha256: Optional[str] = other_node.sha256
-        self._size_bytes: int = ensure_int(other_node.get_size_bytes())
+        self.content_meta = other_node.content_meta
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
         # A file can never be the parent of anything
@@ -221,57 +218,30 @@ class LocalFileNode(LocalNode):
         return False
 
     def get_size_bytes(self):
-        return self._size_bytes
-
-    def set_size_bytes(self, size_bytes: int):
-        self._size_bytes = size_bytes
+        return self.content_meta.size_bytes
 
     @property
     def md5(self):
-        return self._md5
-
-    @md5.setter
-    def md5(self, md5):
-        self._md5 = md5
+        return self.content_meta.md5
 
     @property
     def sha256(self):
-        return self._sha256
-
-    @sha256.setter
-    def sha256(self, sha256):
-        self._sha256 = sha256
+        return self.content_meta.sha256
 
     @classmethod
     def has_tuple(cls) -> bool:
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_parent_uid(), self.md5, self.sha256, self._size_bytes, self.sync_ts, \
+        return self.uid, self.get_single_parent_uid(), self.content_meta.uid, self.sync_ts, \
                self.create_ts, self.modify_ts, self.change_ts,  self.get_single_path(), self._trashed, self._is_live
 
     def has_signature(self) -> bool:
-        return self._md5 is not None and self._sha256 is not None
+        return self.content_meta.has_signature()
 
     def copy_signature_if_is_meta_equal(self, other) -> bool:
-        if self.is_meta_equal(other) and (other.md5 or other.sha256):
-            if other.md5:
-                if SUPER_DEBUG_ENABLED:
-                    if self._md5 and self._md5 != other.md5:
-                        logger.error(f'copy_signature_if_is_meta_equal(): meta matches but MD5s differ! this={self}, other={other}')
-                    else:
-                        logger.debug(f'Copying MD5 from node: {other.node_identifier}')
-
-                self._md5 = other.md5
-
-            if other.sha256:
-                if SUPER_DEBUG_ENABLED:
-                    if self._sha256 and self._sha256 != other.sha256:
-                        logger.error(f'copy_signature_if_is_meta_equal(): meta matches but SHA256s differ! this={self}, other={other}')
-                    else:
-                        logger.debug(f'Copying SHA256 from node: {other.node_identifier}')
-
-                self._sha256 = other.sha256
+        if self.is_meta_equal(other) and (other.has_signature()):
+            self.content_meta = other.content_meta
 
             if SUPER_DEBUG_ENABLED:
                 _check_update_sanity(other, self)
@@ -282,8 +252,7 @@ class LocalFileNode(LocalNode):
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
         if isinstance(other, LocalFileNode) and \
-                other._md5 == self._md5 and \
-                other._sha256 == self._sha256 and \
+                other.content_meta == self.content_meta and \
                 other.node_identifier.node_uid == self.node_identifier.node_uid and \
                 other.node_identifier.device_uid == self.node_identifier.device_uid and \
                 other._create_ts == self._create_ts and \
@@ -300,8 +269,8 @@ class LocalFileNode(LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} md5={self._md5} sha256={self.sha256} ' \
-               f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} ' \
+        return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} content_uid={self.content_meta.uid} ' \
+               f'size_bytes={self.get_size_bytes()} trashed={self._trashed} is_live={self.is_live()} ' \
                f'create_ts={self._create_ts} modify_ts={self._modify_ts} change_ts={self._change_ts})'
 
 

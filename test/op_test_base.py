@@ -229,7 +229,8 @@ class OpTestBase(unittest.TestCase):
         logger.warning(f'LOAD COMPLETE')
 
     def tearDown(self) -> None:
-        with OpDatabase(self.op_db_path, self.backend) as op_db:
+        content_meta_db = None  # oops FIXME
+        with OpDatabase(self.op_db_path, self.backend, content_meta_db) as op_db:
             op_list = op_db.get_all_pending_ops()
             self.assertEqual(0, len(op_list), 'We have ops remaining after quit!')
 

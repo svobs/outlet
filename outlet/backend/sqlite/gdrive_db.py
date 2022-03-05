@@ -124,11 +124,10 @@ class GDriveDatabase(MetaDatabase):
                               cols=OrderedDict([
                                   ('uid', 'INTEGER PRIMARY KEY'),
                                   ('goog_id', 'TEXT'),
+                                  ('content_uid', 'INTEGER'),
                                   ('name', 'TEXT'),
                                   ('mime_type_uid', 'INTEGER'),
                                   ('trashed', 'INTEGER'),
-                                  ('size_bytes', 'INTEGER'),
-                                  ('md5', 'TEXT'),
                                   ('create_ts', 'INTEGER'),
                                   ('modify_ts', 'INTEGER'),
                                   ('owner_uid', 'TEXT'),
@@ -171,15 +170,16 @@ class GDriveDatabase(MetaDatabase):
                             shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
     def _tuple_to_gdrive_file(self, row: Tuple) -> GDriveFile:
-        uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
+        uid_int, goog_id, node_name, mime_type_uid, item_trashed, content_uid, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
                 shared_by_user_uid, version, sync_ts = row
 
         uid_from_cache = UID(uid_int)
 
+        content_meta = self.cacheman.get_content_meta_for_uid(content_uid)
         return GDriveFile(GDriveIdentifier(uid=uid_from_cache, device_uid=self.device_uid, path_list=None),
                           goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
                           trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, version=version,
-                          md5=md5, create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
+                          content_meta=content_meta, create_ts=create_ts, modify_ts=modify_ts,
                           owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts)
 
     # FOLDER operations

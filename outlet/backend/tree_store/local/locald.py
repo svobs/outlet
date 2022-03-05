@@ -5,24 +5,22 @@ import math
 import os
 import pathlib
 import threading
-from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local import content_hasher
+from backend.tree_store.local.local_diskstore import LocalDiskDiskStore
 from backend.tree_store.local.locald_scanner import LocalDiskScanner
 from backend.tree_store.local.locald_tree import LocalDiskTree
-from backend.tree_store.local.local_diskstore import LocalDiskDiskStore
 from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
-from constants import IS_LINUX, IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
-from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from constants import IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
@@ -75,7 +73,7 @@ class LocalDiskMasterStore(TreeStore):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDiskMasterStore
 
-    Facade for in-memory & disk caches for a local filesystem
+    Facade for in-memory & disk caches for a local filesystem.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -464,8 +462,7 @@ class LocalDiskMasterStore(TreeStore):
         # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'_read_single_node_for(): Memcache miss; reading diskstore for {node_uid}')
-        with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-            node = cache.get_file_or_dir_for_uid(node_uid)
+        node = self._diskstore.get_file_or_dir_for_uid(cache_info, node_uid)
         if node:
             if TRACE_ENABLED:
                 logger.debug(f'_read_single_node_for(): Found node in disk cache: {node}')
@@ -662,28 +659,7 @@ class LocalDiskMasterStore(TreeStore):
 
             else:
                 # Load subtree nodes directly from disk cache:
-                with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-                    subtree_node_list: List[LocalNode] = []
-                    dir_queue: Deque[LocalDirNode] = deque()
-
-                    # Compare logic with _get_child_list_from_cache_for_spid():
-                    parent_dir_node = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
-                    subtree_node_list.append(parent_dir_node)
-                    if parent_dir_node.is_dir():  # note: we don't care if all_children_fetched: we want to collect any children which were fetched
-                        assert isinstance(parent_dir_node, LocalDirNode)
-                        dir_queue.append(parent_dir_node)
-
-                    while len(dir_queue) > 0:
-                        parent_dir_node = dir_queue.popleft()
-                        child_node_list = cache.get_child_list_for_node_uid(parent_dir_node.uid)
-                        subtree_node_list += child_node_list
-
-                        for child_node in child_node_list:
-                            if child_node.is_dir():
-                                assert isinstance(child_node, LocalDirNode)
-                                dir_queue.append(child_node)
-
-                return subtree_node_list
+                return self._diskstore.get_subtree_bfs_from_cache(cache_info, parent_spid.node_uid)
 
         # both caches miss
         return None
@@ -733,17 +709,7 @@ class LocalDiskMasterStore(TreeStore):
                 return None
             else:
                 logger.debug(f'_get_child_list_from_cache_for_spid(): In-memory cache miss; trying disk cache for: {parent_spid}')
-                with LocalDiskDatabase(cache_info.cache_location, self.backend, self.device.uid) as cache:
-                    parent_node = cache.get_file_or_dir_for_uid(parent_spid.node_uid)
-                    if parent_node:
-                        if not parent_node.is_dir():
-                            logger.debug(f'_get_child_list_from_cache_for_spid(): Found parent in diskstore but it is not a dir: {parent_node}')
-                            return None
-                        elif not only_if_all_children_fetched or parent_node.all_children_fetched:
-                            return [self.to_sn(x) for x in cache.get_child_list_for_node_uid(parent_spid.node_uid)]
-                        else:
-                            logger.debug(f'_get_child_list_from_cache_for_spid(): Disk cache ({cache_info.cache_location}) contains parent but '
-                                         f'not all children fetched: {parent_node}')
+                return self._diskstore.get_child_list_for_node_uid(cache_info, parent_spid.node_uid, only_if_all_children_fetched)
 
         else:
             if SUPER_DEBUG_ENABLED:
@@ -958,7 +924,8 @@ class LocalDiskMasterStore(TreeStore):
             return None
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
-        new_node = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, create_ts, modify_ts, change_ts,
+        content_meta = self.backend.cacheman.get_meta_for(md5=md5, sha256=sha256, size_bytes=size_bytes)
+        new_node = LocalFileNode(node_identifier, parent_uid, content_meta, sync_ts, create_ts, modify_ts, change_ts,
                                  TrashStatus.NOT_TRASHED, is_live)
 
         if TRACE_ENABLED:

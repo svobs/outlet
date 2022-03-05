@@ -148,8 +148,9 @@ class GRPCConverter:
         if grpc_node.HasField("gdrive_file_meta"):
             meta = grpc_node.gdrive_file_meta
             assert isinstance(node_identifier, GDriveIdentifier)
+            content_meta = self.backend.cacheman.get_content_meta_for(size_bytes=meta.size_bytes, md5=meta.md5, sha256=meta.sha256)
             node = GDriveFile(node_identifier, meta.goog_id, meta.name, meta.mime_type_uid, grpc_node.trashed, meta.drive_id,
-                              meta.version, meta.md5, grpc_node.is_shared, meta.create_ts, meta.modify_ts, meta.size_bytes,
+                              meta.version, content_meta, grpc_node.is_shared, meta.create_ts, meta.modify_ts,
                               meta.owner_uid, meta.shared_by_user_uid, meta.sync_ts)
             node.set_parent_uids([UID(uid) for uid in meta.parent_uid_list])
         elif grpc_node.HasField("gdrive_folder_meta"):
@@ -169,7 +170,8 @@ class GRPCConverter:
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta
             assert isinstance(node_identifier, LocalNodeIdentifier)
-            node = LocalFileNode(node_identifier, meta.parent_uid, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.create_ts,
+            content_meta = self.backend.cacheman.get_content_meta_for(size_bytes=meta.size_bytes, md5=meta.md5, sha256=meta.sha256)
+            node = LocalFileNode(node_identifier, meta.parent_uid, content_meta, meta.sync_ts, meta.create_ts,
                                  meta.modify_ts, meta.change_ts, grpc_node.trashed, meta.is_live)
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, ChangeTreeSPID)

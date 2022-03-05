@@ -344,7 +344,7 @@ class TransferMaker(ChangeMaker):
     @staticmethod
     def _calculate_signatures_if_missing_and_local(sn):
         """Ensure both nodes have signatures filled in (if local nodes)"""
-        if not sn.node.md5 or not sn.node.sha256:
+        if not sn.node.has_signature():
             node_with_sigs = content_hasher.try_calculating_signatures(sn.node)
             if node_with_sigs:
                 sn.node = node_with_sigs
