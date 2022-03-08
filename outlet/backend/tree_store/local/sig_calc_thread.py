@@ -150,23 +150,13 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             logger.debug(f'[{self.name}] Node already has signature; skipping; {node}')
             return
 
-        size_bytes = node.get_size_bytes()
-        is_large = size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES
-        if is_large:
-            logger.info(f'[{self.name}] Calculating signature for node (note: this file is very large ({humanfriendlier_size(size_bytes)}) '
-                        f'and may take a while: {node.node_identifier}')
-        elif SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
-
-        sw = Stopwatch()
-        node_with_signature = content_hasher.try_calculating_signatures(node)
-        if not node_with_signature:
-            logger.info(f'[{self.name}] {sw} Failed to calculate signature for node {self.device_uid}:{node.uid}: assuming it was deleted from disk')
+        content_meta = self.backend.cacheman.calculate_signature_for_local_file(device_uid=node.device_uid, full_path=node.get_single_path())
+        if not content_meta:
+            # exceptional case should already have been logged; just return
             return
 
-        if SUPER_DEBUG_ENABLED or is_large:
-            logger.debug(f'[{self.name}] {sw} Calculated MD5: {node_with_signature.md5} for node: {node_with_signature.node_identifier.guid}')
+        node.content_meta = content_meta
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:
-        self.backend.cacheman.update_single_node(node_with_signature)
+        self.backend.cacheman.update_single_node(node)

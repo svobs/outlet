@@ -15,6 +15,7 @@ from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SingleP
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from util import file_util
+from util.local_file_util import LocalFileUtil
 
 logger = logging.getLogger(__name__)
 
@@ -269,6 +270,7 @@ class ChangeMaker:
                  tree_id_left_src: TreeID, tree_id_right_src: TreeID,
                  tree_id_left: TreeID = 'ChangeTreeLeft', tree_id_right: TreeID = 'ChangeTreeRight'):
         self.backend = backend
+        self.local_file_util = LocalFileUtil(self.backend.cacheman)
         # both trees share batch_uid:
         batch_uid: UID = self.backend.uid_generator.next_uid()
 

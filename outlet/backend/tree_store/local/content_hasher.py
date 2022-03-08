@@ -57,24 +57,6 @@ def compute_dropbox_hash(filename):
     return hasher.hexdigest()
 
 
-def try_calculating_signatures(node) -> Optional:
-    if node.is_file() and node.tree_type == TreeType.LOCAL_DISK:
-        # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-        # assert isinstance(node, LocalFileNode)
-        md5, sha256 = calculate_signatures(node.get_single_path())
-        if md5:
-            # Do not modify the original node, or cacheman will not detect that it has changed. Edit and submit a copy instead:
-            node_with_signature = copy.deepcopy(node)
-
-            # FIXME: this won't work anymore! Need to integrate this dumb class with ContentMetaManager
-            raise RuntimeError()
-
-            node_with_signature.md5 = md5
-            node_with_signature.sha256 = sha256
-            return node_with_signature
-    return None
-
-
 def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:
     try:
         # Open,close, read file and calculate hash of its contents
@@ -82,8 +64,10 @@ def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opti
             md5: Optional[str] = compute_md5(staging_path)
         else:
             md5: Optional[str] = compute_md5(full_path)
-        # sha256 = local.content_hasher.dropbox_hash(full_path)
+
+        # TODO: compute SHA-256 at the same time. See: compute_dropbox_hash()
         sha256: Optional[str] = None
+
         return md5, sha256
     except FileNotFoundError:
         # Possibly a link instead:

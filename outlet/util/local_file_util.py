@@ -1,3 +1,4 @@
+import copy
 import errno
 import logging
 import os
@@ -22,16 +23,23 @@ class LocalFileUtil:
     def __init__(self, cacheman):
         self.cacheman = cacheman
 
+    def try_calculating_signature(self, node: LocalFileNode) -> LocalFileNode:
+        content_meta = self.cacheman.calculate_signature_for_local_file(node.device_uid, node.get_single_path())
+        if not content_meta:
+            raise RuntimeError(f'Failed to calculate signature for node: {node}')
+
+        node_with_signatures: LocalFileNode = copy.deepcopy(node)
+        node_with_signatures.content_meta = content_meta
+
+        return node_with_signatures
+
     def ensure_up_to_date(self, node: LocalFileNode) -> LocalFileNode:
         """Returns either a LocalFileNode with a signature, or raises an error."""
 
         # First, make sure node has a signature:
         if not node.has_signature():
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            node_with_signatures: LocalFileNode = content_hasher.try_calculating_signatures(node)
-            if not node_with_signatures:
-                raise RuntimeError(f'Failed to calculate signature for node: {node}')
-            return node_with_signatures
+            return self.try_calculating_signature(node)
         assert node.has_signature()
 
         # Now, build a new node from scratch to ensure its meta (e.g. modify_ts) is up-to-date.
@@ -44,7 +52,7 @@ class LocalFileUtil:
             return fresh_node
 
         # Otherwise: meta was out-of-date: we do not like this.
-        node_with_signatures: Optional[LocalNode] = content_hasher.try_calculating_signatures(fresh_node)
+        node_with_signatures: Optional[LocalNode] = self.try_calculating_signature(fresh_node)
         if not node_with_signatures:
             raise RuntimeError(f'File has unexpectedly changed, and failed to calculate its new signature: {node.node_identifier}')
 
@@ -66,7 +74,7 @@ class LocalFileUtil:
         dst_path = dst_node.get_single_path()
         # dst node actually exists? (this implies our cached copy is not accurate):
         if os.path.exists(dst_path):
-            existing_dst_node = content_hasher.try_calculating_signatures(dst_node)
+            existing_dst_node = self.try_calculating_signature(dst_node)
             if existing_dst_node and existing_dst_node.is_signature_equal(src_node):
                 msg = f'File with identical content already exists at dst: {dst_path}'
                 logger.info(msg)
@@ -101,7 +109,7 @@ class LocalFileUtil:
         if not os.path.exists(dst_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), dst_path)
 
-        dst_node = content_hasher.try_calculating_signatures(dst_node)
+        dst_node = self.try_calculating_signature(dst_node)
         if not dst_node:
             raise RuntimeError(f'Failed to calculate signature for: {dst_path}')
         if dst_node.is_signature_equal(src_node):

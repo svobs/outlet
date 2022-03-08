@@ -10,6 +10,7 @@ from backend.tree_store.local import content_hasher
 from constants import TreeType
 from logging_constants import DIFF_DEBUG_ENABLED
 from model.user_op import UserOpType
+from util.local_file_util import LocalFileUtil
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ class ContentFirstDiffer(ChangeMaker):
                     sn.node = updated_node
                 if not sn.node.md5:
                     logger.debug(f'No signature found for file; attempting to calculate: {sn.spid} (size={sn.node.get_size_bytes()})')
-                    node_with_signature = content_hasher.try_calculating_signatures(sn.node)
+                    node_with_signature = self.local_file_util.try_calculating_signature(sn.node)
                     if node_with_signature:
                         logger.debug(f'Calculated MD5 for file {sn.spid} = {node_with_signature.md5}')
                         node_list_signatures_calculated.append(node_with_signature)

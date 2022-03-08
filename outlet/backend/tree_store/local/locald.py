@@ -904,27 +904,28 @@ class LocalDiskMasterStore(TreeStore):
                     return None
                 pointer = target
 
-        if self.backend.cacheman.lazy_load_local_file_signatures and not must_scan_signature:
-            # Skip MD5 and set it NULL for now. Node will be added to content scanning queue when it is upserted into cache (above)
-            md5 = None
-            sha256 = None
-        else:
-            try:
-                logger.debug(f'[device_uid={self.device_uid}] Calculating signatures for '
-                             f'full_path={full_path}, staging_path={staging_path}"')
-                md5, sha256 = content_hasher.calculate_signatures(full_path, staging_path)
-            except FileNotFoundError:
-                # bad link
-                return None
-
         try:
             size_bytes, sync_ts, create_ts, modify_ts, change_ts = self._get_stats(full_path, staging_path)
         except FileNotFoundError:
             # Caller didn't check whether file existed (may also be a missing dir). Let them know:
             return None
 
+        if self.backend.cacheman.lazy_load_local_file_signatures and not must_scan_signature:
+            # Skip signatures and set them NULL for now. Node will be added to content scanning queue when it is upserted into cache (above)
+            content_meta = self.backend.cacheman.get_meta_for(md5=None, sha256=None, size_bytes=size_bytes)
+        else:
+            try:
+                if staging_path:
+                    content_meta = self.backend.cacheman.calculate_signature_for_local_file(staging_path)
+                else:
+                    content_meta = self.backend.cacheman.calculate_signature_for_local_file(self.device_uid, full_path)
+                assert content_meta and content_meta.size_bytes == size_bytes, \
+                    f'Unexpected value for content_meta: {content_meta}; size_bytes_2={size_bytes}'
+            except FileNotFoundError:
+                # bad link
+                return None
+
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
-        content_meta = self.backend.cacheman.get_meta_for(md5=md5, sha256=sha256, size_bytes=size_bytes)
         new_node = LocalFileNode(node_identifier, parent_uid, content_meta, sync_ts, create_ts, modify_ts, change_ts,
                                  TrashStatus.NOT_TRASHED, is_live)
 

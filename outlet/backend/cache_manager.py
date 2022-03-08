@@ -22,9 +22,10 @@ from backend.executor.user_op.op_manager import OpManager
 from backend.sqlite.content_meta_db import ContentMeta
 from backend.tree_store.gdrive.gdrive import GDriveMasterStore
 from backend.tree_store.gdrive.op_load import GDriveDiskLoadOp
+from backend.tree_store.local import content_hasher
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
-    OPS_FILE_NAME, TreeDisplayMode, TreeID, TreeLoadState, TreeType
+    LARGE_FILE_SIZE_THRESHOLD_BYTES, OPS_FILE_NAME, TreeDisplayMode, TreeID, TreeLoadState, TreeType
 from error import ResultsExceededError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
@@ -44,6 +45,7 @@ from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
+from util.format import humanfriendlier_size
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
@@ -832,6 +834,39 @@ class CacheManager(HasLifecycle):
             logger.debug(f'[{dst_tree_id}] is_dropping_on_self = false')
         return False
 
+    # Content Meta
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def get_content_meta_for_uid(self, content_uid: UID) -> ContentMeta:
+        return self._cache_registry.get_content_meta_for_uid(content_uid)
+
+    def get_content_meta_for(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None):
+        return self._cache_registry.get_content_meta_for(size_bytes, md5, sha256)
+
+    def calculate_signature_for_local_file(self, device_uid: UID, full_path: str) -> Optional[ContentMeta]:
+        """Returns None on failure"""
+        stat = os.stat(full_path)
+        size_bytes = int(stat.st_size)
+
+        is_large = size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES
+        if is_large:
+            logger.info(f'[device_uid={device_uid}] Calculating signature for local file (note: this file is very large '
+                        f'({humanfriendlier_size(size_bytes)}) and may take a while: "{full_path}"')
+        elif SUPER_DEBUG_ENABLED:
+            logger.debug(f'[device_uid={device_uid}] Calculating signature for local file: "{full_path}"')
+
+        logger.debug(f'[device_uid={device_uid}] Calculating signatures for full_path="{full_path}"')
+        md5, sha256 = content_hasher.calculate_signatures(full_path)
+        if not md5 or sha256:
+            logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}"; '
+                        f'assuming it was deleted from disk')
+            return
+
+        if SUPER_DEBUG_ENABLED or is_large:
+            logger.debug(f'[device_uid={device_uid}] Calculated MD5: {md5} for local file: "{full_path}"')
+
+        return self.get_content_meta_for(size_bytes, md5, sha256)
+
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -966,9 +1001,3 @@ class CacheManager(HasLifecycle):
 
     def execute_tree_action_list(self, tree_action_list: List[TreeAction]):
         self._action_manager.execute_tree_action_list(tree_action_list)
-
-    def get_content_meta_for_uid(self, content_uid: UID) -> ContentMeta:
-        return self._cache_registry.get_content_meta_for_uid(content_uid)
-
-    def get_content_meta_for(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None):
-        return self._cache_registry.get_content_meta_for(size_bytes, md5, sha256)
