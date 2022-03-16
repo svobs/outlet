@@ -171,7 +171,7 @@ class GDriveDatabase(MetaDatabase):
                             shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
     def _tuple_to_gdrive_file(self, row: Tuple) -> GDriveFile:
-        uid_int, goog_id, node_name, mime_type_uid, item_trashed, content_uid, size_bytes, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
+        uid_int, goog_id, content_uid, size_bytes, node_name, mime_type_uid, item_trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
                 shared_by_user_uid, version, sync_ts = row
 
         uid_from_cache = UID(uid_int)

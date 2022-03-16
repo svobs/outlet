@@ -302,7 +302,7 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
-        op_uid_int, device_uid, uid_int, goog_id, node_name, mime_type_uid, item_trashed, content_uid, size_bytes, create_ts, modify_ts, \
+        op_uid_int, device_uid, uid_int, goog_id, content_uid, size_bytes, node_name, mime_type_uid, item_trashed, create_ts, modify_ts, \
             owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
 
         content_meta = self.cacheman.get_content_meta_for_uid(content_uid)
