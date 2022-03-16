@@ -844,7 +844,8 @@ class CacheManager(HasLifecycle):
         return self._cache_registry.get_content_meta_for(size_bytes, md5, sha256)
 
     def calculate_signature_for_local_file(self, device_uid: UID, full_path: str) -> Optional[ContentMeta]:
-        """Returns None on failure"""
+        """Returns None on failure (usually file not found or link problem).
+        If successful, use """
         stat = os.stat(full_path)
         size_bytes = int(stat.st_size)
 

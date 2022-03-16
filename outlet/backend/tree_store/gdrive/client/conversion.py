@@ -130,7 +130,7 @@ class GDriveAPIConverter:
                                            goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveAPIConverter._convert_trashed(item),
                                            drive_id=item.get('driveId', None), version=version,
-                                           content_meta=content_meta, is_shared=item.get('shared', None), create_ts=create_ts,
+                                           content_meta=content_meta, size_bytes=size_bytes, is_shared=item.get('shared', None), create_ts=create_ts,
                                            modify_ts=modify_ts, shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid,
                                            sync_ts=sync_ts)
 

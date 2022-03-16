@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from backend.sqlite.content_meta_db import ContentMeta
-from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TreeType
+from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
@@ -247,17 +247,19 @@ class GDriveFile(GDriveNode):
     # TODO: handling of special chars in file systems
 
     def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, mime_type_uid, trashed, drive_id, version, content_meta,
-                 is_shared, create_ts, modify_ts, owner_uid, shared_by_user_uid, sync_ts):
+                 size_bytes, is_shared, create_ts, modify_ts, owner_uid, shared_by_user_uid, sync_ts):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
 
         self._mime_type_uid = ensure_uid(mime_type_uid)
         self.version = ensure_int(version)
-        self.content_meta: ContentMeta = content_meta
+        self.content_meta: Optional[ContentMeta] = content_meta
+        self._size_bytes: int = size_bytes
+        """We only use this if self.content_meta is None (i.e., there is no MD5). If self.content_meta exists, then we ignore this field."""
 
     def __repr__(self):
         return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{repr(self.name)}" mime_type_uid={self.mime_type_uid} ' \
-               f'trashed={self.trashed_str} size={self.get_size_bytes()} content_uid={self.content_meta.uid} ' \
+               f'trashed={self.trashed_str} size={self.get_size_bytes()} content_uid={self.content_meta.uid if self.content_meta else None} ' \
                f'create_ts={self.create_ts} modify_ts={self.modify_ts} ' \
                f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self.is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
                f'version={self.version} sync_ts={self.sync_ts} icon={self.get_icon()} parent_uids={self.get_parent_uids()})'
@@ -272,6 +274,7 @@ class GDriveFile(GDriveNode):
                 other.mime_type_uid == self.mime_type_uid and \
                 other.get_trashed_status() == self.get_trashed_status() and \
                 other.content_meta == self.content_meta and \
+                other.get_size_bytes() == self.get_size_bytes() and \
                 other.version == self.version and \
                 other._create_ts == self._create_ts and \
                 other._modify_ts == self._modify_ts and \
@@ -298,6 +301,7 @@ class GDriveFile(GDriveNode):
         self._mime_type_uid = other_node.mime_type_uid
         self.version = other_node.version
         self.content_meta = other_node.content_meta
+        self._size_bytes = other_node.get_size_bytes()
         self._trashed: TrashStatus = other_node.get_trashed_status()
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
@@ -305,14 +309,14 @@ class GDriveFile(GDriveNode):
         return False
 
     def has_signature(self) -> bool:
-        return self.content_meta.has_signature()
+        return self.content_meta and self.content_meta.has_signature()
 
     @property
     def md5(self):
-        return self.content_meta.md5
+        return self.content_meta.md5 if self.content_meta else None
 
     def get_size_bytes(self):
-        return self.content_meta.size_bytes
+        return self.content_meta.size_bytes if self.content_meta else self._size_bytes
 
     @classmethod
     def get_obj_type(cls):
@@ -339,6 +343,7 @@ class GDriveFile(GDriveNode):
         return True
 
     def to_tuple(self):
-        return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.get_trashed_status(), self.content_meta.uid,
+        content_meta_uid = self.content_meta.uid if self.content_meta else NULL_UID
+        return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.get_trashed_status(), content_meta_uid, self.get_size_bytes(),
                 self.create_ts, self.modify_ts, self.owner_uid, self.drive_id, self.is_shared, self.shared_by_user_uid, self.version,
                 self.sync_ts)

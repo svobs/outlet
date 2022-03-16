@@ -21,6 +21,7 @@ class LocalDiskDatabase(MetaDatabase):
         ('uid', 'INTEGER PRIMARY KEY'),
         ('parent_uid', 'INTEGER'),
         ('content_uid', 'INTEGER'),
+        ('size_bytes', 'INTEGER'),
         ('sync_ts', 'INTEGER'),
         ('create_ts', 'INTEGER'),
         ('modify_ts', 'INTEGER'),
@@ -64,7 +65,7 @@ class LocalDiskDatabase(MetaDatabase):
         return f.to_tuple()
 
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
-        uid_int, parent_uid_int, content_uid_int, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, is_live = row
+        uid_int, parent_uid_int, content_uid_int, size_bytes, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
         # make sure we call get_uid_for_local_path() for both the node's path and its parent's path, so that UID mapper has a chance to store it
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
@@ -74,7 +75,7 @@ class LocalDiskDatabase(MetaDatabase):
         assert parent_uid == parent_uid_int, f'UID conflict! Got {uid} but read {parent_uid_int} in row: {row}'
 
         content_meta = self.cacheman.get_content_meta_for_uid(content_uid_int)
-        return LocalFileNode(node_identifier, parent_uid, content_meta, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)
+        return LocalFileNode(node_identifier, parent_uid, content_meta, size_bytes, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)
 
     def has_local_files(self):
         return self.table_local_file.has_rows()

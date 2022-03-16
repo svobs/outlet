@@ -1,24 +1,16 @@
 import logging
+import os
 from collections import OrderedDict
 from typing import List, Optional, Tuple, Union
 
 from backend.sqlite.base_db import LiveTable, MetaDatabase, Table
+from constants import MAIN_REGISTRY_FILE_NAME
 from model.cache_info import CacheInfoEntry
 from model.device import Device
 from model.uid import UID
 from util import file_util, time_util
 
 logger = logging.getLogger(__name__)
-
-
-def _cache_info_to_tuple(d: CacheInfoEntry) -> Tuple:
-    assert isinstance(d, CacheInfoEntry), f'Expected CacheInfoEntry; got instead: {d}'
-    return d.to_tuple()
-
-
-def _tuple_to_cache_info(a_tuple: Tuple) -> CacheInfoEntry:
-    assert isinstance(a_tuple, Tuple), f'Expected Tuple; got instead: {a_tuple}'
-    return CacheInfoEntry(*a_tuple)
 
 
 def _device_to_tuple(d: Device) -> Tuple:
@@ -64,11 +56,24 @@ class CacheRegistryDatabase(MetaDatabase):
         ('sync_ts', 'INTEGER'),
     ]))
 
-    def __init__(self, main_registry_path: str, node_identifier_factory):
+    def __init__(self, cache_dir_path: str, node_identifier_factory):
+        self.cache_dir_path = cache_dir_path
+        main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
         super().__init__(main_registry_path)
         self.node_identifier_factory = node_identifier_factory
-        self.table_cache_registry = LiveTable(CacheRegistryDatabase.TABLE_CACHE_REGISTRY, self.conn, _cache_info_to_tuple, _tuple_to_cache_info)
+        self.table_cache_registry = LiveTable(CacheRegistryDatabase.TABLE_CACHE_REGISTRY, self.conn,
+                                              self._cache_info_to_tuple, self._tuple_to_cache_info)
         self.table_device = LiveTable(CacheRegistryDatabase.TABLE_DEVICE, self.conn, _device_to_tuple, _tuple_to_device)
+
+    def _cache_info_to_tuple(self, d: CacheInfoEntry) -> Tuple:
+        assert isinstance(d, CacheInfoEntry), f'Expected CacheInfoEntry; got instead: {d}'
+        return d.to_tuple(self.cache_dir_path)
+
+    def _tuple_to_cache_info(self, a_tuple: Tuple) -> CacheInfoEntry:
+        assert isinstance(a_tuple, Tuple), f'Expected Tuple; got instead: {a_tuple}'
+        cache_location, subtree_root, sync_ts, is_complete = a_tuple
+        cache_location = CacheInfoEntry.convert_relative_path_to_abs(cache_location, self.cache_dir_path)
+        return CacheInfoEntry(cache_location, subtree_root, sync_ts, is_complete)
 
     def has_cache_info(self):
         return self.table_cache_registry.has_rows()
@@ -93,6 +98,7 @@ class CacheRegistryDatabase(MetaDatabase):
             node_identifier = self.node_identifier_factory.build_spid(node_uid=subtree_root_uid, device_uid=device_uid,
                                                                       single_path=subtree_root_path)
             assert node_identifier.is_spid(), f'Not a SPID: {node_identifier}'
+            cache_location = CacheInfoEntry.convert_relative_path_to_abs(cache_location, self.cache_dir_path)
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier,
                                           sync_ts=sync_ts, is_complete=is_complete))
         return entries
@@ -102,9 +108,9 @@ class CacheRegistryDatabase(MetaDatabase):
         rows = []
         if type(entries) == list:
             for entry in entries:
-                rows.append(entry.to_tuple())
+                rows.append(entry.to_tuple(self.cache_dir_path))
         else:
-            rows.append(entries.to_tuple())
+            rows.append(entries.to_tuple(self.cache_dir_path))
 
         has_existing = self.has_cache_info()
         if has_existing:

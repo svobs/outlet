@@ -41,6 +41,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, node: GDriveNode, update_only: bool = False):
+        super().__init__()
         self.node: GDriveNode = node
         self.was_updated: bool = True
         self.parent_goog_ids = []
@@ -126,6 +127,7 @@ class DeleteSingleNodeOp(GDriveWriteThroughOp):
     """
     def __init__(self, node: GDriveNode, to_trash: bool = False):
         assert isinstance(node, GDriveNode), f'For node: {node}'
+        super().__init__()
         self.node: GDriveNode = node
         self.to_trash: bool = to_trash
 
@@ -149,6 +151,7 @@ class DeleteSubtreeOp(GDriveWriteThroughOp):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, subtree_root_node: GDriveNode, node_list: List[GDriveNode], to_trash: bool = False):
+        super().__init__()
         self.subtree_root_node: GDriveNode = subtree_root_node
         self.node_list: List[GDriveNode] = node_list
         self.to_trash: bool = to_trash
@@ -179,6 +182,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, change_list: List[GDriveChange]):
+        super().__init__()
         self.backend = backend
         self.change_list = BatchChangesOp._reduce_changes(change_list)
 
@@ -285,6 +289,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, parent_folder: GDriveFolder, child_list: List[GDriveNode]):
+        super().__init__()
         self.backend = backend
         assert parent_folder.all_children_fetched, f'Expected all_children_fetched==True for node: {parent_folder}'
         self.parent_folder: GDriveFolder = parent_folder
@@ -360,6 +365,7 @@ class CreateUserOp(GDriveWriteThroughOp):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, user: GDriveUser):
+        super().__init__()
         self.user: GDriveUser = user
 
     def update_memstore(self, memstore: GDriveMemoryStore):
@@ -379,6 +385,7 @@ class UpsertMimeTypeOp(GDriveWriteThroughOp):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, mime_type_string: str):
+        super().__init__()
         self._mime_type_string: str = mime_type_string
         self.mime_type: Optional[MimeType] = None
         """Note: this is accessed as the return value. Would be good to find a way to remove this dependency"""
@@ -401,8 +408,6 @@ class DeleteAllDataOp(GDriveWriteThroughOp):
     CLASS DeleteAllDataOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self):
-        pass
 
     def update_memstore(self, memstore: GDriveMemoryStore):
         memstore.delete_all_gdrive_data()

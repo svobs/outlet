@@ -185,8 +185,6 @@ class GDriveMasterStore(TreeStore):
         """Executes a single GDriveWriteThroughOp ({start}->memory->disk->UI)"""
 
         # 1. Update memory store
-        if not self._memstore.is_loaded():
-            raise CacheNotLoadedError(f'_execute_write_op(): GDrive cache not loaded!')
         operation.update_memstore(self._memstore)
 
         # 2. Update disk store

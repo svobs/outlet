@@ -912,7 +912,7 @@ class LocalDiskMasterStore(TreeStore):
 
         if self.backend.cacheman.lazy_load_local_file_signatures and not must_scan_signature:
             # Skip signatures and set them NULL for now. Node will be added to content scanning queue when it is upserted into cache (above)
-            content_meta = self.backend.cacheman.get_meta_for(md5=None, sha256=None, size_bytes=size_bytes)
+            content_meta = None
         else:
             try:
                 if staging_path:
@@ -926,7 +926,7 @@ class LocalDiskMasterStore(TreeStore):
                 return None
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
-        new_node = LocalFileNode(node_identifier, parent_uid, content_meta, sync_ts, create_ts, modify_ts, change_ts,
+        new_node = LocalFileNode(node_identifier, parent_uid, content_meta, size_bytes, sync_ts, create_ts, modify_ts, change_ts,
                                  TrashStatus.NOT_TRASHED, is_live)
 
         if TRACE_ENABLED:

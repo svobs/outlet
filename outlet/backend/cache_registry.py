@@ -15,7 +15,7 @@ from backend.tree_store.local.locald import LocalDiskMasterStore
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CONTENT_META_FILE_NAME, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, \
-    IS_LINUX, IS_MACOS, IS_WINDOWS, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
+    IS_LINUX, IS_MACOS, IS_WINDOWS, NULL_UID, ROOT_PATH, \
     SUPER_ROOT_DEVICE_UID, TreeType, UID_GOOG_ID_FILE_NAME, \
     UID_PATH_FILE_NAME
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
@@ -56,7 +56,6 @@ class CacheRegistry(HasLifecycle):
         self.backend = backend
 
         self.cache_dir_path = cache_dir_path
-        self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
 
         uid_path_cache_path = os.path.join(self.cache_dir_path, UID_PATH_FILE_NAME)
         self._uid_path_mapper = UidPathMapper(backend, uid_path_cache_path)
@@ -68,7 +67,7 @@ class CacheRegistry(HasLifecycle):
         """Same deal with GoogID mapper. We init it here, so that we can load in all the cached GoogIDs ASAP"""
 
         content_meta_path = os.path.join(self.cache_dir_path, CONTENT_META_FILE_NAME)
-        self.content_meta_manager: ContentMetaManager = ContentMetaManager(content_meta_path, backend)
+        self.content_meta_manager: ContentMetaManager = ContentMetaManager(backend, content_meta_path)
 
         self._device_uuid: str = self._get_or_set_local_device_uuid()
         logger.debug(f'LocalDisk device UUID is: {self._device_uuid}')
@@ -286,8 +285,6 @@ class CacheRegistry(HasLifecycle):
         # Write back to cache if we need to clean things up:
         if skipped_count > 0:
             self.save_all_cache_info_to_disk()
-            caches = self._cache_info_dict.get_all()
-            self._overwrite_all_caches_in_registry(caches)
 
         self._load_registry_done.set()
         logger.info(f'[CacheRegistry] {stopwatch} Done loading registry. Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
@@ -373,7 +370,7 @@ class CacheRegistry(HasLifecycle):
         self.backend.executor.submit_async_task(child_task)
 
     def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
-        with CacheRegistryDatabase(self.main_registry_path, self.backend.node_identifier_factory) as db:
+        with CacheRegistryDatabase(self.cache_dir_path, self.backend.node_identifier_factory) as db:
             if db.has_cache_info():
                 exisiting_cache_list = db.get_cache_info_list()
                 logger.debug(f'Found {len(exisiting_cache_list)} caches listed in registry')
@@ -385,8 +382,8 @@ class CacheRegistry(HasLifecycle):
         return exisiting_cache_list
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
-        logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
-        with CacheRegistryDatabase(self.main_registry_path, self.backend.node_identifier_factory) as db:
+        logger.info(f'Overwriting all cache entries in diskstore with {len(cache_info_list)} entries')
+        with CacheRegistryDatabase(self.cache_dir_path, self.backend.node_identifier_factory) as db:
             db.insert_cache_info(cache_info_list, append=False, overwrite=True)
 
     def _init_existing_cache(self, this_task: Task, existing_disk_cache: PersistedCacheInfo, cache_num: int, total_cache_count: int):
@@ -468,7 +465,7 @@ class CacheRegistry(HasLifecycle):
         return device_uuid
 
     def _upsert_device(self, device: Device):
-        with CacheRegistryDatabase(self.main_registry_path, self.backend.node_identifier_factory) as db:
+        with CacheRegistryDatabase(self.cache_dir_path, self.backend.node_identifier_factory) as db:
             db.upsert_device(device)
             logger.debug(f'Upserted device to DB: {device}')
 
@@ -489,11 +486,11 @@ class CacheRegistry(HasLifecycle):
         return self._cached_device_list
 
     def _read_device_list(self) -> List[Device]:
-        with CacheRegistryDatabase(self.main_registry_path, self.backend.node_identifier_factory) as db:
+        with CacheRegistryDatabase(self.cache_dir_path, self.backend.node_identifier_factory) as db:
             return db.get_device_list()
 
     def _write_new_device(self, device: Device):
-        with CacheRegistryDatabase(self.main_registry_path, self.backend.node_identifier_factory) as db:
+        with CacheRegistryDatabase(self.cache_dir_path, self.backend.node_identifier_factory) as db:
             db.insert_device(device)
             logger.debug(f'Wrote new device to DB: {device}')
 
@@ -572,7 +569,7 @@ class CacheRegistry(HasLifecycle):
                                   subtree_root=subtree_root, sync_ts=sync_ts,
                                   is_complete=False)
 
-        with CacheRegistryDatabase(self.main_registry_path, self.backend.node_identifier_factory) as db:
+        with CacheRegistryDatabase(self.cache_dir_path, self.backend.node_identifier_factory) as db:
             logger.info(f'Inserting new cache info into registry: {subtree_root}')
             db.insert_cache_info(db_entry, append=True, overwrite=False)
 
@@ -655,4 +652,4 @@ class CacheRegistry(HasLifecycle):
         return self.content_meta_manager.get_content_meta_for_uid(content_uid)
 
     def get_content_meta_for(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None):
-        return self.content_meta_manager.get_content_meta_for(size_bytes, md5, sha256)
+        return self.content_meta_manager.get_or_create_content_meta_for(size_bytes, md5, sha256)

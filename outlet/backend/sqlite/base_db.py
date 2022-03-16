@@ -216,6 +216,8 @@ class LiveTable(Table):
         to_insert: List[Tuple] = self._to_tuple_list(entries, obj_to_tuple_func_override)
 
         if overwrite:
+            # Hmm this doesn't look smart
+            logger.info(f'insert_object_list(): dropping table "{self.name}" because overwrite==True')
             self.drop_table_if_exists(commit=False)
 
         self.create_table_if_not_exist(commit=False)
@@ -333,7 +335,7 @@ class MetaDatabase:
                                                       'full_path': 'TEXT'})
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, db_path):
+    def __init__(self, db_path: str):
         logger.debug(f'Opening database: {db_path}')
         # Use check_same_thread=False to tell SQLite that we are grownups and can handle multi-threading
         # 'DEFERRED' means to disable auto-commit mode

@@ -14,12 +14,26 @@ class CacheInfoEntry:
         self.sync_ts = ensure_int(sync_ts)
         self.is_complete = is_complete
 
-    def to_tuple(self):
-        return self.cache_location, self.subtree_root.device_uid, self.subtree_root.get_single_path(), self.subtree_root.node_uid, \
-               self.sync_ts, self.is_complete
+    def to_tuple(self, cache_path_prefix: str):
+        cache_location = self.convert_abs_path_to_relative(self.cache_location, cache_path_prefix)
+
+        return cache_location, self.subtree_root.device_uid, self.subtree_root.get_single_path(), self.subtree_root.node_uid, \
+            self.sync_ts, self.is_complete
 
     def __repr__(self):
         return f'CacheInfoEntry(location="{self.cache_location}" subtree_root={self.subtree_root} is_complete={self.is_complete})'
+
+    @staticmethod
+    def convert_abs_path_to_relative(cache_path: str, cache_path_prefix: str) -> str:
+        if cache_path.startswith(cache_path_prefix):
+            cache_path = cache_path.replace(cache_path_prefix, '.')
+        return cache_path
+
+    @staticmethod
+    def convert_relative_path_to_abs(cache_path: str, cache_path_prefix: str) -> str:
+        if cache_path.startswith('.'):
+            cache_path = cache_path.replace('.', cache_path_prefix)
+        return cache_path
 
 
 class PersistedCacheInfo(CacheInfoEntry):

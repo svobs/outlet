@@ -5,7 +5,6 @@ import re
 from typing import Callable, Deque, Dict, List, Optional, Set, Tuple
 
 from backend.diff.change_maker import ChangeMaker
-from backend.tree_store.local import content_hasher
 from constants import DEFAULT_REPLACE_DIR_WITH_FILE_POLICY, DEFAULT_SRC_NODE_MOVE_POLICY, DirConflictPolicy, DragOperation, \
     FileConflictPolicy, \
     ReplaceDirWithFilePolicy, SrcNodeMovePolicy, TreeID

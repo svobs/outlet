@@ -151,7 +151,7 @@ class GDriveTreeLoader:
 
     def _download_all_gdrive_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: GDriveMetaDownload):
         # for all of these steps, make sure we are in the correct state, and do nothing if not.
-        # We do not know if the previous tasks have failed and we are here anyway
+        # We do not know if the previous tasks have failed, and we are here anyway
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
             observer = FolderMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer, this_task)

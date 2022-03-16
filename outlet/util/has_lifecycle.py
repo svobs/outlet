@@ -1,4 +1,5 @@
-from abc import ABC
+import functools
+from abc import ABC, abstractmethod
 import logging
 from typing import Callable, List, Optional
 
@@ -9,6 +10,38 @@ from pydispatch.errors import DispatcherKeyError
 from signal_constants import Signal
 
 logger = logging.getLogger(__name__)
+
+
+def start_func(func):
+    """Decorator for "start" func of lifecycle.
+    Should be able to use @start_func instead of calling HasLifecycle.start() & HasLifecycle.stop() and logging calls like below
+    """
+
+    @functools.wraps(func)
+    def wrapper(obj_self, *args, **kwargs):
+        logger.debug(f'[{obj_self.__class__.__name__}] Startup started')
+        obj_self.start_lifecycle()
+        retval = func(obj_self, *args, **kwargs)
+        logger.debug(f'[{obj_self.__class__.__name__}] Startup done')
+        return retval
+
+    return wrapper
+
+
+def stop_func(func):
+    """Decorator for "shutdown" func of lifecycle.
+    Should be able to use @stop_func instead of calling HasLifecycle.shutdown() & HasLifecycle.stop() and logging calls like below
+    """
+
+    @functools.wraps(func)
+    def wrapper(obj_self, *args, **kwargs):
+        logger.debug(f'[{obj_self.__class__.__name__}] Shutdown started')
+        obj_self.shutdown_lifecycle()
+        retval = func(obj_self, *args, **kwargs)
+        logger.debug(f'[{obj_self.__class__.__name__}] Shutdown done')
+        return retval
+
+    return wrapper
 
 
 class ListenerInfo:
@@ -73,9 +106,20 @@ class HasLifecycle(ABC):
         for listener_info in connected_listeners:
             self.disconnect_dispatch_listener(listener_info)
 
-    def start(self):
-        self.connect_dispatch_listener(signal=Signal.SHUTDOWN_APP, receiver=self.shutdown)
+    def start_lifecycle(self):
+        """Do not call this directly. It is called by the decorator"""
+        self.connect_dispatch_listener(signal=Signal.SHUTDOWN_APP, receiver=self.shutdown_lifecycle)
 
-    def shutdown(self):
+    def shutdown_lifecycle(self):
+        """Do not call this directly. It is called by the decorator"""
         self.disconnect_all_listeners()
         self.was_shutdown = True
+
+    def start(self):
+        self.start_lifecycle()  # for backwards compatibility only. Future child classes should not need to call super.start().
+
+    def shutdown(self):
+        """
+        Note to self: need to stop asking myself why I don't name this method "stop". This just feels more right, ok?
+        """
+        self.shutdown_lifecycle()  # for backwards compatibility only. Future child classes should not need to call super.start().

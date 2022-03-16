@@ -125,6 +125,7 @@ class GDriveDatabase(MetaDatabase):
                                   ('uid', 'INTEGER PRIMARY KEY'),
                                   ('goog_id', 'TEXT'),
                                   ('content_uid', 'INTEGER'),
+                                  ('size_bytes', 'INTEGER'),
                                   ('name', 'TEXT'),
                                   ('mime_type_uid', 'INTEGER'),
                                   ('trashed', 'INTEGER'),
@@ -170,7 +171,7 @@ class GDriveDatabase(MetaDatabase):
                             shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
     def _tuple_to_gdrive_file(self, row: Tuple) -> GDriveFile:
-        uid_int, goog_id, node_name, mime_type_uid, item_trashed, content_uid, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
+        uid_int, goog_id, node_name, mime_type_uid, item_trashed, content_uid, size_bytes, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
                 shared_by_user_uid, version, sync_ts = row
 
         uid_from_cache = UID(uid_int)
@@ -179,7 +180,7 @@ class GDriveDatabase(MetaDatabase):
         return GDriveFile(GDriveIdentifier(uid=uid_from_cache, device_uid=self.device_uid, path_list=None),
                           goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
                           trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, version=version,
-                          content_meta=content_meta, create_ts=create_ts, modify_ts=modify_ts,
+                          content_meta=content_meta, size_bytes=size_bytes, create_ts=create_ts, modify_ts=modify_ts,
                           owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts)
 
     # FOLDER operations

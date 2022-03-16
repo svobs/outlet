@@ -74,7 +74,7 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
         except file_util.IdenticalFileExistsError:
             # This is thrown if the file to be copied is already at the dst. Nothing to do.
             result = UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=to_upsert)
-            # However make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats (below)
+            # However, make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats (below)
 
         # update cache:
         dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path, is_live=True)

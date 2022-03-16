@@ -11,7 +11,7 @@ from error import InvalidInsertOpGraphError, OpGraphError, UnsuccessfulBatchInse
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpResult, UserOpStatus, UserOpType
-from util.has_lifecycle import HasLifecycle
+from util.has_lifecycle import HasLifecycle, start_func, stop_func
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -64,12 +64,12 @@ class OpGraph(HasLifecycle):
         self._removed_ancestor_dict: Dict[UID, Set[UID]] = {}
         self._changed_node_dict: Dict[UID, Set[UID]] = {}
 
+    @stop_func
     def shutdown(self):
         """Need to call this for try_get() to return"""
         if self.was_shutdown:
             return
 
-        HasLifecycle.shutdown(self)
         with self._cv_can_get:
             # unblock any get() task which is waiting
             self._cv_can_get.notifyAll()

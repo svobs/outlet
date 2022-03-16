@@ -4,7 +4,7 @@ from abc import ABC
 from typing import Optional, Tuple
 
 from backend.sqlite.content_meta_db import ContentMeta
-from constants import IconId, IS_MACOS, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
+from constants import IconId, IS_MACOS, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
@@ -191,15 +191,17 @@ class LocalFileNode(LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, content_meta: ContentMeta, sync_ts,
-                 create_ts, modify_ts, change_ts, trashed, is_live: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, content_meta: ContentMeta, size_bytes: int, sync_ts,
+                 create_ts: Optional[int], modify_ts: Optional[int], change_ts: Optional[int], trashed, is_live: bool):
         super().__init__(node_identifier, parent_uid, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts)
         self.content_meta: ContentMeta = content_meta
+        self._size_bytes: Optional[int] = size_bytes
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalFileNode)
         LocalNode.update_from(self, other_node)
         self.content_meta = other_node.content_meta
+        self._size_bytes = other_node.get_size_bytes()
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
         # A file can never be the parent of anything
@@ -210,49 +212,116 @@ class LocalFileNode(LocalNode):
         return OBJ_TYPE_FILE
 
     @classmethod
-    def is_file(cls):
+    def is_file(cls) -> bool:
         return True
 
     @classmethod
-    def is_dir(cls):
+    def is_dir(cls) -> bool:
         return False
 
-    def get_size_bytes(self):
-        return self.content_meta.size_bytes
+    def get_size_bytes(self) -> int:
+        return self.content_meta.size_bytes if self.content_meta else self._size_bytes
 
     @property
-    def md5(self):
-        return self.content_meta.md5
+    def md5(self) -> Optional[str]:
+        return self.content_meta.md5 if self.content_meta else None
 
     @property
-    def sha256(self):
-        return self.content_meta.sha256
+    def sha256(self) -> Optional[str]:
+        return self.content_meta.sha256 if self.content_meta else None
 
     @classmethod
     def has_tuple(cls) -> bool:
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_parent_uid(), self.content_meta.uid, self.sync_ts, \
-               self.create_ts, self.modify_ts, self.change_ts,  self.get_single_path(), self._trashed, self._is_live
+        return self.uid, self.get_single_parent_uid(), self.content_meta.uid if self.content_meta else NULL_UID, self.get_size_bytes(), \
+               self.sync_ts, self.create_ts, self.modify_ts, self.change_ts,  self.get_single_path(), self._trashed, self._is_live
 
     def has_signature(self) -> bool:
-        return self.content_meta.has_signature()
+        return self.content_meta and self.content_meta.has_signature()
 
     def copy_signature_if_is_meta_equal(self, other) -> bool:
         if self.is_meta_equal(other) and (other.has_signature()):
             self.content_meta = other.content_meta
 
             if SUPER_DEBUG_ENABLED:
-                _check_update_sanity(other, self)
+                self._check_update_sanity(other)
             return True
 
         return False
+
+    def _check_update_sanity(self, old_node):
+        new_node: LocalFileNode = self
+        try:
+            if not old_node:
+                raise RuntimeError(f'old_node is empty!')
+
+            if not isinstance(old_node, LocalFileNode):
+                # Internal error; try to recover
+                logger.error(f'Invalid node type for old_node: {type(old_node)}. Will overwrite cache entry')
+                return
+
+            if not new_node:
+                raise RuntimeError(f'new_node is empty!')
+
+            if not isinstance(new_node, LocalFileNode):
+                raise RuntimeError(f'Invalid node type for new_node: {type(new_node)}')
+
+            if not old_node.create_ts:
+                logger.debug(f'old_node has no create_ts. Skipping create_ts comparison (Old={old_node} New={new_node}')
+            elif not new_node.create_ts:
+                raise RuntimeError(f'new_node is missing create_ts!')
+            elif new_node.create_ts < old_node.create_ts:
+                if IS_MACOS:
+                    # Known bug in MacOS
+                    logger.debug(
+                        f'File {new_node.node_identifier}: update has older create_ts ({new_node.create_ts}) than prev version ({old_node.create_ts})'
+                        f'(probably MacOS bug)')
+                else:
+                    logger.warning(
+                        f'File {new_node.node_identifier}: update has older create_ts ({new_node.create_ts}) than prev version ({old_node.create_ts})')
+
+            if not old_node.modify_ts:
+                logger.debug(f'old_node has no modify_ts. Skipping modify_ts comparison (Old={old_node} New={new_node}')
+            elif not new_node.modify_ts:
+                raise RuntimeError(f'new_node is missing modify_ts!')
+            elif new_node.modify_ts < old_node.modify_ts:
+                if IS_MACOS:
+                    # Known bug in MacOS
+                    logger.debug(
+                        f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})'
+                        f'(probably MacOS bug)')
+                else:
+                    logger.warning(
+                        f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
+
+            if not old_node.change_ts:
+                logger.debug(f'old_node has no change_ts. Skipping change_ts comparison (Old={old_node} New={new_node}')
+            elif not new_node.change_ts:
+                raise RuntimeError(f'new_node is missing change_ts!')
+            elif new_node.change_ts < old_node.change_ts:
+                if IS_MACOS:
+                    # Known bug in MacOS
+                    logger.debug(
+                        f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})'
+                        f'(probably MacOS bug)')
+                else:
+                    logger.warning(
+                        f'File {new_node.node_identifier}: update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
+
+            if new_node.get_size_bytes() != old_node.get_size_bytes() and new_node.md5 == old_node.md5 and old_node.md5:
+                logger.warning(f'File {new_node.node_identifier}: update has same MD5 ({new_node.md5}) ' +
+                               f'but different size: (old={old_node.get_size_bytes()}, new={new_node.get_size_bytes()})')
+        except Exception as e:
+            logger.error(f'Error checking update sanity! Old={old_node} New={new_node}: {repr(e)}')
+            raise
 
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
         if isinstance(other, LocalFileNode) and \
                 other.content_meta == self.content_meta and \
+                other.get_size_bytes() == other.get_size_bytes() and \
                 other.node_identifier.node_uid == self.node_identifier.node_uid and \
                 other.node_identifier.device_uid == self.node_identifier.device_uid and \
                 other._create_ts == self._create_ts and \
@@ -269,72 +338,7 @@ class LocalFileNode(LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} content_uid={self.content_meta.uid} ' \
+        content_uid = self.content_meta.uid if self.content_meta else None
+        return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} content_uid={content_uid} ' \
                f'size_bytes={self.get_size_bytes()} trashed={self._trashed} is_live={self.is_live()} ' \
                f'create_ts={self._create_ts} modify_ts={self._modify_ts} change_ts={self._change_ts})'
-
-
-def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
-    try:
-        if not old_node:
-            raise RuntimeError(f'old_node is empty!')
-
-        if not isinstance(old_node, LocalFileNode):
-            # Internal error; try to recover
-            logger.error(f'Invalid node type for old_node: {type(old_node)}. Will overwrite cache entry')
-            return
-
-        if not new_node:
-            raise RuntimeError(f'new_node is empty!')
-
-        if not isinstance(new_node, LocalFileNode):
-            raise RuntimeError(f'Invalid node type for new_node: {type(new_node)}')
-
-        if not old_node.create_ts:
-            logger.debug(f'old_node has no create_ts. Skipping create_ts comparison (Old={old_node} New={new_node}')
-        elif not new_node.create_ts:
-            raise RuntimeError(f'new_node is missing create_ts!')
-        elif new_node.create_ts < old_node.create_ts:
-            if IS_MACOS:
-                # Known bug in MacOS
-                logger.debug(
-                    f'File {new_node.node_identifier}: update has older create_ts ({new_node.create_ts}) than prev version ({old_node.create_ts})'
-                    f'(probably MacOS bug)')
-            else:
-                logger.warning(
-                    f'File {new_node.node_identifier}: update has older create_ts ({new_node.create_ts}) than prev version ({old_node.create_ts})')
-
-        if not old_node.modify_ts:
-            logger.debug(f'old_node has no modify_ts. Skipping modify_ts comparison (Old={old_node} New={new_node}')
-        elif not new_node.modify_ts:
-            raise RuntimeError(f'new_node is missing modify_ts!')
-        elif new_node.modify_ts < old_node.modify_ts:
-            if IS_MACOS:
-                # Known bug in MacOS
-                logger.debug(
-                    f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})'
-                    f'(probably MacOS bug)')
-            else:
-                logger.warning(
-                    f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
-
-        if not old_node.change_ts:
-            logger.debug(f'old_node has no change_ts. Skipping change_ts comparison (Old={old_node} New={new_node}')
-        elif not new_node.change_ts:
-            raise RuntimeError(f'new_node is missing change_ts!')
-        elif new_node.change_ts < old_node.change_ts:
-            if IS_MACOS:
-                # Known bug in MacOS
-                logger.debug(
-                    f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})'
-                    f'(probably MacOS bug)')
-            else:
-                logger.warning(
-                    f'File {new_node.node_identifier}: update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
-
-        if new_node.get_size_bytes() != old_node.get_size_bytes() and new_node.md5 == old_node.md5 and old_node.md5:
-            logger.warning(f'File {new_node.node_identifier}: update has same MD5 ({new_node.md5}) ' +
-                           f'but different size: (old={old_node.get_size_bytes()}, new={new_node.get_size_bytes()})')
-    except Exception as e:
-        logger.error(f'Error checking update sanity! Old={old_node} New={new_node}: {repr(e)}')
-        raise

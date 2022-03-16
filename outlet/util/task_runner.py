@@ -7,7 +7,7 @@ from logging_constants import SUPER_DEBUG_ENABLED
 from global_actions import GlobalActions
 from signal_constants import ID_CENTRAL_EXEC
 from util import time_util
-from util.has_lifecycle import HasLifecycle
+from util.has_lifecycle import HasLifecycle, start_func, stop_func
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -105,12 +105,14 @@ class TaskRunner(HasLifecycle):
         future: Future = self._executor.submit(task.run)
         return future
 
-    def shutdown(self):
-        """Note: setting wait to False will not decrease the shutdown time.
-        Rather, wait=True just means block here until all running tasks are completed (i.e. the thread
-        pool threads appear to not be daemon threads."""
-        HasLifecycle.shutdown(self)
+    @start_func
+    def start(self):
+        pass
 
+    @stop_func
+    def shutdown(self):
+        # Note: setting wait to False will not decrease the shutdown time. Rather, wait=True just means block here until
+        # all running tasks are completed (i.e. the thread pool threads appear to not be daemon threads).
         if self._executor:
             self._executor.shutdown(wait=True)
             self._executor = None

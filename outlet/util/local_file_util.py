@@ -8,7 +8,6 @@ import subprocess
 from datetime import datetime
 from typing import Optional
 
-from backend.tree_store.local import content_hasher
 from constants import IS_MACOS, IS_WINDOWS, MACOS_SETFILE_DATETIME_FMT
 from error import IdenticalFileExistsError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
