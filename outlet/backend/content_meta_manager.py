@@ -26,11 +26,15 @@ class ContentMetaManager(HasLifecycle):
     @start_func
     def start(self):
         meta_list: List[ContentMeta] = self.content_meta_db.get_all()
-        meta_dict = {}
-        for meta in meta_list:
-            meta_dict[meta.uid] = meta
-        self.meta_dict = meta_dict
-        logger.debug(f'Size of ContentMeta dict: {len(self.meta_dict)}')
+        if meta_list:
+            meta_dict = {}
+            for meta in meta_list:
+                meta_dict[meta.uid] = meta
+            self.meta_dict = meta_dict
+            logger.debug(f'Size of ContentMeta dict: {len(self.meta_dict)}')
+        else:
+            logger.debug(f'No ContentMeta in diskstore; assuming we are starting fresh')
+            self.content_meta_db.create_table_if_not_exist()
 
     @stop_func
     def shutdown(self):

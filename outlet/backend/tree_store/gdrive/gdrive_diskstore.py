@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
-from constants import GDRIVE_ROOT_UID, TreeID
+from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, TreeID
 from logging_constants import SUPER_DEBUG_ENABLED
 from backend.tree_store.gdrive.gdrive_tree import GDriveWholeTree
 from error import CacheNotFoundError, NodeNotPresentError
@@ -34,8 +34,10 @@ class GDriveDiskStore(HasLifecycle):
         self.device_uid: UID = device_uid
         self._memstore: GDriveMemoryStore = memstore
         self._db: Optional[GDriveDatabase] = None
-        self.needs_full_reload: bool = False
         self._path_list_computer: GDrivePathListComputer = None
+
+        self.needs_meta_download: bool = False  # If true, indicates that a meta download should be started/resumed based on download table
+        self.should_invalidate_cache: bool = False  # Iff needs_meta_download==true and this is true, existing cache should be wiped & replaced
 
     def start(self):
         logger.debug(f'[GDriveDiskStore(device_uid={self.device_uid})] Startup started')
@@ -43,6 +45,17 @@ class GDriveDiskStore(HasLifecycle):
         gdrive_db_path = self._get_gdrive_cache_path()
         self._db = GDriveDatabase(gdrive_db_path, self.backend, self.device_uid)
         self._path_list_computer = GDrivePathListComputer(get_node_for_uid_func=self._db.get_node_with_uid)
+
+        if not self.needs_meta_download:
+            initial_download: GDriveMetaDownload = self.get_current_download(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD)
+            if not initial_download:
+                logger.debug(f'No INITIIAL_LOAD-type download found in the downloads table; triggering full meta rebuild from Google.')
+                self.needs_meta_download = True
+                self.should_invalidate_cache = True
+            elif initial_download.current_state != GDRIVE_DOWNLOAD_STATE_COMPLETE:
+                logger.debug(f'Looks like the initial download of metadata from Google is not complete (state = {initial_download.current_state})')
+                self.needs_meta_download = True
+
         logger.debug(f'[GDriveDiskStore(device_uid={self.device_uid})] Startup done')
 
     def shutdown(self):
@@ -59,9 +72,10 @@ class GDriveDiskStore(HasLifecycle):
         try:
             cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root, create_if_not_found=False)
         except CacheNotFoundError:
-            logger.warning(f'Failed to find CacheInfo for GDrive device_uid: {self.device_uid}. Triggering a rebuild of the cache from the network.')
+            logger.warning(f'Failed to find CacheInfo for GDrive device_uid: {self.device_uid}. Triggering a rebuild of the cache from Google.')
             cache_info = self.backend.cacheman.get_cache_info_for_subtree(master_tree_root, create_if_not_found=True)
-            self.needs_full_reload = True
+            self.needs_meta_download = True
+            self.should_invalidate_cache = True
 
         return cache_info.cache_location
 

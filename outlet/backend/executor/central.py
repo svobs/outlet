@@ -307,7 +307,7 @@ class CentralExecutor(HasLifecycle):
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{CENTRAL_EXEC_THREAD_NAME}] No new tasks started. Running: {non_user_op_count} tasks + {user_op_count} ops '
-                         f' (max {self._max_workers})')
+                         f'(max is {self._max_workers})')
 
     def _get_from_queue(self, priority: ExecPriority) -> Optional[Task]:
         assert self._struct_lock.locked()

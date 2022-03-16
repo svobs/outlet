@@ -141,8 +141,11 @@ class GDriveMasterStore(TreeStore):
         self.gdrive_client.start()
         self.connect_dispatch_listener(signal=Signal.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
 
-        if self._diskstore.needs_full_reload:
-            self.download_all_gdrive_data()
+        if self._diskstore.needs_meta_download:
+            logger.debug(f'Starting or resuming GDrive meta download (should_invalidate_cache={self._diskstore.should_invalidate_cache})')
+            self.download_all_gdrive_data(invalidate_cache=self._diskstore.should_invalidate_cache)
+        else:
+            logger.debug(f'No download of GDrive meta needed')
 
         logger.debug(f'GDriveMasterStore(device_uid={self.device_uid}) started')
 
@@ -196,16 +199,17 @@ class GDriveMasterStore(TreeStore):
     # Tree-wide stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def download_all_gdrive_data(self):
-        """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self.backend.executor.submit_async_task(Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, self._download_all_gdrive_meta))
+    def download_all_gdrive_data(self, invalidate_cache: bool):
+        """See private method below.
+        If invalidate_cache==true, wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
+        self.backend.executor.submit_async_task(Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, self._download_all_gdrive_meta, invalidate_cache))
 
-    def _download_all_gdrive_meta(self, this_task: Task):
+    def _download_all_gdrive_meta(self, this_task: Task, invalidate_cache: bool):
         """See above. Executed by Task Runner. NOT UI thread"""
-        logger.info(f'Downloading all GDrive meta (device_uid={self.device_uid})')
+        logger.info(f'Downloading all GDrive meta (device_uid={self.device_uid}, invalidate_cache={invalidate_cache})')
         try:
-            """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-            self.load_and_sync_master_tree(this_task, invalidate_cache=True)
+            # If invalidate_cache==true, wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers.
+            self.load_and_sync_master_tree(this_task, invalidate_cache=invalidate_cache)
         except Exception as err:
             logger.exception(err)
             GlobalActions.display_error_in_ui(ID_GLOBAL_CACHE, 'Download from GDrive failed due to unexpected error', repr(err))

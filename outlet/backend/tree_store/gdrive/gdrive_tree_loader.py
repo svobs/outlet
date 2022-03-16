@@ -102,7 +102,7 @@ class GDriveTreeLoader:
 
         if not initial_download.is_complete():
             state = 'Starting' if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
-            logger.info(f'{state} download of all Google Drive tree (state={initial_download.current_state})')
+            logger.info(f'{state} download of all Google Drive meta (state={initial_download.current_state})')
 
             # BEGIN STATE MACHINE:
 

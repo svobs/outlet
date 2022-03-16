@@ -1,5 +1,8 @@
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.node_identifier import SinglePathNodeIdentifier
 from util.ensure import ensure_int
+import logging
+logger = logging.getLogger(__name__)
 
 
 class CacheInfoEntry:
@@ -26,13 +29,17 @@ class CacheInfoEntry:
     @staticmethod
     def convert_abs_path_to_relative(cache_path: str, cache_path_prefix: str) -> str:
         if cache_path.startswith(cache_path_prefix):
-            cache_path = cache_path.replace(cache_path_prefix, '.')
+            cache_path = cache_path.replace(cache_path_prefix, '.', 1)
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Converted cache path from abs to rel (base: "{cache_path_prefix}"); result = {cache_path}')
         return cache_path
 
     @staticmethod
     def convert_relative_path_to_abs(cache_path: str, cache_path_prefix: str) -> str:
-        if cache_path.startswith('.'):
-            cache_path = cache_path.replace('.', cache_path_prefix)
+        if cache_path.startswith('./'):
+            cache_path = cache_path.replace('.', cache_path_prefix, 1)
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Converted cache path from rel to abs (base: "{cache_path_prefix}"); result = {cache_path}')
         return cache_path
 
 
