@@ -344,6 +344,18 @@ class GDriveFile(GDriveNode):
 
     def to_tuple(self):
         content_meta_uid = self.content_meta.uid if self.content_meta else NULL_UID
-        return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.get_trashed_status(), content_meta_uid, self.get_size_bytes(),
-                self.create_ts, self.modify_ts, self.owner_uid, self.drive_id, self.is_shared, self.shared_by_user_uid, self.version,
+        return (self.uid,
+                self.goog_id,
+                content_meta_uid,
+                self.get_size_bytes(),
+                self.name,
+                self.mime_type_uid,
+                self.get_trashed_status(),
+                self.create_ts,
+                self.modify_ts,
+                self.owner_uid,
+                self.drive_id,
+                self.is_shared,
+                self.shared_by_user_uid,
+                self.version,
                 self.sync_ts)

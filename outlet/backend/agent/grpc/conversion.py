@@ -273,7 +273,9 @@ class GRPCConverter:
             if node_identifier.parent_guid:
                 grpc_node_identifier.spid_meta.parent_guid = node_identifier.parent_guid
         else:
-            grpc_node_identifier.multi_path_id_meta.path_list = node_identifier.get_path_list()
+            for path in node_identifier.get_path_list():
+                # path_list is a "repeated" field: cannot be directly assigned in Py-proto
+                grpc_node_identifier.multi_path_id_meta.path_list.append(path)
 
     def node_identifier_from_grpc(self, grpc_node_identifier: backend.agent.grpc.generated.Node_pb2.NodeIdentifier):
         if grpc_node_identifier.HasField('multi_path_id_meta'):
