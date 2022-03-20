@@ -131,7 +131,12 @@ class NodeIdentifierFactory:
             node_uid = UID(uid_list[1])
             path_uid = node_uid
 
-        full_path = self.backend.cacheman.get_path_for_uid(node_uid)
+        try:
+            full_path = self.backend.cacheman.get_path_for_uid(path_uid)
+        except RuntimeError as err:
+            logger.error(f'from_guid(): get_path_for_uid() returned exception: {repr(err)}')
+            raise RuntimeError(f'Failed to resolve node_uid ({node_uid}) for GUID ({guid})')
+
         tree_type = self._get_tree_type_for_device_uid(device_uid)
 
         if tree_type == TreeType.LOCAL_DISK:

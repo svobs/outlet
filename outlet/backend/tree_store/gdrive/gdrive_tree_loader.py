@@ -141,13 +141,16 @@ class GDriveTreeLoader:
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             initial_download.update_ts = sync_ts
-            drive_root: GDriveFolder = self.gdrive_client.get_my_drive_root(initial_download.update_ts)
-            tree.uid_dict[drive_root.uid] = drive_root
+
+            my_drive_root: GDriveFolder = self.gdrive_client.get_my_drive_root(initial_download.update_ts)
+            tree.get_child_list_for_root().append(my_drive_root)
+            tree.uid_dict[my_drive_root.uid] = my_drive_root
 
             initial_download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
             initial_download.page_token = None
-            self._diskstore.insert_gdrive_folder_list(folder_list=[gdrive_root_node, drive_root], commit=False)
-            self._diskstore.create_or_update_download(download=initial_download)
+            id_parent_mapping = (my_drive_root.uid, gdrive_root_node.uid, gdrive_root_node.goog_id, sync_ts)
+            self._diskstore.insert_gdrive_folder_list_and_parents(folder_list=[gdrive_root_node, my_drive_root],
+                                                                  parent_mappings=[id_parent_mapping], current_download=initial_download)
 
     def _download_all_gdrive_dir_meta(self, this_task: Optional[Task], tree: GDriveWholeTree, initial_download: GDriveMetaDownload):
         # for all of these steps, make sure we are in the correct state, and do nothing if not.
@@ -247,7 +250,7 @@ class GDriveTreeLoader:
             if node.uid >= max_uid:
                 max_uid = node.uid
 
-        logger.debug(f'Found {count_orphans_found} GDrive orphans')
+        logger.warning(f'Found {count_orphans_found} GDrive orphans')
 
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 
