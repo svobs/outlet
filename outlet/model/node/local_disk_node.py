@@ -230,12 +230,16 @@ class LocalFileNode(LocalNode):
     def sha256(self) -> Optional[str]:
         return self.content_meta.sha256 if self.content_meta else None
 
+    @property
+    def content_meta_uid(self):
+        return self.content_meta.uid if self.content_meta else NULL_UID
+
     @classmethod
     def has_tuple(cls) -> bool:
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_parent_uid(), self.content_meta.uid if self.content_meta else NULL_UID, self.get_size_bytes(), \
+        return self.uid, self.get_single_parent_uid(), self.content_meta_uid, self.get_size_bytes(), \
                self.sync_ts, self.create_ts, self.modify_ts, self.change_ts,  self.get_single_path(), self._trashed, self._is_live
 
     def has_signature(self) -> bool:
@@ -320,7 +324,7 @@ class LocalFileNode(LocalNode):
     def __eq__(self, other):
         """Compares against the node's metadata. Matches ONLY the node's identity and content; not its parents, children, or derived path"""
         if isinstance(other, LocalFileNode) and \
-                other.content_meta == self.content_meta and \
+                other.content_meta_uid == self.content_meta_uid and \
                 other.get_size_bytes() == other.get_size_bytes() and \
                 other.node_identifier.node_uid == self.node_identifier.node_uid and \
                 other.node_identifier.device_uid == self.node_identifier.device_uid and \
@@ -338,7 +342,6 @@ class LocalFileNode(LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        content_uid = self.content_meta.uid if self.content_meta else None
-        return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} content_uid={content_uid} ' \
+        return f'LocalFileNode({self.node_identifier} parent_uid={self.get_single_parent_uid()} content_uid={self.content_meta_uid} ' \
                f'size_bytes={self.get_size_bytes()} trashed={self._trashed} is_live={self.is_live()} ' \
                f'create_ts={self._create_ts} modify_ts={self._modify_ts} change_ts={self._change_ts})'

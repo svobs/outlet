@@ -1,13 +1,16 @@
 import importlib
 import logging
 import os
+import re
+import subprocess
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, TypeVar
 
 from pydispatch import dispatcher
 
 from backend.executor.central import ExecPriority
-from constants import ActionID, CONFIG_PY_DIR, CONFIG_PY_MODULE, INIT_FILE, LOGGING_CONSTANTS_FILE, MAX_ROWS_PER_ACTIVATION, TreeID, TreeType
+from constants import ActionID, CONFIG_PY_DIR, CONFIG_PY_MODULE, DATE_REGEX, INIT_FILE, LOGGING_CONSTANTS_FILE, MAX_ROWS_PER_ACTIVATION, TreeID, \
+    TreeType
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.display_tree.tree_action import TreeAction
 from model.node.node import Node, SPIDNodePair
@@ -43,6 +46,7 @@ class CustomMenuAction:
 
 
 class ActionManager(HasLifecycle):
+    """Singleton (i.e., 1 ActionManager for all trees"""
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         self.backend = backend
@@ -52,7 +56,8 @@ class ActionManager(HasLifecycle):
             ActionID.DELETE_SUBTREE: self._delete_subtree_for_single_device,
             ActionID.DELETE_SINGLE_FILE: self._delete_single_file,
             ActionID.ACTIVATE: self._activate,
-            ActionID.REFRESH: self._refresh_subtree
+            ActionID.REFRESH: self._refresh_subtree,
+            ActionID.CALL_EXIFTOOL: self._call_exiftool
         }
 
         self._custom_module_dict: Dict = {}
@@ -245,9 +250,63 @@ class ActionManager(HasLifecycle):
     def _refresh_subtree(self, act: TreeAction):
         target_sn_list = self._get_sn_list_for_guid_list(guid_list=act.target_guid_list, tree_id=act.tree_id)
         node_identifier_list = [sn.node.node_identifier for sn in target_sn_list]
-        logger.info(f'Enqueuing task to refresh subtree at {node_identifier_list}')
+        logger.info(f'Enqueuing task(s) to refresh subtree at {node_identifier_list}')
         for node_identifier in node_identifier_list:
-            self.backend.executor.submit_async_task(Task(ExecPriority.P1_USER_LOAD, self._refresh_subtree, node_identifier, act.tree_id))
+            self.backend.cacheman.enqueue_refresh_subtree_task(node_identifier, act.tree_id)
+
+    def _call_exiftool(self, act: TreeAction):
+        target_sn_list = self._get_sn_list_for_guid_list(guid_list=act.target_guid_list, tree_id=act.tree_id)
+
+        logger.info(f'Enqueuing task to call EXIFTool for {len(target_sn_list)} nodes')
+        self.backend.executor.submit_async_task(Task(ExecPriority.P4_LONG_RUNNING_USER_TASK, self._call_exiftool_for_list, target_sn_list, act.tree_id))
+
+    def _call_exiftool_for_list(self, this_task: Task, target_sn_list: List[SPIDNodePair], tree_id: TreeID):
+        for sn in target_sn_list:
+            self._call_exiftool_for_single_path(sn.spid.get_single_path(), tree_id)
+
+    def _call_exiftool_for_single_path(self, full_path: str, tree_id: TreeID):
+        """See "Misc EXIF Tool Notes" in README.md"""
+
+        if not os.path.exists(full_path):
+            self.backend.report_error(sender=ID_ACTION_MANAGER, msg='Cannot manipulate dir', secondary_msg=f'Dir not found: {full_path}')
+            return
+        if not os.path.isdir(full_path):
+            self.backend.report_error(sender=ID_ACTION_MANAGER, msg='Cannot manipulate dir', secondary_msg=f'Not a dir: {full_path}')
+            return
+        dir_name = os.path.basename(full_path)
+        tokens = dir_name.split(' ', 1)
+        comment_to_set = None
+        if len(tokens) > 1:
+            assert not len(tokens) > 2, f'Length of tokens is {len(tokens)}: "{full_path}"'
+            comment_to_set = tokens[1]
+        date_to_set = tokens[0]
+        if not re.fullmatch(DATE_REGEX + '$', date_to_set):
+            raise RuntimeError(f'Unexpected date pattern: {tokens[0]}')
+        if len(date_to_set) == 10:
+            # good, whole date. Just to be sure, replace all dashes with colons
+            pass
+        elif len(date_to_set) == 7:
+            # only year + month found. Add default day
+            date_to_set += ':01'
+        elif len(date_to_set) == 4:
+            # only year found. Add default day
+            date_to_set += ':01:01'
+        date_to_set = date_to_set.replace('-', ':')
+
+        logger.info(f'[{tree_id}] Calling exiftool for: {full_path}')
+        args = ["exiftool", f'-AllDates="{date_to_set} 12:00:00"']
+        if comment_to_set:
+            args.append(f'-Comment="{comment_to_set}"')
+        args.append(full_path)
+        completed_process = subprocess.run(args)
+        logger.debug(f'Process returned {completed_process.returncode}')
+
+        list_original_files = [f.path for f in os.scandir(full_path) if not f.is_dir() and f.path.endswith('.jpg_original')]
+        for file in list_original_files:
+            logger.debug(f'[{tree_id}] Removing file: {file}')
+            os.remove(file)
+
+        logger.debug(f'[{tree_id}] Done with: {full_path}')
 
 
 T = TypeVar('T')

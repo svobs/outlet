@@ -55,6 +55,7 @@ class TreeActions(HasLifecycle):
 
         dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=call_exiftool)
 
+    # TODO: deprecate! This has been migrated to the BE
     def _call_exiftool(self, sender, full_path):
         """See "Misc EXIF Tool Notes" in README.md
         """

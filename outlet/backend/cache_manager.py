@@ -421,10 +421,12 @@ class CacheManager(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def upsert_single_node(self, node: Node) -> Node:
+        assert node is not None
         return self._cache_registry.get_store_for_device_uid(node.device_uid).upsert_single_node(node)
 
     def update_single_node(self, node: Node) -> Node:
         """Simliar to upsert, but fails silently if node does not already exist in caches. Useful for things such as asynch MD5 filling"""
+        assert node is not None
         return self._cache_registry.get_store_for_device_uid(node.device_uid).update_single_node(node)
 
     def delete_subtree(self, device_uid: UID, node_uid_list: List[UID]):
@@ -846,27 +848,32 @@ class CacheManager(HasLifecycle):
     def calculate_signature_for_local_file(self, device_uid: UID, full_path: str) -> Optional[ContentMeta]:
         """Returns None on failure (usually file not found or link problem).
         If successful, use """
-        stat = os.stat(full_path)
-        size_bytes = int(stat.st_size)
+        try:
+            stat = os.stat(full_path)
+            size_bytes = int(stat.st_size)
 
-        is_large = size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES
-        if is_large:
-            logger.info(f'[device_uid={device_uid}] Calculating signature for local file (note: this file is very large '
-                        f'({humanfriendlier_size(size_bytes)}) and may take a while: "{full_path}"')
-        elif SUPER_DEBUG_ENABLED:
-            logger.debug(f'[device_uid={device_uid}] Calculating signature for local file: "{full_path}"')
+            is_large = size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES
+            if is_large:
+                logger.info(f'[device_uid={device_uid}] Calculating signature for local file (note: this file is very large '
+                            f'({humanfriendlier_size(size_bytes)}) and may take a while: "{full_path}"')
+            elif SUPER_DEBUG_ENABLED:
+                logger.debug(f'[device_uid={device_uid}] Calculating signature for local file: "{full_path}"')
 
-        logger.debug(f'[device_uid={device_uid}] Calculating signatures for full_path="{full_path}"')
-        md5, sha256 = content_hasher.calculate_signatures(full_path)
-        if not md5 or sha256:
-            logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}"; '
-                        f'assuming it was deleted from disk')
-            return
+            logger.debug(f'[device_uid={device_uid}] Calculating signatures for full_path="{full_path}"')
+            md5, sha256 = content_hasher.calculate_signatures(full_path)
+            if not md5 or sha256:
+                logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}"; '
+                            f'assuming it was deleted from disk')
+                return None
 
-        if SUPER_DEBUG_ENABLED or is_large:
-            logger.debug(f'[device_uid={device_uid}] Calculated MD5: {md5} for local file: "{full_path}"')
+            if SUPER_DEBUG_ENABLED or is_large:
+                logger.debug(f'[device_uid={device_uid}] Calculated MD5: {md5} for local file: "{full_path}"')
 
-        return self.get_content_meta_for(size_bytes, md5, sha256)
+            return self.get_content_meta_for(size_bytes, md5, sha256)
+        except FileNotFoundError as err:
+            # File could have been deleted
+            logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}": {repr(err)}')
+            return None
 
     def get_all_files_with_content(self, content_uid: UID) -> List[Node]:
         global_file_list: List[Node] = []

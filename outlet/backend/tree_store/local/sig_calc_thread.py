@@ -1,3 +1,4 @@
+import copy
 import logging
 import threading
 import time
@@ -6,17 +7,13 @@ from typing import Deque, List, Set
 from uuid import UUID
 
 from backend.executor.central import ExecPriority
-from backend.tree_store.local import content_hasher
-from constants import LARGE_FILE_SIZE_THRESHOLD_BYTES
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node_identifier import NodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
 from util.ensure import ensure_int
-from util.format import humanfriendlier_size
 from util.has_lifecycle import HasLifecycle
-from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
@@ -155,8 +152,9 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             # exceptional case should already have been logged; just return
             return
 
-        node.content_meta = content_meta
+        updated_node: LocalFileNode = copy.deepcopy(node)
+        updated_node.content_meta = content_meta
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:
-        self.backend.cacheman.update_single_node(node)
+        self.backend.cacheman.update_single_node(updated_node)

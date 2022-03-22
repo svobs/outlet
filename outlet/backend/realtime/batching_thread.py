@@ -145,7 +145,11 @@ class MkPath(PathOp):
             node: LocalDirNode = caller.backend.cacheman.build_local_dir_node(self.path, is_live=True, all_children_fetched=True)
         else:
             node: LocalNode = caller.backend.cacheman.build_local_file_node(self.path)
-        caller.backend.cacheman.upsert_single_node(node)
+
+        if node:
+            caller.backend.cacheman.upsert_single_node(node)
+        else:
+            logger.debug(f'MkPath: failed to build LocalNode; skipping "{self.path}"')
 
 
 class RmPath(PathOp):
