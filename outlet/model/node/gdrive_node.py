@@ -308,16 +308,6 @@ class GDriveFile(GDriveNode):
         # A file can never be the parent of anything
         return False
 
-    def has_signature(self) -> bool:
-        return self.content_meta and self.content_meta.has_signature()
-
-    @property
-    def md5(self):
-        return self.content_meta.md5 if self.content_meta else None
-
-    def get_size_bytes(self):
-        return self.content_meta.size_bytes if self.content_meta else self._size_bytes
-
     @classmethod
     def get_obj_type(cls):
         return OBJ_TYPE_FILE
@@ -330,6 +320,24 @@ class GDriveFile(GDriveNode):
     def is_dir(cls):
         return False
 
+    @property
+    def content_meta_uid(self):
+        return self.content_meta.uid if self.content_meta else NULL_UID
+
+    def has_signature(self) -> bool:
+        return self.content_meta_uid and self.content_meta.has_signature()
+
+    def get_size_bytes(self):
+        return self.content_meta.size_bytes if self.content_meta_uid else self._size_bytes
+
+    @property
+    def md5(self):
+        return self.content_meta.md5 if self.content_meta_uid else None
+
+    @property
+    def sha256(self) -> Optional[str]:
+        return self.content_meta.sha256 if self.content_meta_uid else None
+
     def get_default_icon(self) -> IconId:
         if self.get_trashed_status() == TrashStatus.NOT_TRASHED:
             if self.is_live():
@@ -341,10 +349,6 @@ class GDriveFile(GDriveNode):
     @classmethod
     def has_tuple(cls) -> bool:
         return True
-
-    @property
-    def content_meta_uid(self):
-        return self.content_meta.uid if self.content_meta else NULL_UID
 
     def to_tuple(self):
         return (self.uid,

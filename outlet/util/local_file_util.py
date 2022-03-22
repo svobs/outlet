@@ -34,6 +34,8 @@ class LocalFileUtil:
 
     def ensure_up_to_date(self, node: LocalFileNode) -> LocalFileNode:
         """Returns either a LocalFileNode with a signature, or raises an error."""
+        if TRACE_ENABLED:
+            logger.debug(f'ensure_up_to_date() called for {node}')
 
         # First, make sure node has a signature:
         if not node.has_signature():
@@ -140,14 +142,14 @@ class LocalFileUtil:
         try:
             os.makedirs(name=staging_parent, exist_ok=True)
         except Exception as err:
-            logger.error(f'Exception while making staging dir: {staging_parent}')
+            logger.error(f'Exception while making staging dir: {staging_parent}: {repr(err)}')
             raise
     
         src_path: str = src_node.get_single_path()
         try:
             shutil.copyfile(src_path, dst=staging_path, follow_symlinks=False)
         except Exception as err:
-            logger.error(f'Exception while copying file to staging: {src_path}')
+            logger.error(f'Exception while copying file to staging: {src_path}: {repr(err)}')
             raise
     
         if verify:

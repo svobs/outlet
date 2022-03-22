@@ -3,6 +3,7 @@ import logging
 
 from backend.sqlite.content_meta_db import ContentMeta, ContentMetaDatabase
 from constants import NULL_UID
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.uid import UID
 from util.has_lifecycle import HasLifecycle, start_func, stop_func
 
@@ -55,12 +56,16 @@ class ContentMetaManager(HasLifecycle):
         """If content_uid is 0 or None, returns None (it was just cleaner to put this logic here rather than duplicate it many places).
         Raises exception if content_uid is non-zero but no ContentMeta found with that UID."""
         if not content_uid:
+            if TRACE_ENABLED:
+                logger.debug(f'get_content_meta_for_uid(): Returning None because content_uid={content_uid}')
             return None
 
         meta = self.meta_dict.get(content_uid)
         if not meta:
             raise RuntimeError(f'get_content_meta_for_uid(): no ContentMeta found in memstore for UID: {content_uid}')
 
+        if TRACE_ENABLED:
+            logger.debug(f'get_content_meta_for_uid(): Returning {meta} for content_uid {content_uid}')
         return meta
 
     def get_or_create_content_meta_for(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None) -> ContentMeta:

@@ -219,20 +219,23 @@ class LocalFileNode(LocalNode):
     def is_dir(cls) -> bool:
         return False
 
-    def get_size_bytes(self) -> int:
-        return self.content_meta.size_bytes if self.content_meta else self._size_bytes
-
-    @property
-    def md5(self) -> Optional[str]:
-        return self.content_meta.md5 if self.content_meta else None
-
-    @property
-    def sha256(self) -> Optional[str]:
-        return self.content_meta.sha256 if self.content_meta else None
-
     @property
     def content_meta_uid(self):
         return self.content_meta.uid if self.content_meta else NULL_UID
+
+    def has_signature(self) -> bool:
+        return self.content_meta_uid and self.content_meta.has_signature()
+
+    def get_size_bytes(self) -> int:
+        return self.content_meta.size_bytes if self.content_meta_uid else self._size_bytes
+
+    @property
+    def md5(self) -> Optional[str]:
+        return self.content_meta.md5 if self.content_meta_uid else None
+
+    @property
+    def sha256(self) -> Optional[str]:
+        return self.content_meta.sha256 if self.content_meta_uid else None
 
     @classmethod
     def has_tuple(cls) -> bool:
@@ -242,18 +245,20 @@ class LocalFileNode(LocalNode):
         return self.uid, self.get_single_parent_uid(), self.content_meta_uid, self.get_size_bytes(), \
                self.sync_ts, self.create_ts, self.modify_ts, self.change_ts,  self.get_single_path(), self._trashed, self._is_live
 
-    def has_signature(self) -> bool:
-        return self.content_meta and self.content_meta.has_signature()
-
     def copy_signature_if_is_meta_equal(self, other) -> bool:
+        """If meta is equal for this node & other, then copy signature from other to this."""
         if self.is_meta_equal(other) and (other.has_signature()):
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'copy_signature_if_is_meta_equal(): Meta is equal for {self.node_identifier}')
             self.content_meta = other.content_meta
 
             if SUPER_DEBUG_ENABLED:
                 self._check_update_sanity(other)
             return True
-
-        return False
+        else:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'copy_signature_if_is_meta_equal(): NOT equal: this={self}; other={other}')
+            return False
 
     def _check_update_sanity(self, old_node):
         new_node: LocalFileNode = self

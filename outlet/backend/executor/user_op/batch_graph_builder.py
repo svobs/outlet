@@ -49,10 +49,10 @@ class BatchGraphBuilder:
         # Is there a hit? Yes == there is overlap
         mkdir_dict: Dict[UID, UserOp] = {}
         rm_dict: Dict[UID, UserOp] = {}
-        # Uses _derive_cp_dst_key() to make key:
-        cp_dst_dict: Dict[str, UserOp] = {}
+        # Uses _derive_dst_parent_key_list() to make key:
+        dst_op_dict: Dict[str, UserOp] = {}
         # src node is not necessarily mutually exclusive:
-        cp_src_dict: DefaultDict[UID, List[UserOp]] = collections.defaultdict(lambda: list())
+        src_op_dict: DefaultDict[UID, List[UserOp]] = collections.defaultdict(lambda: list())
         count_ops_orig = 0
 
         batch_uid: UID = batch.batch_uid
@@ -85,31 +85,33 @@ class BatchGraphBuilder:
                     final_list.append(op)
                     rm_dict[op.src_node.uid] = op
             elif op.has_dst():
+                # Check binary ops for consistency.
+
                 # GDrive nodes' UIDs are derived from their goog_ids; nodes with no goog_id can have different UIDs.
                 # So for GDrive nodes with no goog_id, we must rely on a combination of their parent UID and name to check for uniqueness
                 for dst_parent_key in self._derive_dst_parent_key_list(op.dst_node):
                     if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'Checking parent key: {dst_parent_key}')
-                    existing = cp_dst_dict.get(dst_parent_key, None)
-                    if existing:
+                        logger.debug(f'Checking parent key: "{dst_parent_key}"')
+                    existing_op = dst_op_dict.get(dst_parent_key, None)
+                    if existing_op:
                         # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
-                        if existing.src_node.uid != op.src_node.uid:
-                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
+                        if existing_op.src_node.uid != op.src_node.uid:
+                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing_op}; Change2: {op}')
                             raise RuntimeError(f'Batch op conflict: trying to copy different nodes into the same destination!')
-                        elif existing.op_type != op.op_type:
-                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
+                        elif not self._are_equivalent(existing_op.op_type, op.op_type):
+                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing_op}; Change2: {op}')
                             raise RuntimeError(f'Batch op conflict: trying to copy different op types into the same destination!')
-                        elif op.dst_node.uid != existing.dst_node.uid:
+                        elif op.dst_node.uid != existing_op.dst_node.uid:
                             # GDrive nodes almost certainly
                             raise RuntimeError(f'Batch op conflict: trying to copy same node into the same destination with a different UID!')
                         else:
-                            assert op.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == op.src_node.uid and \
-                                   existing.op_type == op.op_type, f'Conflict: Change1: {existing}; Change2: {op}'
+                            assert op.dst_node.uid == existing_op.dst_node.uid and existing_op.src_node.uid == op.src_node.uid and \
+                                   existing_op.op_type == op.op_type, f'Conflict: Change1: {existing_op}; Change2: {op}'
                             logger.info(f'ReduceChanges(): Discarding op (dup dst): {op}')
                     else:
-                        logger.info(f'ReduceChanges(): Adding CP-like type: {op}')
-                        cp_src_dict[op.src_node.uid].append(op)
-                        cp_dst_dict[dst_parent_key] = op
+                        logger.info(f'ReduceChanges(): Adding binary op: {op}')
+                        src_op_dict[op.src_node.uid].append(op)
+                        dst_op_dict[dst_parent_key] = op
                         final_list.append(op)
             else:
                 assert False, f'Unrecognized op type: {op}'
@@ -139,7 +141,7 @@ class BatchGraphBuilder:
             if rm_op and rm_op.op_uid < op_arg.op_uid:
                 # we allow a delete of src node AFTER the move, but not before
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node which is deleted! (anscestor: {ancestor.node_identifier})')
-            if ancestor.uid in cp_dst_dict:
+            if ancestor.uid in dst_op_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to! (anscestor: {ancestor.node_identifier})')
 
         def validate_cp_dst_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
@@ -147,7 +149,7 @@ class BatchGraphBuilder:
                 logger.debug(f'Validating dst ancestor (op={op.op_uid}): {ancestor}')
             if ancestor.uid in rm_dict:
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted! (anscestor: {ancestor.node_identifier})')
-            if ancestor.uid in cp_src_dict:
+            if ancestor.uid in src_op_dict:
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from! (anscestor: {ancestor.node_identifier})')
 
         # For each element, traverse up the tree and compare each parent node to map
@@ -169,6 +171,17 @@ class BatchGraphBuilder:
         # Sort by ascending op_uid
         batch.op_list = sorted(final_list, key=lambda _op: _op.op_uid)
         return batch
+
+    @staticmethod
+    def _are_equivalent(prev_op_type: UserOpType, current_op_type: UserOpType) -> bool:
+        if (prev_op_type == UserOpType.START_DIR_CP or prev_op_type == UserOpType.FINISH_DIR_CP) and \
+                (current_op_type == UserOpType.START_DIR_CP or current_op_type == UserOpType.FINISH_DIR_CP):
+            return True
+        if (prev_op_type == UserOpType.START_DIR_MV or prev_op_type == UserOpType.FINISH_DIR_MV) and \
+                (current_op_type == UserOpType.START_DIR_MV or current_op_type == UserOpType.FINISH_DIR_MV):
+            return True
+
+        return prev_op_type == current_op_type
 
     def _check_ancestors(self, op: UserOp, node: Node, eval_func: Callable[[UserOp, Node], None]):
         queue: Deque[Node] = collections.deque()

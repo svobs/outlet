@@ -9,6 +9,7 @@ from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local.locald_tree import LocalDiskTree
 from backend.tree_store.local.master_local_write_op import LocalDiskMultiNodeOp, LocalDiskSingleNodeOp
 from constants import TreeType
+from logging_constants import TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import SPIDNodePair
@@ -151,6 +152,9 @@ class LocalDiskDiskStore(HasLifecycle):
                 logger.debug('No files found in disk cache')
 
             for file_node in file_list:
+                if not file_node.content_meta_uid:
+                    if TRACE_ENABLED:
+                        logger.debug(f'load_subtree(): loaded node is missing signature: {file_node}')
                 if file_node.is_live():
                     tree.add_to_tree(file_node)
                 else:
