@@ -128,7 +128,10 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
             try:
                 logger.debug(f'Applying CH file: {change_path}')
                 node: LocalNode = self.backend.cacheman.build_local_file_node(change_path)
-                self.backend.cacheman.upsert_single_node(node)
+                if node:
+                    self.backend.cacheman.upsert_single_node(node)
+                else:
+                    logger.debug(f'CH: failed to build LocalNode; skipping "{change_path}"')
             except FileNotFoundError as err:
                 logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
 
