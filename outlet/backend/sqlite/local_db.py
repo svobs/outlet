@@ -218,3 +218,6 @@ class LocalDiskDatabase(MetaDatabase):
         child_dir_list = self.table_local_dir.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
         child_file_list = self.table_local_file.select_object_list(where_clause='WHERE parent_uid = ?', where_tuple=(node_uid,))
         return child_dir_list + child_file_list
+
+    def get_all_files_with_content(self, content_uid: UID) -> List[LocalFileNode]:
+        return self.table_local_dir.select_object_list(where_clause='WHERE content_uid = ?', where_tuple=(content_uid,))

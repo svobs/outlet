@@ -703,6 +703,22 @@ class GDriveMasterStore(TreeStore):
             raise RuntimeError(f'Cannot get files and dirs: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
+    def get_all_files_with_content(self, content_uid: UID, cache_info_list: List) -> List[GDriveFile]:
+        """Param "cache_info_list" is not used for GDrive because each GDrive has only one cache"""
+        if not self._memstore.is_loaded():
+            # Just fail for now:
+            raise RuntimeError(f'get_all_files_with_content(): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
+
+        matching_file_list = []
+
+        def _add_if_content_matches(node):
+            if node.is_file() and node.content_meta_uid == content_uid:
+                matching_file_list.append(node)
+
+        self._memstore.master_tree.for_each_node(_add_if_content_matches)
+
+        return matching_file_list
+
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:
         if TRACE_ENABLED:
             logger.debug(f'Entered get_gdrive_user_for_permission_id()')

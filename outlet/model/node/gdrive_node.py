@@ -259,7 +259,7 @@ class GDriveFile(GDriveNode):
 
     def __repr__(self):
         return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{repr(self.name)}" mime_type_uid={self.mime_type_uid} ' \
-               f'trashed={self.trashed_str} size={self.get_size_bytes()} content_uid={self.content_meta.uid if self.content_meta else None} ' \
+               f'trashed={self.trashed_str} size={self.get_size_bytes()} content_uid={self.content_meta_uid} ' \
                f'create_ts={self.create_ts} modify_ts={self.modify_ts} ' \
                f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self.is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
                f'version={self.version} sync_ts={self.sync_ts} icon={self.get_icon()} parent_uids={self.get_parent_uids()})'
@@ -342,11 +342,14 @@ class GDriveFile(GDriveNode):
     def has_tuple(cls) -> bool:
         return True
 
+    @property
+    def content_meta_uid(self):
+        return self.content_meta.uid if self.content_meta else NULL_UID
+
     def to_tuple(self):
-        content_meta_uid = self.content_meta.uid if self.content_meta else NULL_UID
         return (self.uid,
                 self.goog_id,
-                content_meta_uid,
+                self.content_meta_uid,
                 self.get_size_bytes(),
                 self.name,
                 self.mime_type_uid,

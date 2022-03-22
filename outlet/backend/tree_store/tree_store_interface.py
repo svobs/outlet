@@ -92,6 +92,10 @@ class TreeStore(HasLifecycle, ABC):
         """Returns a tuple of [Files, Dirs]"""
         pass
 
+    @abstractmethod
+    def get_all_files_with_content(self, content_uid: UID, cache_info_list: List) -> List[Node]:
+        pass
+
     # Mutators
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

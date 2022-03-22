@@ -143,7 +143,7 @@ class TwoLevelDict:
             dict2[key2] = item
         return existing
 
-    def get_all(self):
+    def get_all(self) -> List:
         all_list = []
         for d1 in self._dict.values():
             for d2 in d1.values():
@@ -206,4 +206,3 @@ class Md5BeforeUidDict(TwoLevelDict):
 class Sha256BeforeUidDict(TwoLevelDict):
     def __init__(self):
         super().__init__(get_sha256, get_uid, overwrite_newer_ts)
-

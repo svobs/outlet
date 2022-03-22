@@ -868,6 +868,19 @@ class CacheManager(HasLifecycle):
 
         return self.get_content_meta_for(size_bytes, md5, sha256)
 
+    def get_all_files_with_content(self, content_uid: UID) -> List[Node]:
+        global_file_list: List[Node] = []
+        for device_uid, cache_info_list in self._cache_registry.get_all_cache_info_by_device_uid().items():
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'get_all_files_with_content(): searching {len(cache_info_list)} caches in device_uid={device_uid} '
+                             f'for content_uid={content_uid}')
+            store = self._cache_registry.get_store_for_device_uid(device_uid)
+            store_file_list = store.get_all_files_with_content(content_uid, cache_info_list)
+            global_file_list += store_file_list
+
+        logger.debug(f'get_all_files_with_content(): found total of {len(global_file_list)} files with content_uid={content_uid}')
+        return global_file_list
+
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

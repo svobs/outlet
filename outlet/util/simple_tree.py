@@ -3,6 +3,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, Generic, List, Optional, Tuple
 
 from error import NodeAlreadyPresentError, NodeNotPresentError
+from logging_constants import TRACE_ENABLED
 from util.base_tree import BaseTree, IdentifierT, NodeT
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,18 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
                     nid_queue.append(child.identifier)
 
         return count_removed
+
+    def for_each_node(self, action_func: Callable[[NodeT], None]):
+        """Similar to for_each_node_breadth_first(), but should be much faster, with the caveat that order is undefined"""
+
+        if TRACE_ENABLED:
+            logger.debug(f'for_each_node(): entering')
+
+        for node in self._node_dict.values():
+            action_func(node)
+
+        if TRACE_ENABLED:
+            logger.debug(f'for_each_node(): exiting')
 
     def paste(self, parent_uid: IdentifierT, new_tree):
         root_to_insert = new_tree.get_root_node()

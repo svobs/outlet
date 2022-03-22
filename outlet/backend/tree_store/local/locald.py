@@ -10,7 +10,6 @@ from typing import Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from backend.tree_store.local import content_hasher
 from backend.tree_store.local.local_diskstore import LocalDiskDiskStore
 from backend.tree_store.local.locald_scanner import LocalDiskScanner
 from backend.tree_store.local.locald_tree import LocalDiskTree
@@ -607,13 +606,38 @@ class LocalDiskMasterStore(TreeStore):
     def get_subtree_bfs_sn_list(self, subtree_root_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
         return [self.to_sn(x) for x in self.get_subtree_bfs_node_list(subtree_root_spid)]
 
-    @ensure_locked
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_all_files_and_dirs_for_subtree(): locked={self._struct_lock.locked()}')
 
+        cache_info: Optional[PersistedCacheInfo] = \
+            self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, subtree_root.get_single_path())
+        if not cache_info:
+            raise RuntimeError(f'get_all_files_and_dirs_for_subtree() could not find cache_info for: {subtree_root}')
+
+        if not cache_info.is_loaded:
+            raise RuntimeError(f'get_all_files_and_dirs_for_subtree() cache is not loaded: {cache_info.cache_location} '
+                               f'(for requested subtree={subtree_root})')
+
         result = self._memstore.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
         return result
+
+    def get_all_files_with_content(self, content_uid: UID, cache_info_list: List[PersistedCacheInfo]) -> List[LocalFileNode]:
+        matching_file_list = []
+
+        # Part 1 of 2: search memstore, which includes all loaded caches:
+        def _add_if_content_matches(node):
+            if node.is_file() and node.content_meta_uid == content_uid:
+                matching_file_list.append(node)
+
+        self._memstore.master_tree.for_each_node(_add_if_content_matches)
+
+        # Part 2 of 2: search all non-loaded caches directly from disk:
+        for cache_info in cache_info_list:
+            if not cache_info.is_loaded:
+                matching_file_list += self._diskstore.get_all_files_with_content(cache_info, content_uid)
+
+        return matching_file_list
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalNode]:
         """

@@ -1,7 +1,7 @@
 import logging
 import os
 from collections import Counter, defaultdict, deque
-from typing import DefaultDict, Deque, Dict, List, Optional, Tuple, Union
+from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
 from constants import GDRIVE_ROOT_UID, NodeIdentifierType, ROOT_PATH, TreeType
@@ -249,6 +249,18 @@ class GDriveWholeTree(BaseTree):
                 if node.uid == node_to_remove.uid:
                     node_list.remove(node)
                     return
+
+    def for_each_node(self, action_func: Callable[[GDriveNode], None]):
+        """Similar to for_each_node_breadth_first(), but should be much faster, with the caveat that order is undefined"""
+
+        if TRACE_ENABLED:
+            logger.debug(f'for_each_node(): entering')
+
+        for node in self.uid_dict.values():
+            action_func(node)
+
+        if TRACE_ENABLED:
+            logger.debug(f'for_each_node(): exiting')
 
     def get_all_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         file_list: List[GDriveFile] = []

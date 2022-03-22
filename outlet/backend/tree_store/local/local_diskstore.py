@@ -189,6 +189,11 @@ class LocalDiskDiskStore(HasLifecycle):
             db: LocalDiskDatabase = self._get_or_open_db(cache_info)
             return db.get_file_or_dir_for_uid(node_uid)
 
+    def get_all_files_with_content(self, cache_info: PersistedCacheInfo, content_uid: UID) -> List[LocalFileNode]:
+        with self._struct_lock:
+            db: LocalDiskDatabase = self._get_or_open_db(cache_info)
+            return db.get_all_files_with_content(content_uid)
+
     def get_subtree_bfs_from_cache(self, cache_info, node_uid: UID):
         assert isinstance(cache_info.subtree_root, LocalNodeIdentifier)
         with self._struct_lock:

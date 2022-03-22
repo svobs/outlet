@@ -258,18 +258,17 @@ class CacheRegistry(HasLifecycle):
         logger.debug('[CacheRegistry] Loading registry')
         stopwatch = Stopwatch()
 
-        caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_list_from_registry()
         unique_cache_count = 0
         skipped_count = 0
-        for cache_from_registry in caches_from_registry:
-            info: PersistedCacheInfo = PersistedCacheInfo(cache_from_registry)
-            if not os.path.exists(info.cache_location):
-                logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
+        for cache_from_registry in self._read_cache_info_list_from_registry():
+            cache_info: PersistedCacheInfo = PersistedCacheInfo(cache_from_registry)
+            if not os.path.exists(cache_info.cache_location):
+                logger.info(f'Skipping non-existent cache info entry: {cache_info.cache_location} (for subtree: {cache_info.subtree_root})')
                 skipped_count += 1
                 continue
-            existing = self._cache_info_dict.get_single(info.subtree_root.device_uid, info.subtree_root.get_single_path())
+            existing = self._cache_info_dict.get_single(cache_info.subtree_root.device_uid, cache_info.subtree_root.get_single_path())
             if existing:
-                if info.sync_ts < existing.sync_ts:
+                if cache_info.sync_ts < existing.sync_ts:
                     logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
                     continue
                 else:
@@ -280,7 +279,7 @@ class CacheRegistry(HasLifecycle):
                 unique_cache_count += 1
 
             # Put into map to eliminate possible duplicates
-            self._cache_info_dict.put_item(info)
+            self._cache_info_dict.put_item(cache_info)
 
         # Write back to cache if we need to clean things up:
         if skipped_count > 0:
@@ -369,7 +368,7 @@ class CacheRegistry(HasLifecycle):
         child_task = this_task.create_child_task(_update_registry_and_launch_load_tasks)
         self.backend.executor.submit_async_task(child_task)
 
-    def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
+    def _read_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistryDatabase(self.cache_dir_path, self.backend.node_identifier_factory) as db:
             if db.has_cache_info():
                 exisiting_cache_list = db.get_cache_info_list()
@@ -545,6 +544,16 @@ class CacheRegistry(HasLifecycle):
                 return existing_cache
         # Nothing in the cache contains subtree
         return None
+
+    def get_all_cache_info(self) -> List[PersistedCacheInfo]:
+        return self._cache_info_dict.get_all()
+
+    def get_all_cache_info_by_device_uid(self) -> Dict[UID, List[PersistedCacheInfo]]:
+        return_dict: Dict[UID, List[PersistedCacheInfo]] = {}
+        for device_uid, second_dict in self._cache_info_dict.get_first_dict():
+            return_dict[device_uid] = list(second_dict.values)
+
+        return return_dict
 
     def save_all_cache_info_to_disk(self):
         """Overrites all entries in the CacheInfoRegistry with the entries in memory"""
