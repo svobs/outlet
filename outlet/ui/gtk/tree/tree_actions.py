@@ -6,7 +6,8 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import DATE_REGEX, OPEN, SHOW
+from constants import ActionID, DATE_REGEX, OPEN, SHOW
+from model.display_tree.tree_action import TreeAction
 from model.node.gdrive_node import GDriveFile
 from model.node.node import Node, SPIDNodePair
 from signal_constants import Signal
@@ -33,7 +34,6 @@ class TreeActions(HasLifecycle):
     def start(self):
         logger.debug(f'[{self.con.tree_id}] TreeActions start')
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=Signal.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
         self.connect_dispatch_listener(signal=Signal.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
         self.connect_dispatch_listener(signal=Signal.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
         self.connect_dispatch_listener(signal=Signal.CALL_XDG_OPEN, sender=self.con.tree_id, receiver=self._call_xdg_open)
@@ -48,55 +48,8 @@ class TreeActions(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _call_exiftool_list(self, sender, sn_list: List[SPIDNodePair]):
-
-        def call_exiftool():
-            for sn in sn_list:
-                self._call_exiftool(sender, sn.spid.get_single_path())
-
-        dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=call_exiftool)
-
-    # TODO: deprecate! This has been migrated to the BE
-    def _call_exiftool(self, sender, full_path):
-        """See "Misc EXIF Tool Notes" in README.md
-        """
-        if not os.path.exists(full_path):
-            self.con.parent_win.show_error_msg(f'Cannot manipulate dir', f'Dir not found: {full_path}')
-            return
-        if not os.path.isdir(full_path):
-            self.con.parent_win.show_error_msg(f'Cannot manipulate dir', f'Not a dir: {full_path}')
-            return
-        dir_name = os.path.basename(full_path)
-        tokens = dir_name.split(' ', 1)
-        comment_to_set = None
-        if len(tokens) > 1:
-            assert not len(tokens) > 2, f'Length of tokens is {len(tokens)}: "{full_path}"'
-            comment_to_set = tokens[1]
-        date_to_set = tokens[0]
-        if not re.fullmatch(DATE_REGEX + '$', date_to_set):
-            raise RuntimeError(f'Unexpected date pattern: {tokens[0]}')
-        if len(date_to_set) == 10:
-            # good, whole date. Just to be sure, replace all dashes with colons
-            pass
-        elif len(date_to_set) == 7:
-            # only year + month found. Add default day
-            date_to_set += ':01'
-        elif len(date_to_set) == 4:
-            # only year found. Add default day
-            date_to_set += ':01:01'
-        date_to_set = date_to_set.replace('-', ':')
-
-        logger.info(f'[{self.con.tree_id}] Calling exiftool for: {full_path}')
-        args = ["exiftool", f'-AllDates="{date_to_set} 12:00:00"']
-        if comment_to_set:
-            args.append(f'-Comment="{comment_to_set}"')
-        args.append(full_path)
-        completed_process = subprocess.run(args)
-        logger.debug(f'Process returned {completed_process.returncode}')
-
-        list_original_files = [f.path for f in os.scandir(full_path) if not f.is_dir() and f.path.endswith('.jpg_original')]
-        for file in list_original_files:
-            logger.debug(f'[{self.con.tree_id}] Removing file: {file}')
-            os.remove(file)
+        action = TreeAction(tree_id=sender, action_id=ActionID.CALL_EXIFTOOL, target_guid_list=[sn.spid.guid for sn in sn_list])
+        self.con.backend.execute_tree_action_list([action])
 
     def _download_file_from_gdrive(self, sender, node: GDriveFile):
         self.con.app.backend.download_file_from_gdrive(node.device_uid, node.uid, sender)

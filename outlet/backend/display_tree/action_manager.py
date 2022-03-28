@@ -262,22 +262,22 @@ class ActionManager(HasLifecycle):
 
     def _call_exiftool_for_list(self, this_task: Task, target_sn_list: List[SPIDNodePair], tree_id: TreeID):
         for sn in target_sn_list:
-            self._call_exiftool_for_single_path(sn.spid.get_single_path(), tree_id)
+            self._call_exiftool_for_single_dir(sn.spid.get_single_path(), tree_id)
 
-    def _call_exiftool_for_single_path(self, full_path: str, tree_id: TreeID):
-        """See "Misc EXIF Tool Notes" in README.md"""
+    def _call_exiftool_for_single_dir(self, dir_full_path: str, tree_id: TreeID):
+        """Param "dir_full_path" is expected to be a dir containing one or more image files with EXIF data. See "Misc EXIF Tool Notes" in README.md"""
 
-        if not os.path.exists(full_path):
-            self.backend.report_error(sender=ID_ACTION_MANAGER, msg='Cannot manipulate dir', secondary_msg=f'Dir not found: {full_path}')
+        if not os.path.exists(dir_full_path):
+            self.backend.report_error(sender=ID_ACTION_MANAGER, msg='Cannot manipulate dir', secondary_msg=f'Dir not found: {dir_full_path}')
             return
-        if not os.path.isdir(full_path):
-            self.backend.report_error(sender=ID_ACTION_MANAGER, msg='Cannot manipulate dir', secondary_msg=f'Not a dir: {full_path}')
+        if not os.path.isdir(dir_full_path):
+            self.backend.report_error(sender=ID_ACTION_MANAGER, msg='Cannot manipulate dir', secondary_msg=f'Not a dir: {dir_full_path}')
             return
-        dir_name = os.path.basename(full_path)
+        dir_name = os.path.basename(dir_full_path)
         tokens = dir_name.split(' ', 1)
         comment_to_set = None
         if len(tokens) > 1:
-            assert not len(tokens) > 2, f'Length of tokens is {len(tokens)}: "{full_path}"'
+            assert not len(tokens) > 2, f'Length of tokens is {len(tokens)}: "{dir_full_path}"'
             comment_to_set = tokens[1]
         date_to_set = tokens[0]
         if not re.fullmatch(DATE_REGEX + '$', date_to_set):
@@ -293,20 +293,20 @@ class ActionManager(HasLifecycle):
             date_to_set += ':01:01'
         date_to_set = date_to_set.replace('-', ':')
 
-        logger.info(f'[{tree_id}] Calling exiftool for: {full_path}')
+        logger.info(f'[{tree_id}] Calling exiftool for: {dir_full_path}')
         args = ["exiftool", f'-AllDates="{date_to_set} 12:00:00"']
         if comment_to_set:
             args.append(f'-Comment="{comment_to_set}"')
-        args.append(full_path)
+        args.append(dir_full_path)
         completed_process = subprocess.run(args)
         logger.debug(f'Process returned {completed_process.returncode}')
 
-        list_original_files = [f.path for f in os.scandir(full_path) if not f.is_dir() and f.path.endswith('.jpg_original')]
+        list_original_files = [f.path for f in os.scandir(dir_full_path) if not f.is_dir() and f.path.endswith('_original')]
         for file in list_original_files:
             logger.debug(f'[{tree_id}] Removing file: {file}')
             os.remove(file)
 
-        logger.debug(f'[{tree_id}] Done with: {full_path}')
+        logger.debug(f'[{tree_id}] Done with: {dir_full_path}')
 
 
 T = TypeVar('T')

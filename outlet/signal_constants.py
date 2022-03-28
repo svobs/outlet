@@ -35,7 +35,6 @@ class Signal(IntEnum):
     """Internal to BE: should only be received by SigCalcBatchingThread"""
 
     # --- Tree actions: requests ---
-    CALL_EXIFTOOL = 20
     CALL_EXIFTOOL_LIST = 21
     SHOW_IN_NAUTILUS = 22
     CALL_XDG_OPEN = 23
