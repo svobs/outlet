@@ -34,8 +34,8 @@ def compute_md5(filename):
     if IS_MACOS:
         try:
             output = subprocess.check_output(['/sbin/md5', '-q', filename]).decode().split('\n')[0]
-        except RuntimeError as e:
-            logger.exception(f'While computing MD5 via MacOS tool for file "{filename}"')
+        except (subprocess.CalledProcessError, RuntimeError) as err:
+            logger.error(f'While computing MD5 via MacOS tool for file "{filename}": {repr(err)}')
             output = None
         if not output:
             logger.warning(f'Failed to compute MD5 using Mac cmdlkne tool; falling back to Python')

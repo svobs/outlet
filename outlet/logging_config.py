@@ -1,12 +1,44 @@
 import logging
 import os
-from pathlib import Path
+from datetime import datetime, timezone
+from logging import handlers
+
+from util.ensure import ensure_bool
 
 logger = logging.getLogger(__name__)
-EXE_NAME_TOKEN = '$EXE_NAME'
 
 
-def configure_logging(app_config, executing_script_name: str):
+class TimeOfLaunchRotatingFileHandler(handlers.RotatingFileHandler):
+
+    def __init__(self, log_dir: str, filename_base: str, mode='a', maxbytes=0, backupcount=0, encoding=None, delay=0):
+        """
+        @summary:
+        Set self.base_filename to include datetime string of now.
+        The handler create logFile named self.base_filename
+        """
+        self.log_dir = log_dir
+        self.filename_base = filename_base
+
+        self.logfile_path = self._generate_logfile_path()
+
+        handlers.RotatingFileHandler.__init__(self, self.logfile_path, mode, maxbytes, backupcount, encoding, delay)
+
+    def _generate_logfile_path(self):
+        """
+        @summary: Return logFile name string formatted to "today.log.alias"
+        """
+        timestamp_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+        filename = f'{self.filename_base}{timestamp_str}.log'
+        return os.path.join(self.log_dir, filename)
+
+    def shouldRollover(self, record):
+        """Never rollover. It seems a fair assumption that we will not launch the app twice in the same second, but even if we do, the worst
+        that will happen is that either the first is overwritten (if filemode 'w') which we almost certainly won't care about, or the second
+        is appended to the first (if filemode 'a'), in which we have a small amount of excess lines which we can safely ignore."""
+        return 0
+
+
+def configure_logging(app_config):
     # Argument 'executing_script_name' is used to name the log file
 
     # create logger
@@ -14,21 +46,21 @@ def configure_logging(app_config, executing_script_name: str):
     root_logger.setLevel(logging.DEBUG)
 
     # DEBUG LOG FILE
-    debug_log_enabled = app_config.get_config('logging.debug_log.enable')
+    debug_log_enabled = ensure_bool(app_config.get_config('logging.debug_log.enable'))
     if debug_log_enabled:
-        debug_log_path: str = app_config.get_config('logging.debug_log.full_path')
-        debug_log_path = debug_log_path.replace(EXE_NAME_TOKEN, executing_script_name)
-        debug_log_mode = app_config.get_config('logging.debug_log.mode')
+        log_dir = app_config.get_config('logging.debug_log.log_dir')
+        filename_base: str = app_config.get_config('logging.debug_log.filename_base')
+        debug_log_mode = app_config.get_config('logging.debug_log.filemode')
         debug_log_fmt = app_config.get_config('logging.debug_log.format')
         debug_log_datetime_fmt = app_config.get_config('logging.debug_log.datetime_format')
 
-        log_dir = Path(debug_log_path).parent
         try:
             os.makedirs(name=log_dir, exist_ok=True)
-        except Exception as err:
+        except Exception:
             logger.error(f'Exception while making log dir: {log_dir}')
             raise
-        debug_file_handler = logging.FileHandler(filename=debug_log_path, mode=debug_log_mode)
+
+        debug_file_handler = TimeOfLaunchRotatingFileHandler(log_dir=log_dir, filename_base=filename_base, mode=debug_log_mode)
         debug_file_handler.setLevel(logging.DEBUG)
 
         debug_file_formatter = logging.Formatter(fmt=debug_log_fmt, datefmt=debug_log_datetime_fmt)

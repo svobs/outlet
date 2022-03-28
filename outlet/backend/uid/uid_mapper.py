@@ -63,7 +63,7 @@ class UidPersistedMapper(HasLifecycle, Generic[MappingT], ABC):
             uid = self._uid_forward_dict.get(val, None)
             if not uid:
                 if uid_suggestion:
-                    uid = uid_suggestion
+                    uid = ensure_uid(uid_suggestion)
                 else:
                     uid = self.uid_generator.next_uid()
                 if SUPER_DEBUG_ENABLED:

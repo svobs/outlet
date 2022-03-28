@@ -7,7 +7,7 @@ import json
 import logging
 
 import logging_config
-from constants import DEFAULT_CONFIG_PATH, PROJECT_DIR, PROJECT_DIR_TOKEN, UI_STATE_CFG_SEGMENT
+from constants import DEFAULT_CONFIG_PATH, EXE_NAME_TOKEN, PROJECT_DIR, PROJECT_DIR_TOKEN, UI_STATE_CFG_SEGMENT
 from util.file_util import get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,7 @@ class AppConfig:
     def __init__(self, config_file_path: str = None, executing_script_name: str = None):
         self._project_dir = get_resource_path(PROJECT_DIR)
         self._lock = threading.Lock()
+        self._executing_script_name = executing_script_name
 
         if not config_file_path:
             config_file_path = get_resource_path(DEFAULT_CONFIG_PATH)
@@ -53,7 +54,7 @@ class AppConfig:
         except Exception as err:
             raise RuntimeError(f'Could not read JSON config file "{ui_state_filename}"') from err
 
-        logging_config.configure_logging(self, executing_script_name)
+        logging_config.configure_logging(self)
         if self.read_only:
             logger.info('Config is set to read-only')
 
@@ -68,6 +69,7 @@ class AppConfig:
 
             if val is not None and type(val) == str:
                 val = val.replace(PROJECT_DIR_TOKEN, self._project_dir)
+                val = val.replace(EXE_NAME_TOKEN, self._executing_script_name)
             logger.debug(f'Read config entry "{cfg_path}" = "{val}"')
             return val
         except (KeyError, config.KeyNotFoundError):

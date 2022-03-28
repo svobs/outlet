@@ -17,6 +17,7 @@ OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT = True
 
 # When parsing config file:
 PROJECT_DIR_TOKEN = '$PROJECT_DIR'
+EXE_NAME_TOKEN = '$EXE_NAME'
 LOGGING_CONSTANTS_FILE = 'logging_constants.py'
 INIT_FILE = '__init__.py'
 TEMPLATE = 'template'

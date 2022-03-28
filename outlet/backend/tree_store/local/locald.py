@@ -537,9 +537,6 @@ class LocalDiskMasterStore(TreeStore):
         with self._struct_lock:
             src_uid: UID = self.get_uid_for_path(src_full_path)
             src_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
-            if not src_subroot_node:
-                logger.error(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
-                return
 
             dst_uid: UID = self.get_uid_for_path(dst_full_path)
             dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, full_path=dst_full_path)
@@ -552,25 +549,28 @@ class LocalDiskMasterStore(TreeStore):
                 existing_dst_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(dst_uid)
                 dst_subtree.remove_node_list = existing_dst_node_list
 
-            existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(src_subroot_node.uid)
+            if src_subroot_node:
+                existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(src_uid)
+                if existing_src_node_list:
+                    # Use cached list of existing nodes in the old location to infer the nodes in the new location:
+                    src_subtree: LocalSubtree = LocalSubtree(src_subroot_node.node_identifier,
+                                                             remove_node_list=existing_src_node_list, upsert_node_list=[])
 
-        if existing_src_node_list:
-            # Use cached list of existing nodes in the old location to infer the nodes in the new location:
-            src_subtree: LocalSubtree = LocalSubtree(src_subroot_node.node_identifier, remove_node_list=existing_src_node_list, upsert_node_list=[])
+                    for src_node in existing_src_node_list:
+                        dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
+                        dst_subtree.upsert_node_list.append(dst_node)
 
-            for src_node in existing_src_node_list:
-                dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
-                dst_subtree.upsert_node_list.append(dst_node)
+                    # here, src_subtree contains nodes to remove from cache, & dst_subtree contains the migrated nodes to upsert
+                    # (+ maybe cached nodes to remove)
+                    self._execute_write_op(BatchChangesOp(subtree_list=[src_subtree, dst_subtree]))
 
-            subtree_list: List[LocalSubtree] = [src_subtree, dst_subtree]
+                    return existing_src_node_list, dst_subtree.upsert_node_list
+                else:
+                    logger.info(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
+            else:
+                logger.info(f'MV src node does not exist (will ignore src and sync dst only): {self.device_uid}:{src_uid} ("{src_full_path}")')
 
-            operation = BatchChangesOp(subtree_list=subtree_list)
-            self._execute_write_op(operation)
-
-            return existing_src_node_list, dst_subtree.upsert_node_list
-        else:
-            # We don't have any src nodes. This shouldn't happen if we've done everything right, but we must assume the possibility that the cache
-            # will be out-of-date.
+            # We don't have any src nodes. This can easily happen if temporary files are created and then renamed; the cache can't keep up.
             # This method will execute asynchronously as a set of child tasks, after we return from this method.
             # In this case, the child task will already handle all the updates to the dst subtree (and we have no src subtree),
             # so we won't have any work to do here.
