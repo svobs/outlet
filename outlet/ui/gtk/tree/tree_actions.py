@@ -1,12 +1,9 @@
 import logging
 import os
-import re
 import subprocess
 from typing import List
 
-from pydispatch import dispatcher
-
-from constants import ActionID, DATE_REGEX, OPEN, SHOW
+from constants import ActionID, OPEN, SHOW
 from model.display_tree.tree_action import TreeAction
 from model.node.gdrive_node import GDriveFile
 from model.node.node import Node, SPIDNodePair
@@ -14,6 +11,7 @@ from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 

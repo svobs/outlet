@@ -30,12 +30,16 @@ class OpGraph(HasLifecycle):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS OpGraph
 
-    Undirected acyclic graph for user ops.
+    Directed acyclic graph for user ops.
     An OpGraph is built out of a set of "OpGraph nodes", aka "OGNs", which I may also refer to as "graph nodes", which have class OpGraphNode.
     These should be distinguished from regular file nodes, dir nodes, etc, which I'll refer to as simply "nodes", with class Node.
 
     Every UserOp in the graph will be reprensented by either 1 or 2 OGNs, with one OGN for its src node, and one OGN for its dst node (if it has
     a dst).
+
+    Each OGN can have 1 or more child OGNs, and 1 or more parent OGNs, depending on its type. Parent & child OGNs contain pointers to each other.
+    The execution of each child is contigent upon the successful completion of all its parent OGNs. Another way of saying this is that
+    an OGN cannot run until all of its parent OGNs' UserOps have completed without error.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 

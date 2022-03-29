@@ -1,10 +1,8 @@
 import copy
-import functools
 import logging
 import math
 import os
 import pathlib
-import threading
 from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
@@ -35,38 +33,6 @@ from util.task_runner import Task
 logger = logging.getLogger(__name__)
 
 
-# FIXME: this doesn't work and may fail
-def ensure_locked(func):
-    """DECORATOR: make sure _struct_lock is locked when executing func. If it is not currently locked,
-    then lock it around the function.
-
-    Although this is outside the LocalDiskMasterStore, it is actually part of it! Kind of a fudge to make "self" work
-    """
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self._struct_lock.locked():
-            return func(self, *args, **kwargs)
-        else:
-            with self._struct_lock:
-                return func(self, *args, **kwargs)
-
-    return wrapper
-
-
-def locked(func):
-    """
-    Although this is outside the LocalDiskMasterStore, it is actually part of it! Kind of a fudge to make "self" work
-    """
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        with self._struct_lock:
-            return func(self, *args, **kwargs)
-
-    return wrapper
-
-
 class LocalDiskMasterStore(TreeStore):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -81,7 +47,6 @@ class LocalDiskMasterStore(TreeStore):
         self.backend = backend
         self.uid_path_mapper: UidPathMapper = uid_path_mapper
 
-        self._struct_lock = threading.Lock()
         self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(backend, self.device.uid)
         self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(backend, self.device.uid)
 
@@ -128,12 +93,10 @@ class LocalDiskMasterStore(TreeStore):
 
         self._diskstore.save_subtree(cache_info, file_list, dir_list, tree_id)
 
-    @locked
     def submit_batch_of_changes(self, subtree_root: LocalNodeIdentifier,  upsert_node_list: List[LocalNode] = None,
                                 remove_node_list: List[LocalNode] = None):
         self._execute_write_op(BatchChangesOp(subtree_root=subtree_root, upsert_node_list=upsert_node_list, remove_node_list=remove_node_list))
 
-    @locked
     def overwrite_dir_entries_list(self, parent_full_path: str, child_list: List[LocalNode]):
         logger.debug(f'overwrite_dir_entries_list() called with {len(child_list)} children & parent: "{parent_full_path}"')
 
@@ -269,18 +232,17 @@ class LocalDiskMasterStore(TreeStore):
         # LOAD into master tree. Only for first load!
         if not cache_info.is_loaded:
             was_loaded = False
-            with self._struct_lock:
-                tree = self._diskstore.load_subtree(cache_info, tree_id)
-                if tree:
-                    if TRACE_ENABLED:
-                        logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
+            tree = self._diskstore.load_subtree(cache_info, tree_id)
+            if tree:
+                if TRACE_ENABLED:
+                    logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
 
-                    self._memstore.master_tree.replace_subtree(tree)
-                    # Only set this once we are completely finished bringing the memstore up to date. Other tasks will depend on it
-                    # to choose whether to query memory or disk
-                    cache_info.is_loaded = True
-                    logger.debug(f'[{tree_id}] Updated memstore for device_uid={self.device_uid} from disk cache (subtree={cache_info.subtree_root}).'
-                                 f' Tree size is now: {len(self._memstore.master_tree):n} nodes')
+                self._memstore.master_tree.replace_subtree(tree)
+                # Only set this once we are completely finished bringing the memstore up to date. Other tasks will depend on it
+                # to choose whether to query memory or disk
+                cache_info.is_loaded = True
+                logger.debug(f'[{tree_id}] Updated memstore for device_uid={self.device_uid} from disk cache (subtree={cache_info.subtree_root}).'
+                             f' Tree size is now: {len(self._memstore.master_tree):n} nodes')
 
         # FS SYNC
         did_rescan = False
@@ -368,11 +330,8 @@ class LocalDiskMasterStore(TreeStore):
                     super_tree.replace_subtree(sub_tree=sub_tree)
 
                 # 5. We already loaded it into memory; add it to the in-memory cache:
-                # logger.warning('LOCK ON!')
-                with self._struct_lock:
-                    self._memstore.master_tree.replace_subtree(super_tree)
-                    super_tree.is_loaded = True
-                # logger.warning('LOCK off')
+                self._memstore.master_tree.replace_subtree(super_tree)
+                super_tree.is_loaded = True
 
                 # 6. This will resync with file system and re-save
                 supertree_cache.needs_save = True
@@ -532,50 +491,47 @@ class LocalDiskMasterStore(TreeStore):
         if src_full_path == dst_full_path:
             raise RuntimeError(f'src_full_path and dst_full_path are identical: "{dst_full_path}"')
 
-        if self._struct_lock.locked():
-            logger.warning(f'move_local_subtree(): already locked!')
-        with self._struct_lock:
-            src_uid: UID = self.get_uid_for_path(src_full_path)
-            src_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
+        src_uid: UID = self.get_uid_for_path(src_full_path)
+        src_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
 
-            dst_uid: UID = self.get_uid_for_path(dst_full_path)
-            dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, full_path=dst_full_path)
-            dst_subtree: LocalSubtree = LocalSubtree(subtree_root=dst_node_identifier, remove_node_list=[], upsert_node_list=[])
+        dst_uid: UID = self.get_uid_for_path(dst_full_path)
+        dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, full_path=dst_full_path)
+        dst_subtree: LocalSubtree = LocalSubtree(subtree_root=dst_node_identifier, remove_node_list=[], upsert_node_list=[])
 
-            existing_dst_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
-            if existing_dst_subroot_node:
-                # This will be very rare and probably means there's a bug, but let's try to handle it:
-                logger.warning(f'Subroot node already exists at MV dst; will remove all nodes in tree: {existing_dst_subroot_node.node_identifier}')
-                existing_dst_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(dst_uid)
-                dst_subtree.remove_node_list = existing_dst_node_list
+        existing_dst_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
+        if existing_dst_subroot_node:
+            # This will be very rare and probably means there's a bug, but let's try to handle it:
+            logger.warning(f'Subroot node already exists at MV dst; will remove all nodes in tree: {existing_dst_subroot_node.node_identifier}')
+            existing_dst_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(dst_uid)
+            dst_subtree.remove_node_list = existing_dst_node_list
 
-            if src_subroot_node:
-                existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(src_uid)
-                if existing_src_node_list:
-                    # Use cached list of existing nodes in the old location to infer the nodes in the new location:
-                    src_subtree: LocalSubtree = LocalSubtree(src_subroot_node.node_identifier,
-                                                             remove_node_list=existing_src_node_list, upsert_node_list=[])
+        if src_subroot_node:
+            existing_src_node_list: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs_node_list(src_uid)
+            if existing_src_node_list:
+                # Use cached list of existing nodes in the old location to infer the nodes in the new location:
+                src_subtree: LocalSubtree = LocalSubtree(src_subroot_node.node_identifier,
+                                                         remove_node_list=existing_src_node_list, upsert_node_list=[])
 
-                    for src_node in existing_src_node_list:
-                        dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
-                        dst_subtree.upsert_node_list.append(dst_node)
+                for src_node in existing_src_node_list:
+                    dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
+                    dst_subtree.upsert_node_list.append(dst_node)
 
-                    # here, src_subtree contains nodes to remove from cache, & dst_subtree contains the migrated nodes to upsert
-                    # (+ maybe cached nodes to remove)
-                    self._execute_write_op(BatchChangesOp(subtree_list=[src_subtree, dst_subtree]))
+                # here, src_subtree contains nodes to remove from cache, & dst_subtree contains the migrated nodes to upsert
+                # (+ maybe cached nodes to remove)
+                self._execute_write_op(BatchChangesOp(subtree_list=[src_subtree, dst_subtree]))
 
-                    return existing_src_node_list, dst_subtree.upsert_node_list
-                else:
-                    logger.info(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
+                return existing_src_node_list, dst_subtree.upsert_node_list
             else:
-                logger.info(f'MV src node does not exist (will ignore src and sync dst only): {self.device_uid}:{src_uid} ("{src_full_path}")')
+                logger.info(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
+        else:
+            logger.info(f'MV src node does not exist (will ignore src and sync dst only): {self.device_uid}:{src_uid} ("{src_full_path}")')
 
-            # We don't have any src nodes. This can easily happen if temporary files are created and then renamed; the cache can't keep up.
-            # This method will execute asynchronously as a set of child tasks, after we return from this method.
-            # In this case, the child task will already handle all the updates to the dst subtree (and we have no src subtree),
-            # so we won't have any work to do here.
-            self._resync_with_file_system(this_task, dst_node_identifier, ID_GLOBAL_CACHE)
-            return None
+        # We don't have any src nodes. This can easily happen if temporary files are created and then renamed; the cache can't keep up.
+        # This method will execute asynchronously as a set of child tasks, after we return from this method.
+        # In this case, the child task will already handle all the updates to the dst subtree (and we have no src subtree),
+        # so we won't have any work to do here.
+        self._resync_with_file_system(this_task, dst_node_identifier, ID_GLOBAL_CACHE)
+        return None
 
     def remove_subtree(self, subtree_root_node: LocalNode, to_trash: bool):
         """Recursively remove all nodes with the given subtree root from the cache. Param subtree_root_node can be either a file or dir"""
@@ -610,7 +566,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered get_all_files_and_dirs_for_subtree(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_all_files_and_dirs_for_subtree(): subtree_root={subtree_root}')
 
         cache_info: Optional[PersistedCacheInfo] = \
             self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, subtree_root.get_single_path())
@@ -675,7 +631,6 @@ class LocalDiskMasterStore(TreeStore):
 
     def _get_subtree_bfs_from_cache(self, parent_spid: LocalNodeIdentifier) -> Optional[List[LocalNode]]:
         """Returns all nodes in the given subtree which can be found in the cache. If the cache is not loaded into memory, loads them from disk."""
-        assert self._struct_lock.locked()
 
         cache_info: Optional[PersistedCacheInfo] = \
             self.backend.cacheman.get_existing_cache_info_for_local_path(self.device.uid, parent_spid.get_single_path())
@@ -746,7 +701,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state}')
 
         if filter_state and filter_state.has_criteria():
             # This only works if cache already loaded:

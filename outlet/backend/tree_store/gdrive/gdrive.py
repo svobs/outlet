@@ -1,7 +1,5 @@
-import functools
 import logging
 import os
-import threading
 from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple
 from uuid import UUID
@@ -73,24 +71,6 @@ class RefreshSubtreeCompoundTask:
                         f'Folders={self.count_folders} Total={self.count_total})')
 
 
-def ensure_locked(func):
-    """DECORATOR: make sure _struct_lock is locked when executing func. If it is not currently locked,
-    then lock it around the function.
-
-    Although this is outside the GDriveMasterStore, it is actually part of it! Kind of a fudge to make "self" work
-    """
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self._struct_lock.locked():
-            return func(self, *args, **kwargs)
-        else:
-            with self._struct_lock:
-                return func(self, *args, **kwargs)
-
-    return wrapper
-
-
 class GDriveMasterStore(TreeStore):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -122,7 +102,6 @@ class GDriveMasterStore(TreeStore):
         self._uid_mapper: UidGoogIdMapper = goog_id_mapper
         """Single source of UID<->GoogID mappings and UID assignments. Thread-safe."""
 
-        self._struct_lock = threading.Lock()
         """Used to protect structures inside memstore"""
         self._memstore: GDriveMemoryStore = GDriveMemoryStore(backend, self._uid_mapper, device.uid)
         self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore, device.uid)
@@ -199,6 +178,14 @@ class GDriveMasterStore(TreeStore):
     # Tree-wide stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def load_subtree(self, this_task: Task, subtree_root: SinglePathNodeIdentifier, tree_id: TreeID):
+        """Although this implements an API which can specify a subtree root, it ignores that. This is always a tree-wide operation."""
+        self._load_master_cache(this_task=this_task, sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
+
+    def is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
+        # very easy: either our whole cache is loaded or it is not
+        return self._memstore.master_tree is not None
+
     def download_all_gdrive_data(self, invalidate_cache: bool):
         """See private method below.
         If invalidate_cache==true, wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
@@ -221,8 +208,7 @@ class GDriveMasterStore(TreeStore):
     def _load_master_cache(self, this_task: Task, invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
 
-        logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
-                     f'sync_latest_changes={sync_latest_changes}')
+        logger.debug(f'Entered _load_master_cache(): invalidate_cache={invalidate_cache}, sync_latest_changes={sync_latest_changes}')
         assert this_task.priority == ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, f'Wrong priority for task: {this_task.priority}'
 
         if self._load_master_cache_in_process_task_uuid:
@@ -271,12 +257,11 @@ class GDriveMasterStore(TreeStore):
             self._is_sync_in_progress = False
             raise
 
-    @ensure_locked
     def _sync_latest_gdrive_changes(self, this_task: Task):
-        logger.debug(f'Entered sync_latest_changes(): locked={self._struct_lock.locked()}')
+        logger.debug(f'Entered _sync_latest_gdrive_changes()')
 
         if not self._memstore.is_loaded():
-            logger.warning(f'GDrive master tree is not loaded! Aborting sync.')
+            logger.warning(f'_sync_latest_gdrive_changes(): GDrive master tree is not loaded! Aborting sync.')
             return
 
         changes_download: GDriveMetaDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
@@ -291,7 +276,7 @@ class GDriveMasterStore(TreeStore):
         self.gdrive_client.get_changes_list(observer)
 
         if self._another_sync_requested:
-            logger.debug(f'sync_latest_changes(): Another sync was requested. Recursing...')
+            logger.debug(f'_sync_latest_gdrive_changes(): Another sync was requested. Recursing...')
             self._another_sync_requested = False
             this_task.add_next_task(self._sync_latest_gdrive_changes)
 
@@ -314,16 +299,9 @@ class GDriveMasterStore(TreeStore):
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def load_subtree(self, this_task: Task, subtree_root: SinglePathNodeIdentifier, tree_id: TreeID):
-        self._load_master_cache(this_task=this_task, sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
-
-    def is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
-        # very easy: either our whole cache is loaded or it is not
-        return self._memstore.master_tree is not None
-
     def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         if TRACE_ENABLED:
-            logger.debug(f'Entered generate_dir_stats(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered generate_dir_stats(): tree_id={tree_id}, subtree_root_node={subtree_root_node}')
         return self._memstore.master_tree.generate_dir_stats(tree_id=tree_id, subtree_root_node=subtree_root_node)
 
     def populate_filter(self, filter_state: FilterState):
@@ -392,19 +370,17 @@ class GDriveMasterStore(TreeStore):
     # Individual node cache updates
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    @ensure_locked  # <-- ehhh... let's just not deal with how dumb this is just yet
     def upsert_single_node(self, node: GDriveNode) -> GDriveNode:
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered upsert_single_node(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered upsert_single_node(): node={node}')
 
-        logger.debug(f'Upserting GDrive node to caches: {node}')
         write_op = UpsertSingleNodeOp(node)
         self._execute_write_op(write_op)
         return write_op.node
 
     def update_single_node(self, node: GDriveNode) -> GDriveNode:
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered update_single_node(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered update_single_node(): node={node}')
         write_op = UpsertSingleNodeOp(node, update_only=True)
         logger.debug(f'Updating GDrive node in caches: {node}')
         self._execute_write_op(write_op)
@@ -413,19 +389,17 @@ class GDriveMasterStore(TreeStore):
 
     def remove_subtree(self, subtree_root: GDriveNode, to_trash):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'remove_subtree(): subtree_root={subtree_root}')
 
         if subtree_root.is_dir():
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'remove_subtree(): locked={self._struct_lock.locked()}')
-            with self._struct_lock:
-                subtree_nodes: List[GDriveNode] = self.get_subtree_bfs_node_list(subtree_root.node_identifier)
-                logger.info(f'Removing subtree with {len(subtree_nodes)} nodes (to_trash={to_trash})')
-                self._execute_write_op(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
+            subtree_nodes: List[GDriveNode] = self.get_subtree_bfs_node_list(subtree_root.node_identifier)
+            logger.info(f'Removing subtree with {len(subtree_nodes)} nodes (to_trash={to_trash})')
+            self._execute_write_op(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
         else:
             logger.debug(f'Requested subtree is not a folder; calling remove_single_node()')
             self.remove_single_node(subtree_root, to_trash=to_trash)
 
-    @ensure_locked
     def remove_single_node(self, node: GDriveNode, to_trash) -> Optional[GDriveNode]:
         logger.debug(f'Removing node from caches: {node}')
 
@@ -548,8 +522,8 @@ class GDriveMasterStore(TreeStore):
         if node:
             return node
 
-        # try to recover the goog_id from the UID database
-        goog_id = self.get_goog_id_for_uid(node_uid)
+        # Resolve the goog_id from the UID database
+        goog_id = self._get_goog_id_for_uid(node_uid)
         if not goog_id:
             logger.warning(f'read_node_for_uid(): no goog_id found for node_uid (returning null): {node_uid}')
             return None
@@ -567,7 +541,7 @@ class GDriveMasterStore(TreeStore):
         return GDriveFolder(node_identifier, None, ROOT_PATH, TrashStatus.NOT_TRASHED, None, None,
                             GDRIVE_ME_USER_UID, None, False, None, sync_ts=sync_ts, all_children_fetched=False)
 
-    def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
+    def _get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
         try:
             return self._uid_mapper.get_goog_id_for_uid(uid)
         except RuntimeError as e:
@@ -591,7 +565,7 @@ class GDriveMasterStore(TreeStore):
         If it is not yet loaded, will try the disk store and return results from that.
         Failing both of those, will perform a read-through of the GDrive API and update the disk & memory cache before returning."""
         if TRACE_ENABLED:
-            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state} locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state}')
         assert isinstance(parent_spid, GDriveSPID), f'Expected GDriveSPID but got: {type(parent_spid)}: {parent_spid}'
 
         # 0. Special case if filtered (in-memory cache MUST be loaded already):
@@ -731,14 +705,14 @@ class GDriveMasterStore(TreeStore):
 
     def create_gdrive_user(self, user: GDriveUser):
         if TRACE_ENABLED:
-            logger.debug(f'Entered create_gdrive_user(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered create_gdrive_user(): user={user}')
         op = CreateUserOp(user)
         self._execute_write_op(op)
 
     def get_or_create_gdrive_mime_type(self, mime_type_string: str) -> MimeType:
         # Note: this operation must be synchronous, so that it can return the MIME type
         if TRACE_ENABLED:
-            logger.debug(f'Entered get_or_create_gdrive_mime_type(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_or_create_gdrive_mime_type(): mime_type_string="{mime_type_string}"')
 
         op = UpsertMimeTypeOp(mime_type_string)
         self._execute_write_op(op)
@@ -751,5 +725,5 @@ class GDriveMasterStore(TreeStore):
 
     def delete_all_gdrive_data(self):
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered delete_all_gdrive_data(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered delete_all_gdrive_data()')
         self._execute_write_op(DeleteAllDataOp())
