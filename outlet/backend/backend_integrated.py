@@ -61,6 +61,9 @@ class BackendIntegrated(OutletBackend):
         self.cacheman = None
         self.executor = None
 
+    def get_project_dir(self) -> str:
+        return self._app_config.get_project_dir()
+
     def get_config(self, config_key: str, default_val: Optional[str] = None, required: bool = True) -> Optional[str]:
         return self._app_config.get_config(config_key, default_val, required)
 

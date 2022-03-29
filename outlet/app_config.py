@@ -57,6 +57,9 @@ class AppConfig:
         logging_config.configure_logging(self)
         if self.read_only:
             logger.info('Config is set to read-only')
+            
+    def get_project_dir(self) -> str:
+        return self._project_dir
 
     def get_config_from_request(self, request: ConfigRequest):
         return self.get_config(cfg_path=request.cfg_path, default_val=request.default_val, required=request.is_required)

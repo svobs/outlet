@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 from backend.sqlite.content_meta_db import ContentMeta
 from constants import IconId, IS_MACOS, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
-from logging_constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
@@ -248,7 +248,7 @@ class LocalFileNode(LocalNode):
     def copy_signature_if_is_meta_equal(self, other) -> bool:
         """If meta is equal for this node & other, then copy signature from other to this."""
         if self.is_meta_equal(other) and (other.has_signature()):
-            if SUPER_DEBUG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'copy_signature_if_is_meta_equal(): Meta is equal for {self.node_identifier}')
             self.content_meta = other.content_meta
 
@@ -256,7 +256,7 @@ class LocalFileNode(LocalNode):
                 self._check_update_sanity(other)
             return True
         else:
-            if SUPER_DEBUG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'copy_signature_if_is_meta_equal(): NOT equal: this={self}; other={other}')
             return False
 
