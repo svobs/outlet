@@ -171,7 +171,7 @@ class ChangeTree(DisplayTree):
         existing_ancestor_path = parent_sn.spid.get_single_path()
         if not full_path:
             raise RuntimeError(f'SPID does not have a path: {sn.spid}')
-        if not full_path.startswith(self.root_path):
+        if not pathlib.PurePosixPath(full_path).is_relative_to(self.root_path):
             raise RuntimeError(f'Cannot insert node ({sn.spid}): its path does not start with tree root path ("{self.get_root_spid()}")')
 
         # Walk up the source tree and compose a list of ancestors:

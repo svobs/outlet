@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from typing import Deque, Iterable, List, Optional, Union
 
 from constants import MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode, TreeID, TreeType
@@ -125,11 +126,11 @@ class DisplayTree:
         if isinstance(path_list, list):
             for path in path_list:
                 # i.e. if any paths start with
-                if path.startswith(self.root_path):
+                if pathlib.PurePosixPath(path).is_relative_to(self.root_path):
                     return True
             return False
 
-        return path_list.startswith(self.root_path)
+        return pathlib.PurePosixPath(path_list).is_relative_to(self.root_path)
 
     def get_child_list_for_root(self) -> Iterable[SPIDNodePair]:
         return self.get_child_list_for_spid(self.get_root_spid())

@@ -35,6 +35,9 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
         return self.get_node_for_identifier(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
+        if node.get_single_path() == '/Volumes/MattPersonal/Media/Sexy/Private/FunVideos-New-TODO':
+            logger.warning('TEST')  # TODO
+
         root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.get_single_path()
@@ -60,7 +63,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                         # Also, the only time we ever will encounter this problem is via the OpManager, which should be inserting dirs first).
                         raise RuntimeError(f'Could not find existing dir node in tree (with uid={uid} full_path="{path_so_far}") '
                                            f'while inserting non-live node ({node.node_identifier})')
-                    if TRACE_ENABLED:
+                    if SUPER_DEBUG_ENABLED:
                         logger.debug(f'Creating missing dir node: uid={uid} full_path="{path_so_far}", all_children_fetched=False')
                     child = self.backend.cacheman.build_local_dir_node(full_path=path_so_far, is_live=True, all_children_fetched=False)
                     try:
@@ -89,7 +92,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
         if not self.contains(sub_tree_root_node.uid):
             # quick and dirty way to add any missing parents:
             logger.debug(f'This tree (root: {self.get_root_node().node_identifier}) does not contain sub-tree '
-                         f'(root: {sub_tree_root_node.node_identifier}): it and its ancestors will be added')
+                         f'({sub_tree_root_node.node_identifier}): it and its descendants will be added')
             assert isinstance(sub_tree_root_node, LocalNode)
             self.add_to_tree(sub_tree_root_node)
             if TRACE_ENABLED:

@@ -1,6 +1,6 @@
 import logging
 
-from constants import TreeID, UI_STATE_CFG_SEGMENT
+from constants import TreeID, TreeType, UI_STATE_CFG_SEGMENT
 from model.node_identifier import SinglePathNodeIdentifier
 from util.ensure import ensure_bool, ensure_uid
 from util.root_path_meta import RootPathMeta
@@ -53,6 +53,12 @@ class RootPathConfigPersister:
         device_uid = ensure_uid(self.backend.get_config(self._device_uid_config_key, required=True))
         root_path = self.backend.get_config(self._root_path_config_key, required=True)
         root_uid = ensure_uid(self.backend.get_config(self._root_uid_config_key, required=True))
+        if self.backend.cacheman.get_tree_type_for_device_uid(device_uid) == TreeType.LOCAL_DISK:
+            # Do sanity check for local disk: make sure UID matches path, and correct if not (in case of bad shutdown or config file tampering)
+            node_uid = self.backend.cacheman.get_uid_for_local_path(root_path, root_uid)
+            if root_uid != node_uid:
+                logger.warning(f'Subroot UID "{root_uid}" from config appears to be incocrect; changing it to "{node_uid}" (for path: "{root_path}")')
+            root_uid = node_uid
 
         root_identifier: SinglePathNodeIdentifier = self.backend.node_identifier_factory.build_spid(node_uid=root_uid, device_uid=device_uid,
                                                                                                     single_path=root_path)

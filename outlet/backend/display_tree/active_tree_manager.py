@@ -2,6 +2,7 @@ import collections
 import errno
 import logging
 import os
+import pathlib
 import threading
 from typing import Callable, Dict, List, Optional, Set
 
@@ -224,7 +225,7 @@ class ActiveTreeManager(HasLifecycle):
             found = False  # use boolean for sanity check
             assert node.get_path_list(), f'Node has no paths: {node}'
             for path in node.get_path_list():
-                if path.startswith(subtree_root_path):
+                if pathlib.PurePosixPath(path).is_relative_to(subtree_root_path):
                     found = True
                     sn = self._get_filtered_sn(node, path, tree_meta)
                     if sn:
@@ -275,7 +276,7 @@ class ActiveTreeManager(HasLifecycle):
         else:
             tree_root_path: str = tree_meta.root_sn.spid.get_single_path()
             for path in subtree_root.get_path_list():
-                if path.startswith(tree_root_path) or tree_root_path.startswith(path):
+                if pathlib.PurePosixPath(path).is_relative_to(tree_root_path) or pathlib.PurePosixPath(tree_root_path).is_relative_to(path):
                     logger.debug(f'Looks like paths intersect: tree_subroot="{tree_root_path}", update_subroot="{path}"')
 
                     return self.backend.cacheman.make_spid_for(node_uid=subtree_root.node_uid, device_uid=subtree_root.device_uid, full_path=path)
@@ -597,54 +598,57 @@ class ActiveTreeManager(HasLifecycle):
 
         tree_type = self.backend.cacheman.get_tree_type_for_device_uid(device_uid)
 
-        try:
-            # Assume the user means the local disk (for now). In the future, maybe we can add support for some kind of server name syntax
-            full_path = file_util.normalize_path(full_path)
-            if tree_type == TreeType.GDRIVE:
+        if tree_type == TreeType.LOCAL_DISK:
+            uid = self.backend.cacheman.get_uid_for_local_path(full_path)
+            assert uid, f'Expected nonzero value from get_uid_for_local_path(); got {uid}'
+            root_exists = os.path.exists(full_path)
+            root_path_meta = RootPathMeta(LocalNodeIdentifier(uid=uid, device_uid=device_uid, full_path=full_path), root_exists=root_exists)
+            logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
+            return root_path_meta
+
+        elif tree_type == TreeType.GDRIVE:
+            try:
+                # Assume the user means the local disk (for now). In the future, maybe we can add support for some kind of server name syntax
+                full_path = file_util.normalize_path(full_path)
                 # Need to wait until all caches are loaded:
                 # self.backend.cacheman.wait_for_startup_done()
                 # this will load the GDrive master tree if needed:
                 # TODO: we don't want to have to load the entire GDrive tree!
                 identifier_list = self.backend.cacheman.get_gdrive_identifier_list_for_full_path_list(device_uid, [full_path],
                                                                                                       error_if_not_found=True)
-            else:  # LocalNode
-                if not os.path.exists(full_path):
-                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
-                uid = self.backend.cacheman.get_uid_for_local_path(full_path)
-                identifier_list = [LocalNodeIdentifier(uid=uid, device_uid=device_uid, full_path=full_path)]
 
-            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
-            logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
-            if len(identifier_list) > 1:
-                # Create the appropriate
-                candidate_list = []
-                for identifier in identifier_list:
-                    if full_path in identifier.get_path_list():
-                        candidate_list.append(identifier)
-                if len(candidate_list) != 1:
-                    raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
-                new_root_spid: SinglePathNodeIdentifier = candidate_list[0]
-            else:
-                new_root_spid = identifier_list[0]
+                assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
+                logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
+                if len(identifier_list) > 1:
+                    # Create the appropriate
+                    candidate_list = []
+                    for identifier in identifier_list:
+                        if full_path in identifier.get_path_list():
+                            candidate_list.append(identifier)
+                    if len(candidate_list) != 1:
+                        raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
+                    new_root_spid: SinglePathNodeIdentifier = candidate_list[0]
+                else:
+                    new_root_spid = identifier_list[0]
 
-            # TODO: this is really ugly code, hastily written, hastily maintained. Clean up!
-            if len(new_root_spid.get_path_list()) > 0:
-                new_root_spid = self.backend.node_identifier_factory.build_spid(node_uid=new_root_spid.node_uid, device_uid=new_root_spid.device_uid,
-                                                                                single_path=full_path)
+                # TODO: this is really ugly code, hastily written, hastily maintained. Clean up!
+                if len(new_root_spid.get_path_list()) > 0:
+                    new_root_spid = self.backend.node_identifier_factory.build_spid(node_uid=new_root_spid.node_uid,
+                                                                                    device_uid=new_root_spid.device_uid, single_path=full_path)
 
-            root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
-        except GDriveNodePathNotFoundError as ginf:
-            root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
-            root_path_meta.offending_path = ginf.offending_path
-        except FileNotFoundError:
-            root = self.backend.node_identifier_factory.build_spid(device_uid=device_uid, single_path=full_path, node_uid=NULL_UID)
-            root_path_meta = RootPathMeta(root, root_exists=False)
-        except CacheNotLoadedError:
-            root = self.backend.node_identifier_factory.build_spid(device_uid=device_uid, path_list=full_path, node_uid=NULL_UID)
-            root_path_meta = RootPathMeta(root, root_exists=False)
-
-        logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
-        return root_path_meta
+                root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
+            except GDriveNodePathNotFoundError as ginf:
+                root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
+                root_path_meta.offending_path = ginf.offending_path
+            except CacheNotLoadedError:
+                # FIXME: don't use NULL_UID. Just load the cache.
+                logger.debug(f'resolve_root_from_path(): caught CacheNotLoadedError; building SPID with node_uid=NULL_UID')
+                root = self.backend.node_identifier_factory.build_spid(device_uid=device_uid, path_list=full_path, node_uid=NULL_UID)
+                root_path_meta = RootPathMeta(root, root_exists=False)
+            logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
+            return root_path_meta
+        else:
+            raise RuntimeError('Unexpected tree_type: {tree_type}')
 
     def get_active_display_tree_meta(self, tree_id: TreeID) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)

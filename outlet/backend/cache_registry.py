@@ -3,6 +3,7 @@ import os
 import subprocess
 import threading
 import uuid
+from pathlib import PurePosixPath
 from typing import Dict, List, Optional, Set
 
 from pydispatch import dispatcher
@@ -540,7 +541,7 @@ class CacheRegistry(HasLifecycle):
 
         for existing_cache in list(self._cache_info_dict.get_second_dict(device_uid).values()):
             # Is existing_cache an ancestor of target tree?
-            if full_path.startswith(existing_cache.subtree_root.get_path_list()[0]):
+            if PurePosixPath(full_path).is_relative_to(existing_cache.subtree_root.get_path_list()[0]):
                 return existing_cache
         # Nothing in the cache contains subtree
         return None

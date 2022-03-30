@@ -1,3 +1,5 @@
+import pathlib
+
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.node_identifier import SinglePathNodeIdentifier
 from util.ensure import ensure_int
@@ -28,7 +30,7 @@ class CacheInfoEntry:
 
     @staticmethod
     def convert_abs_path_to_relative(cache_path: str, cache_path_prefix: str) -> str:
-        if cache_path.startswith(cache_path_prefix):
+        if pathlib.PurePosixPath(cache_path).is_relative_to(cache_path_prefix):
             cache_path = cache_path.replace(cache_path_prefix, '.', 1)
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Converted cache path from abs to rel (base: "{cache_path_prefix}"); result = {cache_path}')

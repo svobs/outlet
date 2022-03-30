@@ -199,7 +199,7 @@ class OneSide:
         child_path: str = new_sn.spid.get_single_path()
         child: Node = new_sn.node
 
-        assert not stop_at_path.startswith(child_path), f'Should not be inserting at or above root: {child_path}'
+        assert not pathlib.PurePosixPath(stop_at_path).is_relative_to(child_path), f'Should not be inserting at or above root: {child_path}'
         if DIFF_DEBUG_ENABLED:
             logger.debug(f'[{self.change_tree.tree_id}] Checking for missing ancestors between node with path: "{child_path}" '
                          f'and tree root "{stop_at_path}"')

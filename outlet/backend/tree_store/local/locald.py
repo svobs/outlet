@@ -349,7 +349,7 @@ class LocalDiskMasterStore(TreeStore):
 
         for cache in local_caches:
             for other_cache in local_caches:
-                if other_cache.subtree_root.get_single_path().startswith(cache.subtree_root.get_single_path()) and \
+                if pathlib.PurePosixPath(other_cache.subtree_root.get_single_path()).is_relative_to(cache.subtree_root.get_single_path()) and \
                         not cache.subtree_root.get_single_path() == other_cache.subtree_root.get_single_path():
                     # cache is a super-tree of other_cache
                     logger.info(f'Cache {cache} represents a supertree of cache {other_cache}; will merge the latter into the former')
@@ -653,7 +653,7 @@ class LocalDiskMasterStore(TreeStore):
 
         # 1. Use in-memory cache if it exists. This will also allow pending op nodes to be handled
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memstore for: {parent_spid} '
+            logger.debug(f'_get_child_list_from_cache_for_spid(): Querying memstore for parent_spid={parent_spid} '
                          f'(only_if_all_children_fetched={only_if_all_children_fetched})')
 
         parent_node = self._memstore.master_tree.get_node_for_uid(parent_spid.node_uid)
@@ -777,7 +777,7 @@ class LocalDiskMasterStore(TreeStore):
                     logger.debug(f'get_single_parent_for_node(): Could not find parent for node {node.node_identifier.guid}')
                     return None
 
-            if parent and required_subtree_path and not parent.get_single_path().startswith(required_subtree_path):
+            if parent and required_subtree_path and not pathlib.PurePosixPath(parent.get_single_path()).is_relative_to(required_subtree_path):
                 logger.debug(f'get_single_parent_for_node(): parent path ({parent.get_single_path()}) '
                              f'does not contain required subtree path ({required_subtree_path}) (orig node: {node}')
                 return None
@@ -831,11 +831,16 @@ class LocalDiskMasterStore(TreeStore):
         return size_bytes, sync_ts, create_ts, modify_ts, change_ts
 
     def build_local_dir_node(self, full_path: str, is_live: bool, all_children_fetched: bool) -> Optional[LocalDirNode]:
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'build_local_dir_node() called for path "{full_path}", is_live={is_live}, all_children_fetched={all_children_fetched}')
         uid = self.get_uid_for_path(full_path)
 
         if is_live:
-            if not os.path.isdir(full_path):
-                raise RuntimeError(f'build_local_dir_node(): path is not a dir: {full_path}')
+            if not os.path.exists(full_path):
+                logger.debug(f'build_local_dir_node(): path does not exist: "{full_path}"')
+                return None
+            elif not os.path.isdir(full_path):
+                raise RuntimeError(f'build_local_dir_node(): path is not a dir: "{full_path}"')
 
             try:
                 size_bytes, sync_ts, create_ts, modify_ts, change_ts = self._get_stats(full_path, None)
@@ -863,8 +868,13 @@ class LocalDiskMasterStore(TreeStore):
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)
 
-        if is_live and os.path.isdir(full_path):
-            raise RuntimeError(f'build_local_file_node(): path is actually a dir: {full_path}')
+        if is_live:
+            if not os.path.exists(full_path):
+                logger.debug(f'build_local_file_node(): path does not exist: "{full_path}"')
+                return None
+
+            elif os.path.isdir(full_path):
+                raise RuntimeError(f'build_local_file_node(): path is actually a dir: {full_path}')
 
         # Check for broken links:
         if os.path.islink(full_path):

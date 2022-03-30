@@ -1,4 +1,5 @@
 import logging
+from pathlib import PurePosixPath
 
 from watchdog.events import FileSystemEventHandler
 
@@ -29,7 +30,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
 
     def on_moved(self, event):
         try:
-            if event.src_path.startswith(self.project_dir) and event.dest_path.startswith(self.project_dir):
+            if PurePosixPath(event.src_path).is_relative_to(self.project_dir) and PurePosixPath(event.dest_path).is_relative_to(self.project_dir):
                 if TRACE_ENABLED:
                     logger.debug(f'Skipping (is descendant of proj dir): MV {_what(event)}: from "{event.src_path}" to "{event.dest_path}"')
                 return
@@ -43,7 +44,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
 
     def on_created(self, event):
         try:
-            if event.src_path.startswith(self.project_dir):
+            if PurePosixPath(event.src_path).is_relative_to(self.project_dir):
                 if TRACE_ENABLED:
                     logger.debug(f'Skipping (is descendant of proj dir): MK {_what(event)} "{event.src_path}"')
                 return
@@ -60,7 +61,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
 
     def on_deleted(self, event):
         try:
-            if event.src_path.startswith(self.project_dir):
+            if PurePosixPath(event.src_path).is_relative_to(self.project_dir):
                 if TRACE_ENABLED:
                     logger.debug(f'Skipping (is descendant of proj dir): RM {_what(event)} "{event.src_path}"')
                 return
@@ -75,7 +76,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
     def on_modified(self, event):
         # When a watched file is modified, it hammers us with events. Wait a small interval between updates to avoid unnecessary CPU churn
         try:
-            if event.src_path.startswith(self.project_dir):
+            if PurePosixPath(event.src_path).is_relative_to(self.project_dir):
                 if TRACE_ENABLED:
                     logger.debug(f'Skipping (is descendant of proj dir): CH {_what(event)} "{event.src_path}"')
                 return

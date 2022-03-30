@@ -114,7 +114,7 @@ class NodeIdentifier(ABC):
 
     def has_path_in_subtree(self, subtree_path: str) -> bool:
         for path in self.get_path_list():
-            if path.startswith(subtree_path):
+            if pathlib.PurePosixPath(path).is_relative_to(subtree_path):
                 return True
         return False
 

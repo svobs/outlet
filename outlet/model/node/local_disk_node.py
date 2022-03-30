@@ -119,10 +119,10 @@ class LocalDirNode(LocalNode):
 
     def is_parent_of(self, potential_child_node: Node):
         if potential_child_node.device_uid == self.device_uid:
-            rel_path = potential_child_node.get_single_path().replace(self.get_single_path(), '', 1)
-            if len(rel_path) > 0 and rel_path.startswith('/'):
-                rel_path = rel_path[1:]
-            return rel_path == potential_child_node.name
+            child_path = pathlib.PurePosixPath(potential_child_node.get_single_path())
+            if child_path.is_relative_to(self.get_single_path()):
+                rel_path: pathlib.PurePosixPath = child_path.relative_to(self.get_single_path())
+                return str(rel_path) == potential_child_node.name
         return False
 
     def get_size_bytes(self):

@@ -1,5 +1,6 @@
 import collections
 import logging
+import pathlib
 from abc import ABC, abstractmethod
 from typing import Any, Deque, Dict, List, Optional, Set
 
@@ -204,7 +205,7 @@ class OpGraphNode(BaseNode, ABC):
         my_path_list = self.get_tgt_node().get_path_list()
         for other_tgt_path in other_og_node.get_tgt_node().get_path_list():
             for tgt_path in my_path_list:
-                if other_tgt_path.startswith(tgt_path):
+                if pathlib.PurePosixPath(other_tgt_path).is_relative_to(tgt_path):
                     return True
 
         return False

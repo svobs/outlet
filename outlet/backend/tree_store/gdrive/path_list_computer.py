@@ -85,6 +85,6 @@ class GDrivePathListComputer:
 
         for path in path_list:
             if path.startswith('//'):
-                logger.error(f'Generated invalid path ({path}) for node: {current_node}')
+                raise RuntimeError(f'Failed sanity check: generated invalid path ({path}) for node: {current_node}')
 
         return current_node

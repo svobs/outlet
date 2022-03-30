@@ -1,9 +1,11 @@
 import fnmatch
 import os
+import pathlib
 import shutil
 import errno
 import platform
 import logging
+from pathlib import PurePosixPath
 from typing import List, Tuple
 from backend.tree_store.local import content_hasher
 
@@ -54,9 +56,9 @@ def is_normalized(path: str):
 def get_resource_path(rel_path: str, resolve_symlinks=False) -> str:
     """Returns the absolute path from the given relative path (relative to the project dir)"""
 
-    if rel_path.startswith('/'):
+    if pathlib.PurePosixPath(rel_path).is_absolute():
         logger.debug(f'get_resource_path(): Already an absolute path: {rel_path}')
-        return rel_path
+        return str(rel_path)
     dir_of_py_file = os.path.dirname(__file__)
     # go up 2 dirs
     project_dir = os.path.join(os.path.join(dir_of_py_file, os.pardir), os.pardir)
@@ -79,16 +81,13 @@ def strip_root(full_path: str, root_path: str) -> str:
     Returns:
         a relative path
     """
-    assert full_path.find(root_path) >= 0, f'Did not find root_path ({root_path}) in full path ({full_path})'
-    if root_path.endswith('/'):
-        # strip off trailing '/' from root:
-        root_path = root_path[:-1]
-    rel_path = full_path.replace(root_path, '', 1)
+    # This should handle all the corner cases for us; see https://docs.python.org/3/library/os.path.html#os.path.relpath
+    posix_path = PurePosixPath(full_path)
+    # raises ValueError if {full_path} does not start with {root_path}
+    posix_path = posix_path.relative_to(root_path)
+    rel_path: str = str(posix_path)
     if rel_path.endswith('/'):
-        # strip off trailing '/'
-        rel_path = rel_path[:-1]
-    if len(rel_path) < len(full_path) and rel_path.startswith('/'):
-        rel_path = rel_path[1:]
+        raise RuntimeError(f'Invalid relpath ({rel_path}) after stripping root_path ({root_path}) from full path ({full_path})')
     return rel_path
 
 

@@ -7,7 +7,7 @@ from typing import Deque, List, Set
 from uuid import UUID
 
 from backend.executor.central import ExecPriority
-from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
+from logging_constants import TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node_identifier import NodeIdentifier
 from model.uid import UID
@@ -27,6 +27,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
     Listens for upserted local disk nodes, and enqueues them so that they can have their MD5/SHA256 signatures calculated in batches.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, device_uid: UID):
         HasLifecycle.__init__(self)
         threading.Thread.__init__(self, target=self._run, name=f'SigCalcBatchingThread', daemon=True)
@@ -42,7 +43,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
     def _enqueue_node(self, node: LocalFileNode):
         with self._cv_can_get:
             if TRACE_ENABLED:
-                logger.debug(f'[{self.name}] Enqueuing node: "{node.node_identifier}"')
+                logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
 
             self._node_queue.append(node)
             self._cv_can_get.notifyAll()
@@ -90,8 +91,8 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                     if size_bytes:
                         bytes_to_scan += size_bytes
 
-                logger.debug(f'[{self.name}] Submitting batch calc task with {len(nodes_to_scan)} nodes and {bytes_to_scan:d} bytes total '
-                             f'({len(self._node_queue)} nodes still enqueued)')
+                logger.info(f'[{self.name}] Submitting batch calc task with {len(nodes_to_scan)} nodes and {bytes_to_scan:d} bytes total '
+                            f'({len(self._node_queue)} nodes still enqueued)')
                 calc_task = Task(ExecPriority.P7_SIGNATURE_CALC, self.batch_calculate_signatures, nodes_to_scan)
                 self._running_task_set.add(calc_task.task_uuid)
             self.backend.executor.submit_async_task(calc_task)
@@ -116,8 +117,6 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
     def _on_node_upserted_in_cache(self, sender: str, node: LocalNode):
         if node.device_uid == self.device_uid and node.is_file() and not node.md5 and not node.sha256:
             assert isinstance(node, LocalFileNode)
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
             self._enqueue_node(node)
 
     def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root: NodeIdentifier,
@@ -128,8 +127,6 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
         for node in upserted_node_list:
             if node.is_file() and not node.md5 and not node.sha256:
                 assert isinstance(node, LocalFileNode)
-                if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{self.name}] Enqueuing node (from batch): {node.node_identifier}')
                 self._enqueue_node(node)
 
     # Signature calculation

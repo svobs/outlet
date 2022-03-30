@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import Counter, defaultdict, deque
+from pathlib import PurePosixPath
 from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from backend.tree_store.gdrive.path_list_computer import GDrivePathListComputer
@@ -323,10 +324,10 @@ class GDriveWholeTree(BaseTree):
         if full_path == ROOT_PATH:
             return [n.node_identifier for n in current_seg_nodes]
 
-        if not full_path.startswith('/'):
+        if not PurePosixPath(full_path).is_absolute():
             raise RuntimeError(f'Bad path: "{full_path}"')
 
-        target_path = full_path.lower()  # case insensitive search
+        target_path = full_path.lower()  # case-insensitive search
         path_so_far = ''
         next_seg_nodes: List[GDriveNode] = []
 
@@ -352,8 +353,8 @@ class GDriveWholeTree(BaseTree):
                                  f' (target_path: "{target_path}", path_so_far="{path_so_far}")')
                 if error_if_not_found:
                     err_node_identifier = self.backend.node_identifier_factory.build_node_id(node_uid=None, device_uid=self.device_uid,
-                                                                                          identifier_type=NodeIdentifierType.GDRIVE_MPID,
-                                                                                          path_list=[full_path])
+                                                                                             identifier_type=NodeIdentifierType.GDRIVE_MPID,
+                                                                                             path_list=[full_path])
                     raise GDriveNodePathNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
                 else:
                     return []
@@ -379,13 +380,13 @@ class GDriveWholeTree(BaseTree):
             return True
 
         if isinstance(full_path, list):
-            for p in full_path:
+            for path in full_path:
                 # i.e. any
-                if p.startswith(subtree_root_path):
+                if PurePosixPath(path).is_relative_to(subtree_root_path):
                     return True
             return False
 
-        return full_path.startswith(subtree_root_path)
+        return PurePosixPath(full_path).is_relative_to(subtree_root_path)
 
     def get_parent_list_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> List[GDriveNode]:
         if node.device_uid != self.device_uid:

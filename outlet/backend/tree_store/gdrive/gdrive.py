@@ -573,7 +573,7 @@ class GDriveMasterStore(TreeStore):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'get_child_list_for_spid(): getting child list from filter_state')
             if not self.is_cache_loaded_for(parent_spid):
-                raise RuntimeError(f'Cannot load filtered child list: GDrive cache not yet loaded!')
+                raise CacheNotLoadedError(f'Cannot load filtered child list: GDrive cache not yet loaded!')
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
 
         # ------------------------------------------------------------------------------------
@@ -642,7 +642,7 @@ class GDriveMasterStore(TreeStore):
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
         if not self._memstore.is_loaded():
             # Just fail for now:
-            raise RuntimeError(f'Cannot get parent for SN: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
+            raise CacheNotLoadedError(f'Cannot get parent for SN: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_parent_for_sn(sn)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
@@ -655,33 +655,33 @@ class GDriveMasterStore(TreeStore):
     def get_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         if not self._memstore.is_loaded():
             # Just fail for now:
-            raise RuntimeError(f'Cannot get path list ({path_list}): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
+            raise CacheNotLoadedError(f'Cannot get path list ({path_list}): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
     def get_subtree_bfs_node_list(self, subtree_root: GDriveIdentifier) -> List[GDriveNode]:
         if not self._memstore.is_loaded():
             # Just fail for now:
-            raise RuntimeError(f'Cannot get subtree nodes: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
+            raise CacheNotLoadedError(f'Cannot get subtree nodes: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_subtree_bfs_node_list(subtree_root.node_uid)
 
     def get_subtree_bfs_sn_list(self, subtree_root_spid: GDriveSPID) -> List[SPIDNodePair]:
         """SPIDNodePairs!"""
         if not self._memstore.is_loaded():
             # Just fail for now:
-            raise RuntimeError(f'Cannot get subtree SNs: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
+            raise CacheNotLoadedError(f'Cannot get subtree SNs: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_subtree_bfs_sn_list(subtree_root_spid)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         if not self._memstore.is_loaded():
             # Just fail for now:
-            raise RuntimeError(f'Cannot get files and dirs: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
+            raise CacheNotLoadedError(f'Cannot get files and dirs: Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_all_files_with_content(self, content_uid: UID, cache_info_list: List) -> List[GDriveFile]:
         """Param "cache_info_list" is not used for GDrive because each GDrive has only one cache"""
         if not self._memstore.is_loaded():
             # Just fail for now:
-            raise RuntimeError(f'get_all_files_with_content(): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
+            raise CacheNotLoadedError(f'get_all_files_with_content(): Google Drive tree is not yet loaded! (device_uid={self.device_uid})')
 
         matching_file_list = []
 

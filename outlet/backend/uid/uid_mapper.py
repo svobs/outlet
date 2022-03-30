@@ -1,3 +1,4 @@
+import pathlib
 import threading
 import logging
 from abc import ABC
@@ -150,7 +151,7 @@ class UidPathMapper(UidPersistedMapper[str]):
         if not isinstance(full_path, str):
             raise RuntimeError(f'get_uid_for_path(): full_path is not str: {full_path}')
 
-        if not full_path.startswith('/'):
+        if not pathlib.PurePosixPath(full_path).is_absolute():
             raise RuntimeError(f'get_uid_for_path(): not a valid path: "{full_path}"')
 
         path = file_util.normalize_path(full_path)
