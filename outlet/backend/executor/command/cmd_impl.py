@@ -92,7 +92,7 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
     def __init__(self, op: UserOp, to_trash=True):
         super().__init__(op, to_trash)
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.src_node, LocalNode), f'Got {self.op.src_node}'
         local_file_util = LocalFileUtil(cxt.cacheman)
 
@@ -121,7 +121,7 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
     def __init__(self, op: UserOp, overwrite: bool):
         super().__init__(op, overwrite)
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.src_node, LocalFileNode), f'Not a file: {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'Not a file: {self.op.dst_node}'
 
@@ -193,14 +193,14 @@ class CreatLocalDirCommand(Command):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         logger.debug(f'MKDIR: src={self.op.src_node.get_single_path()}')
         assert isinstance(self.op.src_node, LocalDirNode)
-        CreatLocalDirCommand.execute_static(cxt, tgt_node=self.op.src_node)
+        return CreatLocalDirCommand.execute_static(cxt, tgt_node=self.op.src_node)
 
     # TODO: put this in its own class
     @staticmethod
-    def execute_static(cxt: CommandContext, tgt_node: LocalDirNode):
+    def execute_static(cxt: CommandContext, tgt_node: LocalDirNode) -> UserOpResult:
         os.makedirs(name=tgt_node.get_single_path(), exist_ok=True)
 
         # Verify dst was created:
@@ -231,7 +231,7 @@ class StartCopyToLocalDirCommand(TwoNodeCommand):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         logger.debug(f'{self.op.op_type.name}: src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier}')
         assert isinstance(self.op.dst_node, LocalDirNode)
         return CreatLocalDirCommand.execute_static(cxt, tgt_node=self.op.dst_node)
@@ -250,7 +250,7 @@ class FinishCopyToLocalDirCommand(FinishCopyToDirCommand):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         logger.debug(f'{self.op.op_type.name}: src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier}')
 
         # Verify dst exists:
@@ -290,7 +290,7 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.src_node, LocalFileNode), f'Expected LocalFileNode but got: {type(self.op.src_node)} for {self.op.src_node}'
         assert isinstance(self.op.dst_node, GDriveNode), f'Expected GDriveNode but got: {type(self.op.dst_node)} for {self.op.dst_node}'
 
@@ -417,7 +417,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.md5, f'Bad src node: {self.op.src_node}'
         src_goog_id = self.op.src_node.goog_id
         dst_path: str = self.op.dst_node.get_single_path()
@@ -511,7 +511,7 @@ class CreateGDriveFolderCommand(Command):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.src_node, GDriveNode), f'Expected to be GDrive node: {self.op.src_node}'
         return CreateGDriveFolderCommand.execute_static(cxt, self.op.src_node)
 
@@ -563,7 +563,7 @@ class StartCopyToGDriveFolderCommand(Command):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.dst_node, GDriveNode), f'Expected to be GDrive node: {self.op.dst_node}'
         return CreateGDriveFolderCommand.execute_static(cxt, self.op.dst_node)
 
@@ -581,7 +581,7 @@ class FinishCopyToGDriveFolderCommand(FinishCopyToDirCommand):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         logger.debug(f'{self.op.op_type.name}: src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier}')
 
         # Verify dst exists:
@@ -632,7 +632,7 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.uid and self.op.src_node.is_live(), f'Invalid: {self.op.src_node}'
         assert isinstance(self.op.dst_node, GDriveFile) and self.op.dst_node.uid, f'Invalid {self.op.dst_node}'
         assert self.op.src_node.device_uid == self.op.dst_node.device_uid, \
@@ -702,7 +702,7 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.dst_node, GDriveFile), f'For {self.op.dst_node}'
         assert isinstance(self.op.src_node, GDriveFile), f'For {self.op.src_node}'
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
@@ -781,7 +781,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
-    def execute(self, cxt: CommandContext):
+    def execute(self, cxt: CommandContext) -> UserOpResult:
         assert isinstance(self.op.src_node, GDriveNode)
 
         return DeleteGDriveNodeCommand.delete_node(cxt, self.op.src_node, self.to_trash)

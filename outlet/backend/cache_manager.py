@@ -859,7 +859,6 @@ class CacheManager(HasLifecycle):
             elif SUPER_DEBUG_ENABLED:
                 logger.debug(f'[device_uid={device_uid}] Calculating signature for local file: "{full_path}"')
 
-            logger.debug(f'[device_uid={device_uid}] Calculating signatures for full_path="{full_path}"')
             md5, sha256 = content_hasher.calculate_signatures(full_path)
             if not md5 or sha256:
                 logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}"; '

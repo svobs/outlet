@@ -6,7 +6,7 @@ from typing import Deque, Dict, List, Optional
 
 from backend.display_tree.change_tree import ChangeTree
 from constants import TrashStatus, TreeID, TreeType
-from logging_constants import DIFF_DEBUG_ENABLED
+from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -280,20 +280,25 @@ class ChangeMaker:
     @staticmethod
     def _change_base_path(orig_target_path: str, orig_base_path: str, new_base_path: str, new_target_name: Optional[str] = None) -> str:
         dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base_path)
-        logger.debug(f'change_base_path(): new_base_path="{new_base_path}", dst_rel_path1="{dst_rel_path}"')
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'change_base_path(): new_base_path="{new_base_path}", dst_rel_path1="{dst_rel_path}"')
+
         if new_target_name:
             # target is being renamed
             orig_target_name = os.path.basename(orig_target_path)
             dst_rel_path_minus_name = dst_rel_path.removesuffix(orig_target_name)
             assert dst_rel_path_minus_name != dst_rel_path, f'Should not be equal: "{dst_rel_path_minus_name}" and "{orig_target_name}"'
             dst_rel_path = dst_rel_path_minus_name + new_target_name
-            logger.debug(f'change_base_path(): new_target_name="{new_target_name}", dst_rel_path2="{dst_rel_path}"')
+
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'change_base_path(): new_target_name="{new_target_name}", dst_rel_path2="{dst_rel_path}"')
+
         if dst_rel_path:
             result = os.path.join(new_base_path, dst_rel_path)
         else:
             # do not use os.path.join() here, or we will end up with a '/' at the end which we don't want
             result = new_base_path
-        logger.info(f'change_base_path(): OrigTarget="{orig_target_path}", NewTarget="{result}"')
+        logger.debug(f'change_base_path(): OrigTarget="{orig_target_path}", NewTarget="{result}"')
         return result
 
     @staticmethod

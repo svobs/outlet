@@ -50,7 +50,7 @@ class Command(ABC):
         return self.op.op_type
 
     @abstractmethod
-    def execute(self, context: CommandContext):
+    def execute(self, context: CommandContext) -> UserOpResult:
         pass
 
     def get_total_work(self) -> int:

@@ -66,6 +66,7 @@ class CommandExecutor(HasLifecycle):
                 logger.info(f'[CommandExecutor] Executing command: {repr(command)}')
                 cmd_sw = Stopwatch()
                 command.op.result = command.execute(context)
+                assert command.op.result, f'Cmd execute() method returned empty result! {command}'
                 logger.info(f'[CommandExecutor] {cmd_sw} Cmd completed with status {command.get_status().name}: {command.get_description()}')
         except Exception as err:
             description = f'Error executing {command.get_description()}'

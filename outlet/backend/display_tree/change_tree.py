@@ -214,7 +214,7 @@ class ChangeTree(DisplayTree):
                 dummy_stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.tree_id}] Need to add {len(dummy_stack)} ancestors"')
+            logger.debug(f'[{self.tree_id}] Need to add {len(dummy_stack)} ancestors')
 
         # Walk down the ancestor list and create a node for each ancestor dir:
         while len(dummy_stack) > 0:
