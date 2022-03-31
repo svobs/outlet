@@ -185,7 +185,6 @@ class MvPath(PathOp):
             else:
                 logger.error(f'MV ("{self.src_path}" -> "{self.dst_path}"): was expecting dst = "{expected_move_dst}"!')
 
-        # FIXME
         node_list_tuple = caller.backend.cacheman.move_local_subtree(this_task, self.src_path, self.dst_path)
 
         if node_list_tuple:

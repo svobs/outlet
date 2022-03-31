@@ -120,7 +120,9 @@ class LocalDiskDatabase(MetaDatabase):
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} from memstore but read from disk: {uid_int}'
         parent_uid: UID = self._get_parent_uid(full_path)
-        assert parent_uid == parent_uid_int, f'UID conflict! Got {parent_uid} from memstore but read from disk: {parent_uid_int}'
+        if parent_uid != parent_uid_int:
+            raise RuntimeError(f'UID conflict for parent_uid! UIDapper says {parent_uid} but read from disk: '
+                               f'{parent_uid_int} for parent of path "{full_path}"')
         return LocalDirNode(LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, full_path=full_path), parent_uid=parent_uid,
                             trashed=trashed, is_live=bool(is_live), sync_ts=sync_ts, create_ts=create_ts, modify_ts=modify_ts,
                             change_ts=change_ts, all_children_fetched=bool(all_children_fetched))

@@ -79,7 +79,9 @@ class ContentFirstDiffer(ChangeMaker):
                 # could be stale node: get updated version from cachmman
                 updated_node = self.backend.cacheman.get_node_for_uid(device_uid=sn.node.device_uid, uid=sn.node.uid)
                 if updated_node:
-                    sn.node = updated_node
+                    # can't update member of a tuple; replace whole tuple instead.
+                    sn = SPIDNodePair(sn.spid, updated_node)
+
                 if not sn.node.md5:
                     logger.debug(f'No signature found for file; attempting to calculate: {sn.spid} (size={sn.node.get_size_bytes()})')
                     node_with_signature = self.local_file_util.try_calculating_signature(sn.node)

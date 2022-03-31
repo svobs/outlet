@@ -340,12 +340,14 @@ class TransferMaker(ChangeMaker):
 
         return f'{new_node_name_prefix} {copy_number}'
 
-    def _calculate_signatures_if_missing_and_local(self, sn):
+    def _calculate_signatures_if_missing_and_local(self, sn) -> SPIDNodePair:
         """Ensure both nodes have signatures filled in (if local nodes)"""
         if not sn.node.has_signature():
             node_with_sigs = self.local_file_util.try_calculating_signature(sn.node)
             if node_with_sigs:
-                sn.node = node_with_sigs
+                # can't update member of a tuple; need to return new tuple instead:
+                return SPIDNodePair(sn.spid, node_with_sigs)
+        return sn
 
     # SKIP CONDITION:
     def _is_same_content(self, sn_src: SPIDNodePair, sn_dst: SPIDNodePair) -> bool:
@@ -353,8 +355,8 @@ class TransferMaker(ChangeMaker):
             # If one is a file and one is a dir, obviously they don't have the same content
             return False
 
-        self._calculate_signatures_if_missing_and_local(sn_src)
-        self._calculate_signatures_if_missing_and_local(sn_dst)
+        sn_src = self._calculate_signatures_if_missing_and_local(sn_src)
+        sn_dst = self._calculate_signatures_if_missing_and_local(sn_dst)
 
         # TODO: decide how to handle GDrive non-file types which don't have signatures (e.g. shortcuts, Google Docs...)
         return sn_src.node.is_signature_equal(sn_dst.node)
@@ -365,8 +367,8 @@ class TransferMaker(ChangeMaker):
             # If one is a file and one is a dir, obviously they don't have the same content
             return False
 
-        self._calculate_signatures_if_missing_and_local(sn_src)
-        self._calculate_signatures_if_missing_and_local(sn_dst)
+        sn_src = self._calculate_signatures_if_missing_and_local(sn_src)
+        sn_dst = self._calculate_signatures_if_missing_and_local(sn_dst)
 
         # TODO: decide how to handle GDrive non-file types which don't have signatures (e.g. shortcuts, Google Docs...)
         if sn_src.node.modify_ts == 0 or sn_dst.node.modify_ts == 0:
