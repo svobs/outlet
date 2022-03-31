@@ -69,10 +69,11 @@ class LocalDiskDatabase(MetaDatabase):
 
         # make sure we call get_uid_for_local_path() for both the node's path and its parent's path, so that UID mapper has a chance to store it
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
-        assert uid == uid_int, f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
+        if uid != uid_int:
+            raise RuntimeError(f'UID conflict for LocalFileNode! UIDMapper says {uid} but read {uid_int} from DB row: {row}')
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device_uid, full_path=full_path)
         parent_uid: UID = self._get_parent_uid(full_path)
-        assert parent_uid == parent_uid_int, f'UID conflict! Got {uid} but read {parent_uid_int} in row: {row}'
+        assert parent_uid == parent_uid_int, f'UID conflict for parent_uid! PathMapper says {parent_uid} but read {parent_uid_int} in row: {row}'
 
         content_meta = self.cacheman.get_content_meta_for_uid(content_uid_int)
         return LocalFileNode(node_identifier, parent_uid, content_meta, size_bytes, sync_ts, create_ts, modify_ts, change_ts, trashed, is_live)

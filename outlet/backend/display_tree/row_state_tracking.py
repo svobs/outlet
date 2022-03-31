@@ -136,7 +136,7 @@ class RowStateTracking:
         with self._tree_id_set_lock:
             for tree_id in self._rows_of_interest_to_save_tree_id_set:
                 display_tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
-                if tree_id:
+                if display_tree_meta:
                     self._save_selected_rows_to_config(display_tree_meta)
                     self._save_expanded_rows_to_config(display_tree_meta)
                 else:

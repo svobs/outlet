@@ -478,24 +478,33 @@ class LocalDiskMasterStore(TreeStore):
 
         new_node = copy.deepcopy(node)
         new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, device_uid=self.device.uid, full_path=new_node_full_path))
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'MigrateNode: node_path="{node.get_single_path()}" src_root="{src_full_path}" dst_root="{dst_full_path}" '
+                         f'-> new_path="{new_node_full_path}"')
         return new_node
 
     def move_local_subtree(self, this_task: Task, src_full_path: str, dst_full_path: str) \
             -> Optional[Tuple[List[LocalNode], List[LocalNode]]]:
         # TODO: need to test a MV of a large directory tree
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Moving subtree src="{src_full_path}" dst="{dst_full_path}"')
 
-        if not src_full_path:
-            raise RuntimeError(f'src_full_path is empty: "{src_full_path}"')
-        if not dst_full_path:
-            raise RuntimeError(f'dst_full_path is empty: "{dst_full_path}"')
-        if src_full_path == dst_full_path:
-            raise RuntimeError(f'src_full_path and dst_full_path are identical: "{dst_full_path}"')
+        # canonicalize each path
+        src_path = file_util.normalize_path(src_full_path)
+        dst_path = file_util.normalize_path(dst_full_path)
 
-        src_uid: UID = self.get_uid_for_path(src_full_path)
+        if not src_path:
+            raise RuntimeError(f'src_path is empty: "{src_path}"')
+        if not dst_path:
+            raise RuntimeError(f'dst_path is empty: "{dst_path}"')
+        if src_path == dst_path:
+            raise RuntimeError(f'src_path and dst_path are identical: "{dst_path}"')
+
+        src_uid: UID = self.get_uid_for_path(src_path)
         src_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(src_uid)
 
-        dst_uid: UID = self.get_uid_for_path(dst_full_path)
-        dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, full_path=dst_full_path)
+        dst_uid: UID = self.get_uid_for_path(dst_path)
+        dst_node_identifier: LocalNodeIdentifier = LocalNodeIdentifier(uid=dst_uid, device_uid=self.device.uid, full_path=dst_path)
         dst_subtree: LocalSubtree = LocalSubtree(subtree_root=dst_node_identifier, remove_node_list=[], upsert_node_list=[])
 
         existing_dst_subroot_node: LocalNode = self._memstore.master_tree.get_node_for_uid(dst_uid)
@@ -513,7 +522,7 @@ class LocalDiskMasterStore(TreeStore):
                                                          remove_node_list=existing_src_node_list, upsert_node_list=[])
 
                 for src_node in existing_src_node_list:
-                    dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
+                    dst_node = self._migrate_node(src_node, src_path, dst_path)
                     dst_subtree.upsert_node_list.append(dst_node)
 
                 # here, src_subtree contains nodes to remove from cache, & dst_subtree contains the migrated nodes to upsert
@@ -522,9 +531,9 @@ class LocalDiskMasterStore(TreeStore):
 
                 return existing_src_node_list, dst_subtree.upsert_node_list
             else:
-                logger.info(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
+                logger.info(f'MV src node does not exist: UID={src_uid}, path={src_path}')
         else:
-            logger.info(f'MV src node does not exist (will ignore src and sync dst only): {self.device_uid}:{src_uid} ("{src_full_path}")')
+            logger.info(f'MV src node does not exist (will ignore src and sync dst only): {self.device_uid}:{src_uid} ("{src_path}")')
 
         # We don't have any src nodes. This can easily happen if temporary files are created and then renamed; the cache can't keep up.
         # This method will execute asynchronously as a set of child tasks, after we return from this method.

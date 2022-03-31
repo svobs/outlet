@@ -35,9 +35,6 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
         return self.get_node_for_identifier(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
-        if node.get_single_path() == '/Volumes/MattPersonal/Media/Sexy/Private/FunVideos-New-TODO':
-            logger.warning('TEST')  # TODO
-
         root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.get_single_path()

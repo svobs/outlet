@@ -26,11 +26,7 @@ def is_target_type(file_path: str, valid_suffixes: Tuple[str]):
 
 
 def change_path_to_new_root(full_path: str, old_root: str, new_root: str) -> str:
-    new_path = os.path.join(new_root, strip_root(full_path, old_root))
-    if new_path.endswith('/'):
-        # strip off trailing '/' from root:
-        new_path = new_path[:-1]
-    return new_path
+    return str(pathlib.PurePosixPath(new_root).joinpath(strip_root(full_path, old_root)))
 
 
 def rm_tree(tree_root_path: str):
@@ -43,10 +39,8 @@ def rm_file(tree_root_path: str):
 
 
 def normalize_path(path: str):
-    if path != ROOT_PATH and path.endswith('/'):
-        # directories ending in '/' are logically equivalent and should be treated as such
-        return path[:-1]
-    return path
+    # directories ending in '/' or '/.' are logically equivalent and should be treated as such
+    return str(pathlib.PurePosixPath(path))
 
 
 def is_normalized(path: str):
@@ -86,7 +80,7 @@ def strip_root(full_path: str, root_path: str) -> str:
     # raises ValueError if {full_path} does not start with {root_path}
     posix_path = posix_path.relative_to(root_path)
     rel_path: str = str(posix_path)
-    if rel_path.endswith('/'):
+    if rel_path.endswith('/') or rel_path.startswith('./'):
         raise RuntimeError(f'Invalid relpath ({rel_path}) after stripping root_path ({root_path}) from full path ({full_path})')
     return rel_path
 

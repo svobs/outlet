@@ -9,6 +9,7 @@ from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
+from util import file_util
 from util.two_level_dict import Md5BeforeUidDict, Sha256BeforeUidDict
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,10 @@ class LocalDiskMemoryStore:
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting to memstore: {node}')
+
+        if file_util.normalize_path(node.get_single_path()) != node.get_single_path():
+            # Sanity check. We can really get messed up if path isn't exactly as expected (e.g. no trailing '/' for dirs!)
+            raise RuntimeError(f'File path is not normalized: {node}')
 
         # Validate UID:
         if not node.uid:
