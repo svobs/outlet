@@ -143,7 +143,7 @@ class ContentFirstDiffer(ChangeMaker):
         for sn_s in lefts:
             relpath_s = self.left_side.derive_relative_path(sn_s.spid)
             if relpath_s in relpath_sn_dict_s:
-                # GDrive permits this unfortunately. But if node is a complete duplicate, do we really care?
+                # GDrive permits this, unfortunately. But if node is a complete duplicate, do we really care?
                 assert sn_s.spid.tree_type == TreeType.GDRIVE, f'Duplicate node with same MD5 and same location but not GDrive: {sn_s.spid}'
                 logger.warning(f'Found node with same MD5 and same location; will ignore for diff: {sn_s.spid}')
             else:

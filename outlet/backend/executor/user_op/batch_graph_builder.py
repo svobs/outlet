@@ -277,7 +277,8 @@ class BatchGraphBuilder:
                 if not parent_node:
                     parent_node = device_tgt_node_dict.get(parent_uid)
                     if not parent_node:
-                        raise RuntimeError(f'Failed to find parent node in cacheman or in tgt dict: {node.device_uid}:{parent_uid}')
+                        raise RuntimeError(f'Failed to find ancestor node with identifier {node.device_uid}:{parent_uid} in cacheman or in tgt dict'
+                                           f' (target node = {node.node_identifier})')
                 queue.append(parent_node)
 
         if not ancestor_list:

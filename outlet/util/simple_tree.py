@@ -216,7 +216,7 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
             self.__print_backend(identifier, level, filter_func,
                                  key, reverse, line_type, show_identifier, func=write)
         except NodeNotPresentError:
-            print('Tree is empty')
+            logger.info('Tree is empty')
 
         return self._reader
 
