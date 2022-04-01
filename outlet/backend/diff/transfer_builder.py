@@ -4,7 +4,7 @@ import os
 import re
 from typing import Callable, Deque, Dict, List, Optional, Set, Tuple
 
-from backend.diff.change_maker import ChangeMaker
+from backend.diff.change_tree_builder import TwoTreeChangeBuilder
 from constants import DEFAULT_REPLACE_DIR_WITH_FILE_POLICY, DEFAULT_SRC_NODE_MOVE_POLICY, DirConflictPolicy, DragOperation, \
     FileConflictPolicy, \
     ReplaceDirWithFilePolicy, SrcNodeMovePolicy, TreeID
@@ -49,12 +49,11 @@ class TransferMeta:
         self.dst_existing_sn_dict: Dict[str, List[SPIDNodePair]] = dst_existing_sn_dict
 
 
-class TransferMaker(ChangeMaker):
+class TransferBuilder(TwoTreeChangeBuilder):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS TransferMaker
+    CLASS TransferBuilder
     Implements drag & drop.
-    TODO: rename to TransferBuilder
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,

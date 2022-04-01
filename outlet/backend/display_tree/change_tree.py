@@ -34,7 +34,7 @@ class ChangeTree(DisplayTree):
                                                                          extract_node_func=self._extract_node_func)
 
         # Root node is not even displayed, so is not terribly important.
-        # Do not use its original UID, so as to disallow it from interfering with lookups
+        # Do not use its original UID, to disallow it from interfering with lookups
         # self.root_cn = self._make_change_node_pair(self.state.root_sn, op_type=None)
         logger.debug(f'[{self.tree_id}] ChangeTree: inserting root node: {self.state.root_sn}')
         self._category_tree.add_node(self.state.root_sn, parent=None)
@@ -60,13 +60,19 @@ class ChangeTree(DisplayTree):
 
     @staticmethod
     def _extract_identifier_func(sn: SPIDNodePair) -> GUID:
-        """Note: All of the nodes in the ChangeTree will be ChangeTreeSPIDs, except for its its root node and any device root nodes (if showing
+        """Note: All the nodes in the ChangeTree will be ChangeTreeSPIDs, except for its root node and any device root nodes (if showing
         multiple devices). Unfortunately, it's just a lot easier this way because the rest of the app references the root node and expects it
         to conform to certain standards, but we need to use ChangeTreeSPIDs in order to guarantee its GUIDs will be unique within the tree."""
         return sn.spid.guid
 
     def get_sn_for_guid(self, guid: GUID) -> SPIDNodePair:
         return self._category_tree.get_node_for_identifier(guid)
+
+    def get_parent_sn_for_guid(self, guid: GUID) -> Optional[SPIDNodePair]:
+        return self._category_tree.get_parent(guid)
+
+    def contains_guid(self, guid: GUID) -> bool:
+        return self._category_tree.contains(guid)
 
     def get_root_node(self) -> SPIDNodePair:
         return self._category_tree.get_root_node()
@@ -283,7 +289,7 @@ class ChangeTree(DisplayTree):
                     logger.error(f'[{self.tree_id}] Something is wrong: these should not have the same identifiers: sn={sn}, parent_sn={parent_sn}')
                     raise RuntimeError(f'Internal error: got a bad parent node while inserting: {sn.spid}')
 
-                # Finally add the node itself.
+                # Finally, add the node itself.
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'[{self.tree_id}] Adding change node: {sn.spid} to parent {parent_sn.spid}')
 

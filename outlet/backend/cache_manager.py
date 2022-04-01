@@ -9,7 +9,7 @@ from typing import Callable, Deque, List, Optional, Set, Tuple
 from pydispatch import dispatcher
 
 from backend.cache_registry import CacheRegistry
-from backend.diff.transfer_maker import TransferMaker
+from backend.diff.transfer_builder import TransferBuilder
 from backend.display_tree.action_manager import ActionManager
 from backend.display_tree.active_tree_manager import ActiveTreeManager
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
@@ -792,7 +792,7 @@ class CacheManager(HasLifecycle):
 
         logger.debug(f'[{dst_tree_id}] Dropping into dest: {sn_dst.spid}')
         # "Left tree" here is the source tree, and "right tree" is the dst tree:
-        transfer_maker = TransferMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
+        transfer_maker = TransferBuilder(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
                                        tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
 
         if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
@@ -872,6 +872,10 @@ class CacheManager(HasLifecycle):
         except FileNotFoundError as err:
             # File could have been deleted
             logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}": {repr(err)}')
+            return None
+        except Exception as err:
+            # This can include a TimeoutError if examining a network share, for example
+            logger.error(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}": {repr(err)}')
             return None
 
     def get_all_files_with_content(self, content_uid: UID) -> List[Node]:

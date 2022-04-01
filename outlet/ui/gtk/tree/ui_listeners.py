@@ -3,7 +3,7 @@ from typing import List, Optional, Set
 
 from pydispatch import dispatcher
 
-from backend.diff.change_maker import SPIDNodePair
+from backend.diff.change_tree_builder import SPIDNodePair
 from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.tree_action import TreeAction

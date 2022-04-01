@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Callable, DefaultDict, Dict, Iterable, List, Optional, Tuple
 
-from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
+from backend.diff.change_tree_builder import TwoTreeChangeBuilder, ChangeTreeBuilder, SPIDNodePair
 from backend.display_tree.change_tree import ChangeTree
 from constants import TreeType
 from logging_constants import DIFF_DEBUG_ENABLED
@@ -52,7 +52,7 @@ class DiffState:
         self.count_update_pairs = 0
 
 
-class ContentFirstDiffer(ChangeMaker):
+class ContentFirstDiffer(TwoTreeChangeBuilder):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS ContentFirstDiffer
@@ -62,7 +62,7 @@ class ContentFirstDiffer(ChangeMaker):
                  tree_id_left_src: str, tree_id_right_src: str):
         super().__init__(backend, left_tree_sn, right_tree_sn, tree_id_left_src, tree_id_right_src, tree_id_left, tree_id_right)
 
-    def _build_one_side_src_meta(self, side: OneSide) -> OneSideSourceMeta:
+    def _build_one_side_src_meta(self, side: ChangeTreeBuilder) -> OneSideSourceMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
         for GDrive trees"""
         logger.debug(f'[{side.tree_id}] Building diff src meta this side ({side.root_sn.spid})')

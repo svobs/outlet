@@ -8,7 +8,6 @@ Attribution-NonCommercial-NoDerivs 2.0 UK: England & Wales License.
 Note: this file was copied from the excellent Maestral Dropbox project
 
 """
-import copy
 import hashlib
 
 # From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file

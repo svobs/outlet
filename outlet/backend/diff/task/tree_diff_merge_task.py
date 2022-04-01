@@ -3,10 +3,12 @@ from typing import List
 
 from pydispatch import dispatcher
 
+from backend.diff.change_tree_builder import ChangeTreeBuilder
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
 from constants import SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType
 from global_actions import GlobalActions
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import RootTypeNode
 from model.node.node import SPIDNodePair
@@ -29,18 +31,6 @@ class TreeDiffMergeTask:
     """
     def __init__(self, backend):
         self.backend = backend
-
-    @staticmethod
-    def _add_node_and_op(src_tree: ChangeTree, guid, merged_tree):
-        sn = src_tree.get_sn_for_guid(guid)
-        op_list = src_tree.get_op_list_for_guid(guid)
-        if op_list:
-            merged_tree.add_op_list_with_target_sn(sn, op_list)
-        else:
-            if sn and sn.node.is_container_node():
-                logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
-            else:
-                logger.error(f'merge_change_trees(): Skipping node because no associated UserOp found: {guid}')
 
     def generate_merge_tree(self, sender,
                             tree_id_left: TreeID, tree_id_right: TreeID,
@@ -67,8 +57,8 @@ class TreeDiffMergeTask:
             if not meta_right.change_tree:
                 raise RuntimeError(f'Could not generate merge tree: no ChangeTree in record: {tree_id_right}')
 
-            merged_change_tree = self.merge_change_trees(meta_left.change_tree, selected_guid_list_left,
-                                                         meta_right.change_tree, selected_guid_list_right)
+            merged_change_tree = self._generate_merged_tree(meta_left.change_tree, selected_guid_list_left,
+                                                            meta_right.change_tree, selected_guid_list_right)
 
             # TODO: surely there is a cleaner solution than src_tree_id
             self.backend.cacheman.register_change_tree(merged_change_tree, src_tree_id=None)
@@ -80,23 +70,63 @@ class TreeDiffMergeTask:
             dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_FAILED, sender=sender)
             GlobalActions.display_error_in_ui(sender, 'Failed to generate merge preview due to unexpected error', repr(err))
 
-    def merge_change_trees(self,
-                           tree_left: ChangeTree, selected_guid_list_left: List[GUID],
-                           tree_right: ChangeTree, selected_guid_list_right: List[GUID]) -> ChangeTree:
+    def _generate_merged_tree(self,
+                              change_tree_left: ChangeTree, selected_guid_list_left: List[GUID],
+                              change_tree_right: ChangeTree, selected_guid_list_right: List[GUID]) -> ChangeTree:
 
         super_root_spid: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_spid(tree_type=TreeType.MIXED,
                                                                                                  device_uid=SUPER_ROOT_DEVICE_UID)
         super_root_sn = SPIDNodePair(super_root_spid, RootTypeNode(super_root_spid))
         state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn,
                                                        tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+
         merged_tree = ChangeTree(backend=self.backend, state=state, is_super_root_tree=True)
 
         for guid in selected_guid_list_left:
-            self._add_node_and_op(tree_left, guid, merged_tree)
+            self._add_node_and_op_list_and_ancestors(change_tree_left, guid, merged_tree)
 
         for guid in selected_guid_list_right:
-            self._add_node_and_op(tree_right, guid, merged_tree)
+            self._add_node_and_op_list_and_ancestors(change_tree_right, guid, merged_tree)
 
         # TODO: check for conflicts
 
         return merged_tree
+
+    @staticmethod
+    def _find_batch_uid(change_tree_left, change_tree_right):
+        if change_tree_left.get_op_list():
+            return change_tree_left.get_op_list()[0].batch_uid
+
+        if change_tree_right.get_op_list():
+            return change_tree_right.get_op_list()[0].batch_uid
+        raise RuntimeError(f'find_batch_uid(): no ops found in either ChangeTree!')
+
+    def _add_node_and_op_list_and_ancestors(self, src_tree: ChangeTree, guid, merged_tree):
+        sn = src_tree.get_sn_for_guid(guid)
+
+        # Search recursively to make sure parents are all added:
+        parent_sn_from_cache = self.backend.cacheman.get_parent_for_sn(sn)
+        if not parent_sn_from_cache:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'merge_change_trees(): Parent for {sn.spid} not found in main cache; checking src ChangeTree...')
+            parent_sn_from_change_tree = src_tree.get_parent_sn_for_guid(guid)
+            if not parent_sn_from_change_tree:
+                raise RuntimeError(f'Missing GUID {guid} (ancestor of node: {sn.spid})')
+            parent_guid = parent_sn_from_change_tree.spid.guid
+            # Already added to merge tree?
+            if not merged_tree.contains_guid(parent_guid):
+                # Recurse and then add to merge tree:
+                self._add_node_and_op_list_and_ancestors(src_tree, parent_guid, merged_tree)
+
+        op_list = src_tree.get_op_list_for_guid(guid)
+        if op_list:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'merge_change_trees(): Adding node {sn.spid} with ops {op_list}')
+            merged_tree.add_op_list_with_target_sn(sn, op_list)
+        else:
+            if sn and sn.node.is_container_node():
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
+            else:
+                if SUPER_DEBUG_ENABLED:
+                    logger.error(f'merge_change_trees(): Skipping node because no associated UserOp found: {guid}')

@@ -20,23 +20,23 @@ from util.local_file_util import LocalFileUtil
 logger = logging.getLogger(__name__)
 
 
-class OneSide:
+class ChangeTreeBuilder:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS OneSide
+    CLASS ChangeTreeBuilder
 
-    Internal class, used only by ChangeMaker and its descendants.
+    Encapsulates a ChangeTree which is being built, which itself represents a group of operations on a given tree (the 'source tree') organized
+    by their dependencies on each other.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend, change_tree_id: TreeID, root_sn: SPIDNodePair, batch_uid: UID, tree_id_src: Optional[str]):
+    def __init__(self, backend, change_tree: ChangeTree, batch_uid: UID, tree_id_src: Optional[str]):
         self.backend = backend
-        change_tree_state = DisplayTreeUiState.create_change_tree_state(change_tree_id, root_sn)
-        self.change_tree: ChangeTree = ChangeTree(backend, change_tree_state)
+        self.change_tree: ChangeTree = change_tree
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
-        self.tree_id_src: Optional[TreeID] = tree_id_src
+        self.tree_id_src: Optional[TreeID] = tree_id_src  # need to keep track of this for certain external processes
         self._dict_added_dirs_by_path: Dict[str, SPIDNodePair] = {}
 
     @property
@@ -160,11 +160,8 @@ class OneSide:
         spid = self.backend.node_identifier_factory.build_spid(node_uid=dst_node_uid, device_uid=dst_device_uid, single_path=dst_path)
         sn_dst: SPIDNodePair = SPIDNodePair(spid, node_dst)
 
-        if node_dst.is_dir():
-            self._dict_added_dirs_by_path[dst_path] = sn_dst
-
-        # ANCESTORS:
-        self._add_needed_ancestors(sn_dst)
+        # Dst nodes may need some missing ancestors to be created first:
+        self.add_needed_ancestors(sn_dst)
 
         if DIFF_DEBUG_ENABLED:
             logger.debug(f'[{self.change_tree.tree_id}] Done migrating single node: {sn_src.spid} -> {spid}')
@@ -179,9 +176,16 @@ class OneSide:
                 return False
         return True
 
-    def _add_needed_ancestors(self, new_sn: SPIDNodePair):
+    def add_op_list_with_target_sn_and_ancestors(self, sn: SPIDNodePair, op_list: List[UserOp]):
+        self.add_needed_ancestors(sn)
+        self.change_tree.add_op_list_with_target_sn(sn, op_list)
+
+    def add_needed_ancestors(self, new_sn: SPIDNodePair):
         """Determines what ancestor directories need to be created, and appends them to the op tree (as well as ops for them).
         Appends the migrated node as well, but the op for it is omitted so that the caller can provide its own."""
+
+        if new_sn.node.is_dir():
+            self._dict_added_dirs_by_path[new_sn.spid.get_single_path()] = new_sn
 
         # Lowest node in the stack will always be orig node. Stack size > 1 iff need to add parent folders
         ancestor_stack: Deque[SPIDNodePair] = self._generate_missing_ancestor_nodes(new_sn)
@@ -191,7 +195,7 @@ class OneSide:
             self.add_new_op_and_target_sn_to_tree(op_type=UserOpType.MKDIR, sn_src=ancestor_sn)
 
     def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[SPIDNodePair]:
-        tree_type: int = new_sn.spid.tree_type
+        tree_type: int = self.backend.cacheman.get_tree_type_for_device_uid(new_sn.spid.device_uid)
         device_uid: UID = new_sn.spid.device_uid
         ancestor_stack: Deque[SPIDNodePair] = deque()
         stop_at_path: str = self.root_sn.spid.get_single_path()
@@ -258,10 +262,10 @@ class OneSide:
         return ancestor_stack
 
 
-class ChangeMaker:
+class TwoTreeChangeBuilder:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS ChangeMaker
+    CLASS TwoTreeChangeBuilder
     Base class for building list of UserOps
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
@@ -274,8 +278,15 @@ class ChangeMaker:
         # both trees share batch_uid:
         batch_uid: UID = self.backend.uid_generator.next_uid()
 
-        self.left_side = OneSide(backend, tree_id_left, left_tree_root_sn, batch_uid, tree_id_left_src)
-        self.right_side = OneSide(backend, tree_id_right, right_tree_root_sn, batch_uid, tree_id_right_src)
+        change_tree_left = self._new_change_tree(self.backend, tree_id_left, left_tree_root_sn)
+        change_tree_right = self._new_change_tree(self.backend, tree_id_right, right_tree_root_sn)
+        self.left_side = ChangeTreeBuilder(backend, change_tree_left, batch_uid, tree_id_left_src)
+        self.right_side = ChangeTreeBuilder(backend, change_tree_right, batch_uid, tree_id_right_src)
+
+    @staticmethod
+    def _new_change_tree(backend, change_tree_id: TreeID, root_sn: SPIDNodePair) -> ChangeTree:
+        change_tree_state = DisplayTreeUiState.create_change_tree_state(change_tree_id, root_sn)
+        return ChangeTree(backend, change_tree_state)
 
     @staticmethod
     def _change_base_path(orig_target_path: str, orig_base_path: str, new_base_path: str, new_target_name: Optional[str] = None) -> str:
@@ -302,17 +313,17 @@ class ChangeMaker:
         return result
 
     @staticmethod
-    def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier, new_target_name: Optional[str] = None) \
-            -> str:
-        return ChangeMaker._change_base_path(orig_target_path=spid_from_src_tree.get_single_path(),
+    def _change_tree_path(src_side: ChangeTreeBuilder, dst_side: ChangeTreeBuilder,
+                          spid_from_src_tree: SinglePathNodeIdentifier, new_target_name: Optional[str] = None) -> str:
+        return TwoTreeChangeBuilder._change_base_path(orig_target_path=spid_from_src_tree.get_single_path(),
                                              orig_base_path=src_side.root_sn.spid.get_single_path(),
                                              new_base_path=dst_side.root_sn.spid.get_single_path(), new_target_name=new_target_name)
 
     def migrate_rel_path_to_right_tree(self, spid_left: SinglePathNodeIdentifier) -> str:
-        return ChangeMaker._change_tree_path(self.left_side, self.right_side, spid_left)
+        return TwoTreeChangeBuilder._change_tree_path(self.left_side, self.right_side, spid_left)
 
     def migrate_rel_path_to_left_tree(self, spid_right: SinglePathNodeIdentifier) -> str:
-        return ChangeMaker._change_tree_path(self.right_side, self.left_side, spid_right)
+        return TwoTreeChangeBuilder._change_tree_path(self.right_side, self.left_side, spid_right)
 
     def _migrate_node_to_right(self, sn_s: SPIDNodePair) -> SPIDNodePair:
         dst_path = self.migrate_rel_path_to_right_tree(sn_s.spid)

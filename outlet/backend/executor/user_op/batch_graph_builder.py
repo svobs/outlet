@@ -200,6 +200,8 @@ class BatchGraphBuilder:
         batch_uid = op_batch[0].batch_uid
         logger.debug(f'[Batch-{batch_uid}] Building OpGraph for {len(op_batch)} ops...')
 
+        batch_graph = OpGraph(f'Batch-{batch_uid}')
+
         # Verify batch is properly sorted first:
         last_op_uid = 0
         for op in op_batch:
@@ -207,12 +209,14 @@ class BatchGraphBuilder:
             # Changes MUST be sorted in ascending time of creation!
             if op.op_uid < last_op_uid:
                 op_batch_str = '\n\t'.join([f'{x.op_uid}={repr(x)}' for x in op_batch])
-                logger.error(f'[Batch-{batch_uid}] OpBatch:\n\t {op_batch_str}')
+                logger.error(f'[{batch_graph.name}] OpBatch:\n\t {op_batch_str}')
                 raise RuntimeError(f'Batch items are not in order! ({op.op_uid} < {last_op_uid})')
             last_op_uid = op.op_uid
 
-        batch_graph = OpGraph(f'Batch-{batch_uid}')
-        # some of the ancestors may not be in cacheman, because they are being added by the batch.
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{batch_graph.name}] Found op: {op}')
+
+        # Some ancestors may not be in cacheman, because they are being added by the batch.
         # so, store the batch nodes in a dict for additional lookup
         tgt_node_dict: Dict[UID, Dict[UID, Node]] = {}
         for op in op_batch:
@@ -233,6 +237,9 @@ class BatchGraphBuilder:
         return batch_graph.root
 
     def _insert_for_op(self, op: UserOp, graph: OpGraph, tgt_node_dict):
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'[{graph.name}] _insert_for_op() entered for: {op}')
+
         # 1a. Build src OGN:
         ancestor_uid_list = self._build_ancestor_uid_list(op.src_node, tgt_node_dict)
         if op.op_type == UserOpType.RM:
@@ -251,6 +258,9 @@ class BatchGraphBuilder:
             graph.insert_ogn(dst_node)
 
     def _build_ancestor_uid_list(self, tgt_node: Node, tgt_node_dict: Dict[UID, Dict[UID, Node]]) -> List[UID]:
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Building ancestor UID list for {tgt_node.node_identifier}')
+
         ancestor_list: List[UID] = []
         queue = collections.deque()
         queue.append(tgt_node)
@@ -271,14 +281,17 @@ class BatchGraphBuilder:
             if not parent_uid_list:
                 raise RuntimeError(f'Node has no parent UIDs listed: {node}')
 
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Node {node.node_identifier} has parent_uid_list: {parent_uid_list}')
+
             for parent_uid in parent_uid_list:
                 ancestor_list.append(parent_uid)
                 parent_node = self.backend.cacheman.get_node_for_uid(uid=parent_uid, device_uid=node.device_uid)
                 if not parent_node:
                     parent_node = device_tgt_node_dict.get(parent_uid)
                     if not parent_node:
-                        raise RuntimeError(f'Failed to find ancestor node with identifier {node.device_uid}:{parent_uid} in cacheman or in tgt dict'
-                                           f' (target node = {node.node_identifier})')
+                        raise RuntimeError(f'Failed to find ancestor node {node.device_uid}:{parent_uid} in cacheman or in tgt dict'
+                                           f' (for tgt node: {node.node_identifier})')
                 queue.append(parent_node)
 
         if not ancestor_list:

@@ -646,11 +646,10 @@ class GDriveMasterStore(TreeStore):
         return self._memstore.master_tree.get_parent_for_sn(sn)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
-        if self._memstore.is_loaded():
-            return self._memstore.master_tree.get_parent_list_for_node(node)
-        else:
+        if not self._memstore.is_loaded():
             logger.error(f'Failing for node: {node}')
             raise CacheNotLoadedError(f'get_parent_list_for_node(): GDrive cache not loaded yet!')
+        return self._memstore.master_tree.get_parent_list_for_node(node)
 
     def get_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         if not self._memstore.is_loaded():

@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from signal_constants import Signal
+from signal_constants import ID_GLOBAL_CACHE, Signal
 from model.node.local_disk_node import LocalDirNode, LocalNode
 from backend.tree_store.local.locald_tree import LocalDiskTree
 from model.node_identifier import LocalNodeIdentifier
@@ -180,9 +180,15 @@ class LocalDiskScanner:
             logger.debug(f'Scanning & building nodes for dir: "{target_dir}"')
 
         def on_error(error):
-            logger.error(f'An error occured listing dir entries: {error}')
+            logger.error(f'While listing dir entries for "{target_dir}": {repr(error)}')
+            # self.backend.report_error(ID_GLOBAL_CACHE, f'An error occurred listing dir entries', f'{error}')
+            on_error.err = error
+
+        on_error.err = None
 
         (dir_list, nondir_list) = LocalDiskScanner._list_dir_entries(target_dir, onerror=on_error)
+        if on_error.err:
+            raise on_error.err
 
         child_node_list = []
 

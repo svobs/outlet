@@ -416,12 +416,12 @@ class LocalDiskMasterStore(TreeStore):
         if cache_info.is_loaded:
             # If the cache is marked as loaded, then its contents should be represented in the in-memory master tree (queried above):
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'_read_single_node_for(): Memcache ({cache_info.cache_location}) is loaded but node not found for: {node_uid}')
+                logger.debug(f'_read_single_node_for(): Memstore ({cache_info.cache_location}) is loaded but node not found for: {node_uid}')
             # return None
 
         # 2. Disk cache
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'_read_single_node_for(): Memcache miss; reading diskstore for {node_uid}')
+            logger.debug(f'_read_single_node_for(): Memstore miss; reading diskstore for {node_uid}')
         node = self._diskstore.get_file_or_dir_for_uid(cache_info, node_uid)
         if node:
             if TRACE_ENABLED:
