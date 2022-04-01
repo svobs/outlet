@@ -430,7 +430,7 @@ class SrcOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
         HasMultiChild.clear_relationships(self)
 
     def print_me(self, full=True) -> str:
-        string = f'SRC-{self.op.op_type.name} og_uid={self.node_uid}'
+        string = f'SRC-{self.op.op_type.name} ogn_uid={self.node_uid}'
         if full:
             return f'{string} {self.op}'
         else:
@@ -471,7 +471,7 @@ class DstOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
         HasMultiChild.clear_relationships(self)
 
     def print_me(self, full=True) -> str:
-        string = f'DST-{self.op.op_type.name} og_uid={self.node_uid}'
+        string = f'DST-{self.op.op_type.name} ogn_uid={self.node_uid}'
         if full:
             return f'{string} {self.op}'
         else:
@@ -510,7 +510,7 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
         HasSingleChild.clear_relationships(self)
 
     def print_me(self, full=True) -> str:
-        string = f'RM og_uid={self.node_uid}'
+        string = f'RM ogn_uid={self.node_uid}'
         if full:
             return f'{string}: {self.op}'
         else:

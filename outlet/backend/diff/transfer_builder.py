@@ -264,7 +264,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
     def _handle_dir_merge(self, dd_meta: TransferMeta, sn_src: SPIDNodePair, sn_dst_conflicting: SPIDNodePair):
         assert sn_src.node.is_dir(), f'Expected a dir: {sn_src.node}'
 
-        logger.debug(f'Merging {sn_dst_conflicting.spid} with dir {sn_src.spid}...')
+        logger.debug(f'Merging dir {sn_src.spid} into dir {sn_dst_conflicting.spid}...')
 
         queue_dir: Deque[Tuple[SPIDNodePair, SPIDNodePair]] = collections.deque()
         # assume src dir has already been validated and has exactly 1 conflict

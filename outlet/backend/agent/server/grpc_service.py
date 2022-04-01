@@ -59,7 +59,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         self._queue_lock = threading.Lock()
         self._cv_has_signal = threading.Condition(self._queue_lock)
-        self._thread_signal_queues: Dict[int, Deque] = {}
+        self._thread_signal_queues: Dict[int, Deque[SignalMsg]] = {}
+        self._outbox_signal_queue: Deque[SignalMsg] = deque()
         self._shutdown: bool = False
 
         self._converter = GRPCConverter(self.backend)
@@ -124,11 +125,16 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             return
 
         with self._cv_has_signal:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Queuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
-                             f'{signal_grpc.sender}" to {len(self._thread_signal_queues)} connected clients')
-            for queue in self._thread_signal_queues.values():
-                queue.append(signal_grpc)
+            if len(self._thread_signal_queues) == 0:
+                logger.debug(f'No clients connected! Enqueuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
+                             f'{signal_grpc.sender}" in outbox; will send to first client which appears')
+                self._outbox_signal_queue.append(signal_grpc)
+            else:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Queuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
+                                 f'{signal_grpc.sender}" to {len(self._thread_signal_queues)} connected clients')
+                for queue in self._thread_signal_queues.values():
+                    queue.append(signal_grpc)
 
             self._cv_has_signal.notifyAll()
 
@@ -154,9 +160,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                 if signal_queue:
                     logger.warning(f'Found an existing gRPC signal queue for ThreadID: {thread_id} Will overwrite')
                 signal_queue = deque()
+                self._thread_signal_queues[thread_id] = signal_queue
                 # Send welcome msg to new client (no gift basket, however)
                 signal_queue.append(SignalMsg(sig_int=Signal.WELCOME, sender=ID_GLOBAL_CACHE))
-                self._thread_signal_queues[thread_id] = signal_queue
+
+                while self._outbox_signal_queue:
+                    old_signal = self._outbox_signal_queue.popleft()
+                    logger.debug(f'Moving signal from outbox to signal queue for ThreadID {thread_id}')
+                    signal_queue.append(old_signal)
 
             while not self._shutdown:
 

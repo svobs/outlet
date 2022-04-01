@@ -587,7 +587,7 @@ class OpGraph(HasLifecycle):
                         logger.error(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Prev OGN ({prev_ogn_for_target}) for tgt node '
                                      f'is not a child of its parent node\'s OGN ({prev_ogn_for_target_node_parent})')
                         raise RuntimeError(f'Invalid state of OpGraph: previous operation for tgt node {target_node.node_identifier} is not connected'
-                                           f'to its parent\'s operation!')
+                                           f' to its parent\'s operation!')
                     # else fall through and attach to prev_ogn_for_target
                 else:
                     logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent '
@@ -639,7 +639,7 @@ class OpGraph(HasLifecycle):
         new_ogn = copy.copy(new_ogn)
         new_ogn.clear_relationships()
 
-        logger.debug(f'[{self.name}] InsertOGN called for: {new_ogn}')
+        logger.info(f'[{self.name}] InsertOGN({new_ogn.node_uid}) called for: {new_ogn}')
 
         target_node: Node = new_ogn.get_tgt_node()
 
