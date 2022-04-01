@@ -133,6 +133,9 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _calculate_signature_for_local_node(self, node: LocalFileNode):
+        if self.was_shutdown:
+            return
+
         # Get up-to-date copy:
         node = self.backend.cacheman.get_node_for_uid(node.uid, node.device_uid)
         if not node:

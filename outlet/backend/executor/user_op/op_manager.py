@@ -263,7 +263,7 @@ class OpManager(HasLifecycle):
             return self._pending_batch_dict[min_batch_uid]
 
     def _submit_next_batch(self, this_task: Optional[Task]):
-        """Part 2 of multi-task procession of adding a batch. Do not call this directly. Start _batch_intake(), which will start this."""
+        """Part 2 of multiple-task procession of adding a batch. Do not call this directly. Start _batch_intake(), which will start this."""
         next_batch: Batch = self._get_next_batch_in_queue()
         if not next_batch:
             return
@@ -289,7 +289,7 @@ class OpManager(HasLifecycle):
         except UnsuccessfulBatchInsertError as ubie:
             msg = str(ubie)
             logger.info(f'[Batch-{next_batch.batch_uid}] {sw} Caught UnsuccessfulBatchInsertError: {msg}')
-            self._on_batch_error_fight_or_flight('Failed to add batch to op graph', msg, batch=next_batch)
+            self._on_batch_error_fight_or_flight('Failed to add batch to OpGraph', msg, batch=next_batch)
             return
         except RuntimeError as err:
             logger.exception(f'[Batch-{next_batch.batch_uid}] {sw} Unexpected failure')

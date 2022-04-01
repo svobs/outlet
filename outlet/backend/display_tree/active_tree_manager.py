@@ -498,11 +498,6 @@ class ActiveTreeManager(HasLifecycle):
                     logger.warning(f'request_display_tree(): this is a ChangeDisplayTrees. Did you mean to call this method?')
                     return self._return_display_tree(sender_tree_id, display_tree_meta, request.return_async)
 
-            elif display_tree_meta.root_sn.spid == root_path_meta.root_spid and display_tree_meta.root_exists == root_path_meta.root_exists:
-                # Requested the existing tree and root? Just return that. (note that we make an exception if root existence has changed)
-                logger.debug(f'Display tree already registered with given root; returning existing')
-                return self._return_display_tree(sender_tree_id, display_tree_meta, request.return_async)
-
             if display_tree_meta.root_path_config_persister:
                 # If we started from a persister, continue persisting:
                 root_path_persister = display_tree_meta.root_path_config_persister
@@ -511,7 +506,6 @@ class ActiveTreeManager(HasLifecycle):
         self.backend.cacheman.get_cache_info_for_subtree(subtree_root=spid, create_if_not_found=True)
         # Try to retrieve the root node from the cache:
         try:
-            # FIXME: if the GDrive cache hasn't been loaded, this falsely reports that subtree does not exist!
             node: Optional[Node] = self.backend.cacheman.read_node_for_spid(spid)
             if node:
                 logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')

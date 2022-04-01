@@ -2,17 +2,18 @@ import errno
 import logging
 import os
 from collections import deque
+from pathlib import PurePosixPath
 from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
-from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from signal_constants import ID_GLOBAL_CACHE, Signal
-from model.node.local_disk_node import LocalDirNode, LocalNode
-from backend.tree_store.local.locald_tree import LocalDiskTree
-from model.node_identifier import LocalNodeIdentifier
 from backend.tree_store.local.disk_tree_recurser import LocalTreeRecurser
+from backend.tree_store.local.locald_tree import LocalDiskTree
+from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
+from logging_constants import SUPER_DEBUG_ENABLED
+from model.node.local_disk_node import LocalNode
+from model.node_identifier import LocalNodeIdentifier
+from signal_constants import Signal
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,8 @@ class FileCounter(LocalTreeRecurser):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, root_path):
-        LocalTreeRecurser.__init__(self, root_path, valid_suffixes=None)
+    def __init__(self, root_path, project_dir: str):
+        LocalTreeRecurser.__init__(self, root_path, project_dir, valid_suffixes=None)
         self.files_to_scan = 0
         self.dirs_to_scan = 0
 
@@ -57,6 +58,7 @@ class LocalDiskScanner:
         self.backend = backend
         self.master_local = master_local
         self.cacheman = backend.cacheman
+        self.project_dir = self.backend.get_project_dir()
         self.root_node_identifier: LocalNodeIdentifier = root_node_identifer
         self.tree_id = tree_id  # For sending progress updates
         self.progress = 0
@@ -73,14 +75,14 @@ class LocalDiskScanner:
         root_path = self.root_node_identifier.get_single_path()
         # TODO: this can be long-running: convert this to tasks
         logger.info(f'[{self.tree_id}] Preparing to scan. Counting files in path: {root_path}')
-        file_counter = FileCounter(root_path)
+        file_counter = FileCounter(root_path, self.project_dir)
         file_counter.recurse_through_dir_tree()
 
         logger.debug(f'[{self.tree_id}] Found {file_counter.files_to_scan} files and {file_counter.dirs_to_scan} dirs to scan.')
         return file_counter.files_to_scan
 
     @staticmethod
-    def _list_dir_entries(target_dir: str, onerror: Optional[Callable] = None) -> Tuple[List[str], List[str]]:
+    def _list_dir_entries(target_dir: str, skip_tree_path: str, onerror: Optional[Callable] = None) -> Tuple[List[str], List[str]]:
         """Yanked from os._walk() and simplified"""
         dirs = []
         nondirs = []
@@ -111,17 +113,22 @@ class LocalDiskScanner:
                         onerror(error)
                     return [], []
 
-                try:
-                    is_dir = entry.is_dir()
-                except OSError:
-                    # If is_dir() raises an OSError, consider that the entry is not
-                    # a directory, same behaviour than os.path.isdir().
-                    is_dir = False
-
-                if is_dir:
-                    dirs.append(os.path.join(target_dir, entry.name))
+                path = os.path.join(target_dir, entry.name)
+                if PurePosixPath(path).is_relative_to(skip_tree_path):
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'Ignoring path: {path}')
                 else:
-                    nondirs.append(os.path.join(target_dir, entry.name))
+                    try:
+                        is_dir = entry.is_dir()
+                    except OSError:
+                        # If is_dir() raises an OSError, consider that the entry is not
+                        # a directory, same behaviour than os.path.isdir().
+                        is_dir = False
+
+                    if is_dir:
+                        dirs.append(path)
+                    else:
+                        nondirs.append(path)
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'_list_dir_entries(): returning {len(dirs)} dirs, {len(nondirs)} nondirs')
@@ -186,8 +193,9 @@ class LocalDiskScanner:
 
         on_error.err = None
 
-        (dir_list, nondir_list) = LocalDiskScanner._list_dir_entries(target_dir, onerror=on_error)
+        (dir_list, nondir_list) = LocalDiskScanner._list_dir_entries(target_dir, self.project_dir, onerror=on_error)
         if on_error.err:
+            # FIXME: display error in tree
             raise on_error.err
 
         child_node_list = []

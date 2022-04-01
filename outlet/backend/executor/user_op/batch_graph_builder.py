@@ -110,7 +110,7 @@ class BatchGraphBuilder:
 
                         # fall through:
 
-                    logger.info(f'ReduceChanges(): Adding binary op: {op}')
+                    logger.debug(f'ReduceChanges(): Adding binary op: {op}')
                     src_op_dict[op.src_node.uid].append(op)
                     dst_op_dict[dst_parent_key] = op
                     final_list.append(op)
@@ -156,7 +156,8 @@ class BatchGraphBuilder:
         # For each element, traverse up the tree and compare each parent node to map
         for op in final_list:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'_reduce_ops(): Evaluating {op}')
+                logger.debug(f'ReduceChanges(): Evaluating {op}')
+
             if op.op_type == UserOpType.RM:
                 self._check_ancestors(op, op.src_node, validate_rm_ancestor_func)
             elif op.op_type == UserOpType.MKDIR:

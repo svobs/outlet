@@ -67,10 +67,12 @@ class OpGraphNode(BaseNode, ABC):
 
     @staticmethod
     def get_parent_list() -> Optional[List]:
+        """Returns a list of this OGN's parent OGN(s)"""
         return []
 
     @staticmethod
     def get_child_list() -> Optional[List]:
+        """Returns a list of this OGN's child OGN(s)"""
         return []
 
     def link_parent(self, parent):
@@ -168,7 +170,7 @@ class OpGraphNode(BaseNode, ABC):
         Since this is a graph (with some nodes having multiple parents) and not a tree, we have the additional condition that
         nodes which have multiple parents are not included until after all of its parents.
         """
-        og_node_list: List[OpGraphNode] = []
+        ogn_bfs_list: List[OpGraphNode] = []
 
         if not coverage_dict:
             coverage_dict = {self.node_uid: self}
@@ -177,29 +179,34 @@ class OpGraphNode(BaseNode, ABC):
         queue.append(self)
 
         while len(queue) > 0:
-            og_node: OpGraphNode = queue.popleft()
-            og_node_list.append(og_node)
+            ogn: OpGraphNode = queue.popleft()
+            ogn_bfs_list.append(ogn)
 
-            for child in og_node.get_child_list():
+            logger.debug(f'get_subgraph_bfs_list(): Added OGN (will now examine its children): {ogn}')
+
+            for child_ogn in ogn.get_child_list():
+                logger.debug(f'get_subgraph_bfs_list(): Examining child OGN: {child_ogn}')
+                logger.debug(f'get_subgraph_bfs_list(): Child OGN has parent OGNs: {[p.node_uid for p in child_ogn.get_parent_list()]}')
                 all_parents_seen = True
-                for parent_of_child in child.get_parent_list():
+                for parent_of_child in child_ogn.get_parent_list():
                     if not coverage_dict.get(parent_of_child.node_uid, None):
-                        assert parent_of_child.is_root() or parent_of_child.node_uid != og_node.node_uid,\
-                            f'Expected a new parent for {child} but found existing {og_node}'
-                        assert len(child.get_parent_list()) > 1, \
-                            f'Expected child OGN ({child}) to have multiple parents but found {child.get_parent_list()}'
-                        logger.debug(f'Child OGN {child.node_uid} has a parent we have not yet encountered ({parent_of_child.node_uid}); '
-                                     f'skipping for now')
+                        assert parent_of_child.is_root() or parent_of_child.node_uid != ogn.node_uid,\
+                            f'Expected a new parent for {child_ogn} but found existing {ogn}'
+                        assert len(child_ogn.get_parent_list()) > 1, \
+                            f'Expected child_ogn OGN ({child_ogn}) to have multiple parents but found {child_ogn.get_parent_list()}'
+                        logger.debug(f'get_subgraph_bfs_list(): Child OGN {child_ogn.node_uid} has a parent OGN we have not yet encountered '
+                                     f'({parent_of_child.node_uid}); skipping for now')
                         all_parents_seen = False
 
                 if all_parents_seen:
                     # avoid duplicates:
-                    if not coverage_dict.get(child.node_uid, None):
-                        coverage_dict[child.node_uid] = child
+                    if not coverage_dict.get(child_ogn.node_uid, None):
+                        coverage_dict[child_ogn.node_uid] = child_ogn
 
-                        queue.append(child)
+                        logger.debug(f'get_subgraph_bfs_list(): Examining children of OGN: {ogn}')
+                        queue.append(child_ogn)
 
-        return og_node_list
+        return ogn_bfs_list
 
     def is_tgt_an_ancestor_of_og_node_tgt(self, other_og_node):
         my_path_list = self.get_tgt_node().get_path_list()
@@ -224,13 +231,13 @@ class OpGraphNode(BaseNode, ABC):
             if not ogn.get_child_list():
                 leaf_list.append(ogn)
             else:
-                for child in ogn.get_child_list():
-                    if child.node_uid not in coverage_set:
-                        coverage_set.add(child.node_uid)
-                        if child.get_child_list():
-                            leaf_list.append(child)
+                for child_ogn in ogn.get_child_list():
+                    if child_ogn.node_uid not in coverage_set:
+                        coverage_set.add(child_ogn.node_uid)
+                        if child_ogn.get_child_list():
+                            leaf_list.append(child_ogn)
                         else:
-                            queue.append(child)
+                            queue.append(child_ogn)
 
         logger.debug(f'Returning {len(leaf_list)} downstream leaf OGNs for OGN {self}')
         return leaf_list

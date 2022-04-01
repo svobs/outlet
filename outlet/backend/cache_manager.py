@@ -804,9 +804,9 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized or unsupported drag operation: {drag_operation.name}')
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop: {batch.op_list}')
+            logger.info(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop: {batch.op_list}')
         else:
-            logger.debug(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop')
+            logger.info(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop')
 
         if not batch.op_list:
             logger.debug(f'[{dst_tree_id}] {sw} Batch generated no ops; returning FALSE')
