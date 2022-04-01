@@ -11,7 +11,7 @@ from error import InvalidInsertOpGraphError, OpGraphError, UnsuccessfulBatchInse
 from model.node.node import Node
 from model.uid import UID
 from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpResult, UserOpStatus, UserOpType
-from util.has_lifecycle import HasLifecycle, start_func, stop_func
+from util.has_lifecycle import HasLifecycle, stop_func
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -290,7 +290,7 @@ class OpGraph(HasLifecycle):
                         binary_op_dst_coverage_dict[ogn.op.op_uid] = ogn
 
             # Verify parents:
-            ogn_parent_list = ogn.get_parent_list()
+            ogn_parent_list: List[OpGraphNode] = ogn.get_parent_list()
             if not ogn_parent_list:
                 error_count += 1
                 logger.error(f'ValidateGraph: OG node has no parents: {ogn}')
@@ -316,8 +316,7 @@ class OpGraph(HasLifecycle):
                 if not ogn.is_child_of_root():
                     if ogn.is_rm_node():
                         all_parents_must_be_remove_type = False
-                        if has_multiple_parents:
-                            all_parents_must_be_remove_type = True
+
                         child_node_uid_set = set()
                         for ogn_parent in ogn_parent_list:
                             if ogn_parent.is_remove_type():
@@ -325,11 +324,11 @@ class OpGraph(HasLifecycle):
                                 parent_tgt_node: Node = ogn_parent.get_tgt_node()
                                 if not tgt_node.is_parent_of(parent_tgt_node):
                                     error_count += 1
-                                    logger.error(f'[{self.name}] ValidateGraph: Parent of RM OG node is remove-type, but its target node is not '
-                                                 f'a child of its child"s target node! OG node={ogn}, parent={ogn_parent}')
+                                    logger.error(f'[{self.name}] ValidateGraph: Parent of RM OGN is remove-type, but its target node is not '
+                                                 f'a child of the RM OGN\'s target node! OGN={ogn}, parent={ogn_parent}')
                                 if parent_tgt_node.uid in child_node_uid_set:
                                     error_count += 1
-                                    logger.error(f'[{self.name}] ValidateGraph: Parents of RM OG node have duplicate target node! OG node={ogn}, '
+                                    logger.error(f'[{self.name}] ValidateGraph: Parents of RM OGN have duplicate target node! OGN={ogn}, '
                                                  f'parent={ogn_parent}, offending node UID={parent_tgt_node.uid}')
                                 child_node_uid_set.add(parent_tgt_node.uid)
                             else:
@@ -337,25 +336,42 @@ class OpGraph(HasLifecycle):
 
                                 if all_parents_must_be_remove_type:
                                     error_count += 1
-                                    logger.error(f'[{self.name}] ValidateGraph: Some parents of RM OG node are remove-type, but this one is not! '
+                                    logger.error(f'[{self.name}] ValidateGraph: Some parents of RM OGN are remove-type, but this one is not! '
                                                  f'OG node={ogn}, offending OG parent={ogn_parent}')
                                 else:
                                     # Parent's tgt node must be an ancestor of tgt node (or same node).
                                     # Check all paths and confirm that at least one path in parent tgt contains the path of tgt
                                     if not ogn.is_tgt_an_ancestor_of_og_node_tgt(ogn_parent):
                                         error_count += 1
-                                        logger.error(f'[{self.name}] ValidateGraph: Parent of RM OG node is not remove-type, and its '
-                                                     f'target node is not an ancestor of its child OG\'s target! OG node={ogn}, '
-                                                     f'offending OG parent={ogn_parent}')
+                                        logger.error(f'[{self.name}] ValidateGraph: Parent of RM OGN is not remove-type, and its '
+                                                     f'target node is not an ancestor of its child OGN\'s target! OGN={ogn}, '
+                                                     f'offending OGN parent={ogn_parent}')
 
                     else:  # NOT ogn.is_rm_node()
-                        assert not has_multiple_parents, \
-                            f'Non-RM OG node should not be allowed to have multiple parents: {ogn}, parents={ogn_parent_list}'
-                        for ogn_parent in ogn_parent_list:
-                            if not ogn_parent.is_tgt_an_ancestor_of_og_node_tgt(ogn):
-                                error_count += 1
-                                logger.error(f'[{self.name}] ValidateGraph: Parent of OGN has target node which is not an ancestor '
-                                             f'of its child\'s target! OG node={ogn}, offending parent={ogn_parent}')
+                        # "finish" types are allowed to have arbitrary number of parents
+                        if ogn.op.op_type == UserOpType.FINISH_DIR_CP or ogn.op.op_type == UserOpType.FINISH_DIR_MV:
+                            for ogn_parent in ogn_parent_list:
+                                if not ogn.is_tgt_an_ancestor_of_og_node_tgt(ogn_parent):
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: FINISH_DIR OGN\'s target node is not an ancestor '
+                                                 f'of its parent OGN\'s target! OGN={ogn}, offending parent={ogn_parent}')
+
+                        else:
+                            if has_multiple_parents:
+                                if len(ogn_parent_list) > 2:
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: OGN is not remove-type but has more than 2 parents: {ogn_parent_list}')
+                                op_type0 = ogn_parent_list[0].op.op_type
+                                op_type1 = ogn_parent_list[1].op.op_type
+                                if not op_type0.has_converse() or op_type0.get_converse() != op_type1:
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: Parents of non-RM OGN are not conversely related: {ogn_parent_list}')
+
+                            for ogn_parent in ogn_parent_list:
+                                if not ogn_parent.is_tgt_an_ancestor_of_og_node_tgt(ogn):
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: Parent of OGN\'s target node is not an ancestor '
+                                                 f'of its child OGN\'s target node! OGN={ogn}, offending parent={ogn_parent}')
 
             # Verify children:
             child_og_node_list = ogn.get_child_list()
@@ -383,7 +399,7 @@ class OpGraph(HasLifecycle):
                 logger.error(f'[{self.name}] ValidateGraph: {error_msg}')
 
         len_ogn_coverage_dict = len(ogn_coverage_dict)
-        logger.debug(f'[{self.name}] ValidateGraph: encountered {len_ogn_coverage_dict} OGNs in graph')
+        logger.debug(f'[{self.name}] ValidateGraph: encountered {len_ogn_coverage_dict} OGNs in graph (including root)')
 
         # Check for missing OGNs for binary ops.
         for ogn_src in binary_op_src_coverage_dict.values():

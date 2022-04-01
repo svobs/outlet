@@ -79,6 +79,20 @@ class UserOpType(IntEnum):
     def has_dst(self) -> bool:
         return self.value >= 10
 
+    def has_converse(self) -> bool:
+        return self == UserOpType.START_DIR_CP or self == UserOpType.FINISH_DIR_CP or \
+               self == UserOpType.START_DIR_MV or self == UserOpType.FINISH_DIR_MV
+
+    def get_converse(self):
+        if self == UserOpType.START_DIR_CP:
+            return UserOpType.FINISH_DIR_CP
+        if self == UserOpType.FINISH_DIR_CP:
+            return UserOpType.START_DIR_CP
+
+        if self == UserOpType.START_DIR_MV:
+            return UserOpType.FINISH_DIR_MV
+        if self == UserOpType.FINISH_DIR_MV:
+            return UserOpType.START_DIR_MV
 
 # ENUM UserOpStatus
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

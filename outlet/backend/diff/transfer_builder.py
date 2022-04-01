@@ -95,7 +95,10 @@ class TransferBuilder(TwoTreeChangeBuilder):
         assert self.left_side.batch_uid == self.right_side.batch_uid
         src_tree_op_list = self.left_side.change_tree.get_op_list()
         dst_tree_op_list = self.right_side.change_tree.get_op_list()
+        if DIFF_DEBUG_ENABLED:
+            logger.debug(f'SrcTreeOpList = {src_tree_op_list}. DstTreeOpList = {dst_tree_op_list}')
         op_list = [] + src_tree_op_list + dst_tree_op_list
+        logger.debug(f'Total ops resulting from drag&drop: {len(op_list)}')
 
         if ensure_bool(self.backend.get_config('display.treeview.highlight_dropped_nodes_after_drag', default_val=True)):
             # Try to determine which nodes represent the "dropped" nodes, so that we can later notify the UI to select them in the dst tree.

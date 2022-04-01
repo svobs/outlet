@@ -792,11 +792,11 @@ class CacheManager(HasLifecycle):
 
         logger.debug(f'[{dst_tree_id}] Dropping into dest: {sn_dst.spid}')
         # "Left tree" here is the source tree, and "right tree" is the dst tree:
-        transfer_maker = TransferBuilder(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
-                                       tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
+        transfer_builder = TransferBuilder(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn,
+                                           tree_id_left_src=src_tree_id, tree_id_right_src=dst_tree_id)
 
         if drag_operation == DragOperation.COPY or drag_operation == DragOperation.MOVE:
-            batch: Batch = transfer_maker.drag_and_drop(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
+            batch: Batch = transfer_builder.drag_and_drop(sn_src_list, sn_dst, drag_operation, dir_conflict_policy, file_conflict_policy)
         elif drag_operation == DragOperation.LINK:
             # TODO: link operation
             raise NotImplementedError('LINK drag operation is not yet supported!')
@@ -807,6 +807,11 @@ class CacheManager(HasLifecycle):
             logger.debug(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop: {batch.op_list}')
         else:
             logger.debug(f'[{dst_tree_id}] Generated batch {batch.batch_uid} containing {len(batch.op_list)} ops from drop')
+
+        if not batch.op_list:
+            logger.debug(f'[{dst_tree_id}] {sw} Batch generated no ops; returning FALSE')
+            return False
+
         # This should fire listeners which ultimately populate the dst tree and possibly select the pending nodes:
         self.enqueue_op_batch(batch)
         logger.debug(f'[{dst_tree_id}] {sw} Returning TRUE for drop')

@@ -3,7 +3,6 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from backend.diff.change_tree_builder import ChangeTreeBuilder
 from backend.display_tree.active_tree_meta import ActiveDisplayTreeMeta
 from backend.display_tree.change_tree import ChangeTree
 from constants import SUPER_ROOT_DEVICE_UID, TreeDisplayMode, TreeID, TreeType

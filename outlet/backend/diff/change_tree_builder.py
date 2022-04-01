@@ -73,7 +73,7 @@ class ChangeTreeBuilder:
             new_op = self._build_new_op(src_node=sn_src.node, dst_node=dst_node, op_type=op_type)
             op_list.append(new_op)
 
-        if DIFF_DEBUG_ENABLED:
+        if SUPER_DEBUG_ENABLED:
             logger.debug(f'[{self.change_tree.tree_id}] Created new UserOp(s): {op_list}. '
                          f'Adding to ChangeTree along with: {target_sn.spid}')
 

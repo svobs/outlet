@@ -94,25 +94,26 @@ class BatchGraphBuilder:
                         logger.debug(f'Checking parent key: "{dst_parent_key}"')
                     existing_op = dst_op_dict.get(dst_parent_key, None)
                     if existing_op:
+                        # note: looks like this opens up a hole where ops could theoretically slip through. I deem not worth it at this point
+                        if not self._are_equivalent(existing_op.op_type, op.op_type):
+                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing_op}; Change2: {op}')
+                            raise RuntimeError(f'Batch op conflict: trying to copy different op types into the same destination!')
+
                         # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
                         if existing_op.src_node.uid != op.src_node.uid:
                             logger.error(f'ReduceChanges(): Conflict: Change1: {existing_op}; Change2: {op}')
                             raise RuntimeError(f'Batch op conflict: trying to copy different nodes into the same destination!')
-                        elif not self._are_equivalent(existing_op.op_type, op.op_type):
-                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing_op}; Change2: {op}')
-                            raise RuntimeError(f'Batch op conflict: trying to copy different op types into the same destination!')
-                        elif op.dst_node.uid != existing_op.dst_node.uid:
+
+                        if op.dst_node.uid != existing_op.dst_node.uid:
                             # GDrive nodes almost certainly
                             raise RuntimeError(f'Batch op conflict: trying to copy same node into the same destination with a different UID!')
-                        else:
-                            assert op.dst_node.uid == existing_op.dst_node.uid and existing_op.src_node.uid == op.src_node.uid and \
-                                   existing_op.op_type == op.op_type, f'Conflict: Change1: {existing_op}; Change2: {op}'
-                            logger.info(f'ReduceChanges(): Discarding op (dup dst): {op}')
-                    else:
-                        logger.info(f'ReduceChanges(): Adding binary op: {op}')
-                        src_op_dict[op.src_node.uid].append(op)
-                        dst_op_dict[dst_parent_key] = op
-                        final_list.append(op)
+
+                        # fall through:
+
+                    logger.info(f'ReduceChanges(): Adding binary op: {op}')
+                    src_op_dict[op.src_node.uid].append(op)
+                    dst_op_dict[dst_parent_key] = op
+                    final_list.append(op)
             else:
                 assert False, f'Unrecognized op type: {op}'
 
