@@ -5,6 +5,7 @@ from backend.tree_store.local.locald_tree import LocalDiskTree
 from constants import LOCAL_ROOT_UID, ROOT_PATH
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.container_node import RootTypeNode
+from model.node.gdrive_node import GDriveFolder
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
@@ -67,6 +68,8 @@ class LocalDiskMemoryStore:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting to memstore: {node}')
 
+        assert self.master_tree
+
         if file_util.normalize_path(node.get_single_path()) != node.get_single_path():
             # Sanity check. We can really get messed up if path isn't exactly as expected (e.g. no trailing '/' for dirs!)
             raise RuntimeError(f'File path is not normalized: {node}')
@@ -82,6 +85,10 @@ class LocalDiskMemoryStore:
 
         cached_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:
+            if cached_node.is_dir() and not node.is_dir():
+                # Not allowed. Need to first delete all descendants via other ops.
+                raise RuntimeError(f'Cannot replace a directory with a file: "{node.node_identifier}"')
+
             if cached_node.is_live() and not node.is_live():
                 if cached_node.get_icon() != node.get_icon():
                     cached_node.set_icon(node.get_icon())
@@ -92,10 +99,7 @@ class LocalDiskMemoryStore:
                 logger.debug(f'Will not replace a live node with non-live; skipping memstore update for {node.node_identifier}')
                 return None, False
 
-            if cached_node.is_dir() and not node.is_dir():
-                # Not allowed. Need to first delete all descendants via other ops.
-                raise RuntimeError(f'Cannot replace a directory with a file: "{node.node_identifier}"')
-            elif node.is_file() and cached_node.is_file():
+            if node.is_file() and cached_node.is_file():
                 # Check for freshly scanned files which are missing signatures. If their other meta checks out, copy from the cache before doing
                 # equals comparison
                 assert isinstance(node, LocalFileNode) and isinstance(cached_node, LocalFileNode)
@@ -114,6 +118,7 @@ class LocalDiskMemoryStore:
                 logger.debug(f'Merging node (PyID {id(node)}) into cached_node (PyID {id(cached_node)})')
 
             if cached_node.is_dir() and node.is_dir():
+                assert isinstance(cached_node, GDriveFolder)
                 if cached_node.all_children_fetched and not node.all_children_fetched:
                     if TRACE_ENABLED:
                         logger.debug(f'Merging into existing node which has all_children_fetched=True; will set new node to True')
@@ -123,6 +128,7 @@ class LocalDiskMemoryStore:
 
             cached_node.update_from(node)
             node = cached_node
+
         elif update_only:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Skipping update of node {node.node_identifier.guid} because it is not in memstore')

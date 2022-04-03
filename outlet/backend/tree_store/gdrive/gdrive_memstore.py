@@ -4,9 +4,10 @@ from typing import Dict, List, Optional, Tuple
 from backend.tree_store.gdrive.gdrive_tree import GDriveWholeTree
 from backend.uid.uid_mapper import UidGoogIdMapper
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID
-from logging_constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveNode
+from model.node.local_disk_node import LocalDirNode
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -35,13 +36,14 @@ class GDriveMemoryStore:
     def is_loaded(self) -> bool:
         return self.master_tree is not None
 
-    def upsert_single_node(self, node: GDriveNode, update_only: bool = False) -> Tuple[GDriveNode, bool]:
+    def upsert_single_node(self, node: GDriveNode, update_only: bool = False) -> Tuple[Optional[GDriveNode], bool]:
+
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Upserting GDriveNode to memory cache: {node}')
+            logger.debug(f'Upserting to memstore: {node}')
 
         assert self.master_tree
 
-        # Detect whether it's already in the cache
+        # Validate UID:
         if node.goog_id:
             uid_from_mapper = self._uid_mapper.get_uid_for_goog_id(goog_id=node.goog_id)
             if node.uid != uid_from_mapper:
@@ -53,8 +55,12 @@ class GDriveMemoryStore:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Node {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
 
-        cached_node = self.master_tree.get_node_for_uid(node.uid)
+        cached_node: GDriveNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:
+            if cached_node.is_dir() and not node.is_dir():
+                # This should never happen, because GDrive does not allow a node's type to be changed:
+                raise RuntimeError(f'Invalid request: cannot replace a GDrive folder with a file: "{node.get_path_list()}"')
+
             # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced
             if cached_node.goog_id and cached_node.goog_id != node.goog_id:
                 raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
@@ -70,18 +76,27 @@ class GDriveMemoryStore:
                 logger.info(f'Will not replace a node which exists with one which does not exist; ignoring: {node}')
                 return node, False
 
-            if cached_node.is_dir() and not node.is_dir():
-                # This should never happen, because GDrive does not allow a node's type to be changed:
-                raise RuntimeError(f'Invalid request: cannot replace a GDrive folder with a file: "{node.get_path_list()}"')
-
             if cached_node == node:
                 logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Existing node: {cached_node}')
                 return cached_node, False
-            logger.debug(f'Found existing node in cache with UID={cached_node.uid}: doing an update')
+
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Merging node UID={cached_node.uid} into cached node')
+
+            if cached_node.is_dir() and node.is_dir():
+                assert isinstance(cached_node, LocalDirNode)
+                if cached_node.all_children_fetched and not node.all_children_fetched:
+                    if TRACE_ENABLED:
+                        logger.debug(f'Merging into existing node which has all_children_fetched=True; will set new node to True')
+                    node.all_children_fetched = True
+                elif not cached_node.all_children_fetched and node.all_children_fetched:
+                    logger.debug(f'Overwriting node with all_children_fetched=False with one which is True: {node}')
+
         elif update_only:
-            logger.debug(f'Skipping update for node because it is not in the memory cache: {node}')
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Skipping update for node because it is not in the memory cache: {node}')
             return node, False
 
         # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
