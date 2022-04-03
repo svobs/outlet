@@ -14,7 +14,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
 from util import time_util
 
 logger = logging.getLogger(__name__)
@@ -31,18 +31,22 @@ OP_UID_COL_NAME = 'op_uid'
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class UserOpRef:
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, status: UserOpStatus, src_uid: UID,
+                 dst_uid: UID = None, create_ts: int = None, detail_msg: str = ''):
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: UserOpType = op_type
+        self.status: UserOpStatus = status
         self.src_uid: UID = src_uid
         self.dst_uid: UID = dst_uid
         self.create_ts: int = create_ts
         if not self.create_ts:
             self.create_ts = time_util.now_ms()
+        self.detail_msg: str = detail_msg
 
     def __repr__(self):
-        return f'UserOpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
+        return f'UserOpRef(uid={self.op_uid} type={self.op_type.name} status={self.status.name} src={self.src_uid} dst={self.dst_uid} ' \
+               f'msg="{self.detail_msg}"'
 
 
 def _pending_op_to_tuple(e: UserOp):
@@ -55,10 +59,15 @@ def _pending_op_to_tuple(e: UserOp):
     if e.dst_node:
         dst_uid = e.dst_node.uid
 
-    return e.op_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts
+    if e.is_stopped_on_error():
+        detail_msg = str(e.result.error)
+    else:
+        detail_msg = ''
+
+    return e.op_uid, e.batch_uid, e.op_type, e.get_status(), src_uid, dst_uid, e.create_ts, detail_msg
 
 
-def _completed_op_to_tuple(e: UserOp, current_time):
+def _completed_op_to_tuple(e: UserOp, current_time: int, detail_msg: str = ''):
     assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
     src_uid = None
     dst_uid = None
@@ -68,23 +77,26 @@ def _completed_op_to_tuple(e: UserOp, current_time):
     if e.dst_node:
         dst_uid = e.dst_node.uid
 
-    return e.op_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts, current_time
+    # I may come to regret this little block at some point...
+    if e.result.status == UserOpStatus.STOPPED_ON_ERROR and e.result.error:
+        detail_msg = e.result.error
+
+    return e.op_uid, e.batch_uid, e.op_type, e.get_status(), src_uid, dst_uid, e.create_ts, current_time, detail_msg
 
 
-def _failed_op_to_tuple(e: UserOp, current_time, error_msg):
-    partial_tuple = _completed_op_to_tuple(e, current_time)
-    return *partial_tuple, error_msg
+def _failed_op_to_tuple(e: UserOp, current_time: int, error_msg: str):
+    return _completed_op_to_tuple(e, current_time, detail_msg=error_msg)
 
 
 def _tuple_to_op_ref(row: Tuple) -> UserOpRef:
     assert isinstance(row, Tuple), f'Expected Tuple; got instead: {row}'
-    return UserOpRef(UID(row[0]), UID(row[1]), UserOpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
+    return UserOpRef(UID(row[0]), UID(row[1]), UserOpType(row[2]), UserOpStatus(row[3]), UID(row[4]), _ensure_uid(row[5]), int(row[6]), row[7])
 
 
-class TableMultiMap:
+class TableMegaMap:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS TableMultiMap
+    CLASS TableMegaMap
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -159,7 +171,7 @@ class TableListCollection:
     """
 
     def __init__(self):
-        self.all_dict: TableMultiMap = TableMultiMap()
+        self.all_dict: TableMegaMap = TableMegaMap()
         """ {PENDING or ARCHIVE} -> {SRC or DST} -> {tree type} -> {obj type} -> """
 
         self.all: List[LiveTable] = []
@@ -206,9 +218,11 @@ class OpDatabase(MetaDatabase):
         ('uid', 'INTEGER PRIMARY KEY'),
         ('batch_uid', 'INTEGER'),
         ('op_type', 'INTEGER'),
+        ('status', 'INTEGER'),
         ('src_node_uid', 'INTEGER'),
         ('dst_node_uid', 'INTEGER'),
-        ('create_ts', 'INTEGER')
+        ('create_ts', 'INTEGER'),
+        ('detail_msg', 'TEXT')
     ]))
 
     TABLE_COMPLETED_OP = Table(name='op_completed',
@@ -216,23 +230,13 @@ class OpDatabase(MetaDatabase):
                                    ('uid', 'INTEGER PRIMARY KEY'),
                                    ('batch_uid', 'INTEGER'),
                                    ('op_type', 'INTEGER'),
+                                   ('status', 'INTEGER'),
                                    ('src_node_uid', 'INTEGER'),
                                    ('dst_node_uid', 'INTEGER'),
                                    ('create_ts', 'INTEGER'),
-                                   ('complete_ts', 'INTEGER')
+                                   ('complete_ts', 'INTEGER'),
+                                   ('detail_msg', 'TEXT')
                                ]))
-
-    TABLE_FAILED_CHANGE = Table(name='op_failed',
-                                cols=OrderedDict([
-                                    ('uid', 'INTEGER PRIMARY KEY'),
-                                    ('batch_uid', 'INTEGER'),
-                                    ('op_type', 'INTEGER'),
-                                    ('src_node_uid', 'INTEGER'),
-                                    ('dst_node_uid', 'INTEGER'),
-                                    ('create_ts', 'INTEGER'),
-                                    ('complete_ts', 'INTEGER'),
-                                    ('error_msg', 'TEXT')
-                                ]))
 
     def __init__(self, db_path, backend):
         super().__init__(db_path)
@@ -242,7 +246,6 @@ class OpDatabase(MetaDatabase):
         # We do not use UserOpRef to Tuple, because we convert UserOp to Tuple instead
         self.table_pending_op = LiveTable(OpDatabase.TABLE_PENDING_OP, self.conn, None, _tuple_to_op_ref)
         self.table_completed_op = LiveTable(OpDatabase.TABLE_COMPLETED_OP, self.conn, None, _tuple_to_op_ref)
-        self.table_failed_op = LiveTable(OpDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_op_ref)
 
         # pending ...
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, SRC)
@@ -427,38 +430,38 @@ class OpDatabase(MetaDatabase):
 
         return live_table
 
-    # PENDING_CHANGE operations
+    # PENDING_OP operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _get_all_in_table(self, table: LiveTable, nodes_by_action_uid: Dict[UID, Node]):
-        # Look up appropriate ORM function and bind its first param to nodes_by_action_uid
-        table_func: Callable = partial(self.table_lists.tuple_to_obj_func_map[table.name], nodes_by_action_uid)
+    def _get_all_in_table(self, table: LiveTable, nodes_by_op_uid: Dict[UID, Node]):
+        # Look up appropriate ORM function and bind its first param to nodes_by_op_uid
+        table_func: Callable = partial(self.table_lists.tuple_to_obj_func_map[table.name], nodes_by_op_uid)
 
         table.select_object_list(tuple_to_obj_func_override=table_func)
 
-    def get_all_pending_ops(self) -> List[UserOp]:
+    def get_pending_ops(self, where_clause: Optional[str] = '', where_tuple: Tuple = None) -> List[UserOp]:
         """ Gets all pending changes, filling int their src and dst nodes as well """
         entries: List[UserOp] = []
 
         if not self.table_pending_op.is_table():
             return entries
 
-        src_node_by_action_uid: Dict[UID, Node] = {}
+        src_node_by_op_uid: Dict[UID, Node] = {}
         for table in self.table_lists.src_pending:
             logger.debug(f'Getting src nodes from table: "{table.name}"')
-            self._get_all_in_table(table, src_node_by_action_uid)
+            self._get_all_in_table(table, src_node_by_op_uid)
 
-        dst_node_by_action_uid: Dict[UID, Node] = {}
+        dst_node_by_op_uid: Dict[UID, Node] = {}
         for table in self.table_lists.dst_pending:
             logger.debug(f'Getting dst nodes from table: "{table.name}"')
-            self._get_all_in_table(table, dst_node_by_action_uid)
+            self._get_all_in_table(table, dst_node_by_op_uid)
 
-        rows = self.table_pending_op.get_all_rows()
-        logger.debug(f'Found {len(rows)} pending ops in table {self.table_pending_op.name}')
-        for row in rows:
-            ref = UserOpRef(UID(row[0]), UID(row[1]), UserOpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
-            src_node = src_node_by_action_uid.get(ref.op_uid, None)
-            dst_node = dst_node_by_action_uid.get(ref.op_uid, None)
+        op_tuple_list = self.table_pending_op.select(where_clause, where_tuple)
+        logger.debug(f'Found {len(op_tuple_list)} pending ops in table {self.table_pending_op.name}')
+        for op_tuple in op_tuple_list:
+            ref = _tuple_to_op_ref(op_tuple)
+            src_node = src_node_by_op_uid.get(ref.op_uid, None)
+            dst_node = dst_node_by_op_uid.get(ref.op_uid, None)
 
             if not src_node:
                 raise RuntimeError(f'No src node found for: {ref}')
@@ -471,11 +474,22 @@ class OpDatabase(MetaDatabase):
                 if dst_node.uid != ref.dst_uid:
                     raise RuntimeError(f'Dst node UID ({dst_node.uid}) does not match ref in: {ref}')
 
-            entries.append(UserOp(ref.op_uid, ref.batch_uid, ref.op_type, src_node, dst_node))
+            op = UserOp(ref.op_uid, ref.batch_uid, ref.op_type, src_node, dst_node)
+
+            error_msg = ref.detail_msg if ref.status == UserOpStatus.STOPPED_ON_ERROR else None
+            op.result = UserOpResult(status=ref.status, error=error_msg)
+
+            entries.append(op)
         return entries
 
-    def _make_tuple_list(self, entries: Iterable[UserOp], lifecycle_state: str) -> TableMultiMap:
-        tuple_list_multimap: TableMultiMap = TableMultiMap()
+    def get_all_pending_ops(self) -> List[UserOp]:
+        return self.get_pending_ops()
+
+    def get_all_pending_ops_for_batch_uid(self, batch_uid: UID) -> List[UserOp]:
+        return self.get_pending_ops(where_clause=f'WHERE batch_uid = ?', where_tuple=(batch_uid,))
+
+    def _make_tuple_list(self, entries: Iterable[UserOp], lifecycle_state: str) -> TableMegaMap:
+        tuple_list_multimap: TableMegaMap = TableMegaMap()
 
         for e in entries:
             assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
@@ -500,11 +514,11 @@ class OpDatabase(MetaDatabase):
             assert table, f'No table for values: {lifecycle_state}, {src_or_dst}, {tree_type}, {obj_type}'
             table.upsert_many(tuple_list, commit=False)
 
-    def upsert_pending_op_list(self, entries: Iterable[UserOp], overwrite, commit=True):
+    def upsert_pending_op_list(self, entries: Iterable[UserOp], truncate_table_first: bool = False, commit: bool = True):
         """Inserts or updates a list of Ops (remember that each action's UID is its primary key).
         If overwrite=true, then removes all existing changes first."""
 
-        if overwrite:
+        if truncate_table_first:
             self.table_pending_op.drop_table_if_exists(commit=False)
             for table in self.table_lists.all:
                 table.drop_table_if_exists(commit=False)
@@ -518,10 +532,10 @@ class OpDatabase(MetaDatabase):
         self._upsert_nodes_without_commit(entries, PENDING)
 
         # Upsert Ops
-        change_tuple_list: List[Tuple] = []
+        tuple_list: List[Tuple] = []
         for e in entries:
-            change_tuple_list.append(_pending_op_to_tuple(e))
-        self.table_pending_op.upsert_many(change_tuple_list, commit)
+            tuple_list.append(_pending_op_to_tuple(e))
+        self.table_pending_op.upsert_many(tuple_list, commit)
 
     def delete_pending_ops(self, changes: Iterable[UserOp], commit=True):
         uid_tuple_list = list(map(lambda x: (x.op_uid,), changes))
@@ -533,13 +547,13 @@ class OpDatabase(MetaDatabase):
             else:
                 table.delete_for_uid_list(uid_tuple_list, uid_col_name=OP_UID_COL_NAME, commit=False)
 
-        # Finally delete the Ops
+        # Finally delete the ops
         self.table_pending_op.delete_for_uid_list(uid_tuple_list, commit=commit)
 
-    # COMPLETED_CHANGE operations
+    # COMPLETED_OP operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _upsert_completed_ops(self, entries: Iterable[UserOp], commit=True):
+    def _upsert_completed_ops(self, entries: Iterable[UserOp], detail_msg='', commit=True):
         """Inserts or updates a list of Ops (remember that each action's UID is its primary key)."""
 
         self.table_completed_op.create_table_if_not_exist(commit=False)
@@ -549,30 +563,11 @@ class OpDatabase(MetaDatabase):
 
         # Upsert Ops
         current_time = time_util.now_sec()
-        change_tuple_list = []
+        tuple_list = []
         for user_op in entries:
             assert isinstance(user_op, UserOp), f'Expected UserOp; got instead: {user_op}'
-            change_tuple_list.append(_completed_op_to_tuple(user_op, current_time))
-        self.table_completed_op.upsert_many(change_tuple_list, commit)
-
-    # FAILED_CHANGE operations
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def _upsert_failed_ops(self, entries: Iterable[UserOp], error_msg: str, commit=True):
-        """Inserts or updates a list of UserOp (remember that each action's UID is its primary key)."""
-
-        self.table_failed_op.create_table_if_not_exist(commit=False)
-
-        # Upsert src & dst nodes
-        self._upsert_nodes_without_commit(entries, ARCHIVE)
-
-        current_time = time_util.now_sec()
-        change_tuple_list = []
-        for e in entries:
-            assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
-            change_tuple_list.append(_failed_op_to_tuple(e, current_time, error_msg))
-
-        self.table_failed_op.upsert_many(change_tuple_list, commit)
+            tuple_list.append(_completed_op_to_tuple(user_op, current_time, detail_msg))
+        self.table_completed_op.upsert_many(tuple_list, commit)
 
     # Compound operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -584,4 +579,11 @@ class OpDatabase(MetaDatabase):
     def archive_failed_op_list(self, entries: Iterable[UserOp], error_msg: str):
         # TODO: ideally we would verify that the given ops are present while doing this, so that we don't have bogus op_failed entries
         self.delete_pending_ops(changes=entries, commit=False)
-        self._upsert_failed_ops(entries, error_msg)
+        self._upsert_completed_ops(entries, error_msg)
+
+    def archive_completed_op_and_batch(self, op: UserOp):
+        self.upsert_pending_op_list([op], commit=False)  # easier to do this than query by batch_uid first then sort things out in memory
+        batch_uid = op.batch_uid
+        op_list = self.get_all_pending_ops_for_batch_uid(batch_uid)
+        self.delete_pending_ops(changes=op_list, commit=False)
+        self._upsert_completed_ops(op_list)

@@ -102,7 +102,8 @@ class LiveTable(Table):
         logger.debug(f'Table {self.name} has rows = {has_rows}')
         return has_rows
 
-    def select(self, where_clause: str, where_tuple: Tuple = None) -> List[Tuple]:
+    def select(self, where_clause: str = '', where_tuple: Tuple = None) -> List[Tuple]:
+        assert not where_clause or (where_clause and where_tuple)
         cursor = self.conn.cursor()
         sql = self.build_select() + where_clause
         if where_tuple:
@@ -112,7 +113,7 @@ class LiveTable(Table):
         return cursor.fetchall()
 
     def get_all_rows(self) -> List[Tuple]:
-        return self.select('')
+        return self.select()
 
     def update(self, stmt_vars: Union[Tuple, List[Tuple]], col_names: Optional[List[str]] = None,
                where_clause: Optional[str] = '', commit: Optional[bool] = True):

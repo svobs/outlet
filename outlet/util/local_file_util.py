@@ -221,6 +221,7 @@ class LocalFileUtil:
         if not dst_node:
             raise RuntimeError(f'Failed to build fresh node after copying meta for path: {dst_path}')
         if not dst_node.is_meta_equal(src_node):
+            logger.error(dst_node.how_is_meta_not_equal(src_node))
             raise RuntimeError(f'Dst node meta does not match src node! src={src_node} dst={dst_node}')
 
         return dst_node

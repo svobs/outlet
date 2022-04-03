@@ -129,7 +129,7 @@ class DisplayStore:
         logger.debug(f'[{self.tree_id}] Toggling {checked_value}: {self.get_node_name(tree_path)}')
 
         # 1. Self and Children
-        # Update all of the node's children to match its check state:
+        # Update all the node's children to match its check state:
         def update_checked_state(t_iter):
             self._set_checked_state(t_iter, checked_value, False)
 

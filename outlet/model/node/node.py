@@ -9,6 +9,7 @@ from error import InvalidOperationError
 from model.node.trait import HasParentList
 from model.node_identifier import DN_UID, NodeIdentifier
 from model.uid import UID
+from util import time_util
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class BaseNode(ABC):
     CLASS BaseNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self):
         pass
 
@@ -46,6 +48,7 @@ class Node(BaseNode, HasParentList, ABC):
     Base class for all data nodes.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self,
                  node_identifier: NodeIdentifier,
                  parent_uids: Optional[Union[UID, List[UID]]] = None):
@@ -142,25 +145,29 @@ class Node(BaseNode, HasParentList, ABC):
         return TrashStatus.NOT_TRASHED
 
     @staticmethod
-    def get_etc():
+    def get_etc() -> Optional[str]:
         return None
 
     @property
-    def md5(self):
+    def md5(self) -> Optional[str]:
         return None
 
     @property
-    def sha256(self):
+    def sha256(self) -> Optional[str]:
         return None
 
-    def get_size_bytes(self):
+    @property
+    def size_bytes(self) -> Optional[int]:
+        return self.get_size_bytes()
+
+    def get_size_bytes(self) -> Optional[int]:
         return None
 
     def set_size_bytes(self, size_bytes: int):
         pass
 
     @property
-    def sync_ts(self):
+    def sync_ts(self) -> Optional[int]:
         raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
 
     @sync_ts.setter
@@ -168,21 +175,21 @@ class Node(BaseNode, HasParentList, ABC):
         raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
 
     @property
-    def create_ts(self):
+    def create_ts(self) -> Optional[int]:
         return None
 
     @property
-    def modify_ts(self):
+    def modify_ts(self) -> Optional[int]:
         return None
 
     @property
-    def change_ts(self):
+    def change_ts(self) -> Optional[int]:
         return None
 
-    def get_path_list(self):
+    def get_path_list(self) -> List[str]:
         return self.node_identifier.get_path_list()
 
-    def get_single_path(self):
+    def get_single_path(self) -> str:
         return self.node_identifier.get_single_path()
 
     @property
@@ -215,6 +222,24 @@ class Node(BaseNode, HasParentList, ABC):
                other_node.modify_ts == self.modify_ts and \
                other_node.get_size_bytes() == self.get_size_bytes()
 
+    def how_is_meta_not_equal(self, other_node) -> str:
+        """For use with debugging why is_meta_equal() returned false"""
+        problem_list: List[str] = []
+        problem_list += self._print_field_diff('create_ts', self.create_ts, other_node.create_ts)
+        problem_list += self._print_field_diff('modify_ts', self.modify_ts, other_node.modify_ts)
+        problem_list += self._print_field_diff('size_bytes', self.get_size_bytes(), other_node.get_size_bytes())
+        return f'Comparison of this ({self.node_identifier}) to other ({other_node.node_identifier}) = [{", ".join(problem_list)}]'
+
+    @staticmethod
+    def _print_field_diff(field_name: str, val_self, val_other) -> List[str]:
+        if val_other > val_self:
+            return [f'{field_name} is greater ({val_other} > {val_self}; '
+                    f'"{time_util.ts_to_str_with_millis(val_other)}" > "{time_util.ts_to_str_with_millis(val_self)}")']
+        elif val_other < val_self:
+            return [f'{field_name} is smaller ({val_other} < {val_self}; '
+                    f'"{time_util.ts_to_str_with_millis(val_other)}" < "{time_util.ts_to_str_with_millis(val_self)}")']
+        return []
+
     @classmethod
     def has_signature(cls) -> bool:
         return False
@@ -239,7 +264,7 @@ class Node(BaseNode, HasParentList, ABC):
         assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
         assert other_node.node_identifier.node_uid == self.node_identifier.node_uid \
                and other_node.node_identifier.device_uid == self.node_identifier.device_uid, \
-               f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
+            f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
         HasParentList.update_from(self, other_node)
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())

@@ -30,9 +30,12 @@ class OpDiskStore(HasLifecycle):
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
-        if self._db:
-            self._db.close()
-            self._db = None
+        try:
+            if self._db:
+                self._db.close()
+                self._db = None
+        except (AttributeError, NameError):
+            pass
 
     def cancel_all_pending_ops(self):
         if SUPER_DEBUG_ENABLED:
@@ -64,7 +67,10 @@ class OpDiskStore(HasLifecycle):
 
     def upsert_pending_op_list(self, op_list: Iterable[UserOp]):
         # This will save each of the planning nodes, if any:
-        self._db.upsert_pending_op_list(op_list, overwrite=False)
+        self._db.upsert_pending_op_list(op_list)
 
     def archive_completed_op_list(self, op_list: Iterable[UserOp]):
         self._db.archive_completed_op_list(op_list)
+
+    def archive_completed_op_and_batch(self, op: UserOp):
+        self._db.archive_completed_op_and_batch(op)

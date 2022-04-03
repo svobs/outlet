@@ -479,17 +479,22 @@ class OpManager(HasLifecycle):
             for removed_node in result.nodes_to_remove:
                 self.backend.cacheman.remove_node(removed_node, to_trash=False)
 
+        # Ensure command is one that we are expecting.
+        # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
+        is_batch_complete: bool = self._op_graph.pop_completed_op(command.op.op_uid)
+
+        # If batch complete, archive all ops in the batch. Otherwise, at least update status of op:
         if result.status == UserOpStatus.STOPPED_ON_ERROR:
             logger.info(f'Command (op uid={command.op.op_uid} type={command.op.op_type.name}) stopped on error')
         elif not (result.status == UserOpStatus.COMPLETED_OK or result.status == UserOpStatus.COMPLETED_NO_OP):
             raise RuntimeError(f'Command completed but status ({result.status}) is invalid: {command}')
-        else:
-            logger.debug(f'Archiving op: {command.op}')
-            self._disk_store.archive_completed_op_list([command.op])
 
-        # Ensure command is one that we are expecting.
-        # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
-        self._op_graph.pop_completed_op(command.op)
+        if is_batch_complete:
+            logger.debug(f'Batch complete! Archiving op and all in its batch: {command.op}')
+            self._disk_store.archive_completed_op_and_batch(command.op)
+        else:
+            logger.debug(f'Saving op: {command.op}')
+            self._disk_store.upsert_pending_op_list([command.op])
 
         # Do this after popping the op:
         self._update_icons_for_nodes()

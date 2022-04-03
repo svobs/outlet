@@ -87,7 +87,8 @@ class OpGraph(HasLifecycle):
             if ogn and not ogn.op.is_completed():
                 icon = ChangeTreeCategoryMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): returning icon')
+                    logger.debug(f'Node {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): '
+                                 f'returning icon {icon.name}')
                 return icon
 
             device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
@@ -506,7 +507,7 @@ class OpGraph(HasLifecycle):
             # Possibility 2: If existing op is found for the target node, add below that.
 
             # The node's children MUST be removed first. It is invalid to RM a node which has children.
-            # (if the children being added are later scheduled for removal, then they should should up in Possibility 1
+            # (if the children being added are later scheduled for removal, then they should show up in Possibility 1)
             if prev_ogn_for_target.get_child_list():
                 raise InvalidInsertOpGraphError(f'While trying to add RM op: did not expect existing OGN for target to have children! '
                                                 f'(tgt={prev_ogn_for_target})')
@@ -714,12 +715,15 @@ class OpGraph(HasLifecycle):
         with self._cv_can_get:
             try:
                 for graph_node in skip_root(breadth_first_list):
-                    self._insert_ogn(graph_node)
-                    inserted_ogn_list.append(graph_node)
+                    if graph_node.op.is_completed():
+                        logger.debug(f'Skipping insert of OGN {graph_node.node_uid}; its operation is marked as complete')
+                    else:
+                        self._insert_ogn(graph_node)
+                        inserted_ogn_list.append(graph_node)
 
-                    if graph_node.op.op_uid not in processed_op_uid_set:
-                        inserted_op_list.append(graph_node.op)
-                        processed_op_uid_set.add(graph_node.op.op_uid)
+                        if graph_node.op.op_uid not in processed_op_uid_set:
+                            inserted_op_list.append(graph_node.op)
+                            processed_op_uid_set.add(graph_node.op.op_uid)
 
                 if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
                     self._validate_internal_consistency()  # this will raise an OpGraphError if validation fails
@@ -857,13 +861,14 @@ class OpGraph(HasLifecycle):
     # POP logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def pop_completed_op(self, op: UserOp):
+    def pop_completed_op(self, op_uid: UID):
         """Ensure that we were expecting this op to be copmleted, and remove it from the tree."""
-        logger.debug(f'[{self.name}] Entered pop_completed_op() for op {op}')
+        logger.debug(f'[{self.name}] Entered pop_completed_op() for op {op_uid}')
 
         with self._cv_can_get:
-            if not self._outstanding_op_dict.pop(op.op_uid, None):
-                raise RuntimeError(f'Complated op (UID {op.op_uid}) not found in outstanding op list!')
+            op = self._outstanding_op_dict.pop(op_uid, None)
+            if not op:
+                raise RuntimeError(f'Complated op (UID {op_uid}) not found in outstanding op list!')
 
             status = op.get_status()
             if status != UserOpStatus.COMPLETED_OK and status != UserOpStatus.COMPLETED_NO_OP:

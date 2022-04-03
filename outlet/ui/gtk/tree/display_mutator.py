@@ -21,6 +21,7 @@ from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
+from util import time_util
 from util.has_lifecycle import HasLifecycle
 
 import gi
@@ -738,9 +739,7 @@ class DisplayMutator(HasLifecycle):
             if not sn.node.modify_ts:
                 row_values.append(None)
             else:
-                modify_datetime = datetime.fromtimestamp(sn.node.modify_ts / 1000)
-                modify_formatted = modify_datetime.strftime(self.con.treeview_meta.datetime_format)
-                row_values.append(modify_formatted)
+                row_values.append(time_util.ts_to_str(sn.node.modify_ts, self.con.treeview_meta.datetime_format))
         except AttributeError:
             row_values.append(None)
 
@@ -749,9 +748,7 @@ class DisplayMutator(HasLifecycle):
             if not sn.node.change_ts:
                 row_values.append(None)
             else:
-                change_datetime = datetime.fromtimestamp(sn.node.change_ts / 1000)
-                change_time = change_datetime.strftime(self.con.treeview_meta.datetime_format)
-                row_values.append(change_time)
+                row_values.append(time_util.ts_to_str(sn.node.change_ts, self.con.treeview_meta.datetime_format))
         except AttributeError:
             row_values.append(None)
 
