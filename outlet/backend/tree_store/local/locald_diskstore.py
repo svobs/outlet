@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 from backend.sqlite.local_db import LocalDiskDatabase
 from backend.tree_store.local.locald_tree import LocalDiskTree
-from backend.tree_store.local.master_local_write_op import LocalDiskMultiNodeOp, LocalDiskSingleNodeOp
+from backend.tree_store.local.op_write import LocalDiskMultiNodeOp, LocalDiskSingleNodeOp
 from constants import TreeType
 from logging_constants import TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo

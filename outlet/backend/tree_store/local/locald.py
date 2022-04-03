@@ -11,7 +11,7 @@ from backend.display_tree.filter_state import FilterState
 from backend.tree_store.local.locald_diskstore import LocalDiskDiskStore
 from backend.tree_store.local.locald_tree_scanner import LocalDiskTreeScanner
 from backend.tree_store.local.locald_tree import LocalDiskTree
-from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
+from backend.tree_store.local.op_write import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidPathMapper
