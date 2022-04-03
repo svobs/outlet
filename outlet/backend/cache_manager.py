@@ -777,7 +777,7 @@ class CacheManager(HasLifecycle):
             assert sn_dst.spid.node_uid == sn_dst.node.uid, f'SPID ({sn_dst.spid}) does not match node ({sn_dst.node})'
             sn_dst = self.get_parent_for_sn(sn_dst)
             if not sn_dst:
-                raise RuntimeError(f'Pareent is null for: ({sn_dst.spid})')
+                raise RuntimeError(f'Parent not found for: ({sn_dst.spid})')
             elif SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{dst_tree_id}] Got parent: {sn_dst.spid}')
 

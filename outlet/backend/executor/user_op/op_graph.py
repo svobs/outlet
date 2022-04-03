@@ -690,7 +690,7 @@ class OpGraph(HasLifecycle):
         # notify consumers there is something to get:
         self._cv_can_get.notifyAll()
 
-        logger.info(f'[{self.name}] InsertOGN: successfully inserted: {new_ogn}')
+        logger.info(f'[{self.name}] InsertOGN({new_ogn.node_uid}): successfully inserted: {new_ogn}')
         self._print_current_state()
 
     def insert_batch_graph(self, batch_root: RootNode) -> List[UserOp]:

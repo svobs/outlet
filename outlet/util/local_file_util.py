@@ -181,6 +181,11 @@ class LocalFileUtil:
                 If we set a modification time (which has millis) which is earlier than the existing creation time, the OS will set its creation
                 time identically.
                 """
+                if src_node.create_ts > src_node.modify_ts:
+                    # TODO: handle this
+                    # So apparently this can happen in MacOS!
+                    logger.warning(f'(MacOS): create_ts of src node ({src_node.create_ts}) is AFTER its modify_ts ({src_node.modify_ts})')
+
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'(MacOS): Setting creation date to now()')
                 now_ts = time_util.now_ms()
@@ -193,9 +198,10 @@ class LocalFileUtil:
                 dst_stat = os.stat(dst_path)
                 create_ts = int(dst_stat.st_birthtime * 1000)
                 if create_ts == src_node.create_ts:
-                    logger.debug(f'Creation time already matches: "{dst_path}" = {create_ts}')
+                    logger.debug(f'Creation time of dst is correct: "{dst_path}" = {create_ts}')
                 else:
-                    logger.error(f'Creation time incorrect: "{dst_path}" = {create_ts} (should be: {src_node.create_ts})')
+                    logger.error(f'Creation time of dst is incorrect: "{dst_path}" = {create_ts} (should be: {src_node.create_ts})')
+
             else:
                 # FIXME: Set Linux create_ts
                 logger.error(f'Possible meta loss! Setting local node creation time is not yet implemented on {platform.system().lower()}')

@@ -93,7 +93,7 @@ class ChangeTreeBuilder:
         assert not dst_path.endswith('/')
 
         if DIFF_DEBUG_ENABLED:
-            logger.debug(f'[{self.change_tree.tree_id}] Migrating single node: {sn_src.spid} -> {dst_path}')
+            logger.debug(f'[{self.change_tree.tree_id}] Migrating single node: {sn_src.spid} -> "{dst_path}"')
 
         # First figure out UID and other identifying info for dst node.
         if dst_tree_type == TreeType.LOCAL_DISK:
@@ -315,8 +315,8 @@ class TwoTreeChangeBuilder:
     def _change_tree_path(src_side: ChangeTreeBuilder, dst_side: ChangeTreeBuilder,
                           spid_from_src_tree: SinglePathNodeIdentifier, new_target_name: Optional[str] = None) -> str:
         return TwoTreeChangeBuilder._change_base_path(orig_target_path=spid_from_src_tree.get_single_path(),
-                                             orig_base_path=src_side.root_sn.spid.get_single_path(),
-                                             new_base_path=dst_side.root_sn.spid.get_single_path(), new_target_name=new_target_name)
+                                                      orig_base_path=src_side.root_sn.spid.get_single_path(),
+                                                      new_base_path=dst_side.root_sn.spid.get_single_path(), new_target_name=new_target_name)
 
     def migrate_rel_path_to_right_tree(self, spid_left: SinglePathNodeIdentifier) -> str:
         return TwoTreeChangeBuilder._change_tree_path(self.left_side, self.right_side, spid_left)
