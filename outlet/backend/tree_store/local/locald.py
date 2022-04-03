@@ -8,8 +8,8 @@ from typing import Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from backend.display_tree.filter_state import FilterState
-from backend.tree_store.local.local_diskstore import LocalDiskDiskStore
-from backend.tree_store.local.locald_scanner import LocalDiskScanner
+from backend.tree_store.local.locald_diskstore import LocalDiskDiskStore
+from backend.tree_store.local.locald_tree_scanner import LocalDiskTreeScanner
 from backend.tree_store.local.locald_tree import LocalDiskTree
 from backend.tree_store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
@@ -168,7 +168,7 @@ class LocalDiskMasterStore(TreeStore):
     def _resync_with_file_system(self, this_task: Task, subtree_root: LocalNodeIdentifier, tree_id: TreeID):
         """Scan directory tree and update master tree where needed."""
         logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
-        scanner = LocalDiskScanner(backend=self.backend, master_local=self, root_node_identifer=subtree_root, tree_id=tree_id)
+        scanner = LocalDiskTreeScanner(backend=self.backend, master_local=self, root_node_identifer=subtree_root, tree_id=tree_id)
 
         # Create child task. It will create next_task instances as it goes along, thus delaying execution of this_task's next_task
         child_task = this_task.create_child_task(scanner.start_recursive_scan)
@@ -737,7 +737,7 @@ class LocalDiskMasterStore(TreeStore):
     def _scan_and_cache_dir(self, parent_spid: LocalNodeIdentifier) -> List[SPIDNodePair]:
         # Scan dir on disk (read-through)
 
-        scanner = LocalDiskScanner(backend=self.backend, master_local=self, root_node_identifer=parent_spid, tree_id=None)
+        scanner = LocalDiskTreeScanner(backend=self.backend, master_local=self, root_node_identifer=parent_spid, tree_id=None)
         # This may call overwrite_dir_entries_list()
         child_list = scanner.scan_single_dir(parent_spid.get_single_path())
         return [self.to_sn(x) for x in child_list]

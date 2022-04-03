@@ -7,7 +7,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from backend.tree_store.local.disk_tree_recurser import LocalTreeRecurser
+from backend.tree_store.local.locald_tree_recurser import LocalDiskTreeRecurser
 from backend.tree_store.local.locald_tree import LocalDiskTree
 from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
 from logging_constants import SUPER_DEBUG_ENABLED
@@ -19,17 +19,17 @@ from util.task_runner import Task
 logger = logging.getLogger(__name__)
 
 
-class FileCounter(LocalTreeRecurser):
+class FileCounter(LocalDiskTreeRecurser):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS LocalDiskScanner
+    CLASS LocalDiskTreeScanner
 
     Does a quick walk of the filesystem and counts the files which are of interest
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
     def __init__(self, root_path, project_dir: str):
-        LocalTreeRecurser.__init__(self, root_path, project_dir, valid_suffixes=None)
+        LocalDiskTreeRecurser.__init__(self, root_path, project_dir, valid_suffixes=None)
         self.files_to_scan = 0
         self.dirs_to_scan = 0
 
@@ -43,10 +43,10 @@ class FileCounter(LocalTreeRecurser):
         self.dirs_to_scan += 1
 
 
-class LocalDiskScanner:
+class LocalDiskTreeScanner:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS LocalDiskScanner
+    CLASS LocalDiskTreeScanner
 
     Walks the filesystem for a subtree (DisplayTree), using a cache if configured,
     to generate an up-to-date list of FMetas.
@@ -193,7 +193,7 @@ class LocalDiskScanner:
 
         on_error.err = None
 
-        (dir_list, nondir_list) = LocalDiskScanner._list_dir_entries(target_dir, self.project_dir, onerror=on_error)
+        (dir_list, nondir_list) = LocalDiskTreeScanner._list_dir_entries(target_dir, self.project_dir, onerror=on_error)
         if on_error.err:
             # FIXME: display error in tree
             raise on_error.err
