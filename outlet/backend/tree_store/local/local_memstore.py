@@ -47,10 +47,10 @@ class LocalDiskMemoryStore:
         Will raise an exception if trying to remove a non-empty directory."""
         logger.debug(f'Removing LocalNode from memory cache: {node}')
 
-        existing: Node = self.master_tree.get_node_for_uid(node.uid)
-        if existing:
-            if existing.is_dir():
-                children = self.master_tree.get_child_list_for_identifier(existing.uid)
+        cached_node: Node = self.master_tree.get_node_for_uid(node.uid)
+        if cached_node:
+            if cached_node.is_dir():
+                children = self.master_tree.get_child_list_for_identifier(cached_node.uid)
                 if children:
                     # maybe allow deletion of dir with children in the future, but for now be careful
                     raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
@@ -83,8 +83,13 @@ class LocalDiskMemoryStore:
         cached_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:
             if cached_node.is_live() and not node.is_live():
+                if cached_node.get_icon() != node.get_icon():
+                    cached_node.set_icon(node.get_icon())
+                    logger.info(f'Will not overwrite live node with non-live, but will copy its icon: {node}')
+                    return node, False
+
                 # In the future, let's close this hole with more elegant logic
-                logger.debug(f'Cannot replace a node which exists with one which does not exist; skipping memstore update for {node.node_identifier}')
+                logger.debug(f'Will not replace a live node with non-live; skipping memstore update for {node.node_identifier}')
                 return None, False
 
             if cached_node.is_dir() and not node.is_dir():

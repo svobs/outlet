@@ -53,28 +53,33 @@ class GDriveMemoryStore:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Node {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
 
-        existing_node = self.master_tree.get_node_for_uid(node.uid)
-        if existing_node:
+        cached_node = self.master_tree.get_node_for_uid(node.uid)
+        if cached_node:
             # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced
-            if existing_node.goog_id and existing_node.goog_id != node.goog_id:
+            if cached_node.goog_id and cached_node.goog_id != node.goog_id:
                 raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
-                                   f'(existing="{existing_node.goog_id}"; new="{node.goog_id}")')
+                                   f'(existing="{cached_node.goog_id}"; new="{node.goog_id}")')
 
-            if existing_node.is_live() and not node.is_live():
+            if cached_node.is_live() and not node.is_live():
+                if cached_node.get_icon() != node.get_icon():
+                    cached_node.set_icon(node.get_icon())
+                    logger.info(f'Will not overwrite existing node with non-existing, but will copy its icon: {node}')
+                    return node, False
+
                 # In the future, let's close this hole with more elegant logic
-                logger.info(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
+                logger.info(f'Will not replace a node which exists with one which does not exist; ignoring: {node}')
                 return node, False
 
-            if existing_node.is_dir() and not node.is_dir():
+            if cached_node.is_dir() and not node.is_dir():
                 # This should never happen, because GDrive does not allow a node's type to be changed:
                 raise RuntimeError(f'Invalid request: cannot replace a GDrive folder with a file: "{node.get_path_list()}"')
 
-            if existing_node == node:
+            if cached_node == node:
                 logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Existing node: {existing_node}')
-                return existing_node, False
-            logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
+                    logger.debug(f'Existing node: {cached_node}')
+                return cached_node, False
+            logger.debug(f'Found existing node in cache with UID={cached_node.uid}: doing an update')
         elif update_only:
             logger.debug(f'Skipping update for node because it is not in the memory cache: {node}')
             return node, False
@@ -99,9 +104,9 @@ class GDriveMemoryStore:
             if children:
                 raise RuntimeError(f'Cannot remove GDrive folder from cache: it contains {len(children)} children!')
 
-        existing_node = self.master_tree.get_node_for_uid(node.uid)
-        if existing_node:
-            self.master_tree.remove_node(existing_node)
+        cached_node = self.master_tree.get_node_for_uid(node.uid)
+        if cached_node:
+            self.master_tree.remove_node(cached_node)
 
     # Meta operations:
 
