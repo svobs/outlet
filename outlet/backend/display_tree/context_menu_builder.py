@@ -9,7 +9,7 @@ from model.device import Device
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
-from model.user_op import UserOp
+from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpStatus
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -35,31 +35,14 @@ class ContextMenuBuilder(HasLifecycle):
         sn_list: List[SPIDNodePair] = self.backend.cacheman.get_sn_list_for_guid_list(guid_list, tree_id=tree_id)
 
         if len(sn_list) == 1:
-            return self._build_context_menu_for_single_sn(sn_list[0], tree_id)
+            return self._build_context_menu_for_single_selection(sn_list[0], tree_id)
         else:
-            return self._build_context_menu_for_sn_list(sn_list, guid_list, tree_id)
+            return self._build_context_menu_for_multiple_selection(sn_list, guid_list, tree_id)
 
-    def _build_submenu_for_op_node(self, op: UserOp, op_node: Node, op_node_label: str, clicked_sn: SPIDNodePair, tree_id: TreeID) \
-            -> ContextMenuItem:
-        if op_node.device_uid == clicked_sn.node.device_uid and op_node.uid == clicked_sn.node.uid:
-            target_sn = clicked_sn
-        else:
-            path = op_node.get_path_list()[0]  # this will only be multiple for GDrive, and logically all paths are relevant
-            target_sn = self.backend.cacheman.get_sn_for(device_uid=op_node.device_uid, node_uid=op_node.uid, full_path=path)
-
-        if op.src_node.is_live():
-            item_type = MenuItemType.NORMAL
-            submenu_item_list = self._build_menu_items_for_single_node(target_sn, tree_id)
-        else:
-            item_type = MenuItemType.ITALIC_DISABLED
-            submenu_item_list = []
-        title = f'{op_node_label}: {target_sn.spid.get_single_path()}'
-        item = ContextMenuItem(item_type=item_type, title=title, action_id=ActionID.NO_ACTION)
-        item.submenu_item_list = submenu_item_list
-        return item
-
-    def _build_context_menu_for_single_sn(self, sn: SPIDNodePair, tree_id: TreeID) -> List[ContextMenuItem]:
-        """Dynamic context menu (right-click on tree item) for the given SPIDNodePair"""
+    def _build_context_menu_for_single_selection(self, sn: SPIDNodePair, tree_id: TreeID) -> List[ContextMenuItem]:
+        """
+        Context Menu Optian A: single SN selected. This will be the node which is right-clicked on.
+        """
 
         menu_item_list = []
         if sn.node.is_ephemereal():
@@ -72,14 +55,45 @@ class ContextMenuBuilder(HasLifecycle):
         if op and op.has_dst():
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Building context menu for op: {op}')
+
+            retry_op_menu_item = None
+            op_label = ChangeTreeCategoryMeta.op_label(ChangeTreeCategoryMeta.category_for_op_type(op.op_type))
+            if op.get_status() == UserOpStatus.NOT_STARTED:
+                title = f'Pending Operation: {op_label}'
+            elif op.get_status() == UserOpStatus.EXECUTING:
+                title = f'Currently Executing Operation: {op_label}'
+            elif op.get_status() == UserOpStatus.STOPPED_ON_ERROR:
+                title = f'Failed Operation: {op_label}'
+                retry_op_menu_item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Retry "{op_label}" Operation',
+                                                     action_id=ActionID.RETRY_OPERATION)
+                retry_op_menu_item.target_uid = op.op_uid
+            elif op.get_status() == UserOpStatus.BLOCKED_BY_ERROR:
+                title = f'Pending Operation: {op_label} (blocked due to error)'
+                # for now this should work: client sending retry of blocked operation will signal desire to retry the blocking op
+                retry_op_menu_item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Retry Blocking Operation',
+                                                     action_id=ActionID.RETRY_OPERATION)
+                retry_op_menu_item.target_uid = op.op_uid
+            else:
+                raise RuntimeError(f'Internal error: unrecognized op status: {op.get_status()}')
+            if retry_op_menu_item:
+                item = ContextMenuItem(MenuItemType.NORMAL, title=title, action_id=ActionID.NO_ACTION)
+                menu_item_list.append(item)
+
+                item.submenu_item_list.append(retry_op_menu_item)
+                retry_all = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Retry All Failed Operations',
+                                            action_id=ActionID.RETRY_ALL_FAILED_OPERATIONS)
+                menu_item_list.append(retry_all)
+            else:
+                menu_item_list.append(ContextMenuItem.make_italic_disabled(title))
+
+            # MenuItem: ---
+            menu_item_list.append(ContextMenuItem.make_separator())
+
             # Split into separate entries for src and dst.
 
             # (1/2) Source:
             item = self._build_submenu_for_op_node(op, op.src_node, 'Src', sn, tree_id)
             menu_item_list.append(item)
-
-            # MenuItem: ---
-            menu_item_list.append(ContextMenuItem.separator())
 
             # (2/2) Destination:
             item = self._build_submenu_for_op_node(op, op.dst_node, 'Dst', sn, tree_id)
@@ -87,8 +101,7 @@ class ContextMenuBuilder(HasLifecycle):
 
         else:
             # Single item
-            item = ContextMenuItem(item_type=MenuItemType.ITALIC_DISABLED, title=single_path, action_id=ActionID.NO_ACTION)
-            menu_item_list.append(item)
+            menu_item_list.append(ContextMenuItem.make_italic_disabled(single_path))
 
             did_add_separator = False
 
@@ -126,11 +139,32 @@ class ContextMenuBuilder(HasLifecycle):
         if not menu_item_list:
             return False
         if menu_item_list[-1].item_type != MenuItemType.SEPARATOR:
-            menu_item_list.append(ContextMenuItem.separator())
+            menu_item_list.append(ContextMenuItem.make_separator())
             return True
         return False
 
+    def _build_submenu_for_op_node(self, op: UserOp, op_node: Node, op_node_label: str, clicked_sn: SPIDNodePair, tree_id: TreeID) \
+            -> ContextMenuItem:
+        """Builds a submenu for the given node, which is either a 'src' or 'dst' for the given op."""
+        if op_node.device_uid == clicked_sn.node.device_uid and op_node.uid == clicked_sn.node.uid:
+            target_sn = clicked_sn
+        else:
+            path = op_node.get_path_list()[0]  # this will only be multiple for GDrive, and logically all paths are relevant
+            target_sn = self.backend.cacheman.get_sn_for(device_uid=op_node.device_uid, node_uid=op_node.uid, full_path=path)
+
+        if op.src_node.is_live():
+            item_type = MenuItemType.NORMAL
+            submenu_item_list = self._build_menu_items_for_single_node(target_sn, tree_id)
+        else:
+            item_type = MenuItemType.ITALIC_DISABLED
+            submenu_item_list = []
+        title = f'{op_node_label}: {target_sn.spid.get_single_path()}'
+        item = ContextMenuItem(item_type=item_type, title=title, action_id=ActionID.NO_ACTION)
+        item.submenu_item_list = submenu_item_list
+        return item
+
     def _build_menu_items_for_single_node(self, sn: SPIDNodePair, tree_id: TreeID) -> List[ContextMenuItem]:
+        """Generic method which dynamically builds a list of items for a single node."""
         if sn.node.is_container_node():
             return []
 
@@ -157,8 +191,7 @@ class ContextMenuBuilder(HasLifecycle):
         # Label: Does not exist
         if not sn.node.is_live():
             # We have already filtered out container nodes, so this only leaves us with planning nodes
-            item = ContextMenuItem(item_type=MenuItemType.ITALIC_DISABLED, title='Does not exist', action_id=ActionID.NO_ACTION)
-            menu_item_list.append(item)
+            menu_item_list.append(ContextMenuItem.make_italic_disabled('Does not exist'))
 
         tree_meta = self.backend.cacheman.get_active_display_tree_meta(tree_id)
         if not tree_meta:
@@ -202,13 +235,14 @@ class ContextMenuBuilder(HasLifecycle):
 
         return menu_item_list
 
-    def _build_context_menu_for_sn_list(self, selected_sn_list: List[SPIDNodePair], selected_guid_list: List[GUID], tree_id: TreeID) \
+    def _build_context_menu_for_multiple_selection(self, selected_sn_list: List[SPIDNodePair], selected_guid_list: List[GUID], tree_id: TreeID) \
             -> List[ContextMenuItem]:
-        menu_item_list = []
+        """
+        Context Menu Optian B: multiple SNs selected. This will be the node which is right-clicked on.
+        """
+        menu_item_list = [ContextMenuItem.make_italic_disabled(f'{len(selected_sn_list)} items selected')]
 
         # Show number of items selected
-        item = ContextMenuItem(item_type=MenuItemType.ITALIC_DISABLED, title=f'{len(selected_sn_list)} items selected', action_id=ActionID.NO_ACTION)
-        menu_item_list.append(item)
 
         tree_meta = self.backend.cacheman.get_active_display_tree_meta(tree_id)
         if not tree_meta:
@@ -262,7 +296,7 @@ class ContextMenuBuilder(HasLifecycle):
         custom_action_list = self.action_manager.get_custom_action_list()
 
         if custom_action_list:
-            menu_item_list.append(ContextMenuItem.separator())
+            menu_item_list.append(ContextMenuItem.make_separator())
 
             for custom_action in self.action_manager.get_custom_action_list():
                 try:

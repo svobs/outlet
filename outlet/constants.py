@@ -343,6 +343,11 @@ class ActionID(IntEnum):
     EXPAND_ROWS = 13             # BE -> FE
     COLLAPSE_ROWS = 14           # BE -> FE
 
+    RETRY_OPERATION = 15
+    RETRY_ALL_FAILED_OPERATIONS = 16
+
+    # 20-40 are reserved for FE
+
     CALL_EXIFTOOL = 50           # FE only
 
     ACTIVATE = 100

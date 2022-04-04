@@ -397,6 +397,8 @@ class GRPCConverter:
         menu_item_grpc.item_type = menu_item.item_type
         menu_item_grpc.title = menu_item.title
         menu_item_grpc.action_id = menu_item.action_id
+        if menu_item.target_uid:
+            menu_item_grpc.target_uid = menu_item.target_uid
         if menu_item.target_guid_list:
             for guid in menu_item.target_guid_list:
                 menu_item_grpc.target_guid_list.append(guid)
@@ -415,6 +417,8 @@ class GRPCConverter:
 
     def menu_item_from_grpc(self, menu_item_grpc: TreeContextMenuItem) -> ContextMenuItem:
         menu_item = ContextMenuItem(MenuItemType(menu_item_grpc.item_type), menu_item_grpc.title, menu_item_grpc.action_id)
+        if menu_item_grpc.target_uid:
+            menu_item.target_uid = menu_item_grpc.target_uid
         if menu_item_grpc.target_guid_list:
             for guid in menu_item_grpc.target_guid_list:
                 menu_item.target_guid_list.append(guid)
@@ -439,6 +443,9 @@ class GRPCConverter:
                     node_grpc = action_grpc.target_node_list.add()
                     self.node_to_grpc(node, node_grpc)
 
+            if action.target_uid:
+                action_grpc.target_uid = action.target_uid
+
     def tree_action_list_from_grpc(self, grpc_action_list_container) -> List[TreeAction]:
         action_list = []
         for action_grpc in grpc_action_list_container.action_list:
@@ -453,7 +460,8 @@ class GRPCConverter:
                 for grpc_node in action_grpc.target_node_list:
                     target_node_list.append(self.node_from_grpc(grpc_node))
 
-            action_list.append(TreeAction(action_grpc.tree_id, action_grpc.action_id, target_guid_list, target_node_list))
+            target_uid = action_grpc.target_uid if action_grpc.target_uid else None
+            action_list.append(TreeAction(action_grpc.tree_id, action_grpc.action_id, target_guid_list, target_node_list, target_uid))
 
         return action_list
 

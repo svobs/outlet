@@ -213,6 +213,7 @@ class ChangeTreeCategoryMeta:
         ChangeTreeCategory.MV_ONTO.name: ChangeTreeCategory.MV_ONTO
     }
 
+    # Map of UserOpType (backend) <-> ChangeTreeCategory (frontend/display)
     _op_type_dict: Dict[UserOpType, ChangeTreeCategory] = {
         UserOpType.RM: ChangeTreeCategory.RM,
         UserOpType.MKDIR: ChangeTreeCategory.CP,  # TODO: is this a good idea?
@@ -234,6 +235,14 @@ class ChangeTreeCategoryMeta:
         ChangeTreeCategory.CP_ONTO: 'To Update',
         ChangeTreeCategory.MV: 'To Move',
         ChangeTreeCategory.MV_ONTO: 'To Replace'
+    }
+
+    _op_display_label_dict: Dict[ChangeTreeCategory, str] = {
+        ChangeTreeCategory.RM: 'Delete',
+        ChangeTreeCategory.CP: 'Copy',
+        ChangeTreeCategory.CP_ONTO: 'Copy (Overwrite Existing)',
+        ChangeTreeCategory.MV: 'Move',
+        ChangeTreeCategory.MV_ONTO: 'Replace Existing'
     }
 
     _icon_src_file_dict = {
@@ -277,6 +286,10 @@ class ChangeTreeCategoryMeta:
     @staticmethod
     def category_for_name(cat_enum_name: str) -> Optional[ChangeTreeCategory]:
         return ChangeTreeCategoryMeta._category_enum_name_dict.get(cat_enum_name)
+
+    @staticmethod
+    def op_label(category: ChangeTreeCategory) -> str:
+        return ChangeTreeCategoryMeta._op_display_label_dict[category]
 
     @staticmethod
     def category_label(category: ChangeTreeCategory) -> str:

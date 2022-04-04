@@ -331,7 +331,7 @@ class BackendGRPCClient(OutletBackend):
 
     def execute_tree_action_list(self, tree_action_list: List[TreeAction]):
         request = ExecuteTreeActionList_Request()
-
+        self._converter.tree_action_list_to_grpc(tree_action_list, request)
         self.grpc_stub.execute_tree_action_list(request)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[SPIDNodePair]:

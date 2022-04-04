@@ -122,7 +122,7 @@ class NodeIdentifier(ABC):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}⩨{self.guid}⩨{self.get_path_list()}∣'
 
     def __eq__(self, other):
-        # All NodeIdentifiers can be identified uniquely by their device_uid + node_uid (unless they are SPIDs, which are more strict)
+        # All NodeIdentifiers can be identified uniquely by their device_uid + node_uid (unless they are SPIDs, which are stricter)
         if isinstance(other, NodeIdentifier):
             return self.get_path_list() == other.get_path_list() and self.node_uid == other.node_uid and self.device_uid == other.device_uid
         return False

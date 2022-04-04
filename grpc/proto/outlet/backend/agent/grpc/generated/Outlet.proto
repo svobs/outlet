@@ -315,13 +315,15 @@ message TreeContextMenuItem {
 	// Optional. Only used for menu items which apply to a subset, but not the entirety, of the selected nodes:
 	repeated string target_guid_list = 4;
 	repeated TreeContextMenuItem submenu_item_list = 5;
+	uint32 target_uid = 6;                // context depends on the action_uid; not used for most actions
 }
 
 message TreeAction {
 	string tree_id = 1;
 	uint32 action_id = 2;
 	repeated string target_guid_list = 3;  // only required for certain actions
-	repeated Node target_node_list = 4;  // only required for certain actions
+	repeated Node target_node_list = 4;    // only required for certain actions
+	uint32 target_uid = 5;                 // context depends on the action_uid; not used for most actions
 }
 
 message ExecuteTreeActionList_Request {

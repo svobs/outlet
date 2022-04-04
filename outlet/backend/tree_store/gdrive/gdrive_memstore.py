@@ -6,8 +6,7 @@ from backend.uid.uid_mapper import UidGoogIdMapper
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.gdrive_meta import GDriveUser, MimeType
-from model.node.gdrive_node import GDriveNode
-from model.node.local_disk_node import LocalDirNode
+from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -86,7 +85,7 @@ class GDriveMemoryStore:
                 logger.debug(f'Merging node UID={cached_node.uid} into cached node')
 
             if cached_node.is_dir() and node.is_dir():
-                assert isinstance(cached_node, LocalDirNode)
+                assert isinstance(cached_node, GDriveFolder)
                 if cached_node.all_children_fetched and not node.all_children_fetched:
                     if TRACE_ENABLED:
                         logger.debug(f'Merging into existing node which has all_children_fetched=True; will set new node to True')

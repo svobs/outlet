@@ -5,8 +5,7 @@ from backend.tree_store.local.locald_tree import LocalDiskTree
 from constants import LOCAL_ROOT_UID, ROOT_PATH
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.container_node import RootTypeNode
-from model.node.gdrive_node import GDriveFolder
-from model.node.local_disk_node import LocalFileNode, LocalNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
@@ -118,7 +117,7 @@ class LocalDiskMemoryStore:
                 logger.debug(f'Merging node (PyID {id(node)}) into cached_node (PyID {id(cached_node)})')
 
             if cached_node.is_dir() and node.is_dir():
-                assert isinstance(cached_node, GDriveFolder)
+                assert isinstance(cached_node, LocalDirNode), f'Wrong type: {cached_node}'
                 if cached_node.all_children_fetched and not node.all_children_fetched:
                     if TRACE_ENABLED:
                         logger.debug(f'Merging into existing node which has all_children_fetched=True; will set new node to True')
