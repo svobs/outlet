@@ -57,7 +57,9 @@ class ActionManager(HasLifecycle):
             ActionID.DELETE_SINGLE_FILE: self._delete_single_file,
             ActionID.ACTIVATE: self._activate,
             ActionID.REFRESH: self._refresh_subtree,
-            ActionID.CALL_EXIFTOOL: self._call_exiftool
+            ActionID.CALL_EXIFTOOL: self._call_exiftool,
+            ActionID.RETRY_OPERATION: self._retry_failed_op,
+            ActionID.RETRY_ALL_FAILED_OPERATIONS: self._retry_all_failed_ops
         }
 
         self._custom_module_dict: Dict = {}

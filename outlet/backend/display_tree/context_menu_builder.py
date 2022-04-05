@@ -56,25 +56,28 @@ class ContextMenuBuilder(HasLifecycle):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Building context menu for op: {op}')
 
+            # Make
             retry_op_menu_item = None
             op_label = ChangeTreeCategoryMeta.op_label(ChangeTreeCategoryMeta.category_for_op_type(op.op_type))
             if op.get_status() == UserOpStatus.NOT_STARTED:
-                title = f'Pending Operation: {op_label}'
+                title = f'Pending Operation: "{op_label}"'
             elif op.get_status() == UserOpStatus.EXECUTING:
-                title = f'Currently Executing Operation: {op_label}'
+                title = f'Currently Executing Operation: "{op_label}"'
             elif op.get_status() == UserOpStatus.STOPPED_ON_ERROR:
-                title = f'Failed Operation: {op_label}'
+                title = f'Failed Operation: "{op_label}"'
                 retry_op_menu_item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Retry "{op_label}" Operation',
                                                      action_id=ActionID.RETRY_OPERATION)
                 retry_op_menu_item.target_uid = op.op_uid
             elif op.get_status() == UserOpStatus.BLOCKED_BY_ERROR:
-                title = f'Pending Operation: {op_label} (blocked due to error)'
+                title = f'Pending Operation: "{op_label}" (blocked due to error)'
                 # for now this should work: client sending retry of blocked operation will signal desire to retry the blocking op
                 retry_op_menu_item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Retry Blocking Operation',
                                                      action_id=ActionID.RETRY_OPERATION)
                 retry_op_menu_item.target_uid = op.op_uid
             else:
                 raise RuntimeError(f'Internal error: unrecognized op status: {op.get_status()}')
+
+            # Op title:
             if retry_op_menu_item:
                 item = ContextMenuItem(MenuItemType.NORMAL, title=title, action_id=ActionID.NO_ACTION)
                 menu_item_list.append(item)
@@ -82,12 +85,9 @@ class ContextMenuBuilder(HasLifecycle):
                 item.submenu_item_list.append(retry_op_menu_item)
                 retry_all = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Retry All Failed Operations',
                                             action_id=ActionID.RETRY_ALL_FAILED_OPERATIONS)
-                menu_item_list.append(retry_all)
+                item.submenu_item_list.append(retry_all)
             else:
                 menu_item_list.append(ContextMenuItem.make_italic_disabled(title))
-
-            # MenuItem: ---
-            menu_item_list.append(ContextMenuItem.make_separator())
 
             # Split into separate entries for src and dst.
 
@@ -99,8 +99,7 @@ class ContextMenuBuilder(HasLifecycle):
             item = self._build_submenu_for_op_node(op, op.dst_node, 'Dst', sn, tree_id)
             menu_item_list.append(item)
 
-        else:
-            # Single item
+        else:  # No dst (unary operation)
             menu_item_list.append(ContextMenuItem.make_italic_disabled(single_path))
 
             did_add_separator = False
