@@ -7,8 +7,8 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from backend.tree_store.local.locald_tree_recurser import LocalDiskTreeRecurser
 from backend.tree_store.local.locald_tree import LocalDiskTree
+from backend.tree_store.local.locald_tree_recurser import FileCounter
 from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.local_disk_node import LocalNode
@@ -17,30 +17,6 @@ from signal_constants import Signal
 from util.task_runner import Task
 
 logger = logging.getLogger(__name__)
-
-
-class FileCounter(LocalDiskTreeRecurser):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS LocalDiskTreeScanner
-
-    Does a quick walk of the filesystem and counts the files which are of interest
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-
-    def __init__(self, root_path, project_dir: str):
-        LocalDiskTreeRecurser.__init__(self, root_path, project_dir, valid_suffixes=None)
-        self.files_to_scan = 0
-        self.dirs_to_scan = 0
-
-    def handle_target_file_type(self, file_path):
-        self.files_to_scan += 1
-
-    def handle_non_target_file(self, file_path):
-        self.files_to_scan += 1
-
-    def handle_dir(self, dir_path: str):
-        self.dirs_to_scan += 1
 
 
 class LocalDiskTreeScanner:
@@ -134,7 +110,7 @@ class LocalDiskTreeScanner:
             logger.debug(f'_list_dir_entries(): returning {len(dirs)} dirs, {len(nondirs)} nondirs')
         return dirs, nondirs
 
-    def start_recursive_scan(self, this_task: Task):
+    def start_tree_scan(self, this_task: Task):
         if not os.path.exists(self.root_node_identifier.get_single_path()):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_node_identifier.get_single_path())
 
@@ -152,6 +128,10 @@ class LocalDiskTreeScanner:
         this_task.add_next_task(self.scan_next_batch_of_dirs)
 
     def scan_next_batch_of_dirs(self, this_task: Task):
+        """
+        TASK: scan_next_batch_of_dirs
+        This a sub-task of
+        """
         nodes_scanned_this_task = 0
         dirs_scanned_this_task = 0
 

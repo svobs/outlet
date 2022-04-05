@@ -1,16 +1,14 @@
+import errno
 import fnmatch
+import logging
 import os
 import pathlib
-import shutil
-import errno
 import platform
-import logging
+import shutil
 from pathlib import PurePosixPath
 from typing import List, Tuple
-from backend.tree_store.local import content_hasher
 
 from constants import ROOT_PATH
-from error import IdenticalFileExistsError
 
 logger = logging.getLogger(__name__)
 

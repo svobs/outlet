@@ -171,7 +171,7 @@ class LocalDiskMasterStore(TreeStore):
         scanner = LocalDiskTreeScanner(backend=self.backend, master_local=self, root_node_identifer=subtree_root, tree_id=tree_id)
 
         # Create child task. It will create next_task instances as it goes along, thus delaying execution of this_task's next_task
-        child_task = this_task.create_child_task(scanner.start_recursive_scan)
+        child_task = this_task.create_child_task(scanner.start_tree_scan)
         self.backend.executor.submit_async_task(child_task)
 
     # LocalSubtree-level methods

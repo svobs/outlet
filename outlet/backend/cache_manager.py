@@ -896,6 +896,42 @@ class CacheManager(HasLifecycle):
         logger.debug(f'get_all_files_with_content(): found total of {len(global_file_list)} files with content_uid={content_uid}')
         return global_file_list
 
+    # OpGraph
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
+        return self._op_manager.get_last_pending_op_for_node(device_uid, node_uid)
+
+    def enqueue_op_batch(self, batch: Batch):
+        """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
+         the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
+         that is scheduled for deletion."""
+        try:
+            self._op_manager.enqueue_new_pending_op_batch(batch=batch)  # this now returns asynchronously
+        except RuntimeError as err:
+            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to enqueue batch of operations', error=err)
+
+    def get_next_command(self) -> Optional[Command]:
+        # blocks !
+        self.wait_for_startup_done()
+        # also blocks !
+        return self._op_manager.get_next_command()
+
+    def get_next_command_nowait(self) -> Optional[Command]:
+        # blocks !
+        self.wait_for_startup_done()
+
+        return self._op_manager.get_next_command_nowait()
+
+    def get_pending_op_count(self) -> int:
+        return self._op_manager.get_pending_op_count()
+
+    def retry_failed_op(self, op_uid: UID):
+        return self._op_manager.retry_failed_op(op_uid)
+
+    def retry_all_failed_ops(self):
+        return self._op_manager.retry_all_failed_ops()
+
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -984,33 +1020,6 @@ class CacheManager(HasLifecycle):
 
     def show_tree(self, subtree_root: NodeIdentifier) -> str:
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).show_tree(subtree_root)
-
-    def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
-        return self._op_manager.get_last_pending_op_for_node(device_uid, node_uid)
-
-    def enqueue_op_batch(self, batch: Batch):
-        """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
-         the OpManager will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
-         that is scheduled for deletion."""
-        try:
-            self._op_manager.enqueue_new_pending_op_batch(batch=batch)  # this now returns asynchronously
-        except RuntimeError as err:
-            self.backend.report_exception(sender=ID_GLOBAL_CACHE, msg=f'Failed to enqueue batch of operations', error=err)
-
-    def get_next_command(self) -> Optional[Command]:
-        # blocks !
-        self.wait_for_startup_done()
-        # also blocks !
-        return self._op_manager.get_next_command()
-
-    def get_next_command_nowait(self) -> Optional[Command]:
-        # blocks !
-        self.wait_for_startup_done()
-
-        return self._op_manager.get_next_command_nowait()
-
-    def get_pending_op_count(self) -> int:
-        return self._op_manager.get_pending_op_count()
 
     # This is only called at startup (shh...)
     def read_node_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:

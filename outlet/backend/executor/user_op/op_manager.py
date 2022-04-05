@@ -454,6 +454,12 @@ class OpManager(HasLifecycle):
     def get_pending_op_count(self) -> int:
         return len(self._op_graph)
 
+    def retry_failed_op(self, op_uid: UID):
+        return self._op_graph.retry_failed_op(op_uid)
+
+    def retry_all_failed_ops(self):
+        return self._op_graph.retry_all_failed_ops()
+
     def finish_command(self, command: Command):
         result = command.op.result
 

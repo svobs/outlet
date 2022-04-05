@@ -44,3 +44,27 @@ class LocalDiskTreeRecurser:
 
     def _is_in_project_tree(self, path: str):
         return PurePosixPath(path).is_relative_to(self.project_dir)
+
+
+class FileCounter(LocalDiskTreeRecurser):
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS LocalDiskTreeScanner
+
+    Does a quick walk of the filesystem and counts the files which are of interest
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+
+    def __init__(self, root_path, project_dir: str):
+        LocalDiskTreeRecurser.__init__(self, root_path, project_dir, valid_suffixes=None)
+        self.files_to_scan = 0
+        self.dirs_to_scan = 0
+
+    def handle_target_file_type(self, file_path):
+        self.files_to_scan += 1
+
+    def handle_non_target_file(self, file_path):
+        self.files_to_scan += 1
+
+    def handle_dir(self, dir_path: str):
+        self.dirs_to_scan += 1

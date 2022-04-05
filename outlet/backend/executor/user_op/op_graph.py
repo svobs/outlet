@@ -858,11 +858,23 @@ class OpGraph(HasLifecycle):
 
         return None
 
+    def retry_failed_op(self, op_uid: UID):
+        with self._cv_can_get:
+            pass
+            # TODO
+
+    def retry_all_failed_ops(self):
+        with self._cv_can_get:
+            pass
+            # TODO
+
     # POP logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def pop_completed_op(self, op_uid: UID):
-        """Ensure that we were expecting this op to be copmleted, and remove it from the tree."""
+    def pop_completed_op(self, op_uid: UID) -> bool:
+        """
+        Ensure that this op was copmleted successfully, and if so, remove it from the tree.
+        """
         logger.debug(f'[{self.name}] Entered pop_completed_op() for op {op_uid}')
 
         with self._cv_can_get:
@@ -871,7 +883,14 @@ class OpGraph(HasLifecycle):
                 raise RuntimeError(f'Complated op (UID {op_uid}) not found in outstanding op list!')
 
             status = op.get_status()
-            if status != UserOpStatus.COMPLETED_OK and status != UserOpStatus.COMPLETED_NO_OP:
+            if status == UserOpStatus.COMPLETED_OK or status == UserOpStatus.COMPLETED_NO_OP:
+                # I. SRC OGN
+                self._remove_ogn_for_completed_op(op.src_node, op, 'src')
+
+                # II. DST OGN
+                if op.has_dst():
+                    self._remove_ogn_for_completed_op(op.dst_node, op, 'dst')
+            else:
                 logger.info(f'[{self.name}] pop_completed_op(): will not pop OGNs for op ({op.op_uid}) as it did not complete OK (status: {status.name}) ')
 
                 if status == UserOpStatus.STOPPED_ON_ERROR:
@@ -885,13 +904,6 @@ class OpGraph(HasLifecycle):
                                  f'will populate error dict (currently = {self._changed_node_dict})')
                     self._block_downstream_ogns_for_failed_op(op)
                     logger.debug(f'[{self.name}] pop_completed_op(): Error dict is now = {self._changed_node_dict}')
-            else:
-                # I. SRC OGN
-                self._remove_ogn_for_completed_op(op.src_node, op, 'src')
-
-                # II. DST OGN
-                if op.has_dst():
-                    self._remove_ogn_for_completed_op(op.dst_node, op, 'dst')
 
             logger.debug(f'[{self.name}] Done with pop_completed_op() for op: {op}')
             self._print_current_state()

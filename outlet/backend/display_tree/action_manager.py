@@ -52,6 +52,7 @@ class ActionManager(HasLifecycle):
         self.backend = backend
 
         self._action_handler_dict: Dict[int, Callable[[TreeAction], None]] = {
+            ActionID.NO_ACTION: lambda cxt: None,
             ActionID.DELETE_SUBTREE_FOR_SINGLE_DEVICE: self._delete_subtree_for_single_device,
             ActionID.DELETE_SUBTREE: self._delete_subtree_for_single_device,
             ActionID.DELETE_SINGLE_FILE: self._delete_single_file,
@@ -309,6 +310,15 @@ class ActionManager(HasLifecycle):
             os.remove(file)
 
         logger.debug(f'[{tree_id}] Done with: {dir_full_path}')
+
+    def _retry_failed_op(self, act: TreeAction):
+        if not act.target_uid:
+            raise RuntimeError(f'Cannot execute action {ActionID.RETRY_OPERATION}: target_uid is null!')
+        op_uid = act.target_uid
+        self.backend.cacheman.retry_failed_op(op_uid)
+
+    def _retry_all_failed_ops(self, act: TreeAction):
+        self.backend.cacheman.retry_all_failed_ops()
 
 
 T = TypeVar('T')
