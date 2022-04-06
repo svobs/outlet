@@ -2,15 +2,14 @@ import collections
 import logging
 import os
 import threading
-from datetime import datetime
-from typing import Deque, Dict, Iterable, List, Set, Union
+from typing import Deque, Dict, Iterable, List, Set
 
 import humanfriendly
 from pydispatch import dispatcher
 
 from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode, TreeLoadState
 from logging_constants import SUPER_DEBUG_ENABLED
-from error import ResultsExceededError
+from error import GetChildListFailedError
 from global_actions import GlobalActions
 from model.display_tree.build_struct import RowsOfInterest
 from model.display_tree.filter_criteria import FilterCriteria
@@ -140,13 +139,17 @@ class DisplayMutator(HasLifecycle):
 
     def _populate_and_expand_recursively(self, parent_iter, sn: SPIDNodePair, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
-        if sn.node.is_dir():
-            parent_iter = self._append_dir_node(parent_iter, sn)
+        try:
+            if sn.node.is_dir():
+                parent_iter = self._append_dir_node(parent_iter, sn)
 
-            for child in self.con.get_tree().get_child_list_for_spid(sn.spid, is_expanding_parent=True):
-                node_count = self._populate_and_expand_recursively(parent_iter, child, node_count)
-        else:
-            self._append_file_node(parent_iter, sn)
+                for child in self.con.get_tree().get_child_list_for_spid(sn.spid, is_expanding_parent=True):
+                    node_count = self._populate_and_expand_recursively(parent_iter, child, node_count)
+            else:
+                self._append_file_node(parent_iter, sn)
+        except GetChildListFailedError as err:
+            # could be simply too many children to return
+            self._append_empty_child(parent_iter, f'{err}')
 
         node_count += 1
         return node_count
@@ -285,8 +288,7 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
                      f' expanded_row_set={rows.expanded} selected_row_set={rows.selected}')
 
-        too_many_results: bool = False
-        count_results: int = 0
+        caught_err = None
 
         # This may be a long task
         try:
@@ -296,9 +298,8 @@ class DisplayMutator(HasLifecycle):
                 with self._lock:
                     top_level_sn_list: List[SPIDNodePair] = self.con.get_tree().get_child_list_for_root()
                 logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_sn_list)} top-level nodes for root')
-            except ResultsExceededError as err:
-                too_many_results = True
-                count_results = err.actual_count
+            except GetChildListFailedError as err:
+                caught_err = err
 
         finally:
             self._enable_node_signals = True
@@ -310,9 +311,9 @@ class DisplayMutator(HasLifecycle):
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
 
-                if too_many_results:
-                    logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {count_results}')
-                    self._append_empty_child(root_iter, f'ERROR: too many items to display ({count_results:n})', IconId.ICON_ALERT)
+                if caught_err:
+                    logger.error(f'[{self.con.tree_id}] getChild() threw error: fe_msg="{caught_err.be_msg}"')
+                    self._append_empty_child(root_iter, caught_err.fe_msg, IconId.ICON_ALERT)
 
                 elif self.con.treeview_meta.lazy_load:
                     logger.debug(f'[{self.con.tree_id}] Populating via lazy load')
@@ -439,9 +440,12 @@ class DisplayMutator(HasLifecycle):
                 if is_expanded:
                     self.con.display_store.remove_loading_node(parent_iter)
 
-                    # This will also add the node to the backend set of expanded nodes:
-                    child_list = self.con.get_tree().get_child_list_for_spid(sn.spid)
-                    self._append_child_list(child_list=child_list, parent_iter=parent_iter)
+                    try:
+                        # This will also add the node to the backend set of expanded nodes:
+                        child_list = self.con.get_tree().get_child_list_for_spid(sn.spid)
+                        self._append_child_list(child_list=child_list, parent_iter=parent_iter)
+                    except GetChildListFailedError as err:
+                        self._append_empty_child(parent_iter, node_name=err.fe_msg)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,
                     # and due to a deficiency in GTK this causes the parent to become collapsed again.

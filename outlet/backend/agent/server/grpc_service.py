@@ -23,9 +23,9 @@ from backend.backend_integrated import BackendIntegrated
 from backend.cache_manager import CacheManager
 from backend.executor.central import CentralExecutor
 from backend.uid.uid_generator import UidGenerator
-from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeLoadState
+from constants import DirConflictPolicy, DragOperation, FileConflictPolicy, IconId, TreeLoadState
 from logging_constants import TRACE_ENABLED, SUPER_DEBUG_ENABLED
-from error import ResultsExceededError
+from error import GetChildListFailedError
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -438,10 +438,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                 logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying {len(child_list)} children: {child_list}')
             else:
                 logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying {len(child_list)} children for {parent_spid}')
-        except ResultsExceededError as err:
-            response.result_exceeded_count = err.actual_count
-            logger.debug(f'[{request.tree_id}] Too many children ({response.result_exceeded_count}) for {parent_spid}'
-                         f' (max was {request.max_results})')
+        except GetChildListFailedError as err:
+            response.error.fe_msg = err.fe_msg
+            response.error.fe_secondary_msg = err.fe_secondary_msg
+            response.error.be_msg = err.be_msg
+            logger.debug(f'[{request.tree_id}] Returning GetChildListFailedError: fe_msg="{response.error.fe_msg}"'
+                         f' be_msg="{response.error.be_msg}")')
 
         return response
 

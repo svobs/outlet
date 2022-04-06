@@ -20,7 +20,7 @@ from backend.agent.grpc.generated.Outlet_pb2 import ConfigEntry, DeleteSubtree_R
 from backend.backend_interface import OutletBackend
 from constants import DirConflictPolicy, DragOperation, ErrorHandlingStrategy, FileConflictPolicy, IconId, TreeID
 from logging_constants import TRACE_ENABLED
-from error import ResultsExceededError
+from error import GetChildListFailedError
 from model.context_menu import ContextMenuItem
 from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
@@ -289,10 +289,11 @@ class BackendGRPCClient(OutletBackend):
 
         response = self.grpc_stub.get_child_list_for_spid(request)
 
-        if response.result_exceeded_count > 0:
+        if response.HasField('error'):
             # Convert to exception on this side
-            assert max_results > 0, f'Got nonzero result_exceeded_count ({response.result_exceeded_count}) but max_results was 0!'
-            raise ResultsExceededError(response.result_exceeded_count)
+            logger.error(f'get_child_list(): got error from backend: "{response.error.be_msg}"')
+            raise GetChildListFailedError(response.error.fe_msg, response.error.fe_secondary_msg, response.error.be_msg)
+
         return self._converter.sn_list_from_grpc(response.child_list)
 
     def set_selected_rows(self, tree_id: TreeID, selected: Set[GUID]):

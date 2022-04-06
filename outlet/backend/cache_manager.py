@@ -26,7 +26,7 @@ from backend.tree_store.local import content_hasher
 from backend.tree_store.local.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
     LARGE_FILE_SIZE_THRESHOLD_BYTES, OPS_FILE_NAME, TreeDisplayMode, TreeID, TreeLoadState, TreeType
-from error import ResultsExceededError
+from error import GetChildListFailedError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
 from model.context_menu import ContextMenuItem
@@ -531,7 +531,9 @@ class CacheManager(HasLifecycle):
             child_list = self._cache_registry.get_store_for_device_uid(device_uid).get_child_list_for_spid(parent_spid, filter_state)
 
         if max_results and (len(child_list) > max_results):
-            raise ResultsExceededError(len(child_list))
+            fe_msg = f"ERROR: too many items to display ({len(child_list)})"
+            be_msg = f'Too many children ({len(child_list)}) for {parent_spid} (max was {max_results})'
+            raise GetChildListFailedError(fe_msg, None, be_msg)
 
         self._copy_dir_stats_into_sn_list(child_list, tree_meta)
 

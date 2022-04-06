@@ -92,19 +92,19 @@ class NodeAlreadyPresentError(RuntimeError):
         super(NodeAlreadyPresentError, self).__init__(msg)
 
 
-class ResultsExceededError(RuntimeError):
+class GetChildListFailedError(RuntimeError):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS ResultsExceededError
+    CLASS GetChildListFailedError
 
-    Thrown by BE's get_child_list() when max_results was nonzero and was exceeded
+    Thrown by BE's get_child_list()
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, actual_count: int, msg: str = None):
-        self.actual_count: int = actual_count
-        if not msg:
-            msg = f'Result count ({actual_count}) exceeded max allowed!'
-        super(ResultsExceededError, self).__init__(msg)
+    def __init__(self, fe_msg, fe_secondary_msg, be_msg):
+        super(GetChildListFailedError, self).__init__(fe_msg)
+        self.fe_msg = fe_msg
+        self.fe_secondary_msg = fe_secondary_msg
+        self.be_msg = be_msg
 
 
 class OpGraphError(RuntimeError):

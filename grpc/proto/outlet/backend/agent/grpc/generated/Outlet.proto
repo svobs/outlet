@@ -166,6 +166,12 @@ message ErrorOccurred {
 	string secondary_msg = 2;
 }
 
+message Error {
+	string fe_msg = 1;  					// required
+	string fe_secondary_msg = 2;  // optional
+	string be_msg = 3;						// optional
+}
+
 message UidContainer {
 	uint32 uid = 1;
 }
@@ -275,7 +281,7 @@ message GetChildList_Request {
 
 message GetChildList_Response {
 	repeated SPIDNodePair child_list = 1;
-	uint32 result_exceeded_count = 2; // if max_results exceeded, node_list is empty and this indicates result count
+	Error error = 2;         // if this exists, then ignore all else
 }
 
 message GetAncestorList_Request {
