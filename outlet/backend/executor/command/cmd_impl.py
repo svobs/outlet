@@ -13,7 +13,7 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp, UserOpCode
 from util import file_util
 from util.local_file_util import LocalFileUtil
 
@@ -40,7 +40,7 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
 
     def __init__(self, op: UserOp, overwrite: bool = False):
         super().__init__(op, overwrite)
-        assert op.op_type == UserOpType.CP
+        assert op.op_type == UserOpCode.CP
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
@@ -188,7 +188,7 @@ class CreatLocalDirCommand(Command):
 
     def __init__(self, op: UserOp):
         super().__init__(op)
-        assert op.op_type == UserOpType.MKDIR
+        assert op.op_type == UserOpCode.MKDIR
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -226,7 +226,7 @@ class StartCopyToLocalDirCommand(TwoNodeCommand):
 
     def __init__(self, op: UserOp):
         super().__init__(op)
-        assert op.op_type == UserOpType.START_DIR_CP or op.op_type == UserOpType.START_DIR_MV
+        assert op.op_type == UserOpCode.START_DIR_CP or op.op_type == UserOpCode.START_DIR_MV
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -245,7 +245,7 @@ class FinishCopyToLocalDirCommand(FinishCopyToDirCommand):
 
     def __init__(self, op: UserOp, delete_src_node_after: bool):
         super().__init__(op, delete_src_node_after)
-        assert op.op_type == UserOpType.FINISH_DIR_CP or op.op_type == UserOpType.FINISH_DIR_MV
+        assert op.op_type == UserOpCode.FINISH_DIR_CP or op.op_type == UserOpCode.FINISH_DIR_MV
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -506,7 +506,7 @@ class CreateGDriveFolderCommand(Command):
 
     def __init__(self, op: UserOp):
         super().__init__(op)
-        assert op.op_type == UserOpType.MKDIR
+        assert op.op_type == UserOpCode.MKDIR
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -558,7 +558,7 @@ class StartCopyToGDriveFolderCommand(Command):
 
     def __init__(self, op: UserOp):
         super().__init__(op)
-        assert op.op_type == UserOpType.START_DIR_CP or op.op_type == UserOpType.START_DIR_MV
+        assert op.op_type == UserOpCode.START_DIR_CP or op.op_type == UserOpCode.START_DIR_MV
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -576,7 +576,7 @@ class FinishCopyToGDriveFolderCommand(FinishCopyToDirCommand):
 
     def __init__(self, op: UserOp, delete_src_node_after: bool):
         super().__init__(op, delete_src_node_after)
-        assert op.op_type == UserOpType.FINISH_DIR_CP or op.op_type == UserOpType.FINISH_DIR_MV
+        assert op.op_type == UserOpCode.FINISH_DIR_CP or op.op_type == UserOpCode.FINISH_DIR_MV
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -627,7 +627,7 @@ class MoveFileWithinGDriveCommand(CopyNodeCommand):
 
     def __init__(self, op: UserOp, overwrite: bool):
         super().__init__(op, overwrite)
-        assert op.op_type == UserOpType.MV
+        assert op.op_type == UserOpCode.MV
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -697,7 +697,7 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
 
     def __init__(self, op: UserOp, overwrite: bool = False):
         super().__init__(op, overwrite)
-        assert op.op_type == UserOpType.CP
+        assert op.op_type == UserOpCode.CP
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT

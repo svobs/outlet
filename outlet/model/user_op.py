@@ -5,18 +5,18 @@ from typing import Dict, List, Optional, Set, Union
 from constants import ChangeTreeCategory, IconId, TreeID
 from model.node_identifier import GUID
 from model.uid import UID
-from model.node.node import BaseNode, Node
+from model.node.node import AbstractNode, Node
 from util import time_util
 
 logger = logging.getLogger(__name__)
 
 
-class UserOpType(IntEnum):
+class UserOpCode(IntEnum):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ENUM UserOpType
+    ENUM UserOpCode
     UserOps are agnostic of tree types, but they distinguish between file and dir node operations.
-    TODO: rename to TNOType
+    TODO: rename to TNOCode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     # --- 1-digit enum = 1 node op ---
@@ -80,22 +80,22 @@ class UserOpType(IntEnum):
         return self.value >= 10
 
     def is_start_dir(self) -> bool:
-        return self == UserOpType.START_DIR_CP or self == UserOpType.START_DIR_MV
+        return self == UserOpCode.START_DIR_CP or self == UserOpCode.START_DIR_MV
 
     def has_converse(self) -> bool:
-        return self == UserOpType.START_DIR_CP or self == UserOpType.FINISH_DIR_CP or \
-               self == UserOpType.START_DIR_MV or self == UserOpType.FINISH_DIR_MV
+        return self == UserOpCode.START_DIR_CP or self == UserOpCode.FINISH_DIR_CP or \
+               self == UserOpCode.START_DIR_MV or self == UserOpCode.FINISH_DIR_MV
 
     def get_converse(self):
-        if self == UserOpType.START_DIR_CP:
-            return UserOpType.FINISH_DIR_CP
-        if self == UserOpType.FINISH_DIR_CP:
-            return UserOpType.START_DIR_CP
+        if self == UserOpCode.START_DIR_CP:
+            return UserOpCode.FINISH_DIR_CP
+        if self == UserOpCode.FINISH_DIR_CP:
+            return UserOpCode.START_DIR_CP
 
-        if self == UserOpType.START_DIR_MV:
-            return UserOpType.FINISH_DIR_MV
-        if self == UserOpType.FINISH_DIR_MV:
-            return UserOpType.START_DIR_MV
+        if self == UserOpCode.START_DIR_MV:
+            return UserOpCode.FINISH_DIR_MV
+        if self == UserOpCode.FINISH_DIR_MV:
+            return UserOpCode.START_DIR_MV
 
 
 # ENUM UserOpStatus
@@ -137,7 +137,7 @@ class UserOpResult:
         return f'UserOpResult(status={self.status.name} error={self.error} to_upsert={self.nodes_to_upsert} to_remove={self.nodes_to_remove}'
 
 
-class UserOp(BaseNode):
+class UserOp(AbstractNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS UserOp
@@ -145,12 +145,12 @@ class UserOp(BaseNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node, dst_node: Optional[Node] = None, create_ts: int = None):
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpCode, src_node: Node, dst_node: Optional[Node] = None, create_ts: int = None):
         assert src_node, 'No src node!'
-        BaseNode.__init__(self)
+        AbstractNode.__init__(self)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
-        self.op_type: UserOpType = op_type
+        self.op_type: UserOpCode = op_type
         self.src_node: Node = src_node
         self.dst_node: Optional[Node] = dst_node
         """If it exists, this is the target. Otherwise the target is the src node"""
@@ -187,10 +187,10 @@ class UserOp(BaseNode):
         return status == UserOpStatus.STOPPED_ON_ERROR or status == UserOpStatus.BLOCKED_BY_ERROR
 
     def is_start_dir_type(self) -> bool:
-        return self.op_type == UserOpType.START_DIR_MV or self.op_type == UserOpType.START_DIR_CP
+        return self.op_type == UserOpCode.START_DIR_MV or self.op_type == UserOpCode.START_DIR_CP
 
     def is_finish_dir_type(self) -> bool:
-        return self.op_type == UserOpType.FINISH_DIR_MV or self.op_type == UserOpType.FINISH_DIR_CP
+        return self.op_type == UserOpCode.FINISH_DIR_MV or self.op_type == UserOpCode.FINISH_DIR_CP
 
     def has_dst(self) -> bool:
         return self.op_type.has_dst()
@@ -213,18 +213,18 @@ class ChangeTreeCategoryMeta:
         ChangeTreeCategory.MV_ONTO.name: ChangeTreeCategory.MV_ONTO
     }
 
-    # Map of UserOpType (backend) <-> ChangeTreeCategory (frontend/display)
-    _op_type_dict: Dict[UserOpType, ChangeTreeCategory] = {
-        UserOpType.RM: ChangeTreeCategory.RM,
-        UserOpType.MKDIR: ChangeTreeCategory.CP,  # TODO: is this a good idea?
-        UserOpType.CP: ChangeTreeCategory.CP,
-        UserOpType.START_DIR_CP: ChangeTreeCategory.CP,
-        UserOpType.FINISH_DIR_CP: ChangeTreeCategory.CP,
-        UserOpType.CP_ONTO: ChangeTreeCategory.CP_ONTO,
-        UserOpType.MV: ChangeTreeCategory.MV,
-        UserOpType.START_DIR_MV: ChangeTreeCategory.MV,
-        UserOpType.FINISH_DIR_MV: ChangeTreeCategory.MV,
-        UserOpType.MV_ONTO: ChangeTreeCategory.MV_ONTO,
+    # Map of UserOpCode (backend) <-> ChangeTreeCategory (frontend/display)
+    _op_type_dict: Dict[UserOpCode, ChangeTreeCategory] = {
+        UserOpCode.RM: ChangeTreeCategory.RM,
+        UserOpCode.MKDIR: ChangeTreeCategory.CP,  # TODO: is this a good idea?
+        UserOpCode.CP: ChangeTreeCategory.CP,
+        UserOpCode.START_DIR_CP: ChangeTreeCategory.CP,
+        UserOpCode.FINISH_DIR_CP: ChangeTreeCategory.CP,
+        UserOpCode.CP_ONTO: ChangeTreeCategory.CP_ONTO,
+        UserOpCode.MV: ChangeTreeCategory.MV,
+        UserOpCode.START_DIR_MV: ChangeTreeCategory.MV,
+        UserOpCode.FINISH_DIR_MV: ChangeTreeCategory.MV,
+        UserOpCode.MV_ONTO: ChangeTreeCategory.MV_ONTO,
     }
 
     # We use these labels for displaying diff previews - thus the 'To Update' name for CP_ONTO.
@@ -280,7 +280,7 @@ class ChangeTreeCategoryMeta:
     }
 
     @staticmethod
-    def category_for_op_type(op_type: UserOpType) -> Optional[ChangeTreeCategory]:
+    def category_for_op_type(op_type: UserOpCode) -> Optional[ChangeTreeCategory]:
         return ChangeTreeCategoryMeta._op_type_dict.get(op_type)
 
     @staticmethod

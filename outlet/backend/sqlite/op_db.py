@@ -14,7 +14,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
 from model.uid import UID
-from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
+from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpCode
 from util import time_util
 
 logger = logging.getLogger(__name__)
@@ -31,11 +31,11 @@ OP_UID_COL_NAME = 'op_uid'
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class UserOpRef:
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, status: UserOpStatus, src_uid: UID,
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpCode, status: UserOpStatus, src_uid: UID,
                  dst_uid: UID = None, create_ts: int = None, detail_msg: str = ''):
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
-        self.op_type: UserOpType = op_type
+        self.op_type: UserOpCode = op_type
         self.status: UserOpStatus = status
         self.src_uid: UID = src_uid
         self.dst_uid: UID = dst_uid
@@ -90,7 +90,7 @@ def _failed_op_to_tuple(e: UserOp, current_time: int, error_msg: str):
 
 def _tuple_to_op_ref(row: Tuple) -> UserOpRef:
     assert isinstance(row, Tuple), f'Expected Tuple; got instead: {row}'
-    return UserOpRef(UID(row[0]), UID(row[1]), UserOpType(row[2]), UserOpStatus(row[3]), UID(row[4]), _ensure_uid(row[5]), int(row[6]), row[7])
+    return UserOpRef(UID(row[0]), UID(row[1]), UserOpCode(row[2]), UserOpStatus(row[3]), UID(row[4]), _ensure_uid(row[5]), int(row[6]), row[7])
 
 
 class TableMegaMap:

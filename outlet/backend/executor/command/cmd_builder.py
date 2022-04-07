@@ -10,7 +10,7 @@ from backend.executor.command.cmd_impl import CopyFileWithinGDriveCommand, CopyF
 from backend.executor.command.cmd_interface import Command
 from constants import TreeType
 from model.node.node import Node
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp, UserOpCode
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class CommandBuilder:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, uid_generator):
-        self._build_dict: Dict[UserOpType, Dict[str, Callable]] = _populate_build_dict()
+        self._build_dict: Dict[UserOpCode, Dict[str, Callable]] = _populate_build_dict()
 
     def build_command(self, op: UserOp) -> Command:
         if logger.isEnabledFor(logging.DEBUG):
@@ -62,11 +62,11 @@ class CommandBuilder:
 
         tree_type_dict = self._build_dict.get(op.op_type)
         if not tree_type_dict:
-            raise RuntimeError(f'Unrecognized UserOpType: {op.op_type}')
+            raise RuntimeError(f'Unrecognized UserOpCode: {op.op_type}')
 
         build_func = tree_type_dict.get(tree_type_key, None)
         if not build_func:
-            raise RuntimeError(f'Bad tree type(s): {tree_type_key}, for UserOpType "{op.op_type.name}"')
+            raise RuntimeError(f'Bad tree type(s): {tree_type_key}, for UserOpCode "{op.op_type.name}"')
         return build_func(op)
 
 
@@ -77,21 +77,21 @@ def _fail(change, key):
 def _populate_build_dict():
     """Every command has an associated target node and a UserOp. Many commands also have an associated source node."""
     return {
-        UserOpType.RM: {
+        UserOpCode.RM: {
             LO: lambda change: DeleteLocalNodeCommand(change, to_trash=False),
             GD: lambda change: DeleteGDriveNodeCommand(change, to_trash=False)
         },
-        UserOpType.MKDIR: {
+        UserOpCode.MKDIR: {
             GD: lambda change: CreateGDriveFolderCommand(op=change),
             LO: lambda change: CreatLocalDirCommand(op=change)
         },
-        UserOpType.UNLINK: {
+        UserOpCode.UNLINK: {
             # TODO unlink support
             GD: lambda change: _fail(change, GD),
             LO: lambda change: _fail(change, LO),
         },
 
-        UserOpType.CP: {
+        UserOpCode.CP: {
             LO_same_LO: lambda change: CopyFileLocalToLocalCommand(change, overwrite=False),
             GD_same_GD: lambda change: CopyFileWithinGDriveCommand(change, overwrite=False),
             LO_GD: lambda change: CopyFileLocalToGDriveCommand(change, overwrite=False, delete_src_node_after=False),
@@ -99,7 +99,7 @@ def _populate_build_dict():
             LO_different_LO: lambda change: _fail(change, LO_different_LO),  # TODO: support > 1 # of same tree type
             GD_different_GD: lambda change: _fail(change, GD_different_GD),  # TODO: support > 1 of same tree type
         },
-        UserOpType.CP_ONTO: {
+        UserOpCode.CP_ONTO: {
             LO_same_LO: lambda change: CopyFileLocalToLocalCommand(change, overwrite=True),
             GD_same_GD: lambda change: CopyFileWithinGDriveCommand(change, overwrite=True),
             LO_GD: lambda change: CopyFileLocalToGDriveCommand(change, overwrite=True, delete_src_node_after=False),
@@ -108,7 +108,7 @@ def _populate_build_dict():
             GD_different_GD: lambda change: _fail(change, GD_different_GD),  # TODO: support > 1 of same tree type
         },
 
-        UserOpType.START_DIR_CP: {
+        UserOpCode.START_DIR_CP: {
             LO_same_LO: lambda change: StartCopyToLocalDirCommand(op=change),
             GD_same_GD: lambda change: StartCopyToGDriveFolderCommand(op=change),
             LO_GD: lambda change: StartCopyToGDriveFolderCommand(op=change),
@@ -116,7 +116,7 @@ def _populate_build_dict():
             LO_different_LO: lambda change: StartCopyToLocalDirCommand(op=change),
             GD_different_GD: lambda change: StartCopyToGDriveFolderCommand(op=change),
         },
-        UserOpType.FINISH_DIR_CP: {
+        UserOpCode.FINISH_DIR_CP: {
             LO_same_LO: lambda change: FinishCopyToLocalDirCommand(op=change, delete_src_node_after=False),
             GD_same_GD: lambda change: FinishCopyToGDriveFolderCommand(op=change, delete_src_node_after=False),
             LO_GD: lambda change: FinishCopyToGDriveFolderCommand(op=change, delete_src_node_after=False),
@@ -125,7 +125,7 @@ def _populate_build_dict():
             GD_different_GD: lambda change: FinishCopyToGDriveFolderCommand(op=change, delete_src_node_after=False),
         },
 
-        UserOpType.MV: {
+        UserOpCode.MV: {
             LO_same_LO: lambda change: MoveFileLocalToLocalCommand(change, overwrite=False),
             GD_same_GD: lambda change: MoveFileWithinGDriveCommand(change, overwrite=False),
             LO_GD: lambda change: CopyFileLocalToGDriveCommand(change, overwrite=False, delete_src_node_after=True),
@@ -133,7 +133,7 @@ def _populate_build_dict():
             LO_different_LO: lambda change: _fail(change, LO_different_LO),  # TODO: support > 1 of same tree type
             GD_different_GD: lambda change: _fail(change, GD_different_GD),  # TODO: support > 1 of same tree type
         },
-        UserOpType.MV_ONTO: {
+        UserOpCode.MV_ONTO: {
             LO_same_LO: lambda change: MoveFileLocalToLocalCommand(change, overwrite=True),
             GD_same_GD: lambda change: MoveFileWithinGDriveCommand(change, overwrite=True),
             LO_GD: lambda change: CopyFileLocalToGDriveCommand(change, overwrite=True, delete_src_node_after=True),
@@ -142,7 +142,7 @@ def _populate_build_dict():
             GD_different_GD: lambda change: _fail(change, GD_different_GD),  # TODO: support > 1 of same tree type
         },
 
-        UserOpType.START_DIR_MV: {
+        UserOpCode.START_DIR_MV: {
             LO_same_LO: lambda change: StartCopyToLocalDirCommand(op=change),
             GD_same_GD: lambda change: StartCopyToGDriveFolderCommand(op=change),
             LO_GD: lambda change: StartCopyToGDriveFolderCommand(op=change),
@@ -150,7 +150,7 @@ def _populate_build_dict():
             LO_different_LO: lambda change: StartCopyToLocalDirCommand(op=change),
             GD_different_GD: lambda change: StartCopyToGDriveFolderCommand(op=change),
         },
-        UserOpType.FINISH_DIR_MV: {
+        UserOpCode.FINISH_DIR_MV: {
             LO_same_LO: lambda change: FinishCopyToLocalDirCommand(op=change, delete_src_node_after=True),
             GD_same_GD: lambda change: FinishCopyToGDriveFolderCommand(op=change, delete_src_node_after=True),
             LO_GD: lambda change: FinishCopyToGDriveFolderCommand(op=change, delete_src_node_after=True),
@@ -159,7 +159,7 @@ def _populate_build_dict():
             GD_different_GD: lambda change: FinishCopyToGDriveFolderCommand(op=change, delete_src_node_after=True),
         },
 
-        UserOpType.CREATE_LINK: {
+        UserOpCode.CREATE_LINK: {
             # TODO link support
             LO_same_LO: lambda change: _fail(change, LO_same_LO),
             GD_same_GD: lambda change: _fail(change, GD_same_GD),

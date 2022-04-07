@@ -10,7 +10,7 @@ from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidInsertOpGraphError, OpGraphError, UnsuccessfulBatchInsertError
 from model.node.node import Node
 from model.uid import UID
-from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpResult, UserOpStatus, UserOpType
+from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpResult, UserOpStatus, UserOpCode
 from util.has_lifecycle import HasLifecycle, stop_func
 from util.stopwatch_sec import Stopwatch
 
@@ -350,7 +350,7 @@ class OpGraph(HasLifecycle):
 
                     else:  # NOT ogn.is_rm_node()
                         # "finish" types are allowed to have arbitrary number of parents
-                        if ogn.op.op_type == UserOpType.FINISH_DIR_CP or ogn.op.op_type == UserOpType.FINISH_DIR_MV:
+                        if ogn.op.op_type == UserOpCode.FINISH_DIR_CP or ogn.op.op_type == UserOpCode.FINISH_DIR_MV:
                             for ogn_parent in ogn_parent_list:
                                 if not ogn.is_tgt_an_ancestor_of_og_node_tgt(ogn_parent):
                                     error_count += 1
@@ -534,10 +534,10 @@ class OpGraph(HasLifecycle):
                 logger.debug(f'Found ancestor START ({ogn}) which appears to match FINISH ({ogn_finish})')
                 assert ogn.op.src_node.node_identifier == ogn_finish.op.src_node.node_identifier
                 assert ogn.is_src() == ogn_finish.is_src()
-                if ogn_finish.op.op_type == UserOpType.FINISH_DIR_MV:
-                    assert ogn.op.op_type == UserOpType.START_DIR_MV
-                elif ogn_finish.op.op_type == UserOpType.FINISH_DIR_CP:
-                    assert ogn.op.op_type == UserOpType.START_DIR_CP
+                if ogn_finish.op.op_type == UserOpCode.FINISH_DIR_MV:
+                    assert ogn.op.op_type == UserOpCode.START_DIR_MV
+                elif ogn_finish.op.op_type == UserOpCode.FINISH_DIR_CP:
+                    assert ogn.op.op_type == UserOpCode.START_DIR_CP
                 else:
                     assert False
                 return ogn
@@ -859,14 +859,28 @@ class OpGraph(HasLifecycle):
         return None
 
     def retry_failed_op(self, op_uid: UID):
+        """
+        Finds the op with the given UID, and if the op:
+        1. is in STOPPED_ON_ERROR state, in which case the state will be reset and the OpGraph will
+           be notified that there is more work to do; or
+        2. is in BLOCKED_BY_ERROR state, in which case the op which is the source of the block will be
+           found and reset as described in (1); or
+        3. is in any other state, or op not found: raises an error
+        """
         with self._cv_can_get:
             pass
             # TODO
+            self._cv_can_get.notifyAll()
 
     def retry_all_failed_ops(self):
+        """
+        Finds all ops which have status STOPPED_ON_ERROR, and resets their status to NOT_STARTED.
+        If no ops have status STOPPED_ON_ERROR, then does nothing.
+        """
         with self._cv_can_get:
             pass
             # TODO
+            self._cv_can_get.notifyAll()
 
     # POP logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -905,11 +919,16 @@ class OpGraph(HasLifecycle):
                     self._block_downstream_ogns_for_failed_op(op)
                     logger.debug(f'[{self.name}] pop_completed_op(): Error dict is now = {self._changed_node_dict}')
 
+            is_batch_complete: bool = False
+
+
             logger.debug(f'[{self.name}] Done with pop_completed_op() for op: {op}')
             self._print_current_state()
 
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
+
+            return is_batch_complete
 
     def _rollback(self, ogn_list: List[OpGraphNode]):
         ogn_count = len(ogn_list)

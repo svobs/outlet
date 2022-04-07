@@ -7,7 +7,7 @@ from model.node.directory_stats import DirectoryStats
 from model.node.node import Node
 from model.node_identifier import ChangeTreeSPID, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import ChangeTreeCategoryMeta, UserOpType
+from model.user_op import ChangeTreeCategoryMeta, UserOpCode
 
 
 class ContainerNode(Node):

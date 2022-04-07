@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
-from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
+from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpCode
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class Command(ABC):
         return f'{self.__class__.__name__} op={self.op}'
 
     @property
-    def op_type(self) -> UserOpType:
+    def op_type(self) -> UserOpCode:
         return self.op.op_type
 
     @abstractmethod
@@ -90,7 +90,7 @@ class DeleteNodeCommand(Command, ABC):
     """
     def __init__(self, op: UserOp, to_trash: bool):
         Command.__init__(self, op)
-        assert op.op_type == UserOpType.RM
+        assert op.op_type == UserOpCode.RM
         self.to_trash = to_trash
 
     def get_description(self) -> str:

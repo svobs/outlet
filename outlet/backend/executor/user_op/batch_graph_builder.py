@@ -9,7 +9,7 @@ from logging_constants import SUPER_DEBUG_ENABLED
 from model.node.node import Node
 from model.node_identifier import DN_UID
 from model.uid import UID
-from model.user_op import Batch, UserOp, UserOpType
+from model.user_op import Batch, UserOp, UserOpCode
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class BatchGraphBuilder:
                 raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {op.batch_uid} and {batch_uid})')
 
             count_ops_orig += 1
-            if op.op_type == UserOpType.MKDIR:
+            if op.op_type == UserOpCode.MKDIR:
                 # remove dup MKDIRs (easy)
                 if mkdir_dict.get(op.src_node.uid, None):
                     logger.warning(f'ReduceChanges(): Removing duplicate MKDIR for node: {op.src_node}')
@@ -76,7 +76,7 @@ class BatchGraphBuilder:
                     logger.info(f'ReduceChanges(): Adding MKDIR-type: {op}')
                     final_list.append(op)
                     mkdir_dict[op.src_node.uid] = op
-            elif op.op_type == UserOpType.RM:
+            elif op.op_type == UserOpCode.RM:
                 # remove dups
                 if rm_dict.get(op.src_node.uid, None):
                     logger.warning(f'ReduceChanges(): Removing duplicate RM for node: {op.src_node}')
@@ -158,11 +158,11 @@ class BatchGraphBuilder:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'ReduceChanges(): Evaluating {op}')
 
-            if op.op_type == UserOpType.RM:
+            if op.op_type == UserOpCode.RM:
                 self._check_ancestors(op, op.src_node, validate_rm_ancestor_func)
-            elif op.op_type == UserOpType.MKDIR:
+            elif op.op_type == UserOpCode.MKDIR:
                 self._check_ancestors(op, op.src_node, validate_mkdir_ancestor_func)
-            elif op.op_type == UserOpType.CP or op.op_type == UserOpType.CP_ONTO or op.op_type == UserOpType.MV or op.op_type == UserOpType.MV_ONTO:
+            elif op.op_type == UserOpCode.CP or op.op_type == UserOpCode.CP_ONTO or op.op_type == UserOpCode.MV or op.op_type == UserOpCode.MV_ONTO:
                 """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
                  1. No ancestors of src or dst correspond to any Ops.
                  2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
@@ -175,12 +175,12 @@ class BatchGraphBuilder:
         return batch
 
     @staticmethod
-    def _are_equivalent(prev_op_type: UserOpType, current_op_type: UserOpType) -> bool:
-        if (prev_op_type == UserOpType.START_DIR_CP or prev_op_type == UserOpType.FINISH_DIR_CP) and \
-                (current_op_type == UserOpType.START_DIR_CP or current_op_type == UserOpType.FINISH_DIR_CP):
+    def _are_equivalent(prev_op_type: UserOpCode, current_op_type: UserOpCode) -> bool:
+        if (prev_op_type == UserOpCode.START_DIR_CP or prev_op_type == UserOpCode.FINISH_DIR_CP) and \
+                (current_op_type == UserOpCode.START_DIR_CP or current_op_type == UserOpCode.FINISH_DIR_CP):
             return True
-        if (prev_op_type == UserOpType.START_DIR_MV or prev_op_type == UserOpType.FINISH_DIR_MV) and \
-                (current_op_type == UserOpType.START_DIR_MV or current_op_type == UserOpType.FINISH_DIR_MV):
+        if (prev_op_type == UserOpCode.START_DIR_MV or prev_op_type == UserOpCode.FINISH_DIR_MV) and \
+                (current_op_type == UserOpCode.START_DIR_MV or current_op_type == UserOpCode.FINISH_DIR_MV):
             return True
 
         return prev_op_type == current_op_type
@@ -244,7 +244,7 @@ class BatchGraphBuilder:
 
         # 1a. Build src OGN:
         ancestor_uid_list = self._build_ancestor_uid_list(op.src_node, tgt_node_dict)
-        if op.op_type == UserOpType.RM:
+        if op.op_type == UserOpCode.RM:
             src_ogn: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
         else:
             src_ogn: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op, ancestor_uid_list)
@@ -366,17 +366,17 @@ class BatchGraphBuilder:
 
                     if exist_mkdir:
                         raise RuntimeError(f'Batch has redundant operations for: {ogn.op.src_node} (MKDIR and {op_type_name})')
-                    if exist_start_dir and not (op_type == UserOpType.FINISH_DIR_CP or op_type == UserOpType.FINISH_DIR_MV):
+                    if exist_start_dir and not (op_type == UserOpCode.FINISH_DIR_CP or op_type == UserOpCode.FINISH_DIR_MV):
                         raise RuntimeError(f'Batch has redundant operations for: {ogn.op.src_node} (START_DIR_* and {op_type_name})')
-                    if exist_finish_dir and not (op_type == UserOpType.START_DIR_CP or op_type == UserOpType.START_DIR_MV):
+                    if exist_finish_dir and not (op_type == UserOpCode.START_DIR_CP or op_type == UserOpCode.START_DIR_MV):
                         raise RuntimeError(f'Batch has redundant operations for: {ogn.op.src_node} (FINISH_DIR_* and {op_type_name})')
 
-                    if op_type == UserOpType.MKDIR:
+                    if op_type == UserOpCode.MKDIR:
                         mkdir_node_dict[tgt_node.dn_uid] = tgt_node
-                    elif op_type == UserOpType.START_DIR_CP or op_type == UserOpType.START_DIR_MV:
+                    elif op_type == UserOpCode.START_DIR_CP or op_type == UserOpCode.START_DIR_MV:
                         assert ogn.is_dst(), f'Expected DstOGN: {ogn}'
                         start_x_dst_node_dict[tgt_node.dn_uid] = tgt_node
-                    elif op_type == UserOpType.FINISH_DIR_CP or op_type == UserOpType.FINISH_DIR_MV:
+                    elif op_type == UserOpCode.FINISH_DIR_CP or op_type == UserOpCode.FINISH_DIR_MV:
                         assert ogn.is_dst(), f'Expected DstOGN: {ogn}'
                         finish_x_dst_node_dict[tgt_node.dn_uid] = tgt_node
 
@@ -388,7 +388,7 @@ class BatchGraphBuilder:
 
             # More of Rule 2: ensure target node is not scheduled for deletion:
             most_recent_op = op_manager.get_last_pending_op_for_node(tgt_node.device_uid, tgt_node.uid)
-            if most_recent_op and most_recent_op.op_type == UserOpType.RM and ogn.is_src() and ogn.op.has_dst():
+            if most_recent_op and most_recent_op.op_type == UserOpCode.RM and ogn.is_src() and ogn.op.has_dst():
                 # CP, MV, and UP ops cannot logically have a src node which is not present:
                 raise RuntimeError(f'Invalid operation: attempting to do a {ogn.op.op_type} '
                                    f'from a node which is being removed ({tgt_node.dn_uid}, "{tgt_node.name}")')

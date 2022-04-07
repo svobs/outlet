@@ -40,7 +40,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import Batch, UserOp, UserOpType
+from model.user_op import Batch, UserOp, UserOpCode
 from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.ensure import ensure_list
@@ -449,10 +449,10 @@ class CacheManager(HasLifecycle):
                     # The last node should be the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
                         batch.op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
-                                                    op_type=UserOpType.RM, src_node=node))
+                                                    op_type=UserOpCode.RM, src_node=node))
 
             batch.op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
-                                        op_type=UserOpType.RM, src_node=node_to_delete))
+                                        op_type=UserOpCode.RM, src_node=node_to_delete))
 
         if not batch.op_list:
             raise RuntimeError(f'Something went wrong: batch has no operations!')

@@ -30,7 +30,7 @@ from model.display_tree.tree_action import TreeAction
 from model.node.node import Node
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp, UserOpCode
 from signal_constants import Signal
 from util import daemon_util
 from util.ensure import ensure_bool, ensure_int
@@ -399,7 +399,7 @@ class BackendGRPCClient(OutletBackend):
 
         src_node = self._converter.node_from_grpc(response.user_op.src_node)
         dst_node = self._converter.node_from_grpc(response.user_op.dst_node)
-        op_type = UserOpType(response.user_op.op_type)
+        op_type = UserOpCode(response.user_op.op_type)
         return UserOp(response.user_op.op_uid, response.user_op.batch_uid, op_type, src_node, dst_node, response.user_op.create_ts)
 
     def download_file_from_gdrive(self, device_uid: UID, node_uid: UID, requestor_id: str):

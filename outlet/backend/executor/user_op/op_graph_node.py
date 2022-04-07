@@ -5,9 +5,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Deque, Dict, List, Optional, Set
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
-from model.node.node import BaseNode, Node
+from model.node.node import AbstractNode, Node
 from model.uid import UID
-from model.user_op import UserOp, UserOpStatus, UserOpType
+from model.user_op import UserOp, UserOpStatus, UserOpCode
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ def propagate_status_to_child(parent, child):
         child.op.set_status(UserOpStatus.BLOCKED_BY_ERROR)
 
 
-class OpGraphNode(BaseNode, ABC):
+class OpGraphNode(AbstractNode, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ABSTRACT CLASS OpGraphNode
@@ -27,7 +27,7 @@ class OpGraphNode(BaseNode, ABC):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, uid: UID, op: Optional[UserOp], target_ancestor_uid_list: List[UID]):
-        BaseNode.__init__(self)
+        AbstractNode.__init__(self)
 
         self.node_uid: UID = uid
         """This is the UID of the OpGraphNode, NOT either of the Node objects inside its UserOp"""
@@ -413,17 +413,17 @@ class SrcOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
 
     def is_reentrant(self) -> bool:
         # Only CP src nodes are reentrant
-        return self.op.op_type == UserOpType.CP
+        return self.op.op_type == UserOpCode.CP
 
     def get_tgt_node(self) -> Optional[Node]:
         return self.op.src_node
 
     def is_create_type(self) -> bool:
-        return self.op.op_type == UserOpType.MKDIR
+        return self.op.op_type == UserOpCode.MKDIR
 
     def is_remove_type(self) -> bool:
         # remember, the src node of a MV gets removed
-        return self.op.op_type == UserOpType.MV or self.op.op_type == UserOpType.MV_ONTO or self.op.op_type == UserOpType.FINISH_DIR_MV
+        return self.op.op_type == UserOpCode.MV or self.op.op_type == UserOpCode.MV_ONTO or self.op.op_type == UserOpCode.FINISH_DIR_MV
 
     def clear_relationships(self):
         HasMultiParent.clear_relationships(self)
@@ -487,7 +487,7 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, uid: UID, op: UserOp, target_ancestor_uid_list: List[UID]):
-        assert op.op_type == UserOpType.RM
+        assert op.op_type == UserOpCode.RM
         OpGraphNode.__init__(self, uid, op=op, target_ancestor_uid_list=target_ancestor_uid_list)
         HasMultiParent.__init__(self)
         HasSingleChild.__init__(self)

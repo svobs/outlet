@@ -11,7 +11,7 @@ from constants import DEFAULT_REPLACE_DIR_WITH_FILE_POLICY, DEFAULT_SRC_NODE_MOV
 from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
-from model.user_op import Batch, UserOpType
+from model.user_op import Batch, UserOpCode
 from util import time_util
 from util.ensure import ensure_bool
 
@@ -29,15 +29,15 @@ class TransferMeta:
         self.replace_dir_with_file_policy: ReplaceDirWithFilePolicy = DEFAULT_REPLACE_DIR_WITH_FILE_POLICY
 
         if drag_op == DragOperation.MOVE:
-            self.op_type_file = UserOpType.MV
-            self.op_type_file_replace = UserOpType.MV_ONTO
-            self.op_type_dir_start = UserOpType.START_DIR_MV
-            self.op_type_dir_finish = UserOpType.FINISH_DIR_MV
+            self.op_type_file = UserOpCode.MV
+            self.op_type_file_replace = UserOpCode.MV_ONTO
+            self.op_type_dir_start = UserOpCode.START_DIR_MV
+            self.op_type_dir_finish = UserOpCode.FINISH_DIR_MV
         elif drag_op == DragOperation.COPY:
-            self.op_type_file = UserOpType.CP
-            self.op_type_file_replace = UserOpType.CP_ONTO
-            self.op_type_dir_start = UserOpType.START_DIR_CP
-            self.op_type_dir_finish = UserOpType.FINISH_DIR_CP
+            self.op_type_file = UserOpCode.CP
+            self.op_type_file_replace = UserOpCode.CP_ONTO
+            self.op_type_dir_start = UserOpCode.START_DIR_CP
+            self.op_type_dir_finish = UserOpCode.FINISH_DIR_CP
         else:
             # This shouldn't happen currently because we have not yet added support for additional ops
             raise RuntimeError(f'Unsupported drag op ({drag_op.name})!')
@@ -226,7 +226,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                 if DIFF_DEBUG_ENABLED:
                     logger.debug(f'Replacing {sn_dir_dst_existing.spid} with dir {sn_dir_src.spid}')
                 # Remove file:
-                self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.RM, sn_src=sn_dir_dst_existing)
+                self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.RM, sn_src=sn_dir_dst_existing)
                 # Now just transfer the src subtree as though the conflicts never existed:
                 self._handle_no_conflicts_found(dd_meta, sn_dir_src, sn_dir_dst_existing.spid.get_single_path())
             else:
@@ -327,9 +327,9 @@ class TransferBuilder(TwoTreeChangeBuilder):
 
         if sn_dst_subtree_root.node.is_dir():
             for sn in self.backend.cacheman.get_subtree_bfs_sn_list(sn_dst_subtree_root.spid):
-                self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.RM, sn_src=sn)
+                self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.RM, sn_src=sn)
         else:
-            self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.RM, sn_src=sn_dst_subtree_root)
+            self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.RM, sn_src=sn_dst_subtree_root)
 
     @staticmethod
     def _increment_node_name(node_name: str) -> str:
@@ -470,7 +470,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                 elif mv_policy == SrcNodeMovePolicy.DELETE_SRC_ALWAYS:
                     logger.debug(f'Adding RM op for src node ({sn_src.spid}) despite not making changes to dst,'
                                  f' due to policy={mv_policy.name} for name="{name_src}"')
-                    self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpType.RM, sn_src=sn_src)
+                    self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.RM, sn_src=sn_src)
                 else:
                     raise RuntimeError(f'Unrecognized SrcNodeMovePolicy: {mv_policy}')
             else:
@@ -505,7 +505,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                 sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path)
 
                 if sn_src_descendent.node.is_dir():
-                    assert dd_meta.op_type_dir_start == UserOpType.START_DIR_MV or dd_meta.op_type_dir_start == UserOpType.START_DIR_CP
+                    assert dd_meta.op_type_dir_start == UserOpCode.START_DIR_MV or dd_meta.op_type_dir_start == UserOpCode.START_DIR_CP
 
                     # Add 2 ops to make the dir. In this case, the "finish" op's UID will be smaller than its children. But this should not
                     # be an issue as the start/finish pair can be placed in the OpGraph without any ambiguity.
