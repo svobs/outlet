@@ -52,7 +52,7 @@ class GDriveMemoryStore:
 
         self.backend.cacheman.update_node_icon(node)
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Node {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
+            logger.debug(f'TNode {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
 
         cached_node: GDriveNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:
@@ -76,7 +76,7 @@ class GDriveMemoryStore:
                 return node, False
 
             if cached_node == node:
-                logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                logger.debug(f'TNode being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Existing node: {cached_node}')
                 return cached_node, False

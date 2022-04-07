@@ -120,7 +120,7 @@ class TreeUiListeners(HasLifecycle):
         # FIXME see above
         tree_path, col, cellx, celly = treeview.get_path_at_pos(x, y)
         node = treeview.get_model()[tree_path][self.con.treeview_meta.col_num_data]
-        logger.debug(f'Node: {node}')
+        logger.debug(f'TNode: {node}')
 
         drop_info = treeview.get_dest_row_at_pos(x, y)
         if drop_info:
@@ -292,7 +292,7 @@ class TreeUiListeners(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.NODE_EXPANSION_TOGGLED.name}" with is_expanded={is_expanded}'
                      f' for node: {sn.spid}')
         if not sn.node.is_dir():
-            raise RuntimeError(f'Node is not a directory: {type(sn.node)}; node_data')
+            raise RuntimeError(f'TNode is not a directory: {type(sn.node)}; node_data')
 
         dispatcher.send(signal=Signal.NODE_EXPANSION_TOGGLED, sender=self.con.tree_id, parent_iter=parent_iter, parent_path=parent_path,
                         sn=sn, is_expanded=is_expanded, expand_all=False)

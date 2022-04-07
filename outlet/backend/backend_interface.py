@@ -11,7 +11,7 @@ from model.device import Device
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest, RowsOfInterest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.tree_action import TreeAction
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -80,7 +80,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[TNode]:
         pass
 
     @abstractmethod

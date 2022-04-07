@@ -6,7 +6,7 @@ from constants import TreeID
 from model.device import Device
 from model.node.directory_stats import DirectoryStats
 from model.uid import UID
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task
@@ -47,12 +47,12 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_node_for_uid(self, uid: UID) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID) -> Optional[TNode]:
         """throws CacheNotLoadedError if appropriate cache not loaded"""
         pass
 
     @abstractmethod
-    def read_node_for_uid(self, node_uid: UID) -> Optional[Node]:
+    def read_node_for_uid(self, node_uid: UID) -> Optional[TNode]:
         """This actually reads directly from the disk cache if needed"""
         pass
 
@@ -61,7 +61,7 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def to_sn(self, node: Node, single_path: Optional[str]) -> SPIDNodePair:
+    def to_sn(self, node: TNode, single_path: Optional[str]) -> SPIDNodePair:
         pass
 
     @abstractmethod
@@ -69,18 +69,18 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_parent_list_for_node(self, node: Node) -> List[Node]:
+    def get_parent_list_for_node(self, node: TNode) -> List[TNode]:
         pass
 
     @abstractmethod
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[TNode]:
         """Gets any nodes associated for the list of paths.
         Checks (1) the in-memory cache first, and if that's a miss, checks (2) the disk cache. If both of those miss, checks (3) the live source.
         For GDrive stores, we cannot guarantee that a single path will have only one node, or a single node will have only one path."""
         pass
 
     @abstractmethod
-    def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[Node]:
+    def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[TNode]:
         pass
 
     @abstractmethod
@@ -88,40 +88,40 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[TNode], List[TNode]]:
         """Returns a tuple of [Files, Dirs]"""
         pass
 
     @abstractmethod
-    def get_all_files_with_content(self, content_uid: UID, cache_info_list: List) -> List[Node]:
+    def get_all_files_with_content(self, content_uid: UID, cache_info_list: List) -> List[TNode]:
         pass
 
     # Mutators
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def upsert_single_node(self, node: Node) -> Node:
+    def upsert_single_node(self, node: TNode) -> TNode:
         """Note: node returned will be the same node as from the cache, which may not match the input node
          but should be considered to be more up-to-date. The caller should update its data with this node."""
         pass
 
     @abstractmethod
-    def update_single_node(self, node: Node) -> Node:
+    def update_single_node(self, node: TNode) -> TNode:
         """Note: node returned will be the same node as from the cache, which may not match the input node
          but should be considered to be more up-to-date. The caller should update its data with this node."""
         pass
 
     @abstractmethod
-    def remove_single_node(self, node: Node, to_trash: bool) -> Optional[Node]:
+    def remove_single_node(self, node: TNode, to_trash: bool) -> Optional[TNode]:
         """If to_trash==true, this may actually be an update, in which case the updated node is returned."""
         pass
 
     @abstractmethod
-    def remove_subtree(self, subtree_root: Node, to_trash: bool):
+    def remove_subtree(self, subtree_root: TNode, to_trash: bool):
         pass
 
     @abstractmethod
-    def generate_dir_stats(self, subtree_root_node: Node, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self, subtree_root_node: TNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
         pass
 
     @abstractmethod
@@ -133,15 +133,15 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def submit_batch_of_changes(self, subtree_root: NodeIdentifier,  upsert_node_list: List[Node] = None,
-                                remove_node_list: List[Node] = None):
+    def submit_batch_of_changes(self, subtree_root: NodeIdentifier,  upsert_node_list: List[TNode] = None,
+                                remove_node_list: List[TNode] = None):
         pass
 
     # UID <-> DomainID mapping
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def get_node_for_domain_id(self, domain_id: str) -> Node:
+    def get_node_for_domain_id(self, domain_id: str) -> TNode:
         pass
 
     @abstractmethod

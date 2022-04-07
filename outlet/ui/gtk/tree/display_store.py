@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from constants import TreeID
 from logging_constants import SUPER_DEBUG_ENABLED
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
 
@@ -334,7 +334,7 @@ class DisplayStore:
         self.model.remove(initial_tree_iter)
 
     def remove_loading_node(self, parent_iter):
-        """The Loading Node must be the first child"""
+        """The Loading TNode must be the first child"""
         first_child_iter = self.model.iter_children(parent_iter)
         if not first_child_iter:
             return False

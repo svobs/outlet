@@ -10,7 +10,7 @@ from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import GDriveNodePathNotFoundError, NodeNotPresentError
 from model.gdrive_meta import GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, GDriveSPID, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -335,7 +335,7 @@ class GDriveWholeTree(BaseTree):
             path_so_far = path_so_far + '/' + name_seg
 
             for current_seg_node in current_seg_nodes:
-                matching_children: List[Node] = [n for n in self.get_child_list_for_node(current_seg_node) if n.name.lower() == name_seg]
+                matching_children: List[TNode] = [n for n in self.get_child_list_for_node(current_seg_node) if n.name.lower() == name_seg]
                 if SUPER_DEBUG_ENABLED and len(matching_children) > 1:
                     logger.info(f'get_identifier_list_for_single_path(): Multiple child IDs ({len(matching_children)}) found for parent "'
                                 f'{current_seg_node.node_identifier}", path_so_far "{path_so_far}"')
@@ -441,7 +441,7 @@ class GDriveWholeTree(BaseTree):
 
         for node_uid, node in self.uid_dict.items():
             if node_uid != node.uid:
-                logger.error(f'[!!!] Node actual UID does not match its key in the UID dict ({node_uid}): {node}')
+                logger.error(f'[!!!] TNode actual UID does not match its key in the UID dict ({node_uid}): {node}')
             if len(node.get_parent_uids()) > 1:
                 resolved_parent_ids = [x for x in node.get_parent_uids() if self.get_node_for_uid(x)]
                 if len(resolved_parent_ids) > 1:

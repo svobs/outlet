@@ -40,10 +40,10 @@ class AbstractNode(ABC):
         return self.identifier < other.identifier
 
 
-class Node(AbstractNode, HasParentList, ABC):
+class TNode(AbstractNode, HasParentList, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ABSTRACT CLASS Node
+    ABSTRACT CLASS TNode
 
     Base class for all data nodes.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -76,7 +76,7 @@ class Node(AbstractNode, HasParentList, ABC):
 
     @property
     def dn_uid(self) -> DN_UID:
-        """Device+Node UID (expressed as a str).
+        """Device+TNode UID (expressed as a str).
         This guarantees a unique identifier for the node across all devices, but DOES NOT guarantee uniqueness for all of its path instances.
         (i.e. this is sometimes the same as the node's GUID, but not for all tree types)"""
         return f'{self.device_uid}:{self.uid}'
@@ -120,7 +120,7 @@ class Node(AbstractNode, HasParentList, ABC):
 
     @classmethod
     def set_is_live(cls, is_live: bool):
-        raise InvalidOperationError('Cannot call set_is_live() for base class Node!')
+        raise InvalidOperationError('Cannot call set_is_live() for base class TNode!')
 
     @classmethod
     def has_tuple(cls) -> bool:
@@ -168,11 +168,11 @@ class Node(AbstractNode, HasParentList, ABC):
 
     @property
     def sync_ts(self) -> Optional[int]:
-        raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
+        raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of TNode!')
 
     @sync_ts.setter
     def sync_ts(self, sync_ts: int):
-        raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
+        raise InvalidOperationError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of TNode!')
 
     @property
     def create_ts(self) -> Optional[int]:
@@ -245,7 +245,7 @@ class Node(AbstractNode, HasParentList, ABC):
         return False
 
     def is_signature_equal(self, other_node) -> bool:
-        assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
+        assert isinstance(other_node, TNode), f'Invalid type: {type(other_node)}'
         if other_node.device_uid == self.device_uid and other_node.uid == self.uid:
             # Same identity -> signature matches by default
             return True
@@ -261,7 +261,7 @@ class Node(AbstractNode, HasParentList, ABC):
 
     @abstractmethod
     def update_from(self, other_node):
-        assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
+        assert isinstance(other_node, TNode), f'Invalid type: {type(other_node)}'
         assert other_node.node_identifier.node_uid == self.node_identifier.node_uid \
                and other_node.node_identifier.device_uid == self.node_identifier.device_uid, \
             f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
@@ -271,7 +271,7 @@ class Node(AbstractNode, HasParentList, ABC):
         self._icon = other_node._icon
 
 
-class NonexistentDirNode(Node):
+class NonexistentDirNode(TNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS NonexistentDirNode
@@ -303,7 +303,7 @@ class NonexistentDirNode(Node):
 
     def update_from(self, other_node):
         assert isinstance(other_node, NonexistentDirNode), f'Invalid type: {type(other_node)}'
-        Node.update_from(self, other_node)
+        TNode.update_from(self, other_node)
         self._name = other_node.name
 
     def is_parent_of(self, potential_child_node) -> bool:

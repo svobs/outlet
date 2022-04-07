@@ -4,13 +4,13 @@ from typing import List, Optional
 from constants import ChangeTreeCategory, IconId, OBJ_TYPE_DIR, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import ChangeTreeSPID, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import ChangeTreeCategoryMeta, UserOpCode
 
 
-class ContainerNode(Node):
+class ContainerNode(TNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS ContainerNode
@@ -21,10 +21,10 @@ class ContainerNode(Node):
     def __init__(self, node_identifier: SinglePathNodeIdentifier):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
         self.dir_stats: Optional[DirectoryStats] = None
-        Node.__init__(self, node_identifier)
+        TNode.__init__(self, node_identifier)
 
     def update_from(self, other_node):
-        Node.update_from(self, other_node)
+        TNode.update_from(self, other_node)
         self.dir_stats = other_node.dir_stats
 
     def get_parent_uids(self) -> List[UID]:
@@ -60,7 +60,7 @@ class ContainerNode(Node):
     def is_dir(cls):
         return True
 
-    def is_parent_of(self, potential_child_node: Node) -> bool:
+    def is_parent_of(self, potential_child_node: TNode) -> bool:
         raise InvalidOperationError('is_parent_of')
 
     def get_default_icon(self) -> IconId:

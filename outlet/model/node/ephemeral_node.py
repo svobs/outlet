@@ -3,11 +3,11 @@ from typing import Optional
 
 from constants import IconId
 from error import InvalidOperationError
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import EphemeralNodeIdentifier, NodeIdentifier
 
 
-class EphemeralNode(Node, ABC):
+class EphemeralNode(TNode, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS EphemeralNode
@@ -63,7 +63,7 @@ class EphemeralNode(Node, ABC):
         return None
 
     def update_from(self, other_node):
-        Node.update_from(self, other_node)
+        TNode.update_from(self, other_node)
 
 
 class LoadingNode(EphemeralNode):

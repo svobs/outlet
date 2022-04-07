@@ -12,7 +12,7 @@ from constants import IS_MACOS, IS_WINDOWS, MACOS_SETFILE_DATETIME_FMT
 from error import IdenticalFileExistsError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalFileNode, LocalNode
-from model.node.node import Node
+from model.node.node import TNode
 from util import file_util, time_util
 
 logger = logging.getLogger(__name__)
@@ -160,7 +160,7 @@ class LocalFileUtil:
                 raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
                                    f'src_md5={src_node.md5}, staging_file="{staging_path}", staging_md5={staging_node.md5}')
     
-    def copy_meta(self, src_node: Node, dst_path: str) -> LocalNode:
+    def copy_meta(self, src_node: TNode, dst_path: str) -> LocalNode:
         """Sets create_ts, modify_ts (and access_ts) for dst_path, using the values found in src_node.
         Note that src_node does not need to be a LocalNode."""
         try:

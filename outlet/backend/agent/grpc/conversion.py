@@ -14,7 +14,7 @@ from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.node import Node, NonexistentDirNode, SPIDNodePair
+from model.node.node import TNode, NonexistentDirNode, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from outlet.backend.agent.grpc.generated import Outlet_pb2
@@ -36,15 +36,15 @@ class GRPCConverter:
     def __init__(self, outlet_backend):
         self.backend = outlet_backend
 
-    # Node
+    # TNode
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def node_to_grpc(self, node: Node, grpc_node: backend.agent.grpc.generated.Node_pb2.Node):
-        assert isinstance(node, Node), f'Not a Node: {node}'
+    def node_to_grpc(self, node: TNode, grpc_node: backend.agent.grpc.generated.Node_pb2.TNode):
+        assert isinstance(node, TNode), f'Not a TNode: {node}'
 
         self.node_identifier_to_grpc(node.node_identifier, grpc_node.node_identifier)
 
-        # Node common fields:
+        # TNode common fields:
         grpc_node.trashed = node.get_trashed_status()
         grpc_node.is_shared = node.is_shared
         grpc_node.icon_id = node.get_icon().value
@@ -135,14 +135,14 @@ class GRPCConverter:
                 meta.create_ts = node.create_ts
         return grpc_node
 
-    def optional_node_from_grpc_container(self, node_container) -> Optional[Node]:
+    def optional_node_from_grpc_container(self, node_container) -> Optional[TNode]:
         if not node_container.HasField('node'):
             return None
 
-        grpc_node: backend.agent.grpc.generated.Node_pb2.Node = node_container.node
+        grpc_node: backend.agent.grpc.generated.Node_pb2.TNode = node_container.node
         return self.node_from_grpc(grpc_node)
 
-    def node_from_grpc(self, grpc_node: backend.agent.grpc.generated.Node_pb2.Node) -> Node:
+    def node_from_grpc(self, grpc_node: backend.agent.grpc.generated.Node_pb2.TNode) -> TNode:
         node_identifier = self.node_identifier_from_grpc(grpc_node.node_identifier)
 
         if grpc_node.HasField("gdrive_file_meta"):
@@ -235,16 +235,16 @@ class GRPCConverter:
                 dir_meta_grpc.uid = key
                 self.dir_stats_to_grpc(dir_stats, dir_meta_parent=dir_meta_grpc)
 
-    # List[Node]
+    # List[TNode]
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def node_list_to_grpc(self, node_list: Iterable[Node], grpc_node_list):
+    def node_list_to_grpc(self, node_list: Iterable[TNode], grpc_node_list):
         for node in node_list:
             grpc_node = grpc_node_list.add()
             self.node_to_grpc(node, grpc_node)
 
-    def node_list_from_grpc(self, grpc_node_list) -> List[Node]:
-        node_list: List[Node] = []
+    def node_list_from_grpc(self, grpc_node_list) -> List[TNode]:
+        node_list: List[TNode] = []
         for grpc_node in grpc_node_list:
             node = self.node_from_grpc(grpc_node)
             node_list.append(node)

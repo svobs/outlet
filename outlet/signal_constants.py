@@ -5,9 +5,9 @@ from enum import IntEnum
 
 class Signal(IntEnum):
     NODE_UPSERTED = 1
-    """Sent from BE and received by FE: a Node was upserted into the DisplayTree"""
+    """Sent from BE and received by FE: a TNode was upserted into the DisplayTree"""
     NODE_REMOVED = 2
-    """Sent from BE and received by FE: a Node was removed from the DisplayTree"""
+    """Sent from BE and received by FE: a TNode was removed from the DisplayTree"""
     STATS_UPDATED = 3
     """Sent from BE and received by FE: stats were updated for nodes in the DisplayTree, and also possibly the StatusMsg"""
     SUBTREE_NODES_CHANGED = 4

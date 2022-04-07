@@ -11,7 +11,7 @@ from backend.sqlite.local_db import LocalDiskDatabase
 from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TreeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpCode
@@ -183,7 +183,7 @@ class TableListCollection:
         self.dst_pending: List[LiveTable] = []
         self.src_archive: List[LiveTable] = []
         self.dst_archive: List[LiveTable] = []
-        self.tuple_to_obj_func_map: Dict[str, Callable[[Dict[UID, Node], Tuple], Any]] = {}
+        self.tuple_to_obj_func_map: Dict[str, Callable[[Dict[UID, TNode], Tuple], Any]] = {}
         # self.obj_to_tuple_func_map: Dict[str, Callable[[Any, UID], Tuple]] = {}
 
     def put_table(self, lifecycle_state: str, src_or_dst: str, tree_type: TreeType, obj_type: str, table):
@@ -280,7 +280,7 @@ class OpDatabase(MetaDatabase):
                                    f'for goog_id "{goog_id}"')
 
     def _collect_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, op_uid_int: int,
-                               nodes_by_action_uid: Dict[UID, Node]):
+                               nodes_by_action_uid: Dict[UID, TNode]):
         self._verify_goog_id_consistency(goog_id, obj.device_uid, obj.uid)
 
         if not parent_uid_int:
@@ -291,7 +291,7 @@ class OpDatabase(MetaDatabase):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
         nodes_by_action_uid[op_uid] = obj
 
-    def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFolder:
+    def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, TNode], row: Tuple) -> GDriveFolder:
         op_uid_int, device_uid, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, \
             is_shared, shared_by_user_uid, sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
@@ -304,7 +304,7 @@ class OpDatabase(MetaDatabase):
 
         return obj
 
-    def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
+    def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, TNode], row: Tuple) -> GDriveFile:
         op_uid_int, device_uid, uid_int, goog_id, content_uid, size_bytes, node_name, mime_type_uid, item_trashed, create_ts, modify_ts, \
             owner_uid, drive_id, is_shared, shared_by_user_uid, version, sync_ts, parent_uid_int, parent_goog_id = row
 
@@ -318,7 +318,7 @@ class OpDatabase(MetaDatabase):
         self._collect_gdrive_object(obj, goog_id, parent_uid_int, op_uid_int, nodes_by_action_uid)
         return obj
 
-    def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
+    def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, TNode], row: Tuple) -> LocalDirNode:
         op_uid_int, device_uid, uid_int, parent_uid, full_path, trashed_status, is_live, sync_ts, create_ts, modify_ts, change_ts, \
             all_children_fetched = row
 
@@ -333,7 +333,7 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
         return obj
 
-    def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
+    def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, TNode], row: Tuple) -> LocalFileNode:
         op_uid_int, device_uid, uid_int, parent_uid, content_uid, size_bytes, sync_ts, create_ts, modify_ts, change_ts, full_path, trashed, \
             is_live = row
 
@@ -349,9 +349,9 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
         return obj
 
-    def _action_node_to_tuple(self, node: Node, op_uid: UID) -> Tuple:
+    def _action_node_to_tuple(self, node: TNode, op_uid: UID) -> Tuple:
         if not node.has_tuple():
-            raise RuntimeError(f'Node cannot be converted to tuple: {node}')
+            raise RuntimeError(f'TNode cannot be converted to tuple: {node}')
         if node.tree_type == TreeType.GDRIVE:
             assert isinstance(node, GDriveNode)
             parent_uid: Optional[UID] = None
@@ -367,7 +367,7 @@ class OpDatabase(MetaDatabase):
                     if len(parent_goog_id_list) > 1:
                         # FIXME: need to add support for storing multiple parents!
                         # (however in theory this shouldn't result in a bug, because the load process should favor the correct copy from main cache)
-                        logger.error(f'Node {node.device_uid}:{node.uid} has more than one parent: only first one will be stored!')
+                        logger.error(f'TNode {node.device_uid}:{node.uid} has more than one parent: only first one will be stored!')
             return op_uid, node.device_uid, *node.to_tuple(), parent_uid, parent_goog_id
 
         assert node.tree_type == TreeType.LOCAL_DISK
@@ -433,7 +433,7 @@ class OpDatabase(MetaDatabase):
     # PENDING_OP operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _get_all_in_table(self, table: LiveTable, nodes_by_op_uid: Dict[UID, Node]):
+    def _get_all_in_table(self, table: LiveTable, nodes_by_op_uid: Dict[UID, TNode]):
         # Look up appropriate ORM function and bind its first param to nodes_by_op_uid
         table_func: Callable = partial(self.table_lists.tuple_to_obj_func_map[table.name], nodes_by_op_uid)
 
@@ -446,12 +446,12 @@ class OpDatabase(MetaDatabase):
         if not self.table_pending_op.is_table():
             return entries
 
-        src_node_by_op_uid: Dict[UID, Node] = {}
+        src_node_by_op_uid: Dict[UID, TNode] = {}
         for table in self.table_lists.src_pending:
             logger.debug(f'Getting src nodes from table: "{table.name}"')
             self._get_all_in_table(table, src_node_by_op_uid)
 
-        dst_node_by_op_uid: Dict[UID, Node] = {}
+        dst_node_by_op_uid: Dict[UID, TNode] = {}
         for table in self.table_lists.dst_pending:
             logger.debug(f'Getting dst nodes from table: "{table.name}"')
             self._get_all_in_table(table, dst_node_by_op_uid)

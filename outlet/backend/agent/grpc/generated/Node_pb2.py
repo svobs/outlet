@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'\n\030com.msvoboda.outlet.grpcP\001Z\030msvoboda.com/outlet/grpc',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n.outlet/backend/agent/grpc/generated/Node.proto\x12#outlet.backend.agent.grpc.generated\"\x06\n\x04Null\"\xc9\x01\n\x06UserOp\x12\x0e\n\x06op_uid\x18\x01 \x01(\r\x12\x11\n\tbatch_uid\x18\x02 \x01(\r\x12\x0f\n\x07op_type\x18\x03 \x01(\r\x12;\n\x08src_node\x18\x04 \x01(\x0b\x32).outlet.backend.agent.grpc.generated.Node\x12;\n\x08\x64st_node\x18\x05 \x01(\x0b\x32).outlet.backend.agent.grpc.generated.Node\x12\x11\n\tcreate_ts\x18\x06 \x01(\x04\"\x8a\x01\n\x0eSrcDstNodeList\x12;\n\x08src_node\x18\x01 \x01(\x0b\x32).outlet.backend.agent.grpc.generated.Node\x12;\n\x08\x64st_node\x18\x02 \x01(\x0b\x32).outlet.backend.agent.grpc.generated.Node\"\x8a\x01\n\x0cSPIDNodePair\x12\x41\n\x04spid\x18\x01 \x01(\x0b\x32\x33.outlet.backend.agent.grpc.generated.NodeIdentifier\x12\x37\n\x04node\x18\x02 \x01(\x0b\x32).outlet.backend.agent.grpc.generated.Node\",\n\x17MultiPathIdentifierMeta\x12\x11\n\tpath_list\x18\x04 \x03(\t\"V\n\x18SinglePathIdentifierMeta\x12\x10\n\x08path_uid\x18\x05 \x01(\r\x12\x13\n\x0bsingle_path\x18\x06 \x01(\t\x12\x13\n\x0bparent_guid\x18\x07 \x01(\t\"\x8f\x02\n\x0eNodeIdentifier\x12\x17\n\x0fidentifier_type\x18\x01 \x01(\r\x12\x12\n\ndevice_uid\x18\x02 \x01(\r\x12\x10\n\x08node_uid\x18\x03 \x01(\r\x12Z\n\x12multi_path_id_meta\x18\x04 \x01(\x0b\x32<.outlet.backend.agent.grpc.generated.MultiPathIdentifierMetaH\x00\x12R\n\tspid_meta\x18\x05 \x01(\x0b\x32=.outlet.backend.agent.grpc.generated.SinglePathIdentifierMetaH\x00\x42\x0e\n\x0csubtype_meta\"\xa4\x06\n\x04Node\x12L\n\x0fnode_identifier\x18\x01 \x01(\x0b\x32\x33.outlet.backend.agent.grpc.generated.NodeIdentifier\x12\x0f\n\x07trashed\x18\x02 \x01(\r\x12\x11\n\tis_shared\x18\x03 \x01(\x08\x12\x0f\n\x07icon_id\x18\x04 \x01(\r\x12P\n\x0e\x63ontainer_meta\x18\n \x01(\x0b\x32\x36.outlet.backend.agent.grpc.generated.ContainerNodeMetaH\x00\x12N\n\rcategory_meta\x18\x0b \x01(\x0b\x32\x35.outlet.backend.agent.grpc.generated.CategoryNodeMetaH\x00\x12O\n\x0eroot_type_meta\x18\x0c \x01(\x0b\x32\x35.outlet.backend.agent.grpc.generated.RootTypeNodeMetaH\x00\x12K\n\x0elocal_dir_meta\x18\x14 \x01(\x0b\x32\x31.outlet.backend.agent.grpc.generated.LocalDirMetaH\x00\x12M\n\x0flocal_file_meta\x18\x15 \x01(\x0b\x32\x32.outlet.backend.agent.grpc.generated.LocalFileMetaH\x00\x12O\n\x10gdrive_file_meta\x18\x16 \x01(\x0b\x32\x33.outlet.backend.agent.grpc.generated.GDriveFileMetaH\x00\x12S\n\x12gdrive_folder_meta\x18\x17 \x01(\x0b\x32\x35.outlet.backend.agent.grpc.generated.GDriveFolderMetaH\x00\x12W\n\x14nonexistent_dir_meta\x18\x18 \x01(\x0b\x32\x37.outlet.backend.agent.grpc.generated.NonexistentDirMetaH\x00\x42\x0b\n\tnode_type\"\x87\x01\n\x0e\x46ilterCriteria\x12\x14\n\x0csearch_query\x18\x01 \x01(\t\x12\x12\n\nis_trashed\x18\x02 \x01(\r\x12\x11\n\tis_shared\x18\x03 \x01(\r\x12\x16\n\x0eis_ignore_case\x18\x04 \x01(\x08\x12 \n\x18show_subtrees_of_matches\x18\x05 \x01(\x08\"\xa4\x01\n\x07\x44irMeta\x12\x10\n\x08has_data\x18\x01 \x01(\x08\x12\x12\n\nfile_count\x18\x02 \x01(\r\x12\x11\n\tdir_count\x18\x03 \x01(\r\x12\x1a\n\x12trashed_file_count\x18\x04 \x01(\r\x12\x19\n\x11trashed_dir_count\x18\x05 \x01(\r\x12\x12\n\nsize_bytes\x18\x06 \x01(\x04\x12\x15\n\rtrashed_bytes\x18\x07 \x01(\x04\"S\n\x11\x43ontainerNodeMeta\x12>\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\"R\n\x10\x43\x61tegoryNodeMeta\x12>\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\"R\n\x10RootTypeNodeMeta\x12>\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\"\xdb\x01\n\x0cLocalDirMeta\x12\x12\n\nparent_uid\x18\x01 \x01(\r\x12\x0f\n\x07is_live\x18\x02 \x01(\x08\x12>\n\x08\x64ir_meta\x18\x03 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\x12\x1c\n\x14\x61ll_children_fetched\x18\x05 \x01(\x08\x12\x0f\n\x07sync_ts\x18\x06 \x01(\x04\x12\x11\n\tcreate_ts\x18\x07 \x01(\x04\x12\x11\n\tmodify_ts\x18\x08 \x01(\x04\x12\x11\n\tchange_ts\x18\t \x01(\x04\"\xaf\x01\n\rLocalFileMeta\x12\x12\n\nparent_uid\x18\x01 \x01(\r\x12\x0f\n\x07is_live\x18\x02 \x01(\x08\x12\x12\n\nsize_bytes\x18\x03 \x01(\x04\x12\x0f\n\x07sync_ts\x18\x04 \x01(\x04\x12\x11\n\tcreate_ts\x18\x05 \x01(\x04\x12\x11\n\tmodify_ts\x18\x06 \x01(\x04\x12\x11\n\tchange_ts\x18\x07 \x01(\x04\x12\x0b\n\x03md5\x18\x08 \x01(\t\x12\x0e\n\x06sha256\x18\t \x01(\t\"\x89\x02\n\x0eGDriveFileMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\r\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\r\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\r\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x04\x12\x11\n\tmodify_ts\x18\x08 \x01(\x04\x12\x11\n\tcreate_ts\x18\t \x01(\x04\x12\x0b\n\x03md5\x18\n \x01(\t\x12\x0f\n\x07version\x18\x0b \x01(\r\x12\x12\n\nsize_bytes\x18\x0c \x01(\x04\x12\x15\n\rmime_type_uid\x18\r \x01(\r\"\xa0\x02\n\x10GDriveFolderMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\r\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\r\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\r\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x04\x12\x11\n\tmodify_ts\x18\x08 \x01(\x04\x12\x11\n\tcreate_ts\x18\t \x01(\x04\x12>\n\x08\x64ir_meta\x18\n \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\x12\x1c\n\x14\x61ll_children_fetched\x18\x0b \x01(\x08\"\"\n\x12NonexistentDirMeta\x12\x0c\n\x04name\x18\x01 \x01(\tB6\n\x18\x63om.msvoboda.outlet.grpcP\x01Z\x18msvoboda.com/outlet/grpcb\x06proto3'
+  serialized_pb=b'\n.outlet/backend/agent/grpc/generated/Node.proto\x12#outlet.backend.agent.grpc.generated\"\x06\n\x04Null\"\xcb\x01\n\x06UserOp\x12\x0e\n\x06op_uid\x18\x01 \x01(\r\x12\x11\n\tbatch_uid\x18\x02 \x01(\r\x12\x0f\n\x07op_type\x18\x03 \x01(\r\x12<\n\x08src_node\x18\x04 \x01(\x0b\x32*.outlet.backend.agent.grpc.generated.TNode\x12<\n\x08\x64st_node\x18\x05 \x01(\x0b\x32*.outlet.backend.agent.grpc.generated.TNode\x12\x11\n\tcreate_ts\x18\x06 \x01(\x04\"\x8c\x01\n\x0eSrcDstNodeList\x12<\n\x08src_node\x18\x01 \x01(\x0b\x32*.outlet.backend.agent.grpc.generated.TNode\x12<\n\x08\x64st_node\x18\x02 \x01(\x0b\x32*.outlet.backend.agent.grpc.generated.TNode\"\x8b\x01\n\x0cSPIDNodePair\x12\x41\n\x04spid\x18\x01 \x01(\x0b\x32\x33.outlet.backend.agent.grpc.generated.NodeIdentifier\x12\x38\n\x04node\x18\x02 \x01(\x0b\x32*.outlet.backend.agent.grpc.generated.TNode\",\n\x17MultiPathIdentifierMeta\x12\x11\n\tpath_list\x18\x04 \x03(\t\"V\n\x18SinglePathIdentifierMeta\x12\x10\n\x08path_uid\x18\x05 \x01(\r\x12\x13\n\x0bsingle_path\x18\x06 \x01(\t\x12\x13\n\x0bparent_guid\x18\x07 \x01(\t\"\x8f\x02\n\x0eNodeIdentifier\x12\x17\n\x0fidentifier_type\x18\x01 \x01(\r\x12\x12\n\ndevice_uid\x18\x02 \x01(\r\x12\x10\n\x08node_uid\x18\x03 \x01(\r\x12Z\n\x12multi_path_id_meta\x18\x04 \x01(\x0b\x32<.outlet.backend.agent.grpc.generated.MultiPathIdentifierMetaH\x00\x12R\n\tspid_meta\x18\x05 \x01(\x0b\x32=.outlet.backend.agent.grpc.generated.SinglePathIdentifierMetaH\x00\x42\x0e\n\x0csubtype_meta\"\xa5\x06\n\x05TNode\x12L\n\x0fnode_identifier\x18\x01 \x01(\x0b\x32\x33.outlet.backend.agent.grpc.generated.NodeIdentifier\x12\x0f\n\x07trashed\x18\x02 \x01(\r\x12\x11\n\tis_shared\x18\x03 \x01(\x08\x12\x0f\n\x07icon_id\x18\x04 \x01(\r\x12P\n\x0e\x63ontainer_meta\x18\n \x01(\x0b\x32\x36.outlet.backend.agent.grpc.generated.ContainerNodeMetaH\x00\x12N\n\rcategory_meta\x18\x0b \x01(\x0b\x32\x35.outlet.backend.agent.grpc.generated.CategoryNodeMetaH\x00\x12O\n\x0eroot_type_meta\x18\x0c \x01(\x0b\x32\x35.outlet.backend.agent.grpc.generated.RootTypeNodeMetaH\x00\x12K\n\x0elocal_dir_meta\x18\x14 \x01(\x0b\x32\x31.outlet.backend.agent.grpc.generated.LocalDirMetaH\x00\x12M\n\x0flocal_file_meta\x18\x15 \x01(\x0b\x32\x32.outlet.backend.agent.grpc.generated.LocalFileMetaH\x00\x12O\n\x10gdrive_file_meta\x18\x16 \x01(\x0b\x32\x33.outlet.backend.agent.grpc.generated.GDriveFileMetaH\x00\x12S\n\x12gdrive_folder_meta\x18\x17 \x01(\x0b\x32\x35.outlet.backend.agent.grpc.generated.GDriveFolderMetaH\x00\x12W\n\x14nonexistent_dir_meta\x18\x18 \x01(\x0b\x32\x37.outlet.backend.agent.grpc.generated.NonexistentDirMetaH\x00\x42\x0b\n\tnode_type\"\x87\x01\n\x0e\x46ilterCriteria\x12\x14\n\x0csearch_query\x18\x01 \x01(\t\x12\x12\n\nis_trashed\x18\x02 \x01(\r\x12\x11\n\tis_shared\x18\x03 \x01(\r\x12\x16\n\x0eis_ignore_case\x18\x04 \x01(\x08\x12 \n\x18show_subtrees_of_matches\x18\x05 \x01(\x08\"\xa4\x01\n\x07\x44irMeta\x12\x10\n\x08has_data\x18\x01 \x01(\x08\x12\x12\n\nfile_count\x18\x02 \x01(\r\x12\x11\n\tdir_count\x18\x03 \x01(\r\x12\x1a\n\x12trashed_file_count\x18\x04 \x01(\r\x12\x19\n\x11trashed_dir_count\x18\x05 \x01(\r\x12\x12\n\nsize_bytes\x18\x06 \x01(\x04\x12\x15\n\rtrashed_bytes\x18\x07 \x01(\x04\"S\n\x11\x43ontainerNodeMeta\x12>\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\"R\n\x10\x43\x61tegoryNodeMeta\x12>\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\"R\n\x10RootTypeNodeMeta\x12>\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\"\xdb\x01\n\x0cLocalDirMeta\x12\x12\n\nparent_uid\x18\x01 \x01(\r\x12\x0f\n\x07is_live\x18\x02 \x01(\x08\x12>\n\x08\x64ir_meta\x18\x03 \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\x12\x1c\n\x14\x61ll_children_fetched\x18\x05 \x01(\x08\x12\x0f\n\x07sync_ts\x18\x06 \x01(\x04\x12\x11\n\tcreate_ts\x18\x07 \x01(\x04\x12\x11\n\tmodify_ts\x18\x08 \x01(\x04\x12\x11\n\tchange_ts\x18\t \x01(\x04\"\xaf\x01\n\rLocalFileMeta\x12\x12\n\nparent_uid\x18\x01 \x01(\r\x12\x0f\n\x07is_live\x18\x02 \x01(\x08\x12\x12\n\nsize_bytes\x18\x03 \x01(\x04\x12\x0f\n\x07sync_ts\x18\x04 \x01(\x04\x12\x11\n\tcreate_ts\x18\x05 \x01(\x04\x12\x11\n\tmodify_ts\x18\x06 \x01(\x04\x12\x11\n\tchange_ts\x18\x07 \x01(\x04\x12\x0b\n\x03md5\x18\x08 \x01(\t\x12\x0e\n\x06sha256\x18\t \x01(\t\"\x89\x02\n\x0eGDriveFileMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\r\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\r\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\r\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x04\x12\x11\n\tmodify_ts\x18\x08 \x01(\x04\x12\x11\n\tcreate_ts\x18\t \x01(\x04\x12\x0b\n\x03md5\x18\n \x01(\t\x12\x0f\n\x07version\x18\x0b \x01(\r\x12\x12\n\nsize_bytes\x18\x0c \x01(\x04\x12\x15\n\rmime_type_uid\x18\r \x01(\r\"\xa0\x02\n\x10GDriveFolderMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\r\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\r\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\r\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x04\x12\x11\n\tmodify_ts\x18\x08 \x01(\x04\x12\x11\n\tcreate_ts\x18\t \x01(\x04\x12>\n\x08\x64ir_meta\x18\n \x01(\x0b\x32,.outlet.backend.agent.grpc.generated.DirMeta\x12\x1c\n\x14\x61ll_children_fetched\x18\x0b \x01(\x08\"\"\n\x12NonexistentDirMeta\x12\x0c\n\x04name\x18\x01 \x01(\tB6\n\x18\x63om.msvoboda.outlet.grpcP\x01Z\x18msvoboda.com/outlet/grpcb\x06proto3'
 )
 
 
@@ -113,7 +113,7 @@ _USEROP = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=96,
-  serialized_end=297,
+  serialized_end=299,
 )
 
 
@@ -151,8 +151,8 @@ _SRCDSTNODELIST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=300,
-  serialized_end=438,
+  serialized_start=302,
+  serialized_end=442,
 )
 
 
@@ -190,8 +190,8 @@ _SPIDNODEPAIR = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=441,
-  serialized_end=579,
+  serialized_start=445,
+  serialized_end=584,
 )
 
 
@@ -222,8 +222,8 @@ _MULTIPATHIDENTIFIERMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=581,
-  serialized_end=625,
+  serialized_start=586,
+  serialized_end=630,
 )
 
 
@@ -268,8 +268,8 @@ _SINGLEPATHIDENTIFIERMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=627,
-  serialized_end=713,
+  serialized_start=632,
+  serialized_end=718,
 )
 
 
@@ -333,98 +333,98 @@ _NODEIDENTIFIER = _descriptor.Descriptor(
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=716,
-  serialized_end=987,
+  serialized_start=721,
+  serialized_end=992,
 )
 
 
-_NODE = _descriptor.Descriptor(
-  name='Node',
-  full_name='outlet.backend.agent.grpc.generated.Node',
+_TNODE = _descriptor.Descriptor(
+  name='TNode',
+  full_name='outlet.backend.agent.grpc.generated.TNode',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='node_identifier', full_name='outlet.backend.agent.grpc.generated.Node.node_identifier', index=0,
+      name='node_identifier', full_name='outlet.backend.agent.grpc.generated.TNode.node_identifier', index=0,
       number=1, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='trashed', full_name='outlet.backend.agent.grpc.generated.Node.trashed', index=1,
+      name='trashed', full_name='outlet.backend.agent.grpc.generated.TNode.trashed', index=1,
       number=2, type=13, cpp_type=3, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='is_shared', full_name='outlet.backend.agent.grpc.generated.Node.is_shared', index=2,
+      name='is_shared', full_name='outlet.backend.agent.grpc.generated.TNode.is_shared', index=2,
       number=3, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='icon_id', full_name='outlet.backend.agent.grpc.generated.Node.icon_id', index=3,
+      name='icon_id', full_name='outlet.backend.agent.grpc.generated.TNode.icon_id', index=3,
       number=4, type=13, cpp_type=3, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='container_meta', full_name='outlet.backend.agent.grpc.generated.Node.container_meta', index=4,
+      name='container_meta', full_name='outlet.backend.agent.grpc.generated.TNode.container_meta', index=4,
       number=10, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='category_meta', full_name='outlet.backend.agent.grpc.generated.Node.category_meta', index=5,
+      name='category_meta', full_name='outlet.backend.agent.grpc.generated.TNode.category_meta', index=5,
       number=11, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='root_type_meta', full_name='outlet.backend.agent.grpc.generated.Node.root_type_meta', index=6,
+      name='root_type_meta', full_name='outlet.backend.agent.grpc.generated.TNode.root_type_meta', index=6,
       number=12, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='local_dir_meta', full_name='outlet.backend.agent.grpc.generated.Node.local_dir_meta', index=7,
+      name='local_dir_meta', full_name='outlet.backend.agent.grpc.generated.TNode.local_dir_meta', index=7,
       number=20, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='local_file_meta', full_name='outlet.backend.agent.grpc.generated.Node.local_file_meta', index=8,
+      name='local_file_meta', full_name='outlet.backend.agent.grpc.generated.TNode.local_file_meta', index=8,
       number=21, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='gdrive_file_meta', full_name='outlet.backend.agent.grpc.generated.Node.gdrive_file_meta', index=9,
+      name='gdrive_file_meta', full_name='outlet.backend.agent.grpc.generated.TNode.gdrive_file_meta', index=9,
       number=22, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='gdrive_folder_meta', full_name='outlet.backend.agent.grpc.generated.Node.gdrive_folder_meta', index=10,
+      name='gdrive_folder_meta', full_name='outlet.backend.agent.grpc.generated.TNode.gdrive_folder_meta', index=10,
       number=23, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='nonexistent_dir_meta', full_name='outlet.backend.agent.grpc.generated.Node.nonexistent_dir_meta', index=11,
+      name='nonexistent_dir_meta', full_name='outlet.backend.agent.grpc.generated.TNode.nonexistent_dir_meta', index=11,
       number=24, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -442,13 +442,13 @@ _NODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
     _descriptor.OneofDescriptor(
-      name='node_type', full_name='outlet.backend.agent.grpc.generated.Node.node_type',
+      name='node_type', full_name='outlet.backend.agent.grpc.generated.TNode.node_type',
       index=0, containing_type=None,
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=990,
-  serialized_end=1794,
+  serialized_start=995,
+  serialized_end=1800,
 )
 
 
@@ -507,8 +507,8 @@ _FILTERCRITERIA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1797,
-  serialized_end=1932,
+  serialized_start=1803,
+  serialized_end=1938,
 )
 
 
@@ -581,8 +581,8 @@ _DIRMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1935,
-  serialized_end=2099,
+  serialized_start=1941,
+  serialized_end=2105,
 )
 
 
@@ -613,8 +613,8 @@ _CONTAINERNODEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2101,
-  serialized_end=2184,
+  serialized_start=2107,
+  serialized_end=2190,
 )
 
 
@@ -645,8 +645,8 @@ _CATEGORYNODEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2186,
-  serialized_end=2268,
+  serialized_start=2192,
+  serialized_end=2274,
 )
 
 
@@ -677,8 +677,8 @@ _ROOTTYPENODEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2270,
-  serialized_end=2352,
+  serialized_start=2276,
+  serialized_end=2358,
 )
 
 
@@ -758,8 +758,8 @@ _LOCALDIRMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2355,
-  serialized_end=2574,
+  serialized_start=2361,
+  serialized_end=2580,
 )
 
 
@@ -846,8 +846,8 @@ _LOCALFILEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2577,
-  serialized_end=2752,
+  serialized_start=2583,
+  serialized_end=2758,
 )
 
 
@@ -962,8 +962,8 @@ _GDRIVEFILEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2755,
-  serialized_end=3020,
+  serialized_start=2761,
+  serialized_end=3026,
 )
 
 
@@ -1064,8 +1064,8 @@ _GDRIVEFOLDERMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3023,
-  serialized_end=3311,
+  serialized_start=3029,
+  serialized_end=3317,
 )
 
 
@@ -1096,16 +1096,16 @@ _NONEXISTENTDIRMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3313,
-  serialized_end=3347,
+  serialized_start=3319,
+  serialized_end=3353,
 )
 
-_USEROP.fields_by_name['src_node'].message_type = _NODE
-_USEROP.fields_by_name['dst_node'].message_type = _NODE
-_SRCDSTNODELIST.fields_by_name['src_node'].message_type = _NODE
-_SRCDSTNODELIST.fields_by_name['dst_node'].message_type = _NODE
+_USEROP.fields_by_name['src_node'].message_type = _TNODE
+_USEROP.fields_by_name['dst_node'].message_type = _TNODE
+_SRCDSTNODELIST.fields_by_name['src_node'].message_type = _TNODE
+_SRCDSTNODELIST.fields_by_name['dst_node'].message_type = _TNODE
 _SPIDNODEPAIR.fields_by_name['spid'].message_type = _NODEIDENTIFIER
-_SPIDNODEPAIR.fields_by_name['node'].message_type = _NODE
+_SPIDNODEPAIR.fields_by_name['node'].message_type = _TNODE
 _NODEIDENTIFIER.fields_by_name['multi_path_id_meta'].message_type = _MULTIPATHIDENTIFIERMETA
 _NODEIDENTIFIER.fields_by_name['spid_meta'].message_type = _SINGLEPATHIDENTIFIERMETA
 _NODEIDENTIFIER.oneofs_by_name['subtype_meta'].fields.append(
@@ -1114,39 +1114,39 @@ _NODEIDENTIFIER.fields_by_name['multi_path_id_meta'].containing_oneof = _NODEIDE
 _NODEIDENTIFIER.oneofs_by_name['subtype_meta'].fields.append(
   _NODEIDENTIFIER.fields_by_name['spid_meta'])
 _NODEIDENTIFIER.fields_by_name['spid_meta'].containing_oneof = _NODEIDENTIFIER.oneofs_by_name['subtype_meta']
-_NODE.fields_by_name['node_identifier'].message_type = _NODEIDENTIFIER
-_NODE.fields_by_name['container_meta'].message_type = _CONTAINERNODEMETA
-_NODE.fields_by_name['category_meta'].message_type = _CATEGORYNODEMETA
-_NODE.fields_by_name['root_type_meta'].message_type = _ROOTTYPENODEMETA
-_NODE.fields_by_name['local_dir_meta'].message_type = _LOCALDIRMETA
-_NODE.fields_by_name['local_file_meta'].message_type = _LOCALFILEMETA
-_NODE.fields_by_name['gdrive_file_meta'].message_type = _GDRIVEFILEMETA
-_NODE.fields_by_name['gdrive_folder_meta'].message_type = _GDRIVEFOLDERMETA
-_NODE.fields_by_name['nonexistent_dir_meta'].message_type = _NONEXISTENTDIRMETA
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['container_meta'])
-_NODE.fields_by_name['container_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['category_meta'])
-_NODE.fields_by_name['category_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['root_type_meta'])
-_NODE.fields_by_name['root_type_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['local_dir_meta'])
-_NODE.fields_by_name['local_dir_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['local_file_meta'])
-_NODE.fields_by_name['local_file_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['gdrive_file_meta'])
-_NODE.fields_by_name['gdrive_file_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['gdrive_folder_meta'])
-_NODE.fields_by_name['gdrive_folder_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
-_NODE.oneofs_by_name['node_type'].fields.append(
-  _NODE.fields_by_name['nonexistent_dir_meta'])
-_NODE.fields_by_name['nonexistent_dir_meta'].containing_oneof = _NODE.oneofs_by_name['node_type']
+_TNODE.fields_by_name['node_identifier'].message_type = _NODEIDENTIFIER
+_TNODE.fields_by_name['container_meta'].message_type = _CONTAINERNODEMETA
+_TNODE.fields_by_name['category_meta'].message_type = _CATEGORYNODEMETA
+_TNODE.fields_by_name['root_type_meta'].message_type = _ROOTTYPENODEMETA
+_TNODE.fields_by_name['local_dir_meta'].message_type = _LOCALDIRMETA
+_TNODE.fields_by_name['local_file_meta'].message_type = _LOCALFILEMETA
+_TNODE.fields_by_name['gdrive_file_meta'].message_type = _GDRIVEFILEMETA
+_TNODE.fields_by_name['gdrive_folder_meta'].message_type = _GDRIVEFOLDERMETA
+_TNODE.fields_by_name['nonexistent_dir_meta'].message_type = _NONEXISTENTDIRMETA
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['container_meta'])
+_TNODE.fields_by_name['container_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['category_meta'])
+_TNODE.fields_by_name['category_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['root_type_meta'])
+_TNODE.fields_by_name['root_type_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['local_dir_meta'])
+_TNODE.fields_by_name['local_dir_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['local_file_meta'])
+_TNODE.fields_by_name['local_file_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['gdrive_file_meta'])
+_TNODE.fields_by_name['gdrive_file_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['gdrive_folder_meta'])
+_TNODE.fields_by_name['gdrive_folder_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
+_TNODE.oneofs_by_name['node_type'].fields.append(
+  _TNODE.fields_by_name['nonexistent_dir_meta'])
+_TNODE.fields_by_name['nonexistent_dir_meta'].containing_oneof = _TNODE.oneofs_by_name['node_type']
 _CONTAINERNODEMETA.fields_by_name['dir_meta'].message_type = _DIRMETA
 _CATEGORYNODEMETA.fields_by_name['dir_meta'].message_type = _DIRMETA
 _ROOTTYPENODEMETA.fields_by_name['dir_meta'].message_type = _DIRMETA
@@ -1159,7 +1159,7 @@ DESCRIPTOR.message_types_by_name['SPIDNodePair'] = _SPIDNODEPAIR
 DESCRIPTOR.message_types_by_name['MultiPathIdentifierMeta'] = _MULTIPATHIDENTIFIERMETA
 DESCRIPTOR.message_types_by_name['SinglePathIdentifierMeta'] = _SINGLEPATHIDENTIFIERMETA
 DESCRIPTOR.message_types_by_name['NodeIdentifier'] = _NODEIDENTIFIER
-DESCRIPTOR.message_types_by_name['Node'] = _NODE
+DESCRIPTOR.message_types_by_name['TNode'] = _TNODE
 DESCRIPTOR.message_types_by_name['FilterCriteria'] = _FILTERCRITERIA
 DESCRIPTOR.message_types_by_name['DirMeta'] = _DIRMETA
 DESCRIPTOR.message_types_by_name['ContainerNodeMeta'] = _CONTAINERNODEMETA
@@ -1221,12 +1221,12 @@ NodeIdentifier = _reflection.GeneratedProtocolMessageType('NodeIdentifier', (_me
   })
 _sym_db.RegisterMessage(NodeIdentifier)
 
-Node = _reflection.GeneratedProtocolMessageType('Node', (_message.Message,), {
-  'DESCRIPTOR' : _NODE,
+TNode = _reflection.GeneratedProtocolMessageType('TNode', (_message.Message,), {
+  'DESCRIPTOR' : _TNODE,
   '__module__' : 'outlet.backend.agent.grpc.generated.Node_pb2'
-  # @@protoc_insertion_point(class_scope:outlet.backend.agent.grpc.generated.Node)
+  # @@protoc_insertion_point(class_scope:outlet.backend.agent.grpc.generated.TNode)
   })
-_sym_db.RegisterMessage(Node)
+_sym_db.RegisterMessage(TNode)
 
 FilterCriteria = _reflection.GeneratedProtocolMessageType('FilterCriteria', (_message.Message,), {
   'DESCRIPTOR' : _FILTERCRITERIA,

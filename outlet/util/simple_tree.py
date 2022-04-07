@@ -155,7 +155,7 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
 
         parent_node = self.get_node_for_identifier(parent_uid)
         if not parent_node:
-            raise NodeNotPresentError(f'Node with identifier "{parent_uid}" is not in this tree')
+            raise NodeNotPresentError(f'TNode with identifier "{parent_uid}" is not in this tree')
 
         node_queue: Deque[Tuple[NodeT, NodeT]] = deque()
         node_queue.append((root_to_insert, parent_node))
@@ -198,11 +198,11 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
 
         :param identifier: the reference node to start expanding.
         :param level: the node level in the tree (root as level 0).
-        :param filter_func: the function of one variable to act on the :class:`Node` object.
+        :param filter_func: the function of one variable to act on the :class:`NodeT` object.
             When this parameter is specified, the traversing will not continue to following
             children of node whose condition does not pass the filter.
-        :param key: the ``key`` param for sorting :class:`Node` objects in the same level.
-        :param reverse: the ``reverse`` param for sorting :class:`Node` objects in the same level.
+        :param key: the ``key`` param for sorting :class:`NodeT` objects in the same level.
+        :param reverse: the ``reverse`` param for sorting :class:`NodeT` objects in the same level.
         :param line_type:
         :param show_identifier: whether to print the identifier also.
         :return: None
@@ -297,7 +297,7 @@ class SimpleTree(Generic[IdentifierT, NodeT], BaseTree[IdentifierT, NodeT]):
 
         identifier = self.extract_id(self.get_root_node()) if (identifier is None) else identifier
         if not self.contains(identifier):
-            raise NodeNotPresentError("Node '%s' is not in the tree" % identifier)
+            raise NodeNotPresentError("TNode '%s' is not in the tree" % identifier)
 
         node = self.get_node_for_identifier(identifier)
 

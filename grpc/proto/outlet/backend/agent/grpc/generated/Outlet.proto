@@ -328,7 +328,7 @@ message TreeAction {
 	string tree_id = 1;
 	uint32 action_id = 2;
 	repeated string target_guid_list = 3;  // only required for certain actions
-	repeated Node target_node_list = 4;    // only required for certain actions
+	repeated TNode target_node_list = 4;    // only required for certain actions
 	uint32 target_uid = 5;                 // context depends on the action_uid; not used for most actions
 }
 
@@ -365,7 +365,7 @@ message RequestDisplayTree_Response {
 }
 
 message SingleNode_Response {
-	Node node = 1;
+	TNode node = 1;
 }
 
 message GetUidForLocalPath_Request {

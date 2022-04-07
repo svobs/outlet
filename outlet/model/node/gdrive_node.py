@@ -6,7 +6,7 @@ from backend.sqlite.content_meta_db import ContentMeta
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import GDriveIdentifier
 from model.uid import UID
 from util.ensure import ensure_bool, ensure_int, ensure_trash_status, ensure_uid
@@ -14,7 +14,7 @@ from util.ensure import ensure_bool, ensure_int, ensure_trash_status, ensure_uid
 logger = logging.getLogger(__name__)
 
 
-class GDriveNode(Node, ABC):
+class GDriveNode(TNode, ABC):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
         CLASS GDriveNode
@@ -24,14 +24,14 @@ class GDriveNode(Node, ABC):
     def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: TrashStatus,
                  create_ts: Optional[int], modify_ts: Optional[int],
                  owner_uid: Optional[UID], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[UID], sync_ts: Optional[int]):
-        Node.__init__(self, node_identifier)
+        TNode.__init__(self, node_identifier)
 
         self._trashed: TrashStatus = ensure_trash_status(trashed)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
 
-        assert node_name, f'Node name is null! node_identifier={node_identifier} goog_id={goog_id}'
+        assert node_name, f'TNode name is null! node_identifier={node_identifier} goog_id={goog_id}'
         self._name = node_name
 
         self._create_ts = ensure_int(create_ts)
@@ -54,7 +54,7 @@ class GDriveNode(Node, ABC):
     def update_from(self, other_node):
         if not isinstance(other_node, GDriveNode):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
-        Node.update_from(self, other_node)
+        TNode.update_from(self, other_node)
         self._trashed: TrashStatus = other_node.get_trashed_status()
         self.goog_id = other_node.goog_id
         self._name = other_node.name
@@ -175,7 +175,7 @@ class GDriveFolder(GDriveNode):
         return self.uid, self.goog_id, self.name, self.get_trashed_status(), self.create_ts, self._modify_ts, self.owner_uid, \
                self.drive_id, self._is_shared, self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
 
-    def is_parent_of(self, potential_child_node: Node) -> bool:
+    def is_parent_of(self, potential_child_node: TNode) -> bool:
         if potential_child_node.device_uid == self.device_uid:
             assert isinstance(potential_child_node, GDriveNode)
             return self.uid in potential_child_node.get_parent_uids()
@@ -304,7 +304,7 @@ class GDriveFile(GDriveNode):
         self._size_bytes = other_node.get_size_bytes()
         self._trashed: TrashStatus = other_node.get_trashed_status()
 
-    def is_parent_of(self, potential_child_node: Node) -> bool:
+    def is_parent_of(self, potential_child_node: TNode) -> bool:
         # A file can never be the parent of anything
         return False
 

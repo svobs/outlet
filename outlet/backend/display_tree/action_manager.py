@@ -13,7 +13,7 @@ from constants import ActionID, CONFIG_PY_DIR, CONFIG_PY_MODULE, DATE_REGEX, INI
     TreeType
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.display_tree.tree_action import TreeAction
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GUID
 from model.user_op import UserOp
 from signal_constants import ID_ACTION_MANAGER, Signal
@@ -32,13 +32,13 @@ class CustomMenuAction:
         self._is_enabled_func: Callable = is_enabled_func
         self._run_func: Callable = run_func
 
-    def get_label(self, node_list: List[Node]) -> bool:
+    def get_label(self, node_list: List[TNode]) -> bool:
         return self._get_label_func(node_list)
 
-    def is_enabled_for(self, node_list: List[Node]) -> bool:
+    def is_enabled_for(self, node_list: List[TNode]) -> bool:
         return self._is_enabled_func(node_list)
 
-    def execute(self, node_list: List[Node]):
+    def execute(self, node_list: List[TNode]):
         self._run_func(node_list)
 
     def __repr__(self):
@@ -243,7 +243,7 @@ class ActionManager(HasLifecycle):
         return False
 
     @staticmethod
-    def _create_action_for_file_node(node: Node, tree_id: TreeID) -> Optional[TreeAction]:
+    def _create_action_for_file_node(node: TNode, tree_id: TreeID) -> Optional[TreeAction]:
         if node.tree_type == TreeType.LOCAL_DISK:
             return TreeAction(tree_id, ActionID.OPEN_WITH_DEFAULT_APP, [], [node])
         elif node.tree_type == TreeType.GDRIVE:

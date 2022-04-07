@@ -14,20 +14,20 @@ message UserOp {
   uint32 op_uid = 1;
   uint32 batch_uid = 2;
   uint32 op_type = 3;
-  Node src_node = 4;
-  Node dst_node = 5;
+  TNode src_node = 4;
+  TNode dst_node = 5;
   uint64 create_ts = 6;
   // no support for result yet
 }
 
 message SrcDstNodeList {
-  Node src_node = 1;
-  Node dst_node = 2;
+  TNode src_node = 1;
+  TNode dst_node = 2;
 }
 
 message SPIDNodePair {
   NodeIdentifier spid = 1;
-  Node node = 2;
+  TNode node = 2;
 }
 
 message MultiPathIdentifierMeta {
@@ -50,7 +50,7 @@ message NodeIdentifier {
   }
 }
 
-message Node {
+message TNode {
   NodeIdentifier node_identifier = 1;
   uint32 trashed = 2;
   bool is_shared = 3;

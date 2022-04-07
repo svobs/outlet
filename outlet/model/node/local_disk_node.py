@@ -7,7 +7,7 @@ from backend.sqlite.content_meta_db import ContentMeta
 from constants import IconId, IS_MACOS, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.directory_stats import DirectoryStats
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_bool, ensure_int
@@ -15,7 +15,7 @@ from util.ensure import ensure_bool, ensure_int
 logger = logging.getLogger(__name__)
 
 
-class LocalNode(Node, ABC):
+class LocalNode(TNode, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalNode
@@ -43,7 +43,7 @@ class LocalNode(Node, ABC):
         self._is_live = is_live
 
     def update_from(self, other_node):
-        Node.update_from(self, other_node)
+        TNode.update_from(self, other_node)
         self._trashed = other_node.get_trashed_status()
         self._is_live = other_node.is_live()
         self._sync_ts: int = ensure_int(other_node.sync_ts)
@@ -117,7 +117,7 @@ class LocalDirNode(LocalNode):
         self.set_is_live(ensure_bool(other_node.is_live()))
         self.all_children_fetched = other_node.all_children_fetched
 
-    def is_parent_of(self, potential_child_node: Node):
+    def is_parent_of(self, potential_child_node: TNode):
         if potential_child_node.device_uid == self.device_uid:
             child_path = pathlib.PurePosixPath(potential_child_node.get_single_path())
             if child_path.is_relative_to(self.get_single_path()):
@@ -203,7 +203,7 @@ class LocalFileNode(LocalNode):
         self.content_meta = other_node.content_meta
         self._size_bytes = other_node.get_size_bytes()
 
-    def is_parent_of(self, potential_child_node: Node) -> bool:
+    def is_parent_of(self, potential_child_node: TNode) -> bool:
         # A file can never be the parent of anything
         return False
 

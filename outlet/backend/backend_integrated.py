@@ -15,7 +15,7 @@ from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeReques
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.display_tree.tree_action import TreeAction
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp
@@ -83,7 +83,7 @@ class BackendIntegrated(OutletBackend):
     def get_icon(self, icon_id: IconId) -> Optional:
         return self.icon_cache.get_icon(icon_id)
 
-    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[TNode]:
         return self.cacheman.get_node_for_uid(uid, device_uid)
 
     def next_uid(self) -> UID:

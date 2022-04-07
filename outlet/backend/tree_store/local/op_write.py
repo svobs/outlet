@@ -210,7 +210,7 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
                 for node in subtree.upsert_node_list:
                     master_node, was_updated = memstore.upsert_single_node(node)
                     if TRACE_ENABLED:
-                        logger.debug(f'Node {node.uid} was updated: {was_updated}')
+                        logger.debug(f'TNode {node.uid} was updated: {was_updated}')
                     if master_node:
                         node = master_node
                     new_upsert_node_list.append(node)

@@ -3,7 +3,7 @@ from typing import Callable
 
 from constants import TreeDisplayMode, TreeID
 from model.node.container_node import CategoryNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from signal_constants import Signal
 from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
@@ -39,7 +39,7 @@ class TreeViewMeta(HasLifecycle):
         """If false, make the root path display panel read-only"""
         self.is_display_persisted = is_display_persisted
         """If true, load and save aesthetic things like expanded state of some nodes"""
-        self.is_ignored_func: Callable[[Node], bool] = is_ignored_func
+        self.is_ignored_func: Callable[[TNode], bool] = is_ignored_func
         """This is a function pointer which accepts a data node arg and returns true if it is considered ignored"""
 
         self.tree_display_mode: TreeDisplayMode = tree_display_mode
@@ -150,7 +150,7 @@ class TreeViewMeta(HasLifecycle):
         # Allow other listeners to handle this also:
         return False
 
-    def is_category_node_expanded(self, node: Node):
+    def is_category_node_expanded(self, node: TNode):
         if self.is_display_persisted:
             assert isinstance(node, CategoryNode)
             cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.category.name}'

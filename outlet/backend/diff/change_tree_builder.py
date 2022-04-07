@@ -10,7 +10,7 @@ from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpCode
@@ -54,7 +54,7 @@ class ChangeTreeBuilder:
     def get_root_sn(self) -> SPIDNodePair:
         return self.change_tree.get_root_sn()
 
-    def _build_new_op(self, src_node: Node, dst_node: Node, op_type: UserOpCode) -> UserOp:
+    def _build_new_op(self, src_node: TNode, dst_node: TNode, op_type: UserOpCode) -> UserOp:
         return UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type, src_node=src_node, dst_node=dst_node)
 
     def add_new_compound_op_and_target_sn_to_tree(self, op_type_list: List[UserOpCode], sn_src: SPIDNodePair, sn_dst: SPIDNodePair = None):
@@ -128,28 +128,28 @@ class ChangeTreeBuilder:
         # Now build the node:
         nid = self.backend.node_identifier_factory.build_node_id(node_uid=dst_node_uid, device_uid=dst_device_uid, path_list=[dst_path])
 
-        node_src: Node = sn_src.node
+        node_src: TNode = sn_src.node
         if dst_tree_type == TreeType.LOCAL_DISK:
             assert isinstance(nid, LocalNodeIdentifier)
             dst_parent_path = self.backend.cacheman.derive_parent_path(dst_path)
             dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
             if node_src.is_dir():
-                node_dst: Node = LocalDirNode(nid, dst_parent_uid, trashed=TrashStatus.NOT_TRASHED, is_live=False,
+                node_dst: TNode = LocalDirNode(nid, dst_parent_uid, trashed=TrashStatus.NOT_TRASHED, is_live=False,
                                               sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
                                               all_children_fetched=True)
             else:
                 assert isinstance(node_src, LocalFileNode)
-                node_dst: Node = LocalFileNode(nid, dst_parent_uid, node_src.content_meta, size_bytes=node_src.get_size_bytes(),
+                node_dst: TNode = LocalFileNode(nid, dst_parent_uid, node_src.content_meta, size_bytes=node_src.get_size_bytes(),
                                                sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
                                                trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
             if node_src.is_dir():
-                node_dst: Node = GDriveFolder(node_identifier=nid, goog_id=dst_node_goog_id, node_name=node_src.name,
+                node_dst: TNode = GDriveFolder(node_identifier=nid, goog_id=dst_node_goog_id, node_name=node_src.name,
                                               trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None, drive_id=None,
                                               is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             else:
                 assert isinstance(node_src, GDriveFile)
-                node_dst: Node = GDriveFile(node_identifier=nid, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
+                node_dst: TNode = GDriveFile(node_identifier=nid, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
                                             mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None,
                                             content_meta=node_src.content_meta, size_bytes=node_src.get_size_bytes(),
                                             is_shared=False, create_ts=None, modify_ts=None, owner_uid=None, shared_by_user_uid=None, sync_ts=None)
@@ -167,8 +167,8 @@ class ChangeTreeBuilder:
         return sn_dst
 
     @staticmethod
-    def _is_same_signature_and_name_for_all(existing_node_list: List[Node]) -> bool:
-        first_node: Node = existing_node_list[0]
+    def _is_same_signature_and_name_for_all(existing_node_list: List[TNode]) -> bool:
+        first_node: TNode = existing_node_list[0]
         for node in existing_node_list[1:]:
             assert isinstance(node, GDriveNode)
             if node.name != first_node.name or not node.is_signature_equal(first_node):
@@ -200,7 +200,7 @@ class ChangeTreeBuilder:
         stop_at_path: str = self.root_sn.spid.get_single_path()
 
         child_path: str = new_sn.spid.get_single_path()
-        child: Node = new_sn.node
+        child: TNode = new_sn.node
 
         assert not pathlib.PurePosixPath(stop_at_path).is_relative_to(child_path), f'Should not be inserting at or above root: {child_path}'
         if DIFF_DEBUG_ENABLED:
@@ -224,7 +224,7 @@ class ChangeTreeBuilder:
                 break
 
             # Folder already existed in original tree?
-            existing_ancestor_list: List[Node] = self.backend.cacheman.get_node_list_for_path_list([parent_path], device_uid)
+            existing_ancestor_list: List[TNode] = self.backend.cacheman.get_node_list_for_path_list([parent_path], device_uid)
             if existing_ancestor_list:
                 # Add all parents which match the path, even if they are duplicates or do not yet exist (i.e., pending ops)
                 child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
@@ -341,11 +341,11 @@ class TwoTreeChangeBuilder:
         self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.MV, sn_src=sn_s, sn_dst=self._migrate_node_to_left(sn_r))
 
     def append_cp_op_s_to_r(self, sn_s: SPIDNodePair):
-        """COPY: Left -> Right. (Node on Right does not yet exist)"""
+        """COPY: Left -> Right. (TNode on Right does not yet exist)"""
         self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.CP, sn_src=sn_s, sn_dst=self._migrate_node_to_right(sn_s))
 
     def append_cp_op_r_to_s(self, sn_r: SPIDNodePair):
-        """COPY: Left <- Right. (Node on Left does not yet exist)"""
+        """COPY: Left <- Right. (TNode on Left does not yet exist)"""
         self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.CP, sn_src=sn_r, sn_dst=self._migrate_node_to_left(sn_r))
 
     def append_up_op_s_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):

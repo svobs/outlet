@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 from constants import TrashStatus
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from model.uid import UID
 from util import file_util
@@ -71,7 +71,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
                 parent = child
 
         # Finally, add the node itself:
-        existing: Node = self.get_node_for_uid(node.uid)
+        existing: TNode = self.get_node_for_uid(node.uid)
         if existing:
             if existing.is_dir() and node.is_dir():
                 # Just update
@@ -95,7 +95,7 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
             if TRACE_ENABLED:
                 logger.debug(f'Tree contents (after adding subtree root): \n{self.show(show_identifier=True)}')
 
-        assert sub_tree_root_node.get_single_parent_uid(), f'Node is missing parent: {sub_tree_root_node}'
+        assert sub_tree_root_node.get_single_parent_uid(), f'TNode is missing parent: {sub_tree_root_node}'
         if sub_tree_root_node.get_single_parent_uid() != self.get_parent(sub_tree_root_node.uid).uid:
             # TODO: submit to adjudicator (eventually)
             logger.warning(f'Parent referenced by node "{sub_tree_root_node.uid}" ({sub_tree_root_node.get_single_parent_uid()}) '

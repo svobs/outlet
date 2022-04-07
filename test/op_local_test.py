@@ -8,7 +8,7 @@ from typing import Callable
 from pydispatch import dispatcher
 
 from constants import TreeType
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.uid import UID
 from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from test import op_test_base
@@ -341,7 +341,7 @@ class OpLocalTest(OpTestBase):
 
             dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
-            def on_node_upserted(sender: str, node: Node):
+            def on_node_upserted(sender: str, node: TNode):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:
@@ -451,7 +451,7 @@ class OpLocalTest(OpTestBase):
 
             dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
-            def on_node_upserted(sender: str, node: Node):
+            def on_node_upserted(sender: str, node: TNode):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:

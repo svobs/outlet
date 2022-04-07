@@ -11,7 +11,7 @@ from error import GDriveItemNotFoundError, InvalidOperationError
 from model.gdrive_meta import MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import Node
+from model.node.node import TNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpCode
 from util import file_util
@@ -134,7 +134,7 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
 
             if not node_dst_old:
                 if cxt.use_strict_state_enforcement:
-                    raise RuntimeError(f'Node no longer found in cache (using strict=true): {self.op.dst_node.node_identifier}')
+                    raise RuntimeError(f'TNode no longer found in cache (using strict=true): {self.op.dst_node.node_identifier}')
                 else:
                     file_util.move_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
             else:
@@ -603,7 +603,7 @@ class FinishCopyToGDriveFolderCommand(FinishCopyToDirCommand):
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dst_node])
 
     @staticmethod
-    def delete_src_node(cxt, src_node: Node, new_dst_node: Node) -> UserOpResult:
+    def delete_src_node(cxt, src_node: TNode, new_dst_node: TNode) -> UserOpResult:
         # TODO: put this logic in separate class[es]
         if src_node.tree_type == TreeType.LOCAL_DISK:
             file_util.delete_empty_dir(src_node.get_single_path(), to_trash=False)

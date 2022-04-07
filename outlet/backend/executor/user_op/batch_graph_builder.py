@@ -6,7 +6,7 @@ from backend.executor.user_op.op_graph import OpGraph, skip_root
 from backend.executor.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from constants import is_root, NULL_UID
 from logging_constants import SUPER_DEBUG_ENABLED
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import DN_UID
 from model.uid import UID
 from model.user_op import Batch, UserOp, UserOpCode
@@ -24,8 +24,8 @@ class BatchGraphBuilder:
         self.backend = backend
 
     @staticmethod
-    def get_all_nodes_in_batch(batch_op_list: List[UserOp]) -> List[Node]:
-        big_node_list: List[Node] = []
+    def get_all_nodes_in_batch(batch_op_list: List[UserOp]) -> List[TNode]:
+        big_node_list: List[TNode] = []
         for user_op in batch_op_list:
             big_node_list.append(user_op.src_node)
             if user_op.has_dst():
@@ -36,7 +36,7 @@ class BatchGraphBuilder:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def _derive_dst_parent_key_list(dst_node: Node) -> List[str]:
+    def _derive_dst_parent_key_list(dst_node: TNode) -> List[str]:
         if not dst_node.get_parent_uids():
             raise RuntimeError(f'Node has no parents: {dst_node}')
         return [f'{dst_node.device_uid}:{parent_uid}/{dst_node.name}' for parent_uid in dst_node.get_parent_uids()]
@@ -121,19 +121,19 @@ class BatchGraphBuilder:
 
         # Validation begin
 
-        def validate_rm_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        def validate_rm_ancestor_func(op_arg: UserOp, ancestor: TNode) -> None:
             conflict = mkdir_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to create a node and remove its descendant at the same time!')
 
-        def validate_mkdir_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        def validate_mkdir_ancestor_func(op_arg: UserOp, ancestor: TNode) -> None:
             conflict = rm_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to remove a node and create its descendant at the same time!')
 
-        def validate_cp_src_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        def validate_cp_src_ancestor_func(op_arg: UserOp, ancestor: TNode) -> None:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Validating src ancestor (UserOp={op_arg.op_uid}): {ancestor}')
             if ancestor.uid in mkdir_dict:
@@ -145,7 +145,7 @@ class BatchGraphBuilder:
             if ancestor.uid in dst_op_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to! (anscestor: {ancestor.node_identifier})')
 
-        def validate_cp_dst_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
+        def validate_cp_dst_ancestor_func(op_arg: UserOp, ancestor: TNode) -> None:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Validating dst ancestor (op={op.op_uid}): {ancestor}')
             if ancestor.uid in rm_dict:
@@ -185,12 +185,12 @@ class BatchGraphBuilder:
 
         return prev_op_type == current_op_type
 
-    def _check_ancestors(self, op: UserOp, node: Node, eval_func: Callable[[UserOp, Node], None]):
-        queue: Deque[Node] = collections.deque()
+    def _check_ancestors(self, op: UserOp, node: TNode, eval_func: Callable[[UserOp, TNode], None]):
+        queue: Deque[TNode] = collections.deque()
         queue.append(node)
 
         while len(queue) > 0:
-            popped_node: Node = queue.popleft()
+            popped_node: TNode = queue.popleft()
             for ancestor in self.backend.cacheman.get_parent_list_for_node(popped_node):
                 queue.append(ancestor)
                 eval_func(op, ancestor)
@@ -220,7 +220,7 @@ class BatchGraphBuilder:
 
         # Some ancestors may not be in cacheman, because they are being added by the batch.
         # so, store the batch nodes in a dict for additional lookup
-        tgt_node_dict: Dict[UID, Dict[UID, Node]] = {}
+        tgt_node_dict: Dict[UID, Dict[UID, TNode]] = {}
         for op in op_batch:
             self._insert_for_op(op, batch_graph, tgt_node_dict)
 
@@ -259,7 +259,7 @@ class BatchGraphBuilder:
             # 2b. Insert dst OGN:
             graph.insert_ogn(dst_node)
 
-    def _build_ancestor_uid_list(self, tgt_node: Node, tgt_node_dict: Dict[UID, Dict[UID, Node]]) -> List[UID]:
+    def _build_ancestor_uid_list(self, tgt_node: TNode, tgt_node_dict: Dict[UID, Dict[UID, TNode]]) -> List[UID]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Building ancestor UID list for {tgt_node.node_identifier}')
 
@@ -268,7 +268,7 @@ class BatchGraphBuilder:
         queue.append(tgt_node)
 
         # store tgt node in dict for possible later lookup
-        device_tgt_node_dict: Dict[UID, Node] = tgt_node_dict.get(tgt_node.device_uid)
+        device_tgt_node_dict: Dict[UID, TNode] = tgt_node_dict.get(tgt_node.device_uid)
         if not device_tgt_node_dict:
             device_tgt_node_dict = {}
             tgt_node_dict[tgt_node.device_uid] = device_tgt_node_dict
@@ -284,7 +284,7 @@ class BatchGraphBuilder:
                 raise RuntimeError(f'Node has no parent UIDs listed: {node}')
 
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Node {node.node_identifier} has parent_uid_list: {parent_uid_list}')
+                logger.debug(f'TNode {node.node_identifier} has parent_uid_list: {parent_uid_list}')
 
             for parent_uid in parent_uid_list:
                 ancestor_list.append(parent_uid)
@@ -321,17 +321,17 @@ class BatchGraphBuilder:
         # Invert RM nodes when inserting into tree
         batch_uid: UID = ogn_root.get_first_child().op.batch_uid
 
-        mkdir_node_dict: Dict[DN_UID, Node] = {}
+        mkdir_node_dict: Dict[DN_UID, TNode] = {}
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
         # For matching pairs of START & FINISH for dir mv/cp:
-        start_x_dst_node_dict: Dict[DN_UID, Node] = {}
-        finish_x_dst_node_dict: Dict[DN_UID, Node] = {}
+        start_x_dst_node_dict: Dict[DN_UID, TNode] = {}
+        finish_x_dst_node_dict: Dict[DN_UID, TNode] = {}
 
         min_op_uid: UID = ogn_root.get_first_child().op.op_uid
 
         for ogn in skip_root(ogn_root.get_subgraph_bfs_list()):
-            tgt_node: Node = ogn.get_tgt_node()
+            tgt_node: TNode = ogn.get_tgt_node()
             op_type_name: str = ogn.op.op_type.name
             if min_op_uid > ogn.op.op_uid:
                 min_op_uid = ogn.op.op_uid
@@ -343,7 +343,7 @@ class BatchGraphBuilder:
                 tgt_parent_uid_list: List[UID] = tgt_node.get_parent_uids()
                 parent_found: bool = False
                 for tgt_parent_uid in tgt_parent_uid_list:
-                    tgt_parent_dn_uid = Node.format_dn_uid(tgt_node.device_uid, tgt_parent_uid)
+                    tgt_parent_dn_uid = TNode.format_dn_uid(tgt_node.device_uid, tgt_parent_uid)
                     if self.backend.cacheman.get_node_for_uid(tgt_parent_uid, tgt_node.device_uid) \
                             or mkdir_node_dict.get(tgt_parent_dn_uid, None) \
                             or start_x_dst_node_dict.get(tgt_parent_dn_uid, None) \

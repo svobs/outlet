@@ -6,7 +6,7 @@ from constants import LOCAL_ROOT_UID, ROOT_PATH
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.container_node import RootTypeNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
 from util import file_util
@@ -47,7 +47,7 @@ class LocalDiskMemoryStore:
         Will raise an exception if trying to remove a non-empty directory."""
         logger.debug(f'Removing LocalNode from memory cache: {node}')
 
-        cached_node: Node = self.master_tree.get_node_for_uid(node.uid)
+        cached_node: TNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:
             if cached_node.is_dir():
                 children = self.master_tree.get_child_list_for_identifier(cached_node.uid)
@@ -80,7 +80,7 @@ class LocalDiskMemoryStore:
         # Update icon (this may be the only thing changed)
         self.backend.cacheman.update_node_icon(node)
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Node {node.device_uid}:{node.uid} has icon={node.get_icon().name}, custom_icon={node.get_custom_icon()}')
+            logger.debug(f'TNode {node.device_uid}:{node.uid} has icon={node.get_icon().name}, custom_icon={node.get_custom_icon()}')
 
         cached_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
         if cached_node:
@@ -108,7 +108,7 @@ class LocalDiskMemoryStore:
 
             if cached_node == node:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'Node being upserted is identical to node already in the cache; skipping memstore update '
+                    logger.debug(f'TNode being upserted is identical to node already in the cache; skipping memstore update '
                                  f'(CachedNode={cached_node}; NewNode={node}')
                 return cached_node, False
 
@@ -137,5 +137,5 @@ class LocalDiskMemoryStore:
             self.master_tree.add_to_tree(node)
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Node {node.node_identifier.guid} was upserted into memstore')
+            logger.debug(f'TNode {node.node_identifier.guid} was upserted into memstore')
         return node, True

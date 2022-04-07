@@ -345,7 +345,7 @@ class GDriveClient(HasLifecycle):
             -> Optional[GDriveNode]:
         src_parent_goog_id_list: List[str] = self.backend.cacheman.get_parent_goog_id_list(node)
         if not src_parent_goog_id_list:
-            raise RuntimeError(f'Node has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
+            raise RuntimeError(f'TNode has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
 
         result: SimpleNodeCollector = self.get_existing_nodes_with_parent_and_name(parent_goog_id=src_parent_goog_id_list[0], name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive nodes with parent={src_parent_goog_id_list[0]} and name={node.name}')
@@ -414,7 +414,7 @@ class GDriveClient(HasLifecycle):
         """Important note: this method will raise an exception if more than one file is found with the specified criteria"""
         src_parent_goog_id_list: List[str] = self.backend.cacheman.get_parent_goog_id_list(node)
         if not src_parent_goog_id_list:
-            raise RuntimeError(f'Node has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
+            raise RuntimeError(f'TNode has no parents: "{node.name}" ({node.device_uid}:{node.uid}')
 
         result: SimpleNodeCollector = self._get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id_list[0], name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id_list[0]} and name="{node.name}"')

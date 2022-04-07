@@ -20,7 +20,7 @@ from error import CacheNotLoadedError, GDriveNodePathNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
-from model.node.node import Node, NonexistentDirNode, SPIDNodePair
+from model.node.node import TNode, NonexistentDirNode, SPIDNodePair
 from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -106,7 +106,7 @@ class ActiveTreeManager(HasLifecycle):
     # SignalDispatcher callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _get_filtered_sn(self, node: Node, full_path: str, tree_meta: ActiveDisplayTreeMeta) -> Optional[SPIDNodePair]:
+    def _get_filtered_sn(self, node: TNode, full_path: str, tree_meta: ActiveDisplayTreeMeta) -> Optional[SPIDNodePair]:
         filter_state: FilterState = tree_meta.filter_state
 
         sn = SPIDNodePair(self.backend.cacheman.make_spid_for(node_uid=node.uid, device_uid=node.device_uid, full_path=full_path), node)
@@ -132,7 +132,7 @@ class ActiveTreeManager(HasLifecycle):
 
         if filter_state.has_criteria() and not filter_state.matches(sn):
             if TRACE_ENABLED:
-                logger.debug(f'[{tree_meta.tree_id}] Node is excluded by user filter criteria; will discard notification for {sn.spid}')
+                logger.debug(f'[{tree_meta.tree_id}] TNode is excluded by user filter criteria; will discard notification for {sn.spid}')
             return None
 
         # FIXME: almost certainly a race condition here. Low-priority high-effort: user can work around for now
@@ -187,7 +187,7 @@ class ActiveTreeManager(HasLifecycle):
 
             self._tree_stats_refresh_queue_dict.clear()
 
-    def _is_node_in_gdrive_subtree(self, node: Node, subtree_root_spid: SinglePathNodeIdentifier) -> bool:
+    def _is_node_in_gdrive_subtree(self, node: TNode, subtree_root_spid: SinglePathNodeIdentifier) -> bool:
         ancestor_list = [node]
         while True:
             new_ancestor_list = []
@@ -203,7 +203,7 @@ class ActiveTreeManager(HasLifecycle):
             if not ancestor_list:
                 return False
 
-    def _to_subtree_sn_list(self, node: Node, tree_meta: ActiveDisplayTreeMeta) -> List[SPIDNodePair]:
+    def _to_subtree_sn_list(self, node: TNode, tree_meta: ActiveDisplayTreeMeta) -> List[SPIDNodePair]:
         subtree_root_spid: SinglePathNodeIdentifier = tree_meta.root_sn.spid
 
         if node.device_uid != subtree_root_spid.device_uid:
@@ -223,7 +223,7 @@ class ActiveTreeManager(HasLifecycle):
             subtree_root_path = subtree_root_spid.get_single_path()
             return_list = []
             found = False  # use boolean for sanity check
-            assert node.get_path_list(), f'Node has no paths: {node}'
+            assert node.get_path_list(), f'TNode has no paths: {node}'
             for path in node.get_path_list():
                 if pathlib.PurePosixPath(path).is_relative_to(subtree_root_path):
                     found = True
@@ -237,7 +237,7 @@ class ActiveTreeManager(HasLifecycle):
 
         return []
 
-    def _on_node_upserted(self, sender: str, node: Node):
+    def _on_node_upserted(self, sender: str, node: TNode):
         with self._display_tree_dict_lock:
             for tree_id, tree_meta in self._display_tree_dict.items():
                 if not tree_meta.is_first_order():
@@ -253,7 +253,7 @@ class ActiveTreeManager(HasLifecycle):
                         logger.debug(f'[{tree_id}] Notifying tree of upserted node {sn} parent_guid={sn.spid.parent_guid} icon={sn.node.get_icon()}')
                     dispatcher.send(signal=Signal.NODE_UPSERTED, sender=tree_id, sn=sn)
 
-    def _on_node_removed(self, sender: str, node: Node):
+    def _on_node_removed(self, sender: str, node: TNode):
         with self._display_tree_dict_lock:
             for tree_id, tree_meta in self._display_tree_dict.items():
                 if not tree_meta.is_first_order():
@@ -284,8 +284,8 @@ class ActiveTreeManager(HasLifecycle):
         logger.debug(f'Looks like tree_root ("{tree_root_path}") does not intersect with update_subroot ("{subtree_root.get_path_list()}")')
         return None
 
-    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root: NodeIdentifier, upserted_node_list: List[Node],
-                                           removed_node_list: List[Node]):
+    def _on_subtree_nodes_changed_in_cache(self, sender: str, subtree_root: NodeIdentifier, upserted_node_list: List[TNode],
+                                           removed_node_list: List[TNode]):
 
         if not upserted_node_list and not removed_node_list:
             if SUPER_DEBUG_ENABLED:
@@ -506,7 +506,7 @@ class ActiveTreeManager(HasLifecycle):
         self.backend.cacheman.get_cache_info_for_subtree(subtree_root=spid, create_if_not_found=True)
         # Try to retrieve the root node from the cache:
         try:
-            node: Optional[Node] = self.backend.cacheman.read_node_for_spid(spid)
+            node: Optional[TNode] = self.backend.cacheman.read_node_for_spid(spid)
             if node:
                 logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
             else:

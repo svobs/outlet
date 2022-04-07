@@ -6,7 +6,7 @@ from constants import ActionID, DATE_REGEX, MenuItemType, TreeID, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GUID
 from model.uid import UID
 from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpStatus
@@ -142,7 +142,7 @@ class ContextMenuBuilder(HasLifecycle):
             return True
         return False
 
-    def _build_submenu_for_op_node(self, op: UserOp, op_node: Node, op_node_label: str, clicked_sn: SPIDNodePair, tree_id: TreeID) \
+    def _build_submenu_for_op_node(self, op: UserOp, op_node: TNode, op_node_label: str, clicked_sn: SPIDNodePair, tree_id: TreeID) \
             -> ContextMenuItem:
         """Builds a submenu for the given node, which is either a 'src' or 'dst' for the given op."""
         if op_node.device_uid == clicked_sn.node.device_uid and op_node.uid == clicked_sn.node.uid:
@@ -291,7 +291,7 @@ class ContextMenuBuilder(HasLifecycle):
         return menu_item_list
 
     # Adds custom actions, if applicable:
-    def _add_custom_action_list(self, node_list: List[Node], guid_list: List[GUID], menu_item_list):
+    def _add_custom_action_list(self, node_list: List[TNode], guid_list: List[GUID], menu_item_list):
         custom_action_list = self.action_manager.get_custom_action_list()
 
         if custom_action_list:

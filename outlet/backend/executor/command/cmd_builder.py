@@ -9,7 +9,7 @@ from backend.executor.command.cmd_impl import CopyFileWithinGDriveCommand, CopyF
     CopyFileLocalToGDriveCommand, StartCopyToGDriveFolderCommand, StartCopyToLocalDirCommand
 from backend.executor.command.cmd_interface import Command
 from constants import TreeType
-from model.node.node import Node
+from model.node.node import TNode
 from model.user_op import UserOp, UserOpCode
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ def _make_key(tree_type_src: TreeType, tree_type_dst: Optional[TreeType] = None,
         return f'{tree_type_src}'
 
 
-def _make_key_from_node(node_src: Node, node_dst: Optional[Node] = None):
+def _make_key_from_node(node_src: TNode, node_dst: Optional[TNode] = None):
     if node_dst:
         is_same_tree = node_src.device_uid == node_dst.device_uid
         return _make_key(node_src.tree_type, node_dst.tree_type, is_same_tree=is_same_tree)

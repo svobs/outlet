@@ -16,7 +16,7 @@ from backend.executor.user_op.op_graph_node import RootNode
 from constants import DEFAULT_ERROR_HANDLING_STRATEGY, ErrorHandlingStrategy, IconId
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import UnsuccessfulBatchInsertError
-from model.node.node import Node
+from model.node.node import TNode
 from model.uid import UID
 from model.user_op import Batch, UserOp, UserOpStatus
 from signal_constants import ID_OP_MANAGER, Signal
@@ -243,7 +243,7 @@ class OpManager(HasLifecycle):
         batch.op_list.sort(key=lambda _op: _op.op_uid)
 
         # Make sure all relevant caches are loaded. Do this via child tasks:
-        big_node_list: List[Node] = BatchGraphBuilder.get_all_nodes_in_batch(batch.op_list)
+        big_node_list: List[TNode] = BatchGraphBuilder.get_all_nodes_in_batch(batch.op_list)
         logger.debug(f'Batch {batch.batch_uid} contains {len(big_node_list)} affected nodes. Adding task to ensure they are in memstore')
         self.backend.cacheman.ensure_cache_loaded_for_node_list(this_task, big_node_list)
 

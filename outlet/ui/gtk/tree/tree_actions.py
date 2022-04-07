@@ -6,7 +6,7 @@ from typing import List
 from constants import ActionID, OPEN, SHOW
 from model.display_tree.tree_action import TreeAction
 from model.node.gdrive_node import GDriveFile
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
@@ -74,10 +74,10 @@ class TreeActions(HasLifecycle):
         else:
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {full_path}')
 
-    def _delete_single_file(self, sender, node: Node):
+    def _delete_single_file(self, sender, node: TNode):
         self._delete_subtree(sender, [node])
 
-    def _delete_subtree(self, sender, node_list: List[Node]):
+    def _delete_subtree(self, sender, node_list: List[TNode]):
         if not node_list:
             return
         device_uid = node_list[0].device_uid

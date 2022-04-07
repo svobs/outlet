@@ -44,7 +44,7 @@ class NodeIdentifier(ABC):
 
     @property
     def dn_uid(self) -> DN_UID:
-        """Device+Node UID (expressed as a str).
+        """Device+TNode UID (expressed as a str).
         This guarantees a unique identifier for the node across all devices, but DOES NOT guarantee uniqueness for all of its path instances.
         (i.e. this is sometimes the same as the node's GUID, but not for all tree types)"""
         return f'{self.device_uid}:{self.node_uid}'
@@ -324,7 +324,7 @@ class LocalNodeIdentifier(SinglePathNodeIdentifier):
 class ChangeTreeSPID(SinglePathNodeIdentifier):
     """
     NOTE: path_uid is stored as node_uid for ChangeTreeSPIDs, but node_uid is not used and should not be assumed to be the same value as
-    the underlying Node. ChangeTreeSPIDs do not correspond to actual node_uids because their nodes are usually not live
+    the underlying TNode. ChangeTreeSPIDs do not correspond to actual node_uids because their nodes are usually not live
     TODO: consider including tree_id in here so that global lookup is possible
     """
     def __init__(self, path_uid: UID, device_uid: UID, full_path: str, category: ChangeTreeCategory, parent_guid: Optional[GUID] = None):

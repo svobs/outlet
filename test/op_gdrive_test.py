@@ -10,7 +10,7 @@ from pydispatch import dispatcher
 
 from constants import TreeType
 from model.node.gdrive_node import GDriveNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.uid import UID
 from signal_constants import ID_CENTRAL_EXEC, ID_GLOBAL_CACHE, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from test import op_test_base
@@ -73,7 +73,7 @@ class OpGDriveTest(OpTestBase):
         self._delete_all_files_in_gdrive_test_folder()
 
     def _delete_all_right_tree_displayed_rows_from_cacheman(self):
-        displayed_row_list: List[Node] = list(self.right_con.display_store.displayed_guid_dict.values())
+        displayed_row_list: List[TNode] = list(self.right_con.display_store.displayed_guid_dict.values())
         if not displayed_row_list:
             logger.info('No displayed rows found in right tree; nothing to clean up')
             return
@@ -105,7 +105,7 @@ class OpGDriveTest(OpTestBase):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
         logger.info('Connecting to GDrive to find files in remote test folder')
 
-        parent_node: Node = self.backend.cacheman.get_node_for_uid(self.right_tree_root_uid)
+        parent_node: TNode = self.backend.cacheman.get_node_for_uid(self.right_tree_root_uid)
         assert isinstance(parent_node, GDriveNode)
         # VERY IMPORTANT: fail if name doesn't match - don't want to delete the wrong folder!
         self.assertEqual(parent_node.name, 'Test')
@@ -364,7 +364,7 @@ class OpGDriveTest(OpTestBase):
 
             dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
 
-            def on_node_upserted(sender: str, node: Node):
+            def on_node_upserted(sender: str, node: TNode):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node "{node.name}" (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:
@@ -472,7 +472,7 @@ class OpGDriveTest(OpTestBase):
 
             dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
-            def on_node_upserted(sender: str, node: Node):
+            def on_node_upserted(sender: str, node: TNode):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:

@@ -27,7 +27,7 @@ from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeReques
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.display_tree.tree_action import TreeAction
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpCode
@@ -197,7 +197,7 @@ class BackendGRPCClient(OutletBackend):
             return Image.open(img_byte_arr)
         return None
 
-    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[Node]:
+    def get_node_for_uid(self, uid: UID, device_uid: UID) -> Optional[TNode]:
         request = GetNodeForUid_Request()
         request.uid = uid
         request.device_uid = device_uid

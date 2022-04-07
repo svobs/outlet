@@ -911,7 +911,7 @@ class LocalDiskMasterStore(TreeStore):
             return None
 
         if self.backend.cacheman.lazy_load_local_file_signatures and not must_scan_signature:
-            # Skip signatures and set them NULL for now. Node will be added to content scanning queue when it is upserted into cache (above)
+            # Skip signatures and set them NULL for now. TNode will be added to content scanning queue when it is upserted into cache (above)
             content_meta = None
         else:
             try:

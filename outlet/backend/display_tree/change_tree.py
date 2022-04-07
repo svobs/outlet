@@ -9,7 +9,7 @@ from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
 from model.user_op import ChangeTreeCategoryMeta, UserOp
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
@@ -54,7 +54,7 @@ class ChangeTree(DisplayTree):
         """For debugging only"""
 
     @staticmethod
-    def _extract_node_func(sn: SPIDNodePair) -> Node:
+    def _extract_node_func(sn: SPIDNodePair) -> TNode:
         assert sn.node, f'SPIDNodePair is missing node: {sn}'
         return sn.node
 
@@ -241,7 +241,7 @@ class ChangeTree(DisplayTree):
         category = ChangeTreeCategoryMeta.category_for_op_type(op.op_type)
         change_spid = ChangeTreeSPID(path_uid=from_sn.spid.path_uid, device_uid=from_sn.spid.device_uid,
                                      full_path=from_sn.spid.get_single_path(), category=category)
-        change_node: Node = copy.deepcopy(from_sn.node)
+        change_node: TNode = copy.deepcopy(from_sn.node)
 
         is_dst = op.has_dst() and op.dst_node.node_identifier == change_node.node_identifier
         change_node.set_icon(ChangeTreeCategoryMeta.get_icon_for_node_with_category(change_node.is_dir(), is_dst, category))

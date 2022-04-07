@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Deque, Dict, List, Optional, Set
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
-from model.node.node import AbstractNode, Node
+from model.node.node import AbstractNode, TNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpStatus, UserOpCode
 
@@ -30,7 +30,7 @@ class OpGraphNode(AbstractNode, ABC):
         AbstractNode.__init__(self)
 
         self.node_uid: UID = uid
-        """This is the UID of the OpGraphNode, NOT either of the Node objects inside its UserOp"""
+        """This is the UID of the OpGraphNode, NOT either of the TNode objects inside its UserOp"""
 
         self.op: UserOp = op
         """The UserOp (i.e. "operation")"""
@@ -42,7 +42,7 @@ class OpGraphNode(AbstractNode, ABC):
         return self.node_uid
 
     @abstractmethod
-    def get_tgt_node(self) -> Optional[Node]:
+    def get_tgt_node(self) -> Optional[TNode]:
         pass
 
     def get_first_parent(self) -> Optional:
@@ -390,7 +390,7 @@ class RootNode(HasMultiChild, OpGraphNode):
     def is_reentrant(self) -> bool:
         return True
 
-    def get_tgt_node(self) -> Optional[Node]:
+    def get_tgt_node(self) -> Optional[TNode]:
         return None
 
     def clear_relationships(self):
@@ -415,7 +415,7 @@ class SrcOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
         # Only CP src nodes are reentrant
         return self.op.op_type == UserOpCode.CP
 
-    def get_tgt_node(self) -> Optional[Node]:
+    def get_tgt_node(self) -> Optional[TNode]:
         return self.op.src_node
 
     def is_create_type(self) -> bool:
@@ -452,7 +452,7 @@ class DstOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
     def is_reentrant(self) -> bool:
         return False
 
-    def get_tgt_node(self) -> Optional[Node]:
+    def get_tgt_node(self) -> Optional[TNode]:
         return self.op.dst_node
 
     @classmethod

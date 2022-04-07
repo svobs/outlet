@@ -37,7 +37,7 @@ from model.display_tree.summary import TreeSummarizer
 from model.display_tree.tree_action import TreeAction
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import Batch, UserOp, UserOpCode
@@ -294,7 +294,7 @@ class CacheManager(HasLifecycle):
             def _populate_filter_for_subtree(_this_task):
                 if tree_meta.state.root_exists:
                     # get up-to-date root node:
-                    subtree_root_node: Optional[Node] = self.get_node_for_uid(spid.node_uid, spid.device_uid)
+                    subtree_root_node: Optional[TNode] = self.get_node_for_uid(spid.node_uid, spid.device_uid)
                     if not subtree_root_node:
                         raise RuntimeError(f'Could not find node in cache with identifier: {spid} (tree_id={tree_meta.tree_id})')
 
@@ -412,7 +412,7 @@ class CacheManager(HasLifecycle):
     def save_all_cache_info_to_disk(self):
         self._cache_registry.save_all_cache_info_to_disk()
 
-    def ensure_cache_loaded_for_node_list(self, this_task: Task, node_list: List[Node]):
+    def ensure_cache_loaded_for_node_list(self, this_task: Task, node_list: List[TNode]):
         """Ensures that all the necessary caches are loaded for all the given nodes.
         We launch separate executor tasks for each cache load that we require."""
         self._cache_registry.ensure_cache_loaded_for_node_list(this_task, node_list)
@@ -420,11 +420,11 @@ class CacheManager(HasLifecycle):
     # Main cache CRUD
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def upsert_single_node(self, node: Node) -> Node:
+    def upsert_single_node(self, node: TNode) -> TNode:
         assert node is not None
         return self._cache_registry.get_store_for_device_uid(node.device_uid).upsert_single_node(node)
 
-    def update_single_node(self, node: Node) -> Node:
+    def update_single_node(self, node: TNode) -> TNode:
         """Simliar to upsert, but fails silently if node does not already exist in caches. Useful for things such as asynch MD5 filling"""
         assert node is not None
         return self._cache_registry.get_store_for_device_uid(node.device_uid).update_single_node(node)
@@ -459,17 +459,17 @@ class CacheManager(HasLifecycle):
 
         self.enqueue_op_batch(batch)
 
-    def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[Node]:
+    def get_subtree_bfs_node_list(self, subtree_root: NodeIdentifier) -> List[TNode]:
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).get_subtree_bfs_node_list(subtree_root)
 
     def get_subtree_bfs_sn_list(self, subtree_root_spid: SinglePathNodeIdentifier) -> List[SPIDNodePair]:
         return self._cache_registry.get_store_for_device_uid(subtree_root_spid.device_uid).get_subtree_bfs_sn_list(subtree_root_spid)
 
-    def remove_subtree(self, node: Node, to_trash: bool):
+    def remove_subtree(self, node: TNode, to_trash: bool):
         """NOTE: this is only called for tests currently."""
         self._cache_registry.get_store_for_device_uid(node.device_uid).remove_subtree(node, to_trash)
 
-    def remove_node(self, node: Node, to_trash):
+    def remove_node(self, node: TNode, to_trash):
         self._cache_registry.get_store_for_device_uid(node.device_uid).remove_single_node(node, to_trash)
 
     # Getters: Nodes and node identifiers
@@ -482,14 +482,14 @@ class CacheManager(HasLifecycle):
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._cache_registry.get_uid_for_path(full_path, uid_suggestion)
 
-    def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[Node]:
+    def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[TNode]:
         return self.get_node_for_uid(node_identifer.node_uid, node_identifer.device_uid)
 
     def get_node_for_uid(self, uid: UID, device_uid: UID):
         assert device_uid, 'device_uid is required now!'
         return self._cache_registry.get_store_for_device_uid(device_uid).get_node_for_uid(uid)
 
-    def get_node_list_for_path_list(self, path_list: List[str], device_uid: UID) -> List[Node]:
+    def get_node_list_for_path_list(self, path_list: List[str], device_uid: UID) -> List[TNode]:
         """Because of GDrive, we cannot guarantee that a single path will have only one node, or a single node will have only one path."""
         path_list = ensure_list(path_list)
         return self._cache_registry.get_store_for_device_uid(device_uid).get_node_list_for_path_list(path_list)
@@ -560,7 +560,7 @@ class CacheManager(HasLifecycle):
                     key = sn.spid.guid
                 sn.node.dir_stats = dir_stats_dict.get(key, None)
 
-    def get_parent_list_for_node(self, node: Node) -> List[Node]:
+    def get_parent_list_for_node(self, node: TNode) -> List[TNode]:
         return self._cache_registry.get_store_for_device_uid(node.device_uid).get_parent_list_for_node(node)
 
     def get_parent_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
@@ -577,9 +577,9 @@ class CacheManager(HasLifecycle):
             logger.debug(f'Entered get_ancestor_list_for_spid() for spid={spid}, stop_at_path={stop_at_path}')
 
         ancestor_deque: Deque[SPIDNodePair] = deque()
-        ancestor_node: Node = self.get_node_for_uid(spid.node_uid, device_uid=spid.device_uid)
+        ancestor_node: TNode = self.get_node_for_uid(spid.node_uid, device_uid=spid.device_uid)
         if not ancestor_node:
-            logger.debug(f'get_ancestor_list_for_spid(): Node not found: {spid}')
+            logger.debug(f'get_ancestor_list_for_spid(): TNode not found: {spid}')
             return ancestor_deque
 
         ancestor_sn = SPIDNodePair(spid, ancestor_node)
@@ -598,7 +598,7 @@ class CacheManager(HasLifecycle):
             else:
                 return ancestor_deque
 
-    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[TNode], List[TNode]]:
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).get_all_files_and_dirs_for_subtree(subtree_root)
 
     def make_spid_for(self, node_uid: UID, device_uid: UID, full_path: str) -> SinglePathNodeIdentifier:
@@ -712,7 +712,7 @@ class CacheManager(HasLifecycle):
     def move_local_subtree(self, this_task: Task, src_full_path: str, dst_full_path: str) -> Optional[Tuple]:
         return self._cache_registry.get_this_disk_local_store().move_local_subtree(this_task, src_full_path, dst_full_path)
 
-    def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
+    def get_node_for_local_path(self, full_path: str) -> Optional[TNode]:
         """This will consult both the in-memory and disk caches.
         This is a convenience function which omits GDrive results because that would need to return a list
         (for that, see get_node_list_for_path_list().)"""
@@ -885,8 +885,8 @@ class CacheManager(HasLifecycle):
             logger.error(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}": {repr(err)}')
             return None
 
-    def get_all_files_with_content(self, content_uid: UID) -> List[Node]:
-        global_file_list: List[Node] = []
+    def get_all_files_with_content(self, content_uid: UID) -> List[TNode]:
+        global_file_list: List[TNode] = []
         for device_uid, cache_info_list in self._cache_registry.get_all_cache_info_by_device_uid().items():
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'get_all_files_with_content(): searching {len(cache_info_list)} caches in device_uid={device_uid} '
@@ -994,7 +994,7 @@ class CacheManager(HasLifecycle):
     def get_rows_of_interest(self, tree_id: TreeID) -> RowsOfInterest:
         return self._row_state_tracking.get_rows_of_interest(tree_id)
 
-    def update_node_icon(self, node: Node):
+    def update_node_icon(self, node: TNode):
         """This is kind of a kludge, to make sure node icons are correct. Call this on all nodes we are sending to the client.
         Note: this should not be called for ChangeTree nodes. It will not consult a ChangeTree."""
         icon_id: Optional[IconId] = self._op_manager.get_icon_for_node(node.device_uid, node.uid)
@@ -1008,8 +1008,8 @@ class CacheManager(HasLifecycle):
             return None
         return str(pathlib.Path(child_path).parent)
 
-    def submit_batch_of_changes(self, subtree_root: NodeIdentifier, upsert_node_list: List[Node] = None,
-                                remove_node_list: List[Node] = None):
+    def submit_batch_of_changes(self, subtree_root: NodeIdentifier, upsert_node_list: List[TNode] = None,
+                                remove_node_list: List[TNode] = None):
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).submit_batch_of_changes(subtree_root,
                                                                                                               upsert_node_list, remove_node_list)
 
@@ -1024,7 +1024,7 @@ class CacheManager(HasLifecycle):
         return self._cache_registry.get_store_for_device_uid(subtree_root.device_uid).show_tree(subtree_root)
 
     # This is only called at startup (shh...)
-    def read_node_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
+    def read_node_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[TNode]:
         # ensure all paths are normalized:
         path_list = spid.get_path_list()
         for index, full_path in enumerate(path_list):

@@ -187,7 +187,7 @@ class DisplayMutator(HasLifecycle):
 
             else:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'[{self.con.tree_id}] Node is not expanded: {sn.spid}')
+                    logger.debug(f'[{self.con.tree_id}] TNode is not expanded: {sn.spid}')
                 self._append_dir_node_and_loading_child(parent_iter, sn)
         else:
             self._append_file_node(parent_iter, sn)
@@ -427,7 +427,7 @@ class DisplayMutator(HasLifecycle):
             return
 
         assert self.con.treeview_meta.lazy_load
-        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {sn.spid}"')
+        logger.debug(f'[{self.con.tree_id}] TNode expansion toggled to {is_expanded} for {sn.spid}"')
 
         if not self._enable_expand_state_listeners or not self._enable_node_signals:
             if SUPER_DEBUG_ENABLED:
@@ -469,14 +469,14 @@ class DisplayMutator(HasLifecycle):
 
     def _update_or_append(self, sn: SPIDNodePair, parent_iter, child_iter):
         if child_iter:
-            # Node is update:
-            logger.debug(f'[{self.con.tree_id}] Node already exists in tree (guid={sn.spid.guid}): doing an update instead')
+            # TNode is update:
+            logger.debug(f'[{self.con.tree_id}] TNode already exists in tree (guid={sn.spid.guid}): doing an update instead')
             display_vals: list = self.generate_display_cols(parent_iter, sn)
             for col, val in enumerate(display_vals):
                 self.con.display_store.model.set_value(child_iter, col, val)
         else:
             logger.debug(f'[{self.con.tree_id}] Appending new node (guid={sn.spid.guid}, is_dir={sn.node.is_dir()})')
-            # Node is new
+            # TNode is new
             if sn.node.is_dir():
                 self._append_dir_node_and_loading_child(parent_iter, sn)
             else:
@@ -500,12 +500,12 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for {sn.spid}, parent={parent_guid}')
 
                 if self.con.get_tree().get_root_spid().guid == parent_guid:
-                    logger.debug(f'[{self.con.tree_id}] Node is topmost level: {sn.spid}')
+                    logger.debug(f'[{self.con.tree_id}] TNode is topmost level: {sn.spid}')
                     child_iter = self.con.display_store.find_guid_in_children(sn.spid.guid, None)
                     self._update_or_append(sn, None, child_iter)
                 else:
-                    # Node is not topmost.
-                    logger.debug(f'[{self.con.tree_id}] Node is not topmost: {sn.spid}')
+                    # TNode is not topmost.
+                    logger.debug(f'[{self.con.tree_id}] TNode is not topmost: {sn.spid}')
                     parent_iter = self.con.display_store.find_guid_in_tree(target_guid=parent_guid)
                     if parent_iter:
                         parent_tree_path = self.con.display_store.model.get_path(parent_iter)

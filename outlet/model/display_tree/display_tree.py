@@ -3,7 +3,7 @@ import pathlib
 from typing import Deque, Iterable, List, Optional, Union
 
 from constants import MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMode, TreeID, TreeType
-from model.node.node import Node, SPIDNodePair
+from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 

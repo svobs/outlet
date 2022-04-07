@@ -23,7 +23,7 @@ from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import CacheNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.device import Device
-from model.node.node import Node
+from model.node.node import TNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE, Signal
@@ -590,7 +590,7 @@ class CacheRegistry(HasLifecycle):
 
         return cache_info
 
-    def ensure_cache_loaded_for_node_list(self, this_task: Task, node_list: List[Node]):
+    def ensure_cache_loaded_for_node_list(self, this_task: Task, node_list: List[TNode]):
         """Ensures that all the necessary caches are loaded for all of the given nodes.
         We launch separate executor tasks for each cache load that we require."""
 

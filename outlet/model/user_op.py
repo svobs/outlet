@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Set, Union
 from constants import ChangeTreeCategory, IconId, TreeID
 from model.node_identifier import GUID
 from model.uid import UID
-from model.node.node import AbstractNode, Node
+from model.node.node import AbstractNode, TNode
 from util import time_util
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class UserOpCode(IntEnum):
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ENUM UserOpCode
     UserOps are agnostic of tree types, but they distinguish between file and dir node operations.
-    TODO: rename to TNOCode
+    TODO: rename to TNOpCode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     # --- 1-digit enum = 1 node op ---
@@ -124,11 +124,11 @@ class UserOpResult:
     """
 
     def __init__(self, status: UserOpStatus, error: Optional[Union[str, Exception]] = None,
-                 to_upsert: Optional[List[Node]] = None, to_remove: Optional[List[Node]] = None):
+                 to_upsert: Optional[List[TNode]] = None, to_remove: Optional[List[TNode]] = None):
         self.status: UserOpStatus = status
         self.error: Optional[Union[str, Exception]] = error
-        self.nodes_to_upsert: Optional[List[Node]] = to_upsert
-        self.nodes_to_remove: Optional[List[Node]] = to_remove
+        self.nodes_to_upsert: Optional[List[TNode]] = to_upsert
+        self.nodes_to_remove: Optional[List[TNode]] = to_remove
 
     def is_completed(self) -> bool:
         return self.status.is_completed()
@@ -145,14 +145,14 @@ class UserOp(AbstractNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpCode, src_node: Node, dst_node: Optional[Node] = None, create_ts: int = None):
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpCode, src_node: TNode, dst_node: Optional[TNode] = None, create_ts: int = None):
         assert src_node, 'No src node!'
         AbstractNode.__init__(self)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: UserOpCode = op_type
-        self.src_node: Node = src_node
-        self.dst_node: Optional[Node] = dst_node
+        self.src_node: TNode = src_node
+        self.dst_node: Optional[TNode] = dst_node
         """If it exists, this is the target. Otherwise the target is the src node"""
 
         self.create_ts = create_ts

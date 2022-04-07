@@ -144,7 +144,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
 
         if node.has_signature():
             # Other threads, e.g., CommandExecutor, can also fill this in asynchronously
-            logger.debug(f'[{self.name}] Node already has signature; skipping; {node}')
+            logger.debug(f'[{self.name}] TNode already has signature; skipping; {node}')
             return
 
         content_meta = self.backend.cacheman.calculate_signature_for_local_file(device_uid=node.device_uid, full_path=node.get_single_path())

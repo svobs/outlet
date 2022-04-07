@@ -51,7 +51,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
         if not node:
             raise RuntimeError(f'No node supplied!')
         if not node.uid:
-            raise RuntimeError(f'Node is missing UID: {node}')
+            raise RuntimeError(f'TNode is missing UID: {node}')
         if node.node_identifier.tree_type != TreeType.GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {node.node_identifier.tree_type}')
         if not isinstance(node, GDriveNode):
@@ -72,17 +72,17 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             except RuntimeError:
                 logger.debug(f'Could not resolve goog_ids for parent UIDs ({parent_uids}); assuming parents do not exist')
         else:
-            logger.debug(f'Node has no parents; assuming it is a root node: {self.node}')
+            logger.debug(f'TNode has no parents; assuming it is a root node: {self.node}')
 
     def update_diskstore(self, cache: GDriveDatabase):
         if not self.was_updated:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Node does not need disk update; skipping save to disk: {self.node}')
+                logger.debug(f'TNode does not need disk update; skipping save to disk: {self.node}')
             return
 
         if not self.node.is_live():
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Node is not live; skipping save to disk: {self.node}')
+                logger.debug(f'TNode is not live; skipping save to disk: {self.node}')
             return
 
         if SUPER_DEBUG_ENABLED:
@@ -271,7 +271,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
     def send_signals(self):
         # TODO: consider optimizing by using SUBTREE_NODES_CHANGED_IN_CACHE (which requires sorting nodes into subtrees...)
         for change in self.change_list:
-            assert change.node.get_path_list(), f'Node is missing path list: {change.node}'
+            assert change.node.get_path_list(), f'TNode is missing path list: {change.node}'
             if change.is_removed():
                 dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=change.node)
             else:
