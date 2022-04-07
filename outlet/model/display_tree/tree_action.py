@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from constants import TreeID
+from constants import ActionID, TreeID
 from model.node.node import TNode
 from model.node_identifier import GUID
 from model.uid import UID
@@ -14,3 +14,7 @@ class TreeAction:
         self.target_guid_list: Optional[List[GUID]] = target_guid_list
         self.target_node_list: Optional[List[TNode]] = target_node_list
         self.target_uid: Optional[UID] = target_uid
+
+    def __repr__(self):
+        return f'TreeAction({ActionID(self.action_id).name} target_guid_list={self.target_guid_list} target_node_list={self.target_node_list} ' \
+               f'target_uid={self.target_uid}'

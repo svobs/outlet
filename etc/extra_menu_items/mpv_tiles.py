@@ -6,7 +6,7 @@ from collections import deque
 from functools import partial
 from pathlib import Path
 from typing import Deque, List, Optional
-from model.node.node import Node
+from model.node.node import TNode
 import logging
 logger = logging.getLogger(__name__)
 
@@ -46,15 +46,15 @@ class ExecState:
         self.was_cancelled: bool = False
 
 
-def get_label(node_list: List[Node]) -> str:
+def get_label(node_list: List[TNode]) -> str:
     return f'Play Fullscreen on Screen{"" if len(SCREENS) == 1 else "s"} {", ".join([f"#{i + 1}" for i in SCREENS])}'
 
 
-def is_enabled(node_list: List[Node]) -> bool:
+def is_enabled(node_list: List[TNode]) -> bool:
     return True
 
 
-def run(node_list: List[Node]):
+def run(node_list: List[TNode]):
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
@@ -68,7 +68,7 @@ def run(node_list: List[Node]):
     logger.info(f'Done running!')
 
 
-def _find_all_video_files(node_list: List[Node]) -> Deque[str]:
+def _find_all_video_files(node_list: List[TNode]) -> Deque[str]:
     file_set = set()
 
     for node in node_list:

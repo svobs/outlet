@@ -4,10 +4,9 @@ import os
 from typing import List, Optional
 
 from backend.executor.command.cmd_interface import Command, CommandContext, CopyNodeCommand, DeleteNodeCommand, FinishCopyToDirCommand, \
-    TwoNodeCommand, UserOpResult, \
-    UserOpStatus
+    TwoNodeCommand, UserOpResult, UserOpStatus
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus, TreeType
-from error import GDriveItemNotFoundError, InvalidOperationError
+from error import GDriveItemNotFoundError, IdenticalFileExistsError, InvalidOperationError
 from model.gdrive_meta import MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -71,7 +70,7 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
                                               verify=True, copy_meta_also=cxt.update_meta_also)
 
             result = UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert)
-        except file_util.IdenticalFileExistsError:
+        except IdenticalFileExistsError:
             # This is thrown if the file to be copied is already at the dst. Nothing to do.
             result = UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=to_upsert)
             # However, make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats (below)
@@ -269,6 +268,7 @@ class FinishCopyToLocalDirCommand(FinishCopyToDirCommand):
             return FinishCopyToGDriveFolderCommand.delete_src_node(cxt, self.op.src_node, new_dst_node)
         else:
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dst_node])
+
 
 # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
 # LOCAL COMMANDS end
@@ -593,8 +593,8 @@ class FinishCopyToGDriveFolderCommand(FinishCopyToDirCommand):
 
         if cxt.update_meta_also:
             new_dst_node = gdrive_client.modify_meta(goog_id=new_dst_node.goog_id, remove_parents=[],
-                                                  add_parents=[], new_name=self.op.src_node.name,
-                                                  create_ts=self.op.src_node.create_ts, modify_ts=self.op.src_node.modify_ts)
+                                                     add_parents=[], new_name=self.op.src_node.name,
+                                                     create_ts=self.op.src_node.create_ts, modify_ts=self.op.src_node.modify_ts)
             assert isinstance(new_dst_node, GDriveFolder), f'Expected a GDriveFolder: {new_dst_node}'
 
         if self.delete_src_node_after:
@@ -826,7 +826,6 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
                 return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[tgt_node])
 
             return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[tgt_node])
-
 
 # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
 # PURE GDRIVE COMMANDS end

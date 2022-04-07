@@ -179,14 +179,11 @@ class OpGraph(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def __len__(self):
+        """Returns the count of ops in the OpGraph."""
+
         with self._cv_can_get:
             op_set = set()
-            # '_node_ogn_q_dict' must contain the same number of nodes as the graph, but should be slightly more efficient to iterate over (maybe)
-            for device_uid, node_dict in self._node_ogn_q_dict.items():
-                for node_uid, deque in node_dict.items():
-                    for node in deque:
-                        op_set.add(node.op.op_uid)
-
+            self._for_all_ogn_in_graph(lambda _ogn: op_set.add(_ogn.op.op_uid) and False)
             return len(op_set)
 
     def _print_current_state(self):
@@ -224,8 +221,14 @@ class OpGraph(HasLifecycle):
     def _get_last_pending_ogn_for_node(self, device_uid: UID, node_uid: UID) -> Optional[OpGraphNode]:
         ogn_list = self._get_ogn_queue_for_node(device_uid=device_uid, node_uid=node_uid)
         if ogn_list:
-            # last element in list is lowest priority:
+            # last element in list is the lowest priority:
             return ogn_list[-1]
+        return None
+
+    def _get_next_pending_ogn_for_node(self, device_uid: UID, node_uid: UID) -> Optional[OpGraphNode]:
+        ogn_list = self._get_ogn_queue_for_node(device_uid=device_uid, node_uid=node_uid)
+        if ogn_list:
+            return ogn_list[0]
         return None
 
     def get_last_pending_op_for_node(self, device_uid: UID, node_uid: UID) -> Optional[UserOp]:
@@ -239,6 +242,9 @@ class OpGraph(HasLifecycle):
     def get_max_added_op_uid(self) -> UID:
         with self._cv_can_get:
             return self._max_added_op_uid
+
+    # VALIDATION
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def validate_internal_consistency(self):
         with self._cv_can_get:
@@ -415,12 +421,16 @@ class OpGraph(HasLifecycle):
 
         # Check NodeQueues against graph entries:
         ogn_coverage_dict.pop(self.root.node_uid)
-        for device_uid, node_dict in self._node_ogn_q_dict.items():
-            for node_uid, deque in node_dict.items():
-                for ogn in deque:
-                    if not ogn_coverage_dict.pop(ogn.node_uid, None):
-                        error_count += 1
-                        logger.error(f'[{self.name}] ValidateGraph: OG node found in NodeQueues which is not in the graph: {ogn}')
+
+        def _check_for_stranded(_ogn):
+            if not ogn_coverage_dict.pop(_ogn.node_uid, None):
+                _check_for_stranded.count_found += 1
+                logger.error(f'[{self.name}] ValidateGraph: OG node found in NodeQueues which is not in the graph: {_ogn}')
+            return False
+
+        _check_for_stranded.count_found = 0
+        self._for_all_ogn_in_graph(_check_for_stranded)
+        error_count += _check_for_stranded.count_found
 
         if len(ogn_coverage_dict) > 0:
             for ogn in ogn_coverage_dict.values():
@@ -743,7 +753,7 @@ class OpGraph(HasLifecycle):
                                  f'{len(inserted_op_list)} ops) - rethrowing exception')
                     raise err
 
-    # GET logic
+    # GET NEXT OP logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _is_node_ready(self, op: UserOp, node: TNode, node_type_str: str, fail_if_not_found: bool = True) -> bool:
@@ -858,30 +868,6 @@ class OpGraph(HasLifecycle):
 
         return None
 
-    def retry_failed_op(self, op_uid: UID):
-        """
-        Finds the op with the given UID, and if the op:
-        1. is in STOPPED_ON_ERROR state, in which case the state will be reset and the OpGraph will
-           be notified that there is more work to do; or
-        2. is in BLOCKED_BY_ERROR state, in which case the op which is the source of the block will be
-           found and reset as described in (1); or
-        3. is in any other state, or op not found: raises an error
-        """
-        with self._cv_can_get:
-            pass
-            # TODO
-            self._cv_can_get.notifyAll()
-
-    def retry_all_failed_ops(self):
-        """
-        Finds all ops which have status STOPPED_ON_ERROR, and resets their status to NOT_STARTED.
-        If no ops have status STOPPED_ON_ERROR, then does nothing.
-        """
-        with self._cv_can_get:
-            pass
-            # TODO
-            self._cv_can_get.notifyAll()
-
     # POP logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -919,8 +905,7 @@ class OpGraph(HasLifecycle):
                     self._block_downstream_ogns_for_failed_op(op)
                     logger.debug(f'[{self.name}] pop_completed_op(): Error dict is now = {self._changed_node_dict}')
 
-            is_batch_complete: bool = False
-
+            is_batch_complete: bool = self._is_batch_complete(op.batch_uid)
 
             logger.debug(f'[{self.name}] Done with pop_completed_op() for op: {op}')
             self._print_current_state()
@@ -929,6 +914,16 @@ class OpGraph(HasLifecycle):
             self._cv_can_get.notifyAll()
 
             return is_batch_complete
+
+    def _is_batch_complete(self, batch_uid: UID):
+        """NOTE: may want to optimize this later. This is O(N) for OpGraph size"""
+        def _found(ogn):
+            if ogn.op.batch_uid == batch_uid:
+                logger.debug(f'[{self.name}] IsBatchComplete() returning false: found {ogn.op}')
+                return True  # this means stop the iteration
+
+        was_found = self._for_all_ogn_in_graph(_found)
+        return not was_found
 
     def _rollback(self, ogn_list: List[OpGraphNode]):
         ogn_count = len(ogn_list)
@@ -957,25 +952,20 @@ class OpGraph(HasLifecycle):
     def _block_downstream_ogns_for_failed_op(self, failed_op: UserOp):
         assert failed_op.get_status() == UserOpStatus.STOPPED_ON_ERROR, f'Op is not in failed status: {failed_op}'
 
-        queue: Deque[UserOp] = collections.deque()
-        queue.append(failed_op)
-
-        while len(queue) > 0:
-            op: UserOp = queue.popleft()
-
-            if op.result:
-                logger.debug(f'[{self.name}] Op {op.op_uid} already has a result: {op.result}')
+        def _set_status_to_blocked(_ogn: OpGraphNode):
+            if _ogn.op.op_uid == failed_op.op_uid:
+                self._add_tgt_node_to_icon_changes_dict(_ogn.get_tgt_node())
+            elif _ogn.op.result:
+                logger.debug(f'[{self.name}] Op {_ogn.op.op_uid} already has a result: {_ogn.op.result}')
             else:
-                logger.debug(f'[{self.name}] Setting status of op {op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
-                op.result = UserOpResult(status=UserOpStatus.BLOCKED_BY_ERROR)
+                logger.debug(f'[{self.name}] Setting status of op {_ogn.op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
+                _ogn.op.result = UserOpResult(status=UserOpStatus.BLOCKED_BY_ERROR)
+                self._add_tgt_node_to_icon_changes_dict(_ogn.get_tgt_node())
 
-            self._process_and_enqueue_children(op.src_node, op, queue)
-
-            if op.has_dst():
-                self._process_and_enqueue_children(op.dst_node, op, queue)
+        self._for_op_ogns_and_all_descendent_ogns(failed_op, _set_status_to_blocked)
 
     def _process_and_enqueue_children(self, tgt_node: TNode, op: UserOp, queue: Deque[UserOp]):
-        ogn: OpGraphNode = self._get_last_pending_ogn_for_node(tgt_node.device_uid, tgt_node.uid)
+        ogn: OpGraphNode = self._get_next_pending_ogn_for_node(tgt_node.device_uid, tgt_node.uid)
         assert ogn and ogn.op.op_uid == op.op_uid, f'Op (UID {op.op_uid}) does not match last OGN in its target node\'s queue ({ogn})'
 
         self._add_tgt_node_to_icon_changes_dict(tgt_node)
@@ -1053,3 +1043,155 @@ class OpGraph(HasLifecycle):
             if not ogn_child.get_parent_list():
                 for ogn_parent in ogn_former_parent_list:
                     ogn_parent.link_child(ogn_child)
+
+    # RETRY logic
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def retry_failed_op(self, op_uid: UID):
+        """
+        Finds the op with the given UID, and if the op:
+        1. is in STOPPED_ON_ERROR state, in which case the state will be reset and the OpGraph will
+           be notified that there is more work to do; or
+        2. is in BLOCKED_BY_ERROR state, in which case the op which is the source of the block will be
+           found and reset as described in (1); or
+        3. is in any other state, or op not found: raises an error
+        """
+        with self._cv_can_get:
+            sw = Stopwatch()
+
+            # NOTE: may want to optimize this later. It goes over the entire graph! If we could look up by op_uid...
+            def _found(ogn):
+                if ogn.op.op_uid == op_uid:
+                    status = ogn.op.get_status()
+                    if status == UserOpStatus.STOPPED_ON_ERROR:
+                        logger.debug(f'[{self.name}] retry_failed_op(): nulling out result of: {ogn.op}')
+                        # For binary ops, we can rely on object reference to change both OGNs
+                        self._reset_status_and_all_descendents(ogn.op)
+                        return True  # this means stop the iteration.
+                    elif status == UserOpStatus.BLOCKED_BY_ERROR:
+                        logger.debug(f'[{self.name}] retry_failed_op(): op has status {status.name} (will look for upstream blocker): {ogn.op}')
+                        target_op_list = self._find_blocking_op_list(ogn)
+                        assert target_op_list, f'Could not find upstream op which is blocking {ogn}'
+                        logger.debug(f'[{self.name}] retry_failed_op(): Found blocking op(s): {target_op_list}')
+                        for target_op in target_op_list:
+                            self._reset_status_and_all_descendents(target_op)
+                        return True  # this means stop the iteration.
+
+                    return False
+
+            was_found = self._for_all_ogn_in_graph(_found)
+            logger.debug(f'{sw} retry_failed_op() done: was_found={was_found}')
+            if not was_found:
+                raise RuntimeError(f'Could not retry: failed to find op in graph with UID: {op_uid}')
+
+            # Found and reset. Notify graph that it has something to do:
+            self._cv_can_get.notifyAll()
+
+    def _reset_status_and_all_descendents(self, op: UserOp):
+        """Resets the given op's status from STOPPED_ON_ERROR to NOT_STARTED. Then finds all descendents and
+        changes their status from BLOCKED_BY_ERROR to NOT_STARTED."""
+        def _remove_blocked_status(_ogn: OpGraphNode):
+            if _ogn.op.op_uid == op.op_uid:
+                pass
+                # fall through
+            elif _ogn.op.get_status() == UserOpStatus.BLOCKED_BY_ERROR:
+                logger.debug(f'[{self.name}] Unblocking op: {_ogn.op.op_uid}')
+                # fall through
+            else:
+                assert False, f'Expected OGN\'s op to have BLOCKED status: {_ogn}'
+
+            self._reset_status(_ogn)
+
+        self._for_op_ogns_and_all_descendent_ogns(op, _remove_blocked_status)
+
+    def _reset_status(self, ogn):
+        ogn.op.reset_result()
+        self._add_tgt_node_to_icon_changes_dict(ogn.get_tgt_node())  # icon changed
+
+    def _find_blocking_op_list(self, ogn: OpGraphNode) -> Iterable[UserOp]:
+        found_op_dict: Dict[UID, UserOp] = {}
+
+        queue: Deque[OpGraphNode] = collections.deque()
+        queue.append(ogn)
+
+        while queue:
+            ogn = queue.popleft()
+            if ogn.op.get_status() == UserOpStatus.BLOCKED_BY_ERROR:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.name}] _find_blocking_op_list(): OGN {ogn.node_uid} blocked; checking parents')
+                for parent_ogn in ogn.get_parent_list():
+                    queue.append(parent_ogn)
+            elif ogn.op.get_status() == UserOpStatus.STOPPED_ON_ERROR:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'[{self.name}] _find_blocking_op_list(): found blocking OGN {ogn.node_uid}')
+                found_op_dict[ogn.op.op_uid] = ogn.op
+
+        return found_op_dict.values()
+
+    def retry_all_failed_ops(self):
+        """
+        Finds all ops which have status STOPPED_ON_ERROR, and resets their status to NOT_STARTED. (Also resets the status of all their blocked
+        descendents). If no ops have status STOPPED_ON_ERROR, then does nothing.
+        """
+        with self._cv_can_get:
+            # Just go over the graph and wipe out all the errors & blocked statuses in one swoop
+            def _process(ogn):
+                status = ogn.op.get_status()
+                if ogn.op.op_uid in _process.op_set:
+                    self._add_tgt_node_to_icon_changes_dict(ogn.get_tgt_node())  # icon changed
+
+                if status == UserOpStatus.STOPPED_ON_ERROR or status == UserOpStatus.BLOCKED_BY_ERROR:
+                    logger.debug(f'[{self.name}] retry_all_failed_ops(): nulling out result of: {ogn.op}')
+                    # For binary ops, we can rely on object reference to change both OGNs
+                    self._reset_status(ogn)
+                    _process.op_set.add(ogn.op.op_uid)
+                return False
+
+            _process.op_set = set()
+            self._for_all_ogn_in_graph(_process)
+            logger.info(f'[{self.name}] retry_all_failed_ops(): did reset the status of {len(_process.op_set)}.')
+
+            # Found and reset. Notify graph that it has something to do:
+            self._cv_can_get.notifyAll()
+
+    # Internal utility methods
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def _for_all_ogn_in_graph(self, on_ogn_found: Callable[[OpGraphNode], bool]) -> bool:
+        """
+        Iterates over all OGNs currently in the graph, in no particular order. Stops when on_ogn_found() returns True.
+        :return True iff the last on_ogn_found() returned True; False if they all returned False.
+        """
+        for device_uid, node_dict in self._node_ogn_q_dict.items():
+            for node_uid, deque in node_dict.items():
+                for ogn in deque:
+                    if on_ogn_found(ogn):
+                        return True
+        return False
+
+    def _for_op_ogns_and_all_descendent_ogns(self, root_op: UserOp, on_ogn_found: Callable[[OpGraphNode], None]):
+        ogn_queue: Deque[OpGraphNode] = collections.deque()
+
+        # Enqueue op's src OGN:
+        ogn_src: OpGraphNode = self._get_next_pending_ogn_for_node(root_op.src_node.device_uid, root_op.src_node.uid)
+        assert ogn_src, f'Could not find src OGN in OpGraph for {root_op.src_node.node_identifier} (for op: {root_op})'
+        assert ogn_src.op.op_uid == root_op.op_uid, \
+            f'Expected next op = {root_op.op_uid} but found {ogn_src.op.op_uid} for {root_op.src_node.node_identifier}'
+        ogn_queue.append(ogn_src)
+
+        # Enqueue op's dst OGN, if it exists:
+        if root_op.has_dst():
+            ogn_dst: OpGraphNode = self._get_next_pending_ogn_for_node(root_op.dst_node.device_uid, root_op.dst_node.uid)
+            ogn_queue.append(ogn_dst)
+            assert ogn_dst, f'Could not find dst OGN in OpGraph for {root_op.dst_node.node_identifier} (for op: {root_op})'
+            assert ogn_dst.op.op_uid == root_op.op_uid, \
+                f'Expected next op = {root_op.op_uid} but found {ogn_dst.op.op_uid} for {root_op.dst_node.node_identifier}'
+
+        # From here on out we can navigate via OGNs to get the whole downstream graph.
+        while len(ogn_queue) > 0:
+            ogn: OpGraphNode = ogn_queue.popleft()
+            on_ogn_found(ogn)
+
+            # Enqueue downstream OGNs:
+            for child_ogn in ogn.get_child_list():
+                ogn_queue.append(child_ogn)

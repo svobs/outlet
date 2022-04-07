@@ -182,6 +182,9 @@ class UserOp(AbstractNode):
         else:
             self.result.status = status
 
+    def reset_result(self):
+        self.result = None
+
     def is_stopped_on_error(self) -> bool:
         status = self.get_status()
         return status == UserOpStatus.STOPPED_ON_ERROR or status == UserOpStatus.BLOCKED_BY_ERROR

@@ -131,8 +131,7 @@ class ActionManager(HasLifecycle):
     def _execute_tree_action(self, tree_action: TreeAction):
         action_handler = self._action_handler_dict.get(tree_action.action_id)
         if action_handler:
-            logger.debug(f'[{tree_action.tree_id}] Calling handler for action {ActionID(tree_action.action_id).name} '
-                         f'target_guid_list={tree_action.target_guid_list}')
+            logger.debug(f'[{tree_action.tree_id}] Calling handler for {tree_action}')
             action_handler(tree_action)
         else:
             if self.reload_custom_action_handlers_before_invoke:
