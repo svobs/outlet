@@ -71,7 +71,7 @@ class ContextMenuBuilder(HasLifecycle):
             elif op.get_status() == UserOpStatus.BLOCKED_BY_ERROR:
                 title = f'Pending Operation: "{op_label}" (blocked due to error)'
                 # for now this should work: client sending retry of blocked operation will signal desire to retry the blocking op
-                retry_op_menu_item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Retry Blocking Operation',
+                retry_op_menu_item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Retry Blocking Operation(s)',
                                                      action_id=ActionID.RETRY_OPERATION)
                 retry_op_menu_item.target_uid = op.op_uid
             else:

@@ -155,10 +155,10 @@ class OpGraphNode(AbstractNode, ABC):
     def print_me(self, full=True) -> str:
         string = f'{self._type_str()} ogn_uid={self.node_uid}'
         if full:
-            return f'{string} parents={OpGraphNode.uid_list_str(self.get_parent_list())} ' \
-                   f'children={OpGraphNode.uid_list_str(self.get_child_list())}: {self.op}'
+            return f'{string} parents=[{OpGraphNode.uid_list_str(self.get_parent_list())}] ' \
+                   f'children=[{OpGraphNode.uid_list_str(self.get_child_list())}]: {self.op}'
         else:
-            return f'{string} op_uid={self.op.op_uid}'
+            return f'{string} op_uid={self.op.op_uid} {self.op.get_status().name}'
 
     def __repr__(self):
         return self.print_me()

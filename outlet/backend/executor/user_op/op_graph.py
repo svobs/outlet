@@ -87,8 +87,8 @@ class OpGraph(HasLifecycle):
             if ogn and not ogn.op.is_completed():
                 icon = ChangeTreeCategoryMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'TNode {device_uid}:{node_uid} belongs to pending op ({ogn.op.op_uid}: {ogn.op.op_type.name}): '
-                                 f'returning icon {icon.name}')
+                    op_str = f'{ogn.op.op_uid}: {ogn.op.op_type.name}, {ogn.op.get_status().name}'
+                    logger.debug(f'TNode {device_uid}:{node_uid} belongs to pending op ({op_str}): returning icon {icon.name}')
                 return icon
 
             device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
@@ -167,7 +167,7 @@ class OpGraph(HasLifecycle):
 
     def _add_tgt_node_to_icon_changes_dict(self, tgt_node: TNode):
         # TODO: merge this structure with ancestor change counts
-        logger.debug(f'[{self.name}] Adding node {tgt_node.node_identifier} to set of nodes which need UI icon updates')
+        logger.debug(f'[{self.name}] Adding tnode {tgt_node.node_identifier} to ChangedIconDict')
         # Add tgt node to change map
         node_map_for_device = self._changed_node_dict.get(tgt_node.device_uid)
         if not node_map_for_device:
@@ -472,43 +472,43 @@ class OpGraph(HasLifecycle):
         logger.debug(f'[{self.name}] {sw_total} Found {len(child_nodes):,} child nodes in graph for RM node')
         return child_nodes
 
-    def _find_adopters_for_new_rm_ogn(self, new_ogn: OpGraphNode, prev_ogn_for_target) -> List[OpGraphNode]:
+    def _find_adopters_for_new_rm_ogn(self, ogn_new: OpGraphNode, prev_ogn_for_target) -> List[OpGraphNode]:
         # Special handling for RM-type nodes.
         # We want to find the lowest RM node in the tree.
-        assert new_ogn.is_rm_node()
-        target_node: TNode = new_ogn.get_tgt_node()
+        assert ogn_new.is_rm_node()
+        target_node: TNode = ogn_new.get_tgt_node()
 
         if prev_ogn_for_target and prev_ogn_for_target.is_rm_node():
-            logger.error(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Op\'s target node ({target_node.dn_uid}) is an RM '
+            logger.error(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Op\'s target node ({target_node.dn_uid}) is an RM '
                          f'which is a dup of already enqueued RM ({prev_ogn_for_target.op.src_node.dn_uid})!')
-            assert target_node.dn_uid == new_ogn.op.src_node.dn_uid
+            assert target_node.dn_uid == ogn_new.op.src_node.dn_uid
             assert prev_ogn_for_target.op.src_node.dn_uid == target_node.dn_uid
 
             raise InvalidInsertOpGraphError(f'Trying to remove node ({target_node.node_identifier}) whose last operation is already an RM operation!')
 
         # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
-        ogn_list_for_children_of_tgt: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(new_ogn)
+        ogn_list_for_children_of_tgt: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(ogn_new)
         if ogn_list_for_children_of_tgt:
             # Possibility 1: children
-            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found {len(ogn_list_for_children_of_tgt)} '
+            logger.debug(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Found {len(ogn_list_for_children_of_tgt)} '
                          f'existing OGNs for children of tgt node ({target_node.dn_uid}); examining whether to add as child dependency of each')
 
             parent_ogn_list: List[OpGraphNode] = []  # Use this list to store parents to link to until we are done validating.
             for og_node_for_child_node in ogn_list_for_children_of_tgt:
-                logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Examining {og_node_for_child_node}')
+                logger.debug(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Examining {og_node_for_child_node}')
                 if not og_node_for_child_node.is_remove_type():
                     raise InvalidInsertOpGraphError(f'Cannot insert RM OGN: all children of its target must be scheduled for removal first,'
-                                                    f'but found: {og_node_for_child_node} (while trying to insert OGN: {new_ogn})')
+                                                    f'but found: {og_node_for_child_node} (while trying to insert OGN: {ogn_new})')
 
                 # Check if there's an existing OGN which is child of parent OGN.
                 conflicting_ogn: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
                 if conflicting_ogn:
                     if not conflicting_ogn.is_remove_type():
                         raise InvalidInsertOpGraphError(f'Found unexpected node which is blocking insert of our RM operation: {conflicting_ogn} '
-                                                        f'(while trying to insert: {new_ogn})')
+                                                        f'(while trying to insert: {ogn_new})')
                     else:
                         # extremely rare for this to happen - likely indicates a hole in our logic somewhere
-                        raise InvalidInsertOpGraphError(f'Found unexpected child OGN: {conflicting_ogn} (while trying to insert OGN: {new_ogn})')
+                        raise InvalidInsertOpGraphError(f'Found unexpected child OGN: {conflicting_ogn} (while trying to insert OGN: {ogn_new})')
                 else:
                     parent_ogn_list.append(og_node_for_child_node)
 
@@ -522,12 +522,12 @@ class OpGraph(HasLifecycle):
             if prev_ogn_for_target.get_child_list():
                 raise InvalidInsertOpGraphError(f'While trying to add RM op: did not expect existing OGN for target to have children! '
                                                 f'(tgt={prev_ogn_for_target})')
-            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found pending op(s) for target node {target_node.dn_uid} for RM op; '
+            logger.debug(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Found pending op(s) for target node {target_node.dn_uid} for RM op; '
                          f'adding as child dependency')
             return [prev_ogn_for_target]
         else:
             # Possibility 3: no previous ops for node or its children
-            logger.debug(f'[{self.name}] Add_RM_OGN({new_ogn.node_uid}) Found no previous ops for target node {target_node.dn_uid} or its children; '
+            logger.debug(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Found no previous ops for target node {target_node.dn_uid} or its children; '
                          f'adding to root')
             return [self.root]
 
@@ -557,82 +557,86 @@ class OpGraph(HasLifecycle):
 
         return None
 
+    def _find_adopters_for_finish_dir_ogn(self, ogn_new: OpGraphNode, prev_ogn_for_target: OpGraphNode) -> List[OpGraphNode]:
+        assert ogn_new.op.is_finish_dir_type()
+
+        logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) New op is FINISH_DIR type. Looking for matching START_DIR...')
+        ogn_start: OpGraphNode = self._find_matching_start_dir_ogn_for_finish_dir_ogn(ogn_finish=ogn_new)
+        if ogn_start:
+            ogn_leaf_list: List[OpGraphNode] = ogn_start.get_all_downstream_leaves()
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): START_DIR leaf OGNs = {self._uid_list_str(ogn_leaf_list)}')
+
+            # these will be our parents. Validate:
+            for ogn_leaf in ogn_leaf_list:
+                if not ogn_leaf.is_in_same_batch(ogn_new):
+                    raise RuntimeError(f'Leaf {ogn_leaf} is not in the same batch as FINISH OGN being inserted: {ogn_new}')
+            return ogn_leaf_list
+        else:
+            # No matching START_DIR found. This *must* mean that we are merging a batch into the main tree, in which case
+            logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) No matching START_DIR found (assuming it completed & we'
+                         f' are resuming a half-finished batch); using existing OGN parents ({self._uid_list_str(ogn_new.get_parent_list())})')
+            return ogn_new.get_parent_list()
+
     def _insert_ogn_between_start_and_finish(self, ogn_new: OpGraphNode, ogn_finish: OpGraphNode) -> OpGraphNode:
         assert ogn_finish.op.is_finish_dir_type()
-        logger.warning('Inserting between start and finish!')
 
         ogn_start = self._find_matching_start_dir_ogn_for_finish_dir_ogn(ogn_finish)
         if ogn_start:
+            logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Found START_DIR ({ogn_start.node_uid}): linking it as parent')
             ogn_start.link_child(ogn_new)
             if ogn_finish.is_child_of(ogn_start):
+                logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Unlinking FINISH_DIR from START_DIR; new OGN will be between')
                 ogn_start.unlink_child(ogn_finish)
-                ogn_new.link_child(ogn_finish)
+            logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Linking FINISH_DIR as child of new OGN')
+            ogn_new.link_child(ogn_finish)
             # Although we hooked everything up completely, we still need to submit the new node's parent for additional processing:
             return ogn_start
         else:
             # This should never happen
             raise RuntimeError(f'Failed to find earlier queued START OGN matching new FINISH ({ogn_finish})')
 
-    def _find_adopters_for_finish_dir_ogn(self, new_ogn: OpGraphNode, prev_ogn_for_target: OpGraphNode) -> List[OpGraphNode]:
-        assert new_ogn.op.is_finish_dir_type()
-
-        logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({new_ogn.node_uid}) New op is FINISH_DIR type. Looking for matching START_DIR...')
-        ogn_start: OpGraphNode = self._find_matching_start_dir_ogn_for_finish_dir_ogn(ogn_finish=new_ogn)
-        if ogn_start:
-            ogn_leaf_list: List[OpGraphNode] = ogn_start.get_all_downstream_leaves()
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({new_ogn.node_uid}): START_DIR leaf OGNs = {self._uid_list_str(ogn_leaf_list)}')
-
-            # these will be our parents. Validate:
-            for ogn_leaf in ogn_leaf_list:
-                if not ogn_leaf.is_in_same_batch(new_ogn):
-                    raise RuntimeError(f'Leaf {ogn_leaf} is not in the same batch as FINISH OGN being inserted: {new_ogn}')
-            return ogn_leaf_list
-        else:
-            # No matching START_DIR found. This *must* mean that we are merging a batch into the main tree, in which case
-            logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({new_ogn.node_uid}) No matching START_DIR found (assuming it completed & we'
-                         f' are resuming a half-finished batch); using existing OGN parents ({self._uid_list_str(new_ogn.get_parent_list())})')
-            return new_ogn.get_parent_list()
-
-    def _find_adopters_for_new_non_rm_ogn(self, new_ogn: OpGraphNode, prev_ogn_for_target: OpGraphNode) -> List[OpGraphNode]:
-        target_node: TNode = new_ogn.get_tgt_node()
+    def _find_adopters_for_new_non_rm_ogn(self, ogn_new: OpGraphNode, prev_ogn_for_target: OpGraphNode) -> List[OpGraphNode]:
+        target_node: TNode = ogn_new.get_tgt_node()
         target_device_uid: UID = target_node.device_uid
         parent_ogn_list: List[OpGraphNode] = []
 
         # Check for pending operations for parent node(s) of target:
         for tgt_node_parent_uid in target_node.get_parent_uids():
-            logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Examining parent '
+            logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Examining parent '
                          f'{target_node.device_uid}:{tgt_node_parent_uid} of target node ({target_node.dn_uid})')
 
             prev_ogn_for_target_node_parent: Optional[OpGraphNode] = self._get_last_pending_ogn_for_node(target_device_uid, tgt_node_parent_uid)
             if prev_ogn_for_target_node_parent:
 
                 # Check if parent's last op is FINISH_DIR_*, and if so, find its conjugate START_DIR_*.
-                if prev_ogn_for_target_node_parent.op.is_finish_dir_type() and new_ogn.is_in_same_batch(prev_ogn_for_target_node_parent):
+                if prev_ogn_for_target_node_parent.op.is_finish_dir_type() and ogn_new.is_in_same_batch(prev_ogn_for_target_node_parent):
                     # If we're in the same batch as START & FINISH: insert this OGN as child of START and parent of FINISH
                     # (reconnecting START & FINISH if needed)
                     # TODO: this should work for one level of dirs, but will it work for nested dirs?
-                    prev_ogn_for_target_node_parent = self._insert_ogn_between_start_and_finish(ogn_new=new_ogn,
+                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Found existing FINISH_DIR '
+                                 f'({prev_ogn_for_target_node_parent.node_uid}): looking for matching START_DIR')
+                    prev_ogn_for_target_node_parent = self._insert_ogn_between_start_and_finish(ogn_new=ogn_new,
                                                                                                 ogn_finish=prev_ogn_for_target_node_parent)
                     # (kludge): "prev_ogn_for_target_node_parent" is a START_DIR node we have already linked, but need to return something.
                     # else fall through and add as child of "prev_ogn_for_target_node_parent" like normal
 
                 # Sanity check: cannot add to a parent which has been removed
                 elif prev_ogn_for_target_node_parent.is_remove_type():
-                    raise RuntimeError(f'Invalid operation: cannot {new_ogn.op.op_type.name} {target_node.node_identifier} when its '
+                    raise RuntimeError(f'Invalid operation: cannot {ogn_new.op.op_type.name} {target_node.node_identifier} when its '
                                        f'parent node ({prev_ogn_for_target_node_parent.get_tgt_node().node_identifier}) will first be removed!')
 
                 if prev_ogn_for_target:
                     logger.debug(f'Found both OGN for tgt ({prev_ogn_for_target}) and OGN for parent of tgt ({prev_ogn_for_target_node_parent})')
                     # Sanity check: 99% sure this should never happen, but let's check for it
                     if not prev_ogn_for_target.is_child_of(prev_ogn_for_target_node_parent):
-                        logger.error(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Prev OGN ({prev_ogn_for_target}) for tgt node '
+                        logger.error(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Prev OGN ({prev_ogn_for_target}) for tgt node '
                                      f'is not a child of its parent node\'s OGN ({prev_ogn_for_target_node_parent})')
                         raise RuntimeError(f'Invalid state of OpGraph: previous operation for tgt node {target_node.node_identifier} is not connected'
                                            f' to its parent\'s operation!')
                     # else fall through and attach to prev_ogn_for_target
                 else:
-                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found pending op(s) for parent '
+                    logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Found pending op(s) for parent '
                                  f'{target_device_uid}:{tgt_node_parent_uid}; '
                                  f'adding new OGN as child dependency of OGN {prev_ogn_for_target_node_parent.node_uid}')
                     parent_ogn_list.append(prev_ogn_for_target_node_parent)
@@ -640,17 +644,17 @@ class OpGraph(HasLifecycle):
         if prev_ogn_for_target:
             assert not parent_ogn_list, f'Did not expect: {parent_ogn_list}'
 
-            logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Adding new OGN as child of prev OGN {prev_ogn_for_target.node_uid}'
+            logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Adding new OGN as child of prev OGN {prev_ogn_for_target.node_uid}'
                          f'for tgt node')
             return [prev_ogn_for_target]
         elif parent_ogn_list:
             return parent_ogn_list
         else:
-            logger.debug(f'[{self.name}] Add_Non_RM_OGN({new_ogn.node_uid}) Found no pending ops for either target node {target_node.dn_uid} '
+            logger.debug(f'[{self.name}] Add_Non_RM_OGN({ogn_new.node_uid}) Found no pending ops for either target node {target_node.dn_uid} '
                          f'or its parent(s); adding to root')
             return [self.root]
 
-    def insert_ogn(self, new_ogn: OpGraphNode):
+    def insert_ogn(self, ogn_new: OpGraphNode):
         """
         This method is executed as a transaction: if an exception is thrown, the OpGraph can be assumed to be left in a valid state.
 
@@ -664,45 +668,46 @@ class OpGraph(HasLifecycle):
         A successful return indicates that the node was successfully enqueued; raises InvalidInsertOpGraphError otherwise
         """
         with self._cv_can_get:
-            self._insert_ogn(new_ogn)
+            self._insert_ogn(ogn_new)
 
-    def _insert_ogn(self, new_ogn: OpGraphNode):
-        logger.info(f'[{self.name}] InsertOGN({new_ogn.node_uid}) called for: {new_ogn}')
+    def _insert_ogn(self, ogn_new: OpGraphNode):
+        logger.info(f'[{self.name}] InsertOGN({ogn_new.node_uid}) called for: {ogn_new}')
 
         # First check whether the target node is known and has pending operations
-        target_node: TNode = new_ogn.get_tgt_node()
+        target_node: TNode = ogn_new.get_tgt_node()
         prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
 
-        if new_ogn.is_finish_dir():
-            parent_ogn_list = self._find_adopters_for_finish_dir_ogn(new_ogn, prev_ogn_for_target)
+        if ogn_new.is_finish_dir():
+            # I. When constructing batch graph, OGNs will typically be inserted in this order: START_DIR, FINISH_DIR, CP, CP, ...
+            parent_ogn_list = self._find_adopters_for_finish_dir_ogn(ogn_new, prev_ogn_for_target)
         else:
             # If not inside a START/FINISH block, need to clear out previous relationships (if any) as we will likely attach them
             # to new parents which are holdovers from a previous batch.
-            new_ogn = copy.copy(new_ogn)
-            new_ogn.clear_relationships()
+            ogn_new = copy.copy(ogn_new)
+            ogn_new.clear_relationships()
 
-            if new_ogn.is_rm_node():
-                parent_ogn_list = self._find_adopters_for_new_rm_ogn(new_ogn, prev_ogn_for_target)
+            if ogn_new.is_rm_node():
+                parent_ogn_list = self._find_adopters_for_new_rm_ogn(ogn_new, prev_ogn_for_target)
             else:
                 # Not an RM node:
-                parent_ogn_list = self._find_adopters_for_new_non_rm_ogn(new_ogn, prev_ogn_for_target)
+                parent_ogn_list = self._find_adopters_for_new_non_rm_ogn(ogn_new, prev_ogn_for_target)
 
         if not parent_ogn_list:
             # Serious error
-            raise InvalidInsertOpGraphError(f'Failed to find parent OGNs to link with: {new_ogn}')
+            raise InvalidInsertOpGraphError(f'Failed to find parent OGNs to link with: {ogn_new}')
 
-        logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) Linking OGN as child of OGNs [{self._uid_list_str(parent_ogn_list)}]')
+        logger.debug(f'[{self.name}] InsertOGN({ogn_new.node_uid}) Linking OGN as child of OGNs [{self._uid_list_str(parent_ogn_list)}]')
 
-        is_new_ogn_blocked = False
+        is_ogn_new_blocked = False
         for parent_ogn in parent_ogn_list:
-            parent_ogn.link_child(new_ogn)
+            parent_ogn.link_child(ogn_new)
             if parent_ogn.op and parent_ogn.op.is_stopped_on_error():
-                is_new_ogn_blocked = True
+                is_ogn_new_blocked = True
 
-        if is_new_ogn_blocked:
-            logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) New OGN is downstream of an error; setting status of '
-                         f'op {new_ogn.op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
-            new_ogn.op.set_status(UserOpStatus.BLOCKED_BY_ERROR)
+        if is_ogn_new_blocked:
+            logger.debug(f'[{self.name}] InsertOGN({ogn_new.node_uid}) New OGN is downstream of an error; setting status of '
+                         f'op {ogn_new.op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
+            ogn_new.op.set_status(UserOpStatus.BLOCKED_BY_ERROR)
 
         # Always add to node_queue_dict:
         node_dict = self._node_ogn_q_dict.get(target_node.device_uid, None)
@@ -713,20 +718,20 @@ class OpGraph(HasLifecycle):
         if not pending_ogn_queue:
             pending_ogn_queue = collections.deque()
             node_dict[target_node.uid] = pending_ogn_queue
-        pending_ogn_queue.append(new_ogn)
+        pending_ogn_queue.append(ogn_new)
 
         # Add to ancestor_dict:
-        logger.debug(f'[{self.name}] InsertOGN({new_ogn.node_uid}) Tgt node {new_ogn.get_tgt_node().node_identifier}'
-                     f' has ancestors: {new_ogn.tgt_ancestor_uid_list}')
-        self._increment_icon_update_counts(target_node.device_uid, new_ogn.tgt_ancestor_uid_list)
+        logger.debug(f'[{self.name}] InsertOGN({ogn_new.node_uid}) Tgt node {ogn_new.get_tgt_node().node_identifier}'
+                     f' has ancestors: {ogn_new.tgt_ancestor_uid_list}')
+        self._increment_icon_update_counts(target_node.device_uid, ogn_new.tgt_ancestor_uid_list)
 
-        if self._max_added_op_uid < new_ogn.op.op_uid:
-            self._max_added_op_uid = new_ogn.op.op_uid
+        if self._max_added_op_uid < ogn_new.op.op_uid:
+            self._max_added_op_uid = ogn_new.op.op_uid
 
         # notify consumers there is something to get:
         self._cv_can_get.notifyAll()
 
-        logger.info(f'[{self.name}] InsertOGN({new_ogn.node_uid}): successfully inserted: {new_ogn}')
+        logger.info(f'[{self.name}] InsertOGN({ogn_new.node_uid}): successfully inserted: {ogn_new}')
         self._print_current_state()
 
     @staticmethod
@@ -756,20 +761,20 @@ class OpGraph(HasLifecycle):
 
         with self._cv_can_get:
             try:
-                for graph_node in skip_root(breadth_first_list):
+                for ogn in skip_root(breadth_first_list):
                     if SUPER_DEBUG_ENABLED:
-                        logger.debug(f'[{self.name}] InsertBatchGraph: Starting insert of: {graph_node}')
+                        logger.debug(f'[{self.name}] InsertBatchGraph: Starting insert of: {ogn}')
 
-                    if graph_node.op.is_completed():
-                        logger.info(f'[{self.name}] InsertBatchGraph: Skipping insert of OGN {graph_node.node_uid}; '
+                    if ogn.op.is_completed():
+                        logger.info(f'[{self.name}] InsertBatchGraph: Skipping insert of OGN {ogn.node_uid}; '
                                     f'its operation is marked as complete')
                     else:
-                        self._insert_ogn(graph_node)
-                        inserted_ogn_list.append(graph_node)
+                        self._insert_ogn(ogn)
+                        inserted_ogn_list.append(ogn)
 
-                        if graph_node.op.op_uid not in processed_op_uid_set:
-                            inserted_op_list.append(graph_node.op)
-                            processed_op_uid_set.add(graph_node.op.op_uid)
+                        if ogn.op.op_uid not in processed_op_uid_set:
+                            inserted_op_list.append(ogn.op)
+                            processed_op_uid_set.add(ogn.op.op_uid)
 
                 if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
                     self._validate_internal_consistency()  # this will raise an OpGraphError if validation fails
@@ -938,9 +943,9 @@ class OpGraph(HasLifecycle):
                     # Note that we only need to do this at the moment of failure cuz we need to update nodes which are [possibly] already displayed.
                     # Any new nodes (unknown to us now) which need to be displayed thereafter will already call get_icon_for_node() prior to display.
                     logger.debug(f'[{self.name}] pop_completed_op(): Op stopped on error; '
-                                 f'will populate error dict (currently = {self._changed_node_dict})')
+                                 f'will set downstream OGNs to blocked & populate ChangedIconDict (currently = {self._changed_node_dict})')
                     self._block_downstream_ogns_for_failed_op(op)
-                    logger.debug(f'[{self.name}] pop_completed_op(): Error dict is now = {self._changed_node_dict}')
+                    logger.debug(f'[{self.name}] pop_completed_op(): ChangedIconDict is now = {self._changed_node_dict}')
 
             is_batch_complete: bool = self._is_batch_complete(op.batch_uid)
 
@@ -991,14 +996,13 @@ class OpGraph(HasLifecycle):
         assert failed_op.get_status() == UserOpStatus.STOPPED_ON_ERROR, f'Op is not in failed status: {failed_op}'
 
         def _set_status_to_blocked(_ogn: OpGraphNode):
-            if _ogn.op.op_uid == failed_op.op_uid:
-                self._add_tgt_node_to_icon_changes_dict(_ogn.get_tgt_node())
-            elif _ogn.op.result:
-                logger.debug(f'[{self.name}] Op {_ogn.op.op_uid} already has a result: {_ogn.op.result}')
-            else:
-                logger.debug(f'[{self.name}] Setting status of op {_ogn.op.op_uid} to {UserOpStatus.BLOCKED_BY_ERROR.name}')
+            tgt_node = _ogn.get_tgt_node()
+            self._add_tgt_node_to_icon_changes_dict(_ogn.get_tgt_node())
+
+            if _ogn.op.op_uid != failed_op.op_uid and not _ogn.op.result:  # skip the failed op itself, and don't duplicate work
+                logger.debug(f'[{self.name}] Setting status={UserOpStatus.BLOCKED_BY_ERROR.name}: op={_ogn.op.op_uid} tnode={tgt_node.dn_uid}')
                 _ogn.op.result = UserOpResult(status=UserOpStatus.BLOCKED_BY_ERROR)
-                self._add_tgt_node_to_icon_changes_dict(_ogn.get_tgt_node())
+                # the failed op itself
 
         self._for_op_ogns_and_all_descendent_ogns(failed_op, _set_status_to_blocked)
 
@@ -1228,6 +1232,8 @@ class OpGraph(HasLifecycle):
         # From here on out we can navigate via OGNs to get the whole downstream graph.
         while len(ogn_queue) > 0:
             ogn: OpGraphNode = ogn_queue.popleft()
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'[{self.name}] ForAllDescendents(): examining OGN {ogn.node_uid}')
             on_ogn_found(ogn)
 
             # Enqueue downstream OGNs:
