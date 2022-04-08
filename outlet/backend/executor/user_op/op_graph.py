@@ -1138,6 +1138,11 @@ class OpGraph(HasLifecycle):
                 pass
                 # fall through
             elif _ogn.op.get_status() == UserOpStatus.BLOCKED_BY_ERROR:
+                for parent_ogn in _ogn.get_parent_list():
+                    if parent_ogn.op.is_stopped_on_error():
+                        logger.debug(f'[{self.name}] Will not unblock op {_ogn.op.op_uid}: its OGN ({_ogn.node_uid}) is child of an '
+                                     f'OGN in failed state ({parent_ogn.node_uid}: {parent_ogn.op.get_status().name})')
+                        return
                 logger.debug(f'[{self.name}] Unblocking op: {_ogn.op.op_uid}')
                 # fall through
 
