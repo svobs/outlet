@@ -305,9 +305,9 @@ class OpManager(HasLifecycle):
                      f'{",".join([str(op.op_uid) for op in inserted_op_list])}')
         actual_op_uid_list = [op.op_uid for op in inserted_op_list]
         expected_op_uid_list = [op.op_uid for op in next_batch.op_list]
-        if not actual_op_uid_list == expected_op_uid_list:
-            # Output to log but keep going
-            logger.error(f'[Batch-{next_batch.batch_uid}] List of ops inserted into main graph ({actual_op_uid_list}) do not match '
+        if actual_op_uid_list != expected_op_uid_list:
+            # OK if some skipped. Output to log but keep going
+            logger.debug(f'[Batch-{next_batch.batch_uid}] List of ops inserted into main graph ({actual_op_uid_list}) does not match '
                          f'planned list of ops ({expected_op_uid_list})')
 
         with self._lock:

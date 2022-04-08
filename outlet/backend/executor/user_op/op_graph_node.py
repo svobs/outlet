@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Deque, Dict, List, Optional, Set
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
+from logging_constants import TRACE_ENABLED
 from model.node.node import AbstractNode, TNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpStatus, UserOpCode
@@ -37,6 +38,10 @@ class OpGraphNode(AbstractNode, ABC):
 
         self.tgt_ancestor_uid_list: List[UID] = target_ancestor_uid_list
 
+    @staticmethod
+    def uid_list_str(ogn_list: List) -> str:
+        return ",".join(str(ogn.node_uid) for ogn in ogn_list)
+
     @property
     def identifier(self):
         return self.node_uid
@@ -48,7 +53,7 @@ class OpGraphNode(AbstractNode, ABC):
     def get_first_parent(self) -> Optional:
         """Returns one of the parents, or None if there aren't any"""
         try:
-            parent_list: Optional[List] = self.get_parent_list()
+            parent_list: List = self.get_parent_list()
             if parent_list:
                 return next(iter(parent_list))
         except StopIteration:
@@ -58,7 +63,7 @@ class OpGraphNode(AbstractNode, ABC):
     def get_first_child(self) -> Optional:
         """Returns one of the children, or None if there aren't any"""
         try:
-            child_list: Optional[List] = self.get_child_list()
+            child_list: List = self.get_child_list()
             if child_list:
                 return next(iter(child_list))
         except StopIteration:
@@ -66,12 +71,12 @@ class OpGraphNode(AbstractNode, ABC):
         return None
 
     @staticmethod
-    def get_parent_list() -> Optional[List]:
+    def get_parent_list() -> List:
         """Returns a list of this OGN's parent OGN(s)"""
         return []
 
     @staticmethod
-    def get_child_list() -> Optional[List]:
+    def get_child_list() -> List:
         """Returns a list of this OGN's child OGN(s)"""
         return []
 
@@ -128,6 +133,12 @@ class OpGraphNode(AbstractNode, ABC):
         """Is the target of this OGN going to be created/updated? (i.e. not removed and not just read)"""
         return False
 
+    def is_start_dir(self) -> bool:
+        return self.op.is_start_dir_type()
+
+    def is_finish_dir(self) -> bool:
+        return self.op.is_finish_dir_type()
+
     def get_level(self) -> int:
         max_parent = 0
         for parent in self.get_parent_list():
@@ -137,12 +148,17 @@ class OpGraphNode(AbstractNode, ABC):
 
         return max_parent + 1
 
+    @classmethod
+    def _type_str(cls) -> str:
+        return '?'
+
     def print_me(self, full=True) -> str:
-        string = f'(?) og_node_uid={self.node_uid}'
+        string = f'{self._type_str()} ogn_uid={self.node_uid}'
         if full:
-            return f'{string}: {self.op}'
+            return f'{string} parents={OpGraphNode.uid_list_str(self.get_parent_list())} ' \
+                   f'children={OpGraphNode.uid_list_str(self.get_child_list())}: {self.op}'
         else:
-            return string
+            return f'{string} op_uid={self.op.op_uid}'
 
     def __repr__(self):
         return self.print_me()
@@ -182,11 +198,13 @@ class OpGraphNode(AbstractNode, ABC):
             ogn: OpGraphNode = queue.popleft()
             ogn_bfs_list.append(ogn)
 
-            logger.debug(f'get_subgraph_bfs_list(): Added OGN (will now examine its children): {ogn}')
+            if TRACE_ENABLED:
+                logger.debug(f'get_subgraph_bfs_list(): Added OGN (will now examine its children): {ogn}')
 
             for child_ogn in ogn.get_child_list():
-                logger.debug(f'get_subgraph_bfs_list(): Examining child OGN: {child_ogn}')
-                logger.debug(f'get_subgraph_bfs_list(): Child OGN has parent OGNs: {[p.node_uid for p in child_ogn.get_parent_list()]}')
+                if TRACE_ENABLED:
+                    logger.debug(f'get_subgraph_bfs_list(): Examining child OGN: {child_ogn}')
+                    logger.debug(f'get_subgraph_bfs_list(): Child OGN has parent OGNs: {[p.node_uid for p in child_ogn.get_parent_list()]}')
                 all_parents_seen = True
                 for parent_of_child in child_ogn.get_parent_list():
                     if not coverage_dict.get(parent_of_child.node_uid, None):
@@ -194,8 +212,10 @@ class OpGraphNode(AbstractNode, ABC):
                             f'Expected a new parent for {child_ogn} but found existing {ogn}'
                         assert len(child_ogn.get_parent_list()) > 1, \
                             f'Expected child_ogn OGN ({child_ogn}) to have multiple parents but found {child_ogn.get_parent_list()}'
-                        logger.debug(f'get_subgraph_bfs_list(): Child OGN {child_ogn.node_uid} has a parent OGN we have not yet encountered '
-                                     f'({parent_of_child.node_uid}); skipping for now')
+                        if TRACE_ENABLED:
+                            logger.debug(f'get_subgraph_bfs_list(): Child OGN {child_ogn.node_uid} has a parent OGN we have not yet '
+                                         f'encountered ({parent_of_child.node_uid}); skipping for now')
+
                         all_parents_seen = False
 
                 if all_parents_seen:
@@ -203,7 +223,8 @@ class OpGraphNode(AbstractNode, ABC):
                     if not coverage_dict.get(child_ogn.node_uid, None):
                         coverage_dict[child_ogn.node_uid] = child_ogn
 
-                        logger.debug(f'get_subgraph_bfs_list(): Examining children of OGN: {ogn}')
+                        if TRACE_ENABLED:
+                            logger.debug(f'get_subgraph_bfs_list(): Examining children of OGN: {ogn}')
                         queue.append(child_ogn)
 
         return ogn_bfs_list
@@ -235,9 +256,9 @@ class OpGraphNode(AbstractNode, ABC):
                     if child_ogn.node_uid not in coverage_set:
                         coverage_set.add(child_ogn.node_uid)
                         if child_ogn.get_child_list():
-                            leaf_list.append(child_ogn)
-                        else:
                             queue.append(child_ogn)
+                        else:
+                            leaf_list.append(child_ogn)
 
         logger.debug(f'Returning {len(leaf_list)} downstream leaf OGNs for OGN {self}')
         return leaf_list
@@ -396,8 +417,9 @@ class RootNode(HasMultiChild, OpGraphNode):
     def clear_relationships(self):
         HasMultiChild.clear_relationships(self)
 
-    def print_me(self, full=True) -> str:
-        return f'ROOT_no_op'
+    @classmethod
+    def _type_str(cls) -> str:
+        return 'ROOT_no_op'
 
 
 class SrcOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
@@ -429,12 +451,8 @@ class SrcOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
         HasMultiParent.clear_relationships(self)
         HasMultiChild.clear_relationships(self)
 
-    def print_me(self, full=True) -> str:
-        string = f'SRC-{self.op.op_type.name} ogn_uid={self.node_uid}'
-        if full:
-            return f'{string} {self.op}'
-        else:
-            return string
+    def _type_str(self) -> str:
+        return f'SRC-{self.op.op_type.name}'
 
 
 class DstOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
@@ -470,12 +488,8 @@ class DstOpNode(HasMultiParent, HasMultiChild, OpGraphNode):
         HasMultiParent.clear_relationships(self)
         HasMultiChild.clear_relationships(self)
 
-    def print_me(self, full=True) -> str:
-        string = f'DST-{self.op.op_type.name} ogn_uid={self.node_uid}'
-        if full:
-            return f'{string} {self.op}'
-        else:
-            return string
+    def _type_str(self) -> str:
+        return f'DST-{self.op.op_type.name}'
 
 
 class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
@@ -509,9 +523,5 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
         HasMultiParent.clear_relationships(self)
         HasSingleChild.clear_relationships(self)
 
-    def print_me(self, full=True) -> str:
-        string = f'RM ogn_uid={self.node_uid}'
-        if full:
-            return f'{string}: {self.op}'
-        else:
-            return string
+    def _type_str(self) -> str:
+        return f'RM ogn_uid={self.node_uid}'
