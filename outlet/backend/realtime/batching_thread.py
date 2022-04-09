@@ -51,9 +51,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
         with self._cv_can_get:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Enqueuing modified path: "{file_path}"')
-
             self.modified_file_set.add(file_path)
-
             self._cv_can_get.notifyAll()
 
     def enqueue_move(self, src_path: str, dst_path: str):
@@ -61,18 +59,21 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Enqueuing MV: "{src_path}" -> "{dst_path}"')
             self.other_op_list.append(MvPath(src_path, dst_path))
+            self._cv_can_get.notifyAll()
 
     def enqueue_delete(self, path: str):
         with self._cv_can_get:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Enqueuing RM: "{path}"')
             self.other_op_list.append(RmPath(path))
+            self._cv_can_get.notifyAll()
 
     def enqueue_create(self, path: str):
         with self._cv_can_get:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Enqueuing MK: "{path}"')
             self.other_op_list.append(MkPath(path))
+            self._cv_can_get.notifyAll()
 
     def start(self):
         HasLifecycle.start(self)

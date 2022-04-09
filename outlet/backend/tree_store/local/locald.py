@@ -477,7 +477,11 @@ class LocalDiskMasterStore(TreeStore):
         new_node_uid: UID = self.get_uid_for_path(new_node_full_path)
 
         new_node = copy.deepcopy(node)
-        new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, device_uid=self.device.uid, full_path=new_node_full_path))
+        new_node_identifier = LocalNodeIdentifier(uid=new_node_uid, device_uid=self.device.uid, full_path=new_node_full_path)
+        new_node.set_node_identifier(new_node_identifier)
+
+        new_parent_uid = self.get_uid_for_path(new_node_identifier.get_single_parent_path())
+        new_node.set_parent_uids(new_parent_uid)
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'MigrateNode: node_path="{node.get_single_path()}" src_root="{src_full_path}" dst_root="{dst_full_path}" '
                          f'-> new_path="{new_node_full_path}"')

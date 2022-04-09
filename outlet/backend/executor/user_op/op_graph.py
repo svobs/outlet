@@ -348,7 +348,7 @@ class OpGraph(HasLifecycle):
                                 else:
                                     # Parent's tgt node must be an ancestor of tgt node (or same node).
                                     # Check all paths and confirm that at least one path in parent tgt contains the path of tgt
-                                    if not ogn.is_tgt_an_ancestor_of_og_node_tgt(ogn_parent):
+                                    if not ogn.is_this_tgt_a_descendant_of_ogn_tgt(ogn_parent):
                                         error_count += 1
                                         logger.error(f'[{self.name}] ValidateGraph: Parent of RM OGN is not remove-type, and its '
                                                      f'target node is not an ancestor of its child OGN\'s target! OGN={ogn}, '
@@ -356,12 +356,19 @@ class OpGraph(HasLifecycle):
 
                     else:  # NOT ogn.is_rm_node()
                         # "finish" types are allowed to have arbitrary number of parents
-                        if ogn.op.op_type == UserOpCode.FINISH_DIR_CP or ogn.op.op_type == UserOpCode.FINISH_DIR_MV:
+                        if ogn.is_finish_dir():
                             for ogn_parent in ogn_parent_list:
-                                if not ogn.is_tgt_an_ancestor_of_og_node_tgt(ogn_parent):
-                                    error_count += 1
-                                    logger.error(f'[{self.name}] ValidateGraph: FINISH_DIR OGN\'s target node is not an ancestor '
-                                                 f'of its parent OGN\'s target! OGN={ogn}, offending parent={ogn_parent}')
+                                if ogn_parent.is_finish_dir():
+                                    if not ogn_parent.is_this_tgt_a_descendant_of_ogn_tgt(ogn):
+                                        # Nested FINISH_DIR OGNs should go in reverse order
+                                        error_count += 1
+                                        logger.error(f'[{self.name}] ValidateGraph: FINISH_DIR OGN\'s target node is not an ancestor '
+                                                     f'of its parent FINISH_DIR\'s target! OGN={ogn}, offending parent={ogn_parent}')
+                                    else:
+                                        if not ogn.is_this_tgt_a_descendant_of_ogn_tgt(ogn_parent):
+                                            error_count += 1
+                                            logger.error(f'[{self.name}] ValidateGraph: FINISH_DIR OGN\'s target node is not a descendent '
+                                                         f'of its parent OGN\'s target! OGN={ogn}, offending parent={ogn_parent}')
 
                         else:
                             if has_multiple_parents:
@@ -376,10 +383,10 @@ class OpGraph(HasLifecycle):
                                     logger.error(f'[{self.name}] ValidateGraph: Parents of non-RM OGN are not conversely related: {ogn_parent_list}')
 
                             for ogn_parent in ogn_parent_list:
-                                if not ogn_parent.is_tgt_an_ancestor_of_og_node_tgt(ogn):
+                                if not ogn.is_this_tgt_a_descendant_of_ogn_tgt(ogn_parent):
                                     error_count += 1
-                                    logger.error(f'[{self.name}] ValidateGraph: Parent of OGN\'s target node is not an ancestor '
-                                                 f'of its child OGN\'s target node! OGN={ogn}, offending parent={ogn_parent}')
+                                    logger.error(f'[{self.name}] ValidateGraph: OGN\'s target node is not a descendent '
+                                                 f'of its parent OGN\'s target node! OGN={ogn}, offending parent={ogn_parent}')
 
             # Verify children:
             child_og_node_list = ogn.get_child_list()

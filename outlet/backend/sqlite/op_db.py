@@ -78,7 +78,7 @@ def _completed_op_to_tuple(e: UserOp, current_time: int, detail_msg: str = ''):
         dst_uid = e.dst_node.uid
 
     # I may come to regret this little block at some point...
-    if e.result.status == UserOpStatus.STOPPED_ON_ERROR and e.result.error:
+    if e.result and e.result.status == UserOpStatus.STOPPED_ON_ERROR and e.result.error:
         detail_msg = e.result.error
 
     return e.op_uid, e.batch_uid, e.op_type, e.get_status(), src_uid, dst_uid, e.create_ts, current_time, detail_msg

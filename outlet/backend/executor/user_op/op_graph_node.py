@@ -229,11 +229,13 @@ class OpGraphNode(AbstractNode, ABC):
 
         return ogn_bfs_list
 
-    def is_tgt_an_ancestor_of_og_node_tgt(self, other_og_node):
+    def is_this_tgt_a_descendant_of_ogn_tgt(self, ogn_other):
+        """Returns True if this OGN's target node is an ancestor of the other OGN's target node"""
         my_path_list = self.get_tgt_node().get_path_list()
-        for other_tgt_path in other_og_node.get_tgt_node().get_path_list():
+        for other_tgt_path in ogn_other.get_tgt_node().get_path_list():
             for tgt_path in my_path_list:
-                if pathlib.PurePosixPath(other_tgt_path).is_relative_to(tgt_path):
+                # Is tgt_path a descendant of other_tgt_path ?
+                if pathlib.PurePosixPath(tgt_path).is_relative_to(other_tgt_path):
                     return True
 
         return False
