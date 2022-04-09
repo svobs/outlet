@@ -483,15 +483,15 @@ class LocalDiskMasterStore(TreeStore):
                          f'-> new_path="{new_node_full_path}"')
         return new_node
 
-    def move_local_subtree(self, this_task: Task, src_full_path: str, dst_full_path: str) \
-            -> Optional[Tuple[List[LocalNode], List[LocalNode]]]:
-        # TODO: need to test a MV of a large directory tree
+    def move_local_subtree(self, this_task: Task, src_full_path: str, dst_full_path: str) -> Optional[Tuple[List[LocalNode], List[LocalNode]]]:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Moving subtree src="{src_full_path}" dst="{dst_full_path}"')
 
         # canonicalize each path
         src_path = file_util.normalize_path(src_full_path)
         dst_path = file_util.normalize_path(dst_full_path)
+
+        # TODO: signal to CacheMan that path changed, so that it can preserve expanded & selected state of nodes across moves
 
         if not src_path:
             raise RuntimeError(f'src_path is empty: "{src_path}"')

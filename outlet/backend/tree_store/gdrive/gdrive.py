@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 from backend.display_tree.filter_state import FilterState
 from backend.executor.central import ExecPriority
 from backend.sqlite.gdrive_db import GDriveMetaDownload
-from backend.tree_store.gdrive.client.change_observer import GDriveChange, PagePersistingChangeObserver
+from backend.tree_store.gdrive.client.change_observer import GDriveChange, GDriveRM, PagePersistingChangeObserver
 from backend.tree_store.gdrive.client.gdrive_client import GDriveClient
 from backend.tree_store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from backend.tree_store.gdrive.gdrive_diskstore import GDriveDiskStore
@@ -32,7 +32,7 @@ from model.node.node import SPIDNodePair
 from model.node_identifier import GDriveIdentifier, GDriveSPID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import ID_GLOBAL_CACHE, Signal
-from util import file_util
+from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
 from util.task_runner import Task
 
@@ -311,8 +311,12 @@ class GDriveMasterStore(TreeStore):
 
     def submit_batch_of_changes(self, subtree_root: GDriveIdentifier,  upsert_node_list: List[GDriveNode] = None,
                                 remove_node_list: List[GDriveNode] = None):
-        self._execute_write_op(BatchChangesOp(self.backend, upsert_node_list))
-        self._execute_write_op(BatchChangesOp(self.backend, remove_node_list))
+        change_list = []
+        for node in upsert_node_list:
+            change_list.append(GDriveChange(time_util.now_ms(), node.goog_id, node))
+        for node in upsert_node_list:
+            change_list.append(GDriveRM(time_util.now_ms(), node.goog_id, node))
+        self._execute_write_op(BatchChangesOp(self.backend, change_list))
 
     def refresh_subtree(self, this_task: Task, subtree_root: GDriveIdentifier, tree_id: TreeID):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
@@ -438,7 +442,7 @@ class GDriveMasterStore(TreeStore):
         try:
             self._execute_write_op(operation)
 
-            # Update download token so we don't repeat work upon premature termination:
+            # Update download token so that we don't repeat work upon premature termination:
 
             if not new_page_token:
                 # End of changes list: get new start token for next time, and so we don't submit our prev token again:

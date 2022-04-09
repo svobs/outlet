@@ -17,7 +17,7 @@ class GDriveChange:
     CLASS GDriveChange
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, change_ts, goog_id: str, node: GDriveNode = None):
+    def __init__(self, change_ts: int, goog_id: str, node: GDriveNode = None):
         self.change_ts = change_ts
         self.goog_id = goog_id
         self.node: Optional[GDriveNode] = node
