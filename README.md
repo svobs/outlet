@@ -1,4 +1,5 @@
 
+
 # Setup
 
 ## Mac
@@ -48,15 +49,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
 ### Various small items
 * Checkbox: Prioritize reading over writing
     * Scan the content of flles before overwriting, and do not overwrite if the content is already there
-* TODO: Add ability to cancel a UserOp and all pending ops
-* TODO (minor): blank out selection & expanded states when changing tree root
-* TODO (minor): only scan dirs inside display tree when loading
-* TODO (minor): handle case where root path is deleted
-* TODO: allow rules to be created for different directories.
-    * e.g.: Copy to: X Directory on Device A
-    * e.g.: Move to: Y Directory on Device B
-    * For 2-way sync: just create 2 copy rules with each directory pointing at the other
-* TODO: Add ability to cancel pending task from UI
+
 
 ### Future feature idea: put old content in trash & only delete when needed
     The command cannot be completed because X Disk needs an additional 52 MB of free space, unless you first empty at least 24% of its trash.
@@ -74,8 +67,12 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [5] Mac installer
 * [3] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)
 * [1] Better tracking of BE readiness states: see CentralExecutor.get_engine_summary_state()
-* [5] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
-  
+* [5] [in progress] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
+* [3] Fix issues with path changes: node moves currently break:
+  * (a) current tree root in UI if it's changed (or deleted!)
+  * (b) selected & expanded nodes in UI
+  * (c) GDrive paths which were computed
+
 #### FUTURE / NON-ESSENTIAL
 * [3] Support for extra GDrive types (e.g. shortcuts, Google Docs files)
 * [3] Cascade failures and allow recovery
@@ -91,6 +88,15 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [5] OpManager: simplify the op tree each time the next change requested
 * [3] Bulk delete dir trees instead of one by one
 * [5] Progress bar for current task + view all pending & current tasks
+* [1] Limit local dir scan to only those inside display tree, rather than whole cache
+* [1] Clear out no-longer-visible selection & expanded nodes from prefswhen changing tree root (almost no impact on UX; just cleans up errors in FE log)
+* [5] Allow rules to be created for different directories:
+  * e.g.: Copy to: X Directory on Device A
+  * e.g.: Move to: Y Directory on Device B
+  * For 2-way sync: just create 2 copy rules with each directory pointing at the other
+* [5]: View list or graph of pending tasks in UI
+* [3] Checkbox: Prioritize reading over writing
+  * If enabled: scan the content of flles before overwriting, and do not overwrite if the content is already there
 
 ### Testing TODO
 * Dir replaced with file / vice versa 

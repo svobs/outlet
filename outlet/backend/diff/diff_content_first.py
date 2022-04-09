@@ -83,16 +83,17 @@ class ContentFirstDiffer(TwoTreeChangeBuilder):
                     sn = SPIDNodePair(sn.spid, updated_node)
 
                 if not sn.node.md5:
-                    logger.debug(f'No signature found for file; attempting to calculate: {sn.spid} (size={sn.node.get_size_bytes()})')
+                    logger.debug(f'No signature found for file; trying to calculate now: {sn.spid} size={sn.node.get_size_bytes()}')
                     node_with_signature = self.local_file_util.try_calculating_signature(sn.node)
                     if node_with_signature:
                         logger.debug(f'Calculated MD5 for file {sn.spid} = {node_with_signature.md5}')
                         node_list_signatures_calculated.append(node_with_signature)
+                        sn = SPIDNodePair(sn.spid, node_with_signature)
                     else:
                         # TODO: handle GDrive objects which don't have MD5s
                         logger.warning(f'Unable to calculate signature for file, skipping: {sn.spid}')
                         on_file_found.count_skipped_no_md5 += 1
-                    return
+                        return
 
             path = sn.spid.get_single_path()
             if path in meta.path_dict:
