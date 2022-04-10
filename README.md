@@ -45,30 +45,16 @@ Create a virtual environment within this directory (`{project_name}`)  following
 2. Declarative behavior. The user should never have any reason to doubt that its actions are going to be fulfilled. The transition to a future state desired by the user should be represented by the UI, it should be persisted every step along the way, and a record of it should be kept which is so good that we can eventually undo. Any errors which prevent a state change from happening should be clear.
 
 
-## Future Major Features
-### Various small items
-* Checkbox: Prioritize reading over writing
-    * Scan the content of flles before overwriting, and do not overwrite if the content is already there
-
-
-### Future feature idea: put old content in trash & only delete when needed
-    The command cannot be completed because X Disk needs an additional 52 MB of free space, unless you first empty at least 24% of its trash.
-
-    * Delete Oldest 24%
-    * Delete All Trash
-
-### Audit UIDs:
-1. Make one giant map of UID -> thing 
-2. Iterate over all nodes
+## Future Development
 
 #### ESSENTIAL FOR FIRST RELEASE
-* [3] Give local dirs first-class support (copy stats, allow more operations than just MKDIR)
+* [3] [in progress] Give local dirs first-class support (copy stats, allow more operations than just MKDIR)
+* [5] [in progress] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
 * [3] Google Drive connect flow
 * [5] Mac installer
 * [3] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)
 * [1] Better tracking of BE readiness states: see CentralExecutor.get_engine_summary_state()
-* [5] [in progress] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
-* [3] Fix issues with path changes: node moves currently break:
+* [3] Fix problems with path changes: node moves currently break:
   * (a) current tree root in UI if it's changed (or deleted!)
   * (b) selected & expanded nodes in UI
   * (c) GDrive paths which were computed
@@ -97,6 +83,15 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * [5]: View list or graph of pending tasks in UI
 * [3] Checkbox: Prioritize reading over writing
   * If enabled: scan the content of flles before overwriting, and do not overwrite if the content is already there
+* [3] Audit UIDs for duplicates:
+  1. Make one giant map of UID -> thing
+  2. Iterate over all nodes
+* [5] Put old content in trash & only delete when needed. Example dialog:
+  * "The command cannot be completed because X Disk needs an additional 52 MB of free space, unless you first empty at least 24% of its trash."
+
+    * Delete Oldest 24%
+    * Delete All Trash
+
 
 ### Testing TODO
 * Dir replaced with file / vice versa 
