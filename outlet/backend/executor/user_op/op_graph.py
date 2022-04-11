@@ -453,31 +453,26 @@ class OpGraph(HasLifecycle):
     # INSERT logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _find_og_nodes_for_children_of_rm_target_node(self, ogn: OpGraphNode) -> List[OpGraphNode]:
+    def _find_ogn_list_for_children_of(self, potential_parent: TNode) -> List[OpGraphNode]:
         """When adding an RM OGnode, we need to locate its parent OGNs (which relate to the child nodes of its target node).
         We must make sure that all the child nodes are going to be removed before the parent is removed"""
         # TODO: probably could optimize a bit more...maybe make use of the central cache?
         sw_total = Stopwatch()
 
-        assert isinstance(ogn, RmOpNode), f'Unepxected type: {ogn}'
-        potential_parent: TNode = ogn.get_tgt_node()
-
-        child_nodes = []
+        ogn_child_list = []
 
         for node_dict in self._node_ogn_q_dict.values():
             for node_queue in node_dict.values():
                 if node_queue:
-                    existing_og_node = node_queue[-1]
-                    potential_child: TNode = existing_og_node.get_tgt_node()
+                    existing_ogn = node_queue[-1]
+                    potential_child: TNode = existing_ogn.get_tgt_node()
                     if potential_parent.is_parent_of(potential_child):
-                        # We found a parent OG node for
-                        if not existing_og_node.is_remove_type():
-                            # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
-                            raise InvalidInsertOpGraphError(f'Found child node for RM-type node which is not RM type: {existing_og_node}')
-                        child_nodes.append(existing_og_node)
+                        # We found an OGN for child node
+                        ogn_child_list.append(existing_ogn)
 
-        logger.debug(f'[{self.name}] {sw_total} Found {len(child_nodes):,} child nodes in graph for RM node')
-        return child_nodes
+        logger.debug(f'[{self.name}] {sw_total} Found {len(ogn_child_list):,} OGNs in graph which are children of parent'
+                     f' {potential_parent.node_identifier}')
+        return ogn_child_list
 
     def _find_adopters_for_new_rm_ogn(self, ogn_new: OpGraphNode, prev_ogn_for_target) -> List[OpGraphNode]:
         # Special handling for RM-type nodes.
@@ -494,21 +489,24 @@ class OpGraph(HasLifecycle):
             raise InvalidInsertOpGraphError(f'Trying to remove node ({target_node.node_identifier}) whose last operation is already an RM operation!')
 
         # First, see if we can find child nodes of the target node (which would be the parents of the RM OG node):
-        ogn_list_for_children_of_tgt: List[OpGraphNode] = self._find_og_nodes_for_children_of_rm_target_node(ogn_new)
+        ogn_list_for_children_of_tgt: List[OpGraphNode] = self._find_ogn_list_for_children_of(ogn_new.get_tgt_node())
         if ogn_list_for_children_of_tgt:
             # Possibility 1: children
             logger.debug(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Found {len(ogn_list_for_children_of_tgt)} '
                          f'existing OGNs for children of tgt node ({target_node.dn_uid}); examining whether to add as child dependency of each')
 
             parent_ogn_list: List[OpGraphNode] = []  # Use this list to store parents to link to until we are done validating.
-            for og_node_for_child_node in ogn_list_for_children_of_tgt:
-                logger.debug(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Examining {og_node_for_child_node}')
-                if not og_node_for_child_node.is_remove_type():
+            for ogn_for_child_node in ogn_list_for_children_of_tgt:
+                logger.debug(f'[{self.name}] Add_RM_OGN({ogn_new.node_uid}) Examining {ogn_for_child_node}')
+                if not ogn_for_child_node.is_remove_type():
+                    # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
+                    raise InvalidInsertOpGraphError(f'Found child node for RM-type node which is not RM type: {ogn_for_child_node}')
+                if not ogn_for_child_node.is_remove_type():
                     raise InvalidInsertOpGraphError(f'Cannot insert RM OGN: all children of its target must be scheduled for removal first,'
-                                                    f'but found: {og_node_for_child_node} (while trying to insert OGN: {ogn_new})')
+                                                    f'but found: {ogn_for_child_node} (while trying to insert OGN: {ogn_new})')
 
                 # Check if there's an existing OGN which is child of parent OGN.
-                conflicting_ogn: Optional[OpGraphNode] = og_node_for_child_node.get_first_child()
+                conflicting_ogn: Optional[OpGraphNode] = ogn_for_child_node.get_first_child()
                 if conflicting_ogn:
                     if not conflicting_ogn.is_remove_type():
                         raise InvalidInsertOpGraphError(f'Found unexpected node which is blocking insert of our RM operation: {conflicting_ogn} '
@@ -517,7 +515,7 @@ class OpGraph(HasLifecycle):
                         # extremely rare for this to happen - likely indicates a hole in our logic somewhere
                         raise InvalidInsertOpGraphError(f'Found unexpected child OGN: {conflicting_ogn} (while trying to insert OGN: {ogn_new})')
                 else:
-                    parent_ogn_list.append(og_node_for_child_node)
+                    parent_ogn_list.append(ogn_for_child_node)
 
             return parent_ogn_list
 
