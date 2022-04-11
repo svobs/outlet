@@ -265,7 +265,7 @@ class OpGraph(HasLifecycle):
         for child_of_root in self.root.get_child_list():
             if not child_of_root.is_child_of_root():
                 error_count += 1
-                logger.error(f'[{self.name}] ValidateGraph: OG node is a child of root but is_child_of_root()==False: {child_of_root}')
+                logger.error(f'[{self.name}] ValidateGraph: OGN is a child of root but is_child_of_root()==False: {child_of_root}')
             ogn_queue.append(child_of_root)
 
         while len(ogn_queue) > 0:
@@ -306,7 +306,7 @@ class OpGraph(HasLifecycle):
                 for ogn_parent in ogn_parent_list:
                     if ogn_parent.node_uid in parent_uid_set:
                         error_count += 1
-                        logger.error(f'[{self.name}] ValidateGraph: Duplicate parent listed in OG node! OGN uid={ogn.node_uid}, '
+                        logger.error(f'[{self.name}] ValidateGraph: Duplicate parent listed in OGN! OGN uid={ogn.node_uid}, '
                                      f'parent_uid={ogn_parent.node_uid}')
                         continue
                     else:
@@ -314,8 +314,7 @@ class OpGraph(HasLifecycle):
 
                     if not ogn_coverage_dict.get(ogn_parent.node_uid, None):
                         unrecognized_og_node_dict[ogn_parent.node_uid] = \
-                            'Unrecognized parent listed in OG node! OGN uid={ogn.node_uid}, ' \
-                            'parent_OGN={ogn_parent}'
+                            f'OGN references unrecognized parent! OGN uid={ogn.node_uid}, parent_OGN={ogn_parent}'
 
                 has_multiple_parents = len(ogn_parent_list) > 1
                 tgt_node: TNode = ogn.get_tgt_node()
@@ -358,17 +357,11 @@ class OpGraph(HasLifecycle):
                         # "finish" types are allowed to have arbitrary number of parents
                         if ogn.is_finish_dir():
                             for ogn_parent in ogn_parent_list:
-                                if ogn_parent.is_finish_dir():
-                                    if not ogn_parent.is_this_tgt_a_descendant_of_ogn_tgt(ogn):
-                                        # Nested FINISH_DIR OGNs should go in reverse order
-                                        error_count += 1
-                                        logger.error(f'[{self.name}] ValidateGraph: FINISH_DIR OGN\'s target node is not an ancestor '
-                                                     f'of its parent FINISH_DIR\'s target! OGN={ogn}, offending parent={ogn_parent}')
-                                    else:
-                                        if not ogn.is_this_tgt_a_descendant_of_ogn_tgt(ogn_parent):
-                                            error_count += 1
-                                            logger.error(f'[{self.name}] ValidateGraph: FINISH_DIR OGN\'s target node is not a descendent '
-                                                         f'of its parent OGN\'s target! OGN={ogn}, offending parent={ogn_parent}')
+                                if not ogn_parent.is_this_tgt_a_descendant_of_ogn_tgt(ogn):
+                                    # FINISH_DIR OGNs should go in reverse order
+                                    error_count += 1
+                                    logger.error(f'[{self.name}] ValidateGraph: FINISH_DIR OGN\'s target node is not an ancestor '
+                                                 f'of its parent FINISH_DIR\'s target! OGN={ogn}, offending parent={ogn_parent}')
 
                         else:
                             if has_multiple_parents:
@@ -399,7 +392,7 @@ class OpGraph(HasLifecycle):
 
                     if not parent_found:
                         error_count += 1
-                        logger.error(f'[{self.name}] ValidateGraph: Child of OG node does not list it as parent! OG node={ogn}, '
+                        logger.error(f'[{self.name}] ValidateGraph: Child of OGN does not list it as parent! OG node={ogn}, '
                                      f'child={child_ogn}')
 
                     if ogn_coverage_dict.get(child_ogn.node_uid, None):
@@ -433,7 +426,7 @@ class OpGraph(HasLifecycle):
         def _check_for_stranded(_ogn):
             if not ogn_coverage_dict.pop(_ogn.node_uid, None):
                 _check_for_stranded.count_found += 1
-                logger.error(f'[{self.name}] ValidateGraph: OG node found in NodeQueues which is not in the graph: {_ogn}')
+                logger.error(f'[{self.name}] ValidateGraph: OGN found in NodeQueues which is not in the graph: {_ogn}')
             return False
 
         _check_for_stranded.count_found = 0
@@ -549,7 +542,6 @@ class OpGraph(HasLifecycle):
                     # corrupt graph state!
                     raise RuntimeError(f'Found ancestor OGN ({ogn}) which is not in the same batch as its descendent FINISH ({ogn_finish})')
                 if ogn.op.is_start_dir_type():
-                    logger.debug(f'Found ancestor START ({ogn}) which appears to match FINISH ({ogn_finish})')
                     assert ogn.op.src_node.node_identifier == ogn_finish.op.src_node.node_identifier
                     assert ogn.is_src() == ogn_finish.is_src()
                     if ogn_finish.op.op_type == UserOpCode.FINISH_DIR_MV:
@@ -562,20 +554,73 @@ class OpGraph(HasLifecycle):
 
         return None
 
-    def _find_adopters_for_finish_dir_ogn(self, ogn_new: OpGraphNode, prev_ogn_for_target: OpGraphNode) -> List[OpGraphNode]:
+    def _relink_finish_dir_higher_up(self, ogn_leaf: OpGraphNode, ogn_new: OpGraphNode) -> bool:
+        """Returns True if successful"""
+
+        logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Checking whether leaf {ogn_leaf.node_uid} is '
+                     f'a FINISH_DIR OGN for parent of tgt node')
+        par_finish_dir: Optional[OpGraphNode] = ogn_leaf
+
+        # is_src() == is_src() is same as saying is_dst() == is_dst(); just make sure they are the same type
+        while par_finish_dir and par_finish_dir.is_finish_dir() and par_finish_dir.is_in_same_batch(ogn_new) \
+                and par_finish_dir.is_src() == ogn_new.is_src():
+            logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Leaf OGN {par_finish_dir.node_uid} '
+                         f'is FINISH_DIR type but wrong tgt node. Checking its parents')
+
+            if par_finish_dir.get_tgt_node().is_parent_of(ogn_new.get_tgt_node()):  # found!
+                logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Found FINISH_DIR OGN ({par_finish_dir.node_uid}) '
+                             f'for parent of tgt!')
+                # need to reverse order
+                for parent in par_finish_dir.get_parent_list():
+                    # Either parent_ogn is a START_DIR which matches tgt of ogn_new, or parent_ogn is a child node which
+                    # goes in the middle of that & ogn_new (START_DIR/FINISH_DIR pair)
+                    if parent.get_tgt_node().node_identifier == ogn_new.get_tgt_node().node_identifier or \
+                            ogn_new.get_tgt_node().is_parent_of(parent.get_tgt_node()):
+                        par_finish_dir.unlink_parent(parent)
+                        ogn_new.link_parent(parent)
+                    else:
+                        assert False, f'Something wrong here: {par_finish_dir}'
+                ogn_new.link_child(par_finish_dir)
+                return True
+            else:
+                # check next level up
+                ogn_leaf = par_finish_dir
+                par_finish_dir = None
+                for par_par in ogn_leaf.get_parent_list():
+                    if par_par.is_finish_dir() and par_par.is_in_same_batch(ogn_new) and par_par.is_src() == ogn_new.is_src():
+                        par_finish_dir = par_par
+
+        # no more FINISH_DIRs up there
+        logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Did not find any qualifying FINISH_DIR OGNs further up')
+        return False
+
+    def _find_adopters_for_finish_dir_ogn(self, ogn_new: OpGraphNode) -> List[OpGraphNode]:
         assert ogn_new.op.is_finish_dir_type()
+
+        if ogn_new.get_parent_list():
+            logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) Using existing parent list...')
+            return ogn_new.get_parent_list()
 
         logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) New op is FINISH_DIR type. Looking for matching START_DIR...')
         ogn_start: OpGraphNode = self._find_matching_start_dir_ogn_for_finish_dir_ogn(ogn_finish=ogn_new)
         if ogn_start:
+            logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) Found ancestor START ({ogn_start}) '
+                         f'which appears to match FINISH ({ogn_new})')
             ogn_leaf_list: List[OpGraphNode] = ogn_start.get_all_downstream_leaves()
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): START_DIR leaf OGNs = {self._uid_list_str(ogn_leaf_list)}')
 
             # these will be our parents. Validate:
             for ogn_leaf in ogn_leaf_list:
+                if ogn_leaf.node_uid == ogn_new.node_uid:
+                    raise RuntimeError('something is wrong!')
                 if not ogn_leaf.is_in_same_batch(ogn_new):
                     raise RuntimeError(f'Leaf {ogn_leaf} is not in the same batch as FINISH OGN being inserted: {ogn_new}')
+
+                if self._relink_finish_dir_higher_up(ogn_leaf, ogn_new):
+                    logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): looks like we linked it higher up. Returning')
+                    return ogn_new.get_parent_list()
+
             return ogn_leaf_list
         else:
             # No matching START_DIR found. This *must* mean that we are merging a batch into the main tree, in which case
@@ -680,16 +725,17 @@ class OpGraph(HasLifecycle):
 
         # First check whether the target node is known and has pending operations
         target_node: TNode = ogn_new.get_tgt_node()
-        prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
 
         if ogn_new.is_finish_dir():
             # I. When constructing batch graph, OGNs will typically be inserted in this order: START_DIR, FINISH_DIR, CP, CP, ...
-            parent_ogn_list = self._find_adopters_for_finish_dir_ogn(ogn_new, prev_ogn_for_target)
+            parent_ogn_list = self._find_adopters_for_finish_dir_ogn(ogn_new)
         else:
             # If not inside a START/FINISH block, need to clear out previous relationships (if any) as we will likely attach them
             # to new parents which are holdovers from a previous batch.
             ogn_new = copy.copy(ogn_new)
             ogn_new.clear_relationships()
+
+            prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
 
             if ogn_new.is_rm_node():
                 parent_ogn_list = self._find_adopters_for_new_rm_ogn(ogn_new, prev_ogn_for_target)
@@ -773,6 +819,9 @@ class OpGraph(HasLifecycle):
                     if ogn.op.is_completed():
                         logger.info(f'[{self.name}] InsertBatchGraph: Skipping insert of OGN {ogn.node_uid}; '
                                     f'its operation is marked as complete')
+                        for ogn_child in ogn.get_child_list():
+                            ogn.unlink_child(ogn_child)
+
                     else:
                         self._insert_ogn(ogn)
                         inserted_ogn_list.append(ogn)
