@@ -380,8 +380,8 @@ class BatchGraphBuilder:
                         assert ogn.is_dst(), f'Expected DstOGN: {ogn}'
                         finish_x_dst_node_dict[tgt_node.dn_uid] = tgt_node
 
-            else:
-                # Enforce Rule 2: ensure target node is valid
+            elif not ogn.op.is_completed():
+                # Enforce Rule 2: ensure target node is valid (unless op already completed, in which case we don't care)
                 if not self.backend.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.device_uid):
                     logger.error(f'Could not find node in cache for "{op_type_name}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): no node {tgt_node.dn_uid} in cache for "{op_type_name}"')

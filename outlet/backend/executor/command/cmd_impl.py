@@ -105,7 +105,9 @@ class DeleteLocalNodeCommand(DeleteNodeCommand):
             src_node = local_file_util.ensure_up_to_date(self.op.src_node)
             file_util.delete_file(src_node.get_single_path(), self.to_trash)
         elif self.op.src_node.is_dir():
-            file_util.delete_empty_dir(self.op.src_node.get_single_path(), self.to_trash)
+            util = LocalFileUtil(cxt.cacheman)
+            to_remove = util.delete_empty_dir(self.op.src_node, to_trash=self.to_trash)
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=to_remove)
         else:
             raise RuntimeError(f'Not a file or dir: {self.op.src_node}')
 
@@ -607,8 +609,9 @@ class FinishCopyToGDriveFolderCommand(FinishCopyToDirCommand):
     def delete_src_node(cxt, src_node: TNode, new_dst_node: TNode) -> UserOpResult:
         # TODO: put this logic in separate class[es]
         if src_node.tree_type == TreeType.LOCAL_DISK:
-            file_util.delete_empty_dir(src_node.get_single_path(), to_trash=False)
-            return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=[src_node], to_upsert=[new_dst_node])
+            util = LocalFileUtil(cxt.cacheman)
+            to_remove = util.delete_empty_dir(src_node, to_trash=False)
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_remove=to_remove, to_upsert=[new_dst_node])
         elif src_node.tree_type == TreeType.GDRIVE:
             assert isinstance(src_node, GDriveFolder), f'Expected a GDriveFolder: {src_node}'
             result = DeleteGDriveNodeCommand.delete_node(cxt, src_node, to_trash=False)

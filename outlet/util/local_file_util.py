@@ -6,9 +6,9 @@ import platform
 import shutil
 import subprocess
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
-from constants import IS_MACOS, IS_WINDOWS, MACOS_SETFILE_DATETIME_FMT
+from constants import ENABLE_MACOS_FINDER_JUNK_FILE_WORKAROUND, IS_MACOS, IS_WINDOWS, MAC_FINDER_JUNK_FILE_NAME, MACOS_SETFILE_DATETIME_FMT
 from error import IdenticalFileExistsError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -228,6 +228,29 @@ class LocalFileUtil:
             raise RuntimeError(f'Dst node meta does not match src node! src={src_node} dst={dst_node}')
 
         return dst_node
+
+    def delete_empty_dir(self, src_node, to_trash) -> List[LocalNode]:
+        to_remove = [src_node]
+
+        if IS_MACOS and ENABLE_MACOS_FINDER_JUNK_FILE_WORKAROUND:
+            try:
+                file_util.delete_empty_dir(src_node.get_single_path(), to_trash=False)
+            except OSError as error:
+                if error.errno == 66:  # Directory not empty
+                    # check for those pesky .DS_Store files
+                    finder_litter = os.path.join(src_node.get_single_path(), MAC_FINDER_JUNK_FILE_NAME)
+                    if os.path.exists(finder_litter):
+                        logger.debug(f'(MacOS) Attempting to remove Finder junk file so that we can del dir: {finder_litter}')
+                        litter_file = self.cacheman.build_local_file_node(full_path=finder_litter, must_scan_signature=False, is_live=True)
+                        os.remove(finder_litter)
+                        to_remove.append(litter_file)
+                    file_util.delete_empty_dir(src_node.get_single_path(), to_trash=False)
+                else:
+                    raise
+        else:
+            file_util.delete_empty_dir(src_node.get_single_path(), to_trash=False)
+
+        return to_remove
 
 
 def _macos_set_file_create_ts(dst_path: str, create_ts: int):

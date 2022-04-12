@@ -7,6 +7,9 @@ IS_WINDOWS = _system == 'windows'
 IS_LINUX = _system == 'linux'
 IS_MACOS = _system == 'darwin'
 
+ENABLE_MACOS_FINDER_JUNK_FILE_WORKAROUND = True
+MAC_FINDER_JUNK_FILE_NAME = '.DS_Store'
+
 MACOS_SETFILE_DATETIME_FMT = '%m/%d/%Y %H:%M:%S'
 
 TS_FORMAT_WITH_MILLIS = '%Y-%m-%d %H:%M:%S.%f'
