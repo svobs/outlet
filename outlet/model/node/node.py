@@ -216,12 +216,14 @@ class TNode(AbstractNode, HasParentList, ABC):
             return IconId.ICON_GENERIC_FILE
         return IconId.ICON_FILE_CP_DST
 
-    def _get_valid_create_ts_for_macos(self) -> int:
-        if self.create_ts > self.modify_ts:
-            logger.warning(f'(MacOS): create_ts ({self.create_ts}) is AFTER its modify_ts ({self.modify_ts}); using modify_ts for both')
-            return self.modify_ts
-        else:
+    def _get_valid_create_ts_for_macos(self) -> Optional[int]:
+        if self.create_ts:
+            if self.modify_ts:
+                if self.create_ts > self.modify_ts:
+                    logger.warning(f'(MacOS): create_ts ({self.create_ts}) is AFTER its modify_ts ({self.modify_ts}); using modify_ts for both')
+                    return self.modify_ts
             return self.create_ts
+        return None
 
     def is_meta_equal(self, other_node) -> bool:
         if IS_MACOS:

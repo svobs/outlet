@@ -564,25 +564,30 @@ class OpGraph(HasLifecycle):
         # is_src() == is_src() is same as saying is_dst() == is_dst(); just make sure they are the same type
         while par_finish_dir and par_finish_dir.is_finish_dir() and par_finish_dir.is_in_same_batch(ogn_new) \
                 and par_finish_dir.is_src() == ogn_new.is_src():
-            logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Leaf OGN {par_finish_dir.node_uid} '
-                         f'is FINISH_DIR type but wrong tgt node. Checking its parents')
+            logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): OGN {par_finish_dir.node_uid} '
+                         f'is FINISH_DIR (tgt={par_finish_dir.get_tgt_node().node_identifier}): checking if it is parent of OGN target.')
 
             if par_finish_dir.get_tgt_node().is_parent_of(ogn_new.get_tgt_node()):  # found!
-                logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Found FINISH_DIR OGN ({par_finish_dir.node_uid}) '
-                             f'for parent of tgt!')
+                logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Found: FINISH_DIR OGN {par_finish_dir.node_uid} '
+                             f'is parent of tgt!')
                 # need to reverse order
                 for parent in par_finish_dir.get_parent_list():
                     # Either parent_ogn is a START_DIR which matches tgt of ogn_new, or parent_ogn is a child node which
                     # goes in the middle of that & ogn_new (START_DIR/FINISH_DIR pair)
                     if parent.get_tgt_node().node_identifier == ogn_new.get_tgt_node().node_identifier or \
                             ogn_new.get_tgt_node().is_parent_of(parent.get_tgt_node()):
+                        logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Re-linking OGN {parent.node_uid} as par of inserted OGN')
                         par_finish_dir.unlink_parent(parent)
                         ogn_new.link_parent(parent)
                     else:
-                        assert False, f'Something wrong here: {par_finish_dir}'
+                        # Ignore nodes which are children of parent tgt node
+                        assert par_finish_dir.get_tgt_node().is_parent_of(parent.get_tgt_node()), f'UNEXPECTED ($1={par_finish_dir}, $2={parent}'
+                        logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): Ignoring irrelevant OGN {parent.node_uid}')
                 ogn_new.link_child(par_finish_dir)
                 return True
             else:
+                logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}): OGN {par_finish_dir.node_uid} '
+                             f'did not qualify - checking one more level up')
                 # check next level up
                 ogn_leaf = par_finish_dir
                 par_finish_dir = None
