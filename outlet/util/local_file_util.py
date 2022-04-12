@@ -11,7 +11,7 @@ from typing import Optional
 from constants import IS_MACOS, IS_WINDOWS, MACOS_SETFILE_DATETIME_FMT
 from error import IdenticalFileExistsError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from model.node.local_disk_node import LocalFileNode, LocalNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import TNode
 from util import file_util, time_util
 
@@ -182,8 +182,8 @@ class LocalFileUtil:
                 time identically.
                 """
                 if src_node.create_ts > src_node.modify_ts:
-                    # TODO: handle this
-                    # So apparently this can happen in MacOS!
+                    # So apparently this can happen in MacOS! In this case, we'll set the new file's create_ts to its modify_ts and ignore
+                    # the bad create_ts from the original file.
                     logger.warning(f'(MacOS): create_ts of src node ({src_node.create_ts}) is AFTER its modify_ts ({src_node.modify_ts})')
 
                 if SUPER_DEBUG_ENABLED:
@@ -216,8 +216,11 @@ class LocalFileUtil:
         except Exception:
             logger.error(f'Exception while copying file meta (src: "{src_node.node_identifier}" dst: "{dst_path}"')
             raise
-    
-        dst_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=False, is_live=True)
+
+        if os.path.isdir(dst_path):
+            dst_node: LocalDirNode = self.cacheman.build_local_dir_node(full_path=dst_path, is_live=True, all_children_fetched=True)
+        else:
+            dst_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=False, is_live=True)
         if not dst_node:
             raise RuntimeError(f'Failed to build fresh node after copying meta for path: {dst_path}')
         if not dst_node.is_meta_equal(src_node):

@@ -4,7 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
-from constants import IconId, OBJ_TYPE_DIR, TrashStatus, TreeType
+from constants import IconId, IS_MACOS, OBJ_TYPE_DIR, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.trait import HasParentList
 from model.node_identifier import DN_UID, NodeIdentifier
@@ -216,28 +216,50 @@ class TNode(AbstractNode, HasParentList, ABC):
             return IconId.ICON_GENERIC_FILE
         return IconId.ICON_FILE_CP_DST
 
+    def _get_valid_create_ts_for_macos(self) -> int:
+        if self.create_ts > self.modify_ts:
+            logger.warning(f'(MacOS): create_ts ({self.create_ts}) is AFTER its modify_ts ({self.modify_ts}); using modify_ts for both')
+            return self.modify_ts
+        else:
+            return self.create_ts
+
     def is_meta_equal(self, other_node) -> bool:
+        if IS_MACOS:
+            assert isinstance(other_node, TNode)
+            other_create_ts = other_node._get_valid_create_ts_for_macos()
+            self_create_ts = self._get_valid_create_ts_for_macos()
+
+            return other_create_ts == self_create_ts and \
+                other_node.modify_ts == self.modify_ts and \
+                (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
+
         # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
         return other_node.create_ts == self.create_ts and \
-               other_node.modify_ts == self.modify_ts and \
-               other_node.get_size_bytes() == self.get_size_bytes()
+            other_node.modify_ts == self.modify_ts and \
+            (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
 
     def how_is_meta_not_equal(self, other_node) -> str:
         """For use with debugging why is_meta_equal() returned false"""
         problem_list: List[str] = []
-        problem_list += self._print_field_diff('create_ts', self.create_ts, other_node.create_ts)
+        if IS_MACOS:
+            # Workaround for Mac create_ts bug
+            assert isinstance(other_node, TNode)
+            problem_list += self._print_field_diff('create_ts', self._get_valid_create_ts_for_macos(), other_node._get_valid_create_ts_for_macos())
+        else:
+            problem_list += self._print_field_diff('create_ts', self.create_ts, other_node.create_ts)
         problem_list += self._print_field_diff('modify_ts', self.modify_ts, other_node.modify_ts)
-        problem_list += self._print_field_diff('size_bytes', self.get_size_bytes(), other_node.get_size_bytes())
+        if self.is_file() and other_node.is_file():
+            problem_list += self._print_field_diff('size_bytes', self.get_size_bytes(), other_node.get_size_bytes())
         return f'Comparison of this ({self.node_identifier}) to other ({other_node.node_identifier}) = [{", ".join(problem_list)}]'
 
     @staticmethod
     def _print_field_diff(field_name: str, val_self, val_other) -> List[str]:
-        if val_other > val_self:
-            return [f'{field_name} is greater ({val_other} > {val_self}; '
-                    f'"{time_util.ts_to_str_with_millis(val_other)}" > "{time_util.ts_to_str_with_millis(val_self)}")']
-        elif val_other < val_self:
-            return [f'{field_name} is smaller ({val_other} < {val_self}; '
-                    f'"{time_util.ts_to_str_with_millis(val_other)}" < "{time_util.ts_to_str_with_millis(val_self)}")']
+        if val_self > val_other:
+            return [f'{field_name} is greater ({val_self} > {val_other}; '
+                    f'"{time_util.ts_to_str_with_millis(val_self)}" > "{time_util.ts_to_str_with_millis(val_other)}")']
+        elif val_self < val_other:
+            return [f'{field_name} is smaller ({val_self} < {val_other}; '
+                    f'"{time_util.ts_to_str_with_millis(val_self)}" < "{time_util.ts_to_str_with_millis(val_other)}")']
         return []
 
     @classmethod

@@ -267,7 +267,7 @@ class FinishCopyToLocalDirCommand(FinishCopyToDirCommand):
             # TODO: put this logic in separate class[es]
             return FinishCopyToGDriveFolderCommand.delete_src_node(cxt, self.op.src_node, new_dst_node)
         else:
-            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dst_node])
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, new_dst_node])
 
 
 # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
@@ -600,7 +600,8 @@ class FinishCopyToGDriveFolderCommand(FinishCopyToDirCommand):
         if self.delete_src_node_after:
             return FinishCopyToGDriveFolderCommand.delete_src_node(cxt, self.op.src_node, new_dst_node)
         else:
-            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[new_dst_node])
+            # make sure to include src node in upsert, so that icon will be reset
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, new_dst_node])
 
     @staticmethod
     def delete_src_node(cxt, src_node: TNode, new_dst_node: TNode) -> UserOpResult:

@@ -626,7 +626,21 @@ class OpGraph(HasLifecycle):
             # No matching START_DIR found. This *must* mean that we are merging a batch into the main tree, in which case
             logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) No matching START_DIR found (assuming it completed & we'
                          f' are resuming a half-finished batch); using existing OGN parents ({self._uid_list_str(ogn_new.get_parent_list())})')
-            return ogn_new.get_parent_list()
+            if ogn_new.get_parent_list():
+                return ogn_new.get_parent_list()
+            else:
+                logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) actually there are no existing OGN parents; checking whether'
+                             f'there is a prev OGN for target')
+                target_node = ogn_new.get_tgt_node()
+                prev_ogn_for_target = self._get_last_pending_ogn_for_node(target_node.device_uid, target_node.uid)
+                if prev_ogn_for_target:
+                    logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) Found prev OGN {prev_ogn_for_target.node_uid} '
+                                 f'for tgt node {target_node.dn_uid}: will link to it as parent')
+                    return [prev_ogn_for_target]
+                else:
+                    logger.debug(f'[{self.name}] Add_Finish_Dir_OGN({ogn_new.node_uid}) Found no pending ops for tgt node {target_node.dn_uid}'
+                                 f'; adding to root')
+                    return [self.root]
 
     def _insert_ogn_between_start_and_finish(self, ogn_new: OpGraphNode, ogn_finish: OpGraphNode) -> OpGraphNode:
         assert ogn_finish.op.is_finish_dir_type()
