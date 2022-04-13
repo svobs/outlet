@@ -238,7 +238,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                         logger.debug(f'ReplaceWithDir: examining child {sn_src_child.spid}')
 
                     # see if there is a corresponding dst node:
-                    list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.get(sn_src_child.node.name)
+                    list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name, None)
 
                     if not list_sn_dst_conflicting:
                         if DIFF_DEBUG_ENABLED:

@@ -39,7 +39,7 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
 
     def __init__(self, op: UserOp, overwrite: bool = False):
         super().__init__(op, overwrite)
-        assert op.op_type == UserOpCode.CP
+        assert op.op_type == UserOpCode.CP or op.op_type == UserOpCode.CP_ONTO
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
@@ -701,7 +701,7 @@ class CopyFileWithinGDriveCommand(CopyNodeCommand):
 
     def __init__(self, op: UserOp, overwrite: bool = False):
         super().__init__(op, overwrite)
-        assert op.op_type == UserOpCode.CP
+        assert op.op_type == UserOpCode.CP or op.op_type == UserOpCode.CP_ONTO
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
