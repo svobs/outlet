@@ -211,7 +211,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
         to minimize the work involved. For that reason, the method is pretty similar to _handle_dir_merge()"""
         assert sn_src.node.is_dir(), f'Not a dir: {sn_src.node}'
 
-        logger.debug(f'Replacing {sn_dst_conflicting.spid} with dir {sn_src.spid}...')
+        logger.debug(f'ReplaceWithDir: replacing node {sn_dst_conflicting.spid} with dir {sn_src.spid}...')
 
         queue: Deque[Tuple[SPIDNodePair, SPIDNodePair]] = collections.deque()
         # assume this dir has already been validated and has exactly 1 conflict
@@ -220,11 +220,11 @@ class TransferBuilder(TwoTreeChangeBuilder):
         while len(queue) > 0:
             sn_dir_src, sn_dir_dst_existing = queue.popleft()
             if DIFF_DEBUG_ENABLED:
-                logger.debug(f'Replace: examining dir: {sn_dir_src.spid}')
+                logger.debug(f'ReplaceWithDir: examining dir: {sn_dir_src.spid}')
 
             if sn_dir_dst_existing.node.is_file():
                 if DIFF_DEBUG_ENABLED:
-                    logger.debug(f'Replacing {sn_dir_dst_existing.spid} with dir {sn_dir_src.spid}')
+                    logger.debug(f'ReplaceWithDir: replacing file {sn_dir_dst_existing.spid} with dir {sn_dir_src.spid}')
                 # Remove file:
                 self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.RM, sn_src=sn_dir_dst_existing)
                 # Now just transfer the src subtree as though the conflicts never existed:
@@ -234,15 +234,25 @@ class TransferBuilder(TwoTreeChangeBuilder):
 
                 # Get children for src & dst, compare all
                 for sn_src_child in self.backend.cacheman.get_child_list(sn_dir_src.spid, self.left_side.tree_id_src):
+                    if DIFF_DEBUG_ENABLED:
+                        logger.debug(f'ReplaceWithDir: examining child {sn_src_child.spid}')
+
                     # see if there is a corresponding dst node:
                     list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.get(sn_src_child.node.name)
 
-                    if len(list_sn_dst_conflicting) == 0:
+                    if not list_sn_dst_conflicting:
+                        if DIFF_DEBUG_ENABLED:
+                            logger.debug(f'ReplaceWithDir: no conflicts found')
                         # No conflicts? Just transfer the file or dir subtree:
                         self._handle_no_conflicts_found(dd_meta, sn_src_child, sn_dir_dst_existing.spid.get_single_path())
                     else:
+                        replacing_file_with_dir = not sn_src_child.node.is_dir() and list_sn_dst_conflicting[0].node.is_dir()
+                        has_multiple_conflicts = len(list_sn_dst_conflicting) > 1
                         # CONFLICT(S)
-                        if len(list_sn_dst_conflicting) > 1 or list_sn_dst_conflicting[0].node.is_dir():
+                        if has_multiple_conflicts or replacing_file_with_dir:
+                            if DIFF_DEBUG_ENABLED:
+                                logger.debug(f'ReplaceWithDir: has_multiple_conflicts={has_multiple_conflicts}, '
+                                             f'replacing_file_with_dir={replacing_file_with_dir}: {sn_src_child.spid}')
                             # Multiple conflicting nodes with same name? Just delete all of them. Too rare an occurrence to optimize.
                             # If dst is dir, we simply delete it before replacing it (no need to consult ReplaceDirWithFilePolicy)
                             for sn_dst_conflicting in list_sn_dst_conflicting:
@@ -251,11 +261,13 @@ class TransferBuilder(TwoTreeChangeBuilder):
                             self._handle_no_conflicts_found(dd_meta, sn_src_child, sn_dir_dst_existing.spid.get_single_path())
                         else:
                             if sn_src_child.node.is_dir():
+                                if DIFF_DEBUG_ENABLED:
+                                    logger.debug(f'ReplaceWithDir: child has no con')
                                 # DIR with exactly 1 conflict: enqueue for deeper dive
                                 queue.append((sn_src_child, list_sn_dst_conflicting[0]))
                             else:
                                 # SRC is FILE:
-                                self._handle_replace_with_file(dd_meta, sn_src, list_sn_dst_conflicting[0])
+                                self._handle_replace_with_file(dd_meta, sn_src_child, list_sn_dst_conflicting[0])
 
                 # Remaining nodes in the dict must all be deleted:
                 for list_sn_dst_child in dict_sn_dst_existing_child_list.values():
@@ -297,7 +309,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                 if DIFF_DEBUG_ENABLED:
                     logger.debug(f'DirMerge: found {len(list_sn_dst_conflicting)} conflicts for child dir: {sn_src_child.spid}')
 
-                if len(list_sn_dst_conflicting) == 0:
+                if not list_sn_dst_conflicting:
                     # No conflicts? Just transfer the file or dir subtree:
                     self._handle_no_conflicts_found(dd_meta, sn_src_child, sn_dst_existing.spid.get_single_path())
                 else:
@@ -494,7 +506,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
             list_sn_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.spid)
             logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for {dd_meta.drag_op.name} '
                          f'to dst parent "{new_dst_parent_path}"')
-            if SUPER_DEBUG_ENABLED:
+            if DIFF_DEBUG_ENABLED:
                 logger.debug(f'NoConflicts: src subtree nodes: {", ".join([str(sn.spid) for sn in list_sn_subtree])}')
 
             for sn_src_descendent in list_sn_subtree:
@@ -516,6 +528,8 @@ class TransferBuilder(TwoTreeChangeBuilder):
                     self.right_side.add_new_op_and_target_sn_to_tree(op_type=dd_meta.op_type_file, sn_src=sn_src_descendent, sn_dst=sn_dst_descendent)
         else:
             # Src node is file: easy case:
+            if DIFF_DEBUG_ENABLED:
+                logger.debug(f'NoConflicts: preparing file {sn_src.spid}, op={dd_meta.op_type_file}')
             sn_dst: SPIDNodePair = self._migrate_sn_to_right(sn_src, new_dst_parent_path, dd_meta.op_type_file, name_new_dst)
             self.right_side.add_new_op_and_target_sn_to_tree(op_type=dd_meta.op_type_file, sn_src=sn_src, sn_dst=sn_dst)
 
