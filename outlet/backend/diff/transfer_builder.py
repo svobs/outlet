@@ -50,6 +50,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
     Implements drag & drop.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
                  tree_id_left_src: TreeID, tree_id_right_src: TreeID):
         super().__init__(backend, left_tree_root_sn, right_tree_root_sn, tree_id_left_src, tree_id_right_src)
@@ -346,10 +347,10 @@ class TransferBuilder(TwoTreeChangeBuilder):
     @staticmethod
     def _increment_node_name(node_name: str) -> str:
         # Search for an existing copy number, starting from the end:
-        match = re.search("(?s:.*)[0-9]*", node_name)
+        match = re.match(r"\D*( [0-9]*)", node_name)
         if match:
-            matching_str = match.group(1)  # get first matching group
-            copy_number = int(matching_str) + 1  # try next
+            matching_str: str = match.group(1)  # get first matching group
+            copy_number = int(matching_str.lstrip()) + 1  # try next
             new_node_name_prefix = node_name.removesuffix(matching_str).rstrip()
         else:
             copy_number = 2  # first copy number to start with
@@ -500,20 +501,37 @@ class TransferBuilder(TwoTreeChangeBuilder):
         The optional "name_new_dst" param, if supplied, will rename the target."""
 
         if sn_src.node.is_dir():
-            orig_parent_path = sn_src.spid.get_single_parent_path()
+            orig_subroot_path = sn_src.spid.get_single_path()
+            orig_parent_path = sn_src.spid.get_single_parent_path()  # parent of subroot
 
             # Need to get all the nodes in its whole subtree and add them individually:
             list_sn_subtree: List[SPIDNodePair] = self.backend.cacheman.get_subtree_bfs_sn_list(sn_src.spid)
-            logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for {dd_meta.drag_op.name} '
-                         f'to dst parent "{new_dst_parent_path}"')
+            logger.debug(f'NoConflicts: Unpacking src subtree with {len(list_sn_subtree)} nodes (root={sn_src.spid}) for '
+                         f'{dd_meta.drag_op.name} to dst parent "{new_dst_parent_path}"')
             if DIFF_DEBUG_ENABLED:
                 logger.debug(f'NoConflicts: src subtree nodes: {", ".join([str(sn.spid) for sn in list_sn_subtree])}')
 
+            # change to new parent path, but rename topmost dir if name_new_dst was provided
+            new_subroot_path = self._change_base_path(orig_target_path=sn_src.spid.get_single_path(),
+                                                      orig_base_path=orig_parent_path,
+                                                      new_base_path=new_dst_parent_path,
+                                                      new_target_name=name_new_dst)
+
+            first = True
             for sn_src_descendent in list_sn_subtree:
-                dst_path = self._change_base_path(orig_target_path=sn_src_descendent.spid.get_single_path(),
-                                                  orig_base_path=orig_parent_path,
-                                                  new_base_path=new_dst_parent_path,
-                                                  new_target_name=name_new_dst)
+                if first:
+                    # We already changed the path for the top level of the tree. Also, it would break if the top level was renamed
+                    assert sn_src_descendent.spid.get_single_path() == sn_src.spid.get_single_path(), \
+                        f'"{sn_src_descendent.spid.get_single_path()}" != {sn_src_descendent.spid.get_single_path()}'
+                    dst_path = new_subroot_path
+                    logger.debug(f'NoConflicts: toplevel was already changed: "{dst_path}"')
+                    first = False
+                else:
+                    logger.debug(f'NoConflicts: changing base path of: "{sn_src_descendent.spid.get_single_path()}"')
+                    dst_path = self._change_base_path(orig_target_path=sn_src_descendent.spid.get_single_path(),
+                                                      orig_base_path=sn_src.spid.get_single_path(),
+                                                      new_base_path=new_subroot_path)
+
                 sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path, dd_meta.op_type_file)
 
                 if sn_src_descendent.node.is_dir():

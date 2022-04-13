@@ -293,25 +293,26 @@ class TwoTreeChangeBuilder:
     def _change_base_path(orig_target_path: str, orig_base_path: str, new_base_path: str, new_target_name: Optional[str] = None) -> str:
         dst_rel_path: str = file_util.strip_root(orig_target_path, orig_base_path)
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'change_base_path(): new_base_path="{new_base_path}", dst_rel_path1="{dst_rel_path}"')
+            logger.debug(f'change_base_path() entered: orig_base_path="{orig_base_path}" new_base_path="{new_base_path}" '
+                         f'orig_target_path="{orig_target_path}" new_target_name="{new_target_name}" -> dst_rel_path1="{dst_rel_path}"')
 
         if new_target_name:
             # target is being renamed
             orig_target_name = os.path.basename(orig_target_path)
             dst_rel_path_minus_name = dst_rel_path.removesuffix(orig_target_name)
-            assert dst_rel_path_minus_name != dst_rel_path, f'Should not be equal: "{dst_rel_path_minus_name}" and "{orig_target_name}"'
+            assert dst_rel_path_minus_name != dst_rel_path, f'Should not be equal: "{dst_rel_path_minus_name}" and "{dst_rel_path}"'
             dst_rel_path = dst_rel_path_minus_name + new_target_name
 
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'change_base_path(): new_target_name="{new_target_name}", dst_rel_path2="{dst_rel_path}"')
+                logger.debug(f'change_base_path(): new_target_name="{new_target_name}" -> dst_rel_path2="{dst_rel_path}"')
 
         if dst_rel_path:
-            result = os.path.join(new_base_path, dst_rel_path)
+            new_target_path = os.path.join(new_base_path, dst_rel_path)
         else:
             # do not use os.path.join() here, or we will end up with a '/' at the end which we don't want
-            result = new_base_path
-        logger.debug(f'change_base_path(): OrigTarget="{orig_target_path}", NewTarget="{result}"')
-        return result
+            new_target_path = new_base_path
+        logger.debug(f'change_base_path() returning: changed orig_target_path="{orig_target_path}" to new_target_path="{new_target_path}"')
+        return new_target_path
 
     @staticmethod
     def _change_tree_path(src_side: ChangeTreeBuilder, dst_side: ChangeTreeBuilder,
