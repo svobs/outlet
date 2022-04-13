@@ -159,7 +159,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                               dst_existing_sn_dict: Dict[str, List[SPIDNodePair]]):
         assert sn_src_file.node.is_file()
         list_sn_dst_conflicting: List[SPIDNodePair] = dst_existing_sn_dict.get(sn_src_file.node.name)
-        assert list_sn_dst_conflicting
+        assert list_sn_dst_conflicting, f'what happened to the conflict? file={sn_src_file.node}'
         name_src = sn_src_file.node.name
         policy = dd_meta.file_conflict_policy
         has_multiple_name_conflicts: bool = len(list_sn_dst_conflicting) > 1
@@ -235,7 +235,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                 # Get children for src & dst, compare all
                 for sn_src_child in self.backend.cacheman.get_child_list(sn_dir_src.spid, self.left_side.tree_id_src):
                     # see if there is a corresponding dst node:
-                    list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name)
+                    list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.get(sn_src_child.node.name)
 
                     if len(list_sn_dst_conflicting) == 0:
                         # No conflicts? Just transfer the file or dir subtree:
@@ -292,7 +292,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
             # Get children for src & dst, compare all
             for sn_src_child in self.backend.cacheman.get_child_list(sn_dir_src.spid, self.left_side.tree_id_src):
                 # see if there is a corresponding dst node:
-                list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.pop(sn_src_child.node.name, [])
+                list_sn_dst_conflicting: List[SPIDNodePair] = dict_sn_dst_existing_child_list.get(sn_src_child.node.name, [])
 
                 if DIFF_DEBUG_ENABLED:
                     logger.debug(f'DirMerge: found {len(list_sn_dst_conflicting)} conflicts for child dir: {sn_src_child.spid}')
