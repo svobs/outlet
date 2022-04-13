@@ -176,8 +176,12 @@ class ChangeTreeBuilder:
         return True
 
     def _add_needed_ancestors(self, new_sn: SPIDNodePair, op_code: UserOpCode):
-        """Determines what ancestor directories need to be created, and appends them to the op tree (as well as ops for them).
-        Appends the migrated node as well, but the op for it is omitted so that the caller can provide its own."""
+        """Determines what ancestor directories need to be created, and generates MKDIR ops for each of them."""
+
+        if op_code == UserOpCode.RM:
+            # no need to generate MKDIR ops for anything other than CP or MV, really
+            logger.debug(f'Skipping add_new_ancestors() because op_code is RM')
+            return
 
         # Lowest node in the stack will always be orig node. Stack size > 1 iff need to add parent folders
         ancestor_stack: Deque[SPIDNodePair] = self._generate_missing_ancestor_nodes(new_sn, op_code)

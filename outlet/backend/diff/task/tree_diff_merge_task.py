@@ -135,6 +135,8 @@ class TreeDiffMergeTask:
                         real_sn = SPIDNodePair(sn.spid, mkdir_op.src_node)  # add_op_list_with_target_sn() expects a real_sn, not container node
                         merged_tree.add_op_list_with_target_sn(real_sn, [mkdir_op], category_override=sn.spid.category)
                 elif SUPER_DEBUG_ENABLED:
+                    # TODO: if op is an RM, check whether all its descendants are going to be deleted as well, and if so, append
+                    # an RM operation for the directory. This will be non-trivial because it will have to check for descendant dirs...
                     logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
             else:
                 if SUPER_DEBUG_ENABLED:
