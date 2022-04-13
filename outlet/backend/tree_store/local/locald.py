@@ -783,7 +783,8 @@ class LocalDiskMasterStore(TreeStore):
             parent: LocalNode = self._memstore.master_tree.get_parent(node.uid)
             if not parent:
                 # parent not found in memory tree. Let's check everywhere now:
-                parent_path: str = node.derive_parent_path()
+                assert isinstance(node.node_identifier, SinglePathNodeIdentifier)
+                parent_path: str = node.node_identifier.get_single_parent_path()
                 parent_uid: UID = self.get_uid_for_path(parent_path)
                 parent = self.get_node_for_uid(parent_uid)
                 if not parent:

@@ -502,7 +502,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                                                   orig_base_path=orig_parent_path,
                                                   new_base_path=new_dst_parent_path,
                                                   new_target_name=name_new_dst)
-                sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path)
+                sn_dst_descendent: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(sn_src_descendent, dst_path, dd_meta.op_type_file)
 
                 if sn_src_descendent.node.is_dir():
                     assert dd_meta.op_type_dir_start == UserOpCode.START_DIR_MV or dd_meta.op_type_dir_start == UserOpCode.START_DIR_CP
@@ -516,10 +516,11 @@ class TransferBuilder(TwoTreeChangeBuilder):
                     self.right_side.add_new_op_and_target_sn_to_tree(op_type=dd_meta.op_type_file, sn_src=sn_src_descendent, sn_dst=sn_dst_descendent)
         else:
             # Src node is file: easy case:
-            sn_dst: SPIDNodePair = self._migrate_sn_to_right(sn_src, new_dst_parent_path, name_new_dst)
+            sn_dst: SPIDNodePair = self._migrate_sn_to_right(sn_src, new_dst_parent_path, dd_meta.op_type_file, name_new_dst)
             self.right_side.add_new_op_and_target_sn_to_tree(op_type=dd_meta.op_type_file, sn_src=sn_src, sn_dst=sn_dst)
 
-    def _migrate_sn_to_right(self, sn_src: SPIDNodePair, new_dst_parent_path: str, sn_dst_name: Optional[str] = None) -> SPIDNodePair:
+    def _migrate_sn_to_right(self, sn_src: SPIDNodePair, new_dst_parent_path: str, op_code: UserOpCode, sn_dst_name: Optional[str] = None) \
+            -> SPIDNodePair:
         """Pretty similar to TwoTreeChangeBuilder._change_base_path() but does not require an orig_base_path"""
         # note: sn_dst_parent should be on right side
         if not sn_dst_name:
@@ -530,7 +531,7 @@ class TransferBuilder(TwoTreeChangeBuilder):
                          f'{new_dst_parent_path}" with new_name="{sn_dst_name}"')
 
         dst_path = os.path.join(new_dst_parent_path, sn_dst_name)
-        return self.right_side.migrate_single_node_to_this_side(sn_src, dst_path)
+        return self.right_side.migrate_single_node_to_this_side(sn_src, dst_path, op_code)
 
     def _generate_child_name_dict(self, parent_spid: SinglePathNodeIdentifier, tree_id: TreeID) -> Dict[str, List[SPIDNodePair]]:
         dict_name_to_list_sn: Dict[str, List[SPIDNodePair]] = {}

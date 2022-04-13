@@ -4,14 +4,14 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from constants import ROOT_PATH, SUPER_ROOT_UID
+from constants import ChangeTreeCategory, ROOT_PATH, SUPER_ROOT_UID
 from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
 from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
-from model.user_op import ChangeTreeCategoryMeta, UserOp
+from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpCode
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,8 @@ class ChangeTree(DisplayTree):
         it will be the source node."""
         self._op_list: List[UserOp] = []
         """We want to keep track of change action creation order."""
+
+        self._mkdir_dict: Dict[str, UserOp] = {}
 
         self.count_conflict_warnings = 0
         """For debugging only"""
@@ -106,6 +108,15 @@ class ChangeTree(DisplayTree):
 
     def get_op_list_for_guid(self, guid: GUID) -> List[UserOp]:
         return self._op_dict.get(guid, None)
+
+    def append_mkdir(self, sn: SPIDNodePair, mkdir_op: UserOp):
+        """MKDIR is a special type of op, because it may be needed for MV or CP (i.e. upstream of disparate operation types) but also might be
+        needed in more than one place (in the case of diff display trees). We'll keep it in its own dict which will be free from op_type."""
+        self._op_list.append(mkdir_op)
+        self._mkdir_dict[f'{sn.spid.device_uid}:{sn.spid.path_uid}'] = mkdir_op
+
+    def get_mkdir_for_sn(self, sn: SPIDNodePair) -> Optional[UserOp]:
+        return self._mkdir_dict.get(f'{sn.spid.device_uid}:{sn.spid.path_uid}')
 
     def _append_op_list(self, sn: SPIDNodePair, op_list: List[UserOp]):
         guid = sn.spid.guid
@@ -216,7 +227,7 @@ class ChangeTree(DisplayTree):
                     logger.debug(f'[{self.tree_id}] Ancestor not found: {ancestor_spid.guid}; creating dummy node"')
                 # create ancestor & push to stack for later insertion in correct order
                 ancestor_dir = ContainerNode(ancestor_spid)
-                ancestor_dir.set_icon(ChangeTreeCategoryMeta.icon_src_dir(ancestor_spid.category))
+                # ancestor_dir.set_icon(ChangeTreeCategoryMeta.icon_src_dir(ancestor_spid.category))
                 dummy_stack.append(SPIDNodePair(ancestor_spid, ancestor_dir))
 
         if SUPER_DEBUG_ENABLED:
@@ -237,8 +248,12 @@ class ChangeTree(DisplayTree):
         return parent_sn
 
     @staticmethod
-    def _make_change_node_pair(from_sn: SPIDNodePair, op: UserOp) -> SPIDNodePair:
-        category = ChangeTreeCategoryMeta.category_for_op_type(op.op_type)
+    def _make_change_node_pair(from_sn: SPIDNodePair, op: UserOp, category_override: Optional[ChangeTreeCategory]) -> SPIDNodePair:
+        if category_override:
+            # KLUDGE: this is so that MKDIR ops can be present in different categories
+            category = category_override
+        else:
+            category = ChangeTreeCategoryMeta.category_for_op_type(op.op_type)
         change_spid = ChangeTreeSPID(path_uid=from_sn.spid.path_uid, device_uid=from_sn.spid.device_uid,
                                      full_path=from_sn.spid.get_single_path(), category=category)
         change_node: TNode = copy.deepcopy(from_sn.node)
@@ -247,7 +262,7 @@ class ChangeTree(DisplayTree):
         change_node.set_icon(ChangeTreeCategoryMeta.get_icon_for_node_with_category(change_node.is_dir(), is_dst, category))
         return SPIDNodePair(change_spid, change_node)
 
-    def add_op_list_with_target_sn(self, sn: SPIDNodePair, op_list: List[UserOp]):
+    def add_op_list_with_target_sn(self, sn: SPIDNodePair, op_list: List[UserOp], category_override: Optional[ChangeTreeCategory] = None):
         """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't backed by any actual data nodes.
         This includes possibly tree-type nodes and category nodes.
@@ -261,7 +276,7 @@ class ChangeTree(DisplayTree):
         if not op_list:
             raise RuntimeError('add_op_list_with_target_sn() op_list is empty!')
 
-        sn = self._make_change_node_pair(sn, op_list[0])
+        sn = self._make_change_node_pair(sn, op_list[0], category_override)  # sn.spid is now ChangeTreeSPID
         if len(op_list) > 1:
             for op in op_list[1:]:
                 category = ChangeTreeCategoryMeta.category_for_op_type(op.op_type)

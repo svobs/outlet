@@ -11,9 +11,9 @@ from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import TNode, SPIDNodePair
-from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GUID, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import UserOp, UserOpCode
+from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpCode
 from util import file_util
 from util.local_file_util import LocalFileUtil
 
@@ -37,7 +37,6 @@ class ChangeTreeBuilder:
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
         self.tree_id_src: Optional[TreeID] = tree_id_src  # need to keep track of this for certain external processes
-        self._dict_added_dirs_by_path: Dict[str, SPIDNodePair] = {}
 
     @property
     def tree_id(self) -> TreeID:
@@ -54,7 +53,7 @@ class ChangeTreeBuilder:
     def get_root_sn(self) -> SPIDNodePair:
         return self.change_tree.get_root_sn()
 
-    def _build_new_op(self, src_node: TNode, dst_node: TNode, op_type: UserOpCode) -> UserOp:
+    def _build_new_op(self, src_node: TNode, dst_node: Optional[TNode], op_type: UserOpCode) -> UserOp:
         return UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type, src_node=src_node, dst_node=dst_node)
 
     def add_new_compound_op_and_target_sn_to_tree(self, op_type_list: List[UserOpCode], sn_src: SPIDNodePair, sn_dst: SPIDNodePair = None):
@@ -87,7 +86,8 @@ class ChangeTreeBuilder:
     def derive_relative_path(self, spid: SinglePathNodeIdentifier) -> str:
         return file_util.strip_root(spid.get_single_path(), self.root_sn.spid.get_single_path())
 
-    def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str) -> SPIDNodePair:
+    def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str, op_code: UserOpCode) -> SPIDNodePair:
+        """Param "op_code" is needed when adding missing ancestors"""
         dst_device_uid: UID = self.root_sn.spid.device_uid
         dst_tree_type: TreeType = self.root_sn.spid.tree_type
         assert not dst_path.endswith('/')
@@ -135,24 +135,24 @@ class ChangeTreeBuilder:
             dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
             if node_src.is_dir():
                 node_dst: TNode = LocalDirNode(nid, dst_parent_uid, trashed=TrashStatus.NOT_TRASHED, is_live=False,
-                                              sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
-                                              all_children_fetched=True)
+                                               sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
+                                               all_children_fetched=True)
             else:
                 assert isinstance(node_src, LocalFileNode)
                 node_dst: TNode = LocalFileNode(nid, dst_parent_uid, node_src.content_meta, size_bytes=node_src.get_size_bytes(),
-                                               sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
-                                               trashed=TrashStatus.NOT_TRASHED, is_live=False)
+                                                sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
+                                                trashed=TrashStatus.NOT_TRASHED, is_live=False)
         elif dst_tree_type == TreeType.GDRIVE:
             if node_src.is_dir():
                 node_dst: TNode = GDriveFolder(node_identifier=nid, goog_id=dst_node_goog_id, node_name=node_src.name,
-                                              trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None, drive_id=None,
-                                              is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
+                                               trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None, drive_id=None,
+                                               is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             else:
                 assert isinstance(node_src, GDriveFile)
                 node_dst: TNode = GDriveFile(node_identifier=nid, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
-                                            mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None,
-                                            content_meta=node_src.content_meta, size_bytes=node_src.get_size_bytes(),
-                                            is_shared=False, create_ts=None, modify_ts=None, owner_uid=None, shared_by_user_uid=None, sync_ts=None)
+                                             mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None,
+                                             content_meta=node_src.content_meta, size_bytes=node_src.get_size_bytes(),
+                                             is_shared=False, create_ts=None, modify_ts=None, owner_uid=None, shared_by_user_uid=None, sync_ts=None)
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={nid}")
 
@@ -160,7 +160,7 @@ class ChangeTreeBuilder:
         sn_dst: SPIDNodePair = SPIDNodePair(spid, node_dst)
 
         # Dst nodes may need some missing ancestors to be created first:
-        self.add_needed_ancestors(sn_dst)
+        self._add_needed_ancestors(sn_dst, op_code)
 
         if DIFF_DEBUG_ENABLED:
             logger.debug(f'[{self.change_tree.tree_id}] Done migrating single node: {sn_src.spid} -> {spid}')
@@ -175,25 +175,20 @@ class ChangeTreeBuilder:
                 return False
         return True
 
-    def add_op_list_with_target_sn_and_ancestors(self, sn: SPIDNodePair, op_list: List[UserOp]):
-        self.add_needed_ancestors(sn)
-        self.change_tree.add_op_list_with_target_sn(sn, op_list)
-
-    def add_needed_ancestors(self, new_sn: SPIDNodePair):
+    def _add_needed_ancestors(self, new_sn: SPIDNodePair, op_code: UserOpCode):
         """Determines what ancestor directories need to be created, and appends them to the op tree (as well as ops for them).
         Appends the migrated node as well, but the op for it is omitted so that the caller can provide its own."""
 
-        if new_sn.node.is_dir():
-            self._dict_added_dirs_by_path[new_sn.spid.get_single_path()] = new_sn
-
         # Lowest node in the stack will always be orig node. Stack size > 1 iff need to add parent folders
-        ancestor_stack: Deque[SPIDNodePair] = self._generate_missing_ancestor_nodes(new_sn)
+        ancestor_stack: Deque[SPIDNodePair] = self._generate_missing_ancestor_nodes(new_sn, op_code)
         while len(ancestor_stack) > 0:
             ancestor_sn: SPIDNodePair = ancestor_stack.pop()
-            # Create an accompanying MKDIR action which will create the new folder/dir
-            self.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.MKDIR, sn_src=ancestor_sn)
+            # Create a MKDIR op which will create the new folder/dir, but do not add the SN to the tree.
+            # Just store the op for possible later use.
+            mkdir_op = self._build_new_op(src_node=ancestor_sn.node, dst_node=None, op_type=UserOpCode.MKDIR)
+            self.change_tree.append_mkdir(ancestor_sn, mkdir_op)
 
-    def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[SPIDNodePair]:
+    def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair, op_code: UserOpCode) -> Deque[SPIDNodePair]:
         tree_type: int = self.backend.cacheman.get_tree_type_for_device_uid(new_sn.spid.device_uid)
         device_uid: UID = new_sn.spid.device_uid
         ancestor_stack: Deque[SPIDNodePair] = deque()
@@ -217,8 +212,10 @@ class ChangeTreeBuilder:
                 child.set_parent_uids(self.root_sn.node.uid)
                 break
 
+            parent_guid: GUID = self._generate_guid_for(parent_path, device_uid, op_code)
+
             # AddedFolder already generated and added?
-            prev_added_ancestor: Optional[SPIDNodePair] = self._dict_added_dirs_by_path.get(parent_path, None)
+            prev_added_ancestor: Optional[SPIDNodePair] = self.change_tree.get_sn_for_guid(parent_guid)
             if prev_added_ancestor:
                 child.set_parent_uids(prev_added_ancestor.node.uid)
                 break
@@ -250,7 +247,6 @@ class ChangeTreeBuilder:
             spid = self.backend.node_identifier_factory.build_spid(node_uid=new_ancestor_node.uid, device_uid=device_uid,
                                                                    single_path=parent_path)
             new_ancestor_sn: SPIDNodePair = SPIDNodePair(spid, new_ancestor_node)
-            self._dict_added_dirs_by_path[parent_path] = new_ancestor_sn
             ancestor_stack.append(new_ancestor_sn)
 
             child.set_parent_uids(new_ancestor_sn.node.uid)
@@ -259,6 +255,12 @@ class ChangeTreeBuilder:
             child = new_ancestor_sn.node
 
         return ancestor_stack
+
+    def _generate_guid_for(self, full_path: str, device_uid: UID, op_code: UserOpCode) -> GUID:
+        path_uid = self.backend.get_uid_for_local_path(full_path)
+        category = ChangeTreeCategoryMeta.category_for_op_type(op_code)
+        assert category, f'Category was null for {op_code}'
+        return ChangeTreeSPID.guid_for(path_uid, device_uid, category)
 
 
 class TwoTreeChangeBuilder:
@@ -324,34 +326,40 @@ class TwoTreeChangeBuilder:
     def migrate_rel_path_to_left_tree(self, spid_right: SinglePathNodeIdentifier) -> str:
         return TwoTreeChangeBuilder._change_tree_path(self.right_side, self.left_side, spid_right)
 
-    def _migrate_node_to_right(self, sn_s: SPIDNodePair) -> SPIDNodePair:
+    def _migrate_node_to_right(self, sn_s: SPIDNodePair, op_code: UserOpCode) -> SPIDNodePair:
         dst_path = self.migrate_rel_path_to_right_tree(sn_s.spid)
-        return self.right_side.migrate_single_node_to_this_side(sn_s, dst_path)
+        return self.right_side.migrate_single_node_to_this_side(sn_s, dst_path, op_code)
 
-    def _migrate_node_to_left(self, sn_r: SPIDNodePair) -> SPIDNodePair:
+    def _migrate_node_to_left(self, sn_r: SPIDNodePair, op_code: UserOpCode) -> SPIDNodePair:
         dst_path = self.migrate_rel_path_to_left_tree(sn_r.spid)
-        return self.left_side.migrate_single_node_to_this_side(sn_r, dst_path)
+        return self.left_side.migrate_single_node_to_this_side(sn_r, dst_path, op_code)
 
     def append_mv_op_r_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a dst node which will rename a file within the right tree to match the relative path of the file on the left"""
-        self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.MV, sn_src=sn_r, sn_dst=self._migrate_node_to_right(sn_s))
+        op_code = UserOpCode.MV
+        self.right_side.add_new_op_and_target_sn_to_tree(op_type=op_code, sn_src=sn_r, sn_dst=self._migrate_node_to_right(sn_s, op_code=op_code), )
 
     def append_mv_op_s_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
-        self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.MV, sn_src=sn_s, sn_dst=self._migrate_node_to_left(sn_r))
+        op_code = UserOpCode.MV
+        self.left_side.add_new_op_and_target_sn_to_tree(op_type=op_code, sn_src=sn_s, sn_dst=self._migrate_node_to_left(sn_r, op_code=op_code))
 
     def append_cp_op_s_to_r(self, sn_s: SPIDNodePair):
         """COPY: Left -> Right. (TNode on Right does not yet exist)"""
-        self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.CP, sn_src=sn_s, sn_dst=self._migrate_node_to_right(sn_s))
+        op_code = UserOpCode.CP
+        self.right_side.add_new_op_and_target_sn_to_tree(op_type=op_code, sn_src=sn_s, sn_dst=self._migrate_node_to_right(sn_s, op_code=op_code))
 
     def append_cp_op_r_to_s(self, sn_r: SPIDNodePair):
         """COPY: Left <- Right. (TNode on Left does not yet exist)"""
-        self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.CP, sn_src=sn_r, sn_dst=self._migrate_node_to_left(sn_r))
+        op_code = UserOpCode.CP
+        self.left_side.add_new_op_and_target_sn_to_tree(op_type=op_code, sn_src=sn_r, sn_dst=self._migrate_node_to_left(sn_r, op_code=op_code))
 
     def append_up_op_s_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left -> Right. Both nodes already exist, but one will overwrite the other"""
-        self.right_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.CP_ONTO, sn_src=sn_s, sn_dst=sn_r)
+        op_code = UserOpCode.CP_ONTO
+        self.right_side.add_new_op_and_target_sn_to_tree(op_type=op_code, sn_src=sn_s, sn_dst=sn_r)
 
     def append_up_op_r_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left <- Right. Both nodes already exist, but one will overwrite the other"""
-        self.left_side.add_new_op_and_target_sn_to_tree(op_type=UserOpCode.CP_ONTO, sn_src=sn_r, sn_dst=sn_s)
+        op_code = UserOpCode.CP_ONTO
+        self.left_side.add_new_op_and_target_sn_to_tree(op_type=op_code, sn_src=sn_r, sn_dst=sn_s)

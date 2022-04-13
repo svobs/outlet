@@ -51,9 +51,6 @@ class LocalNode(TNode, ABC):
         self._modify_ts: int = ensure_int(other_node.modify_ts)
         self._change_ts: int = ensure_int(other_node.change_ts)
 
-    def derive_parent_path(self) -> str:
-        return str(pathlib.Path(self.get_single_path()).parent)
-
     def get_single_parent_uid(self) -> UID:
         if isinstance(self._parent_uids, list):
             if len(self._parent_uids) != 1:
@@ -104,8 +101,8 @@ class LocalDirNode(LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool, sync_ts: int,
-                 create_ts: int, modify_ts: int, change_ts: int, all_children_fetched: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool, sync_ts: Optional[int],
+                 create_ts: Optional[int], modify_ts: Optional[int], change_ts: Optional[int], all_children_fetched: bool):
         LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts)
         self.dir_stats: Optional[DirectoryStats] = None
         self.all_children_fetched: bool = ensure_bool(all_children_fetched)
@@ -191,7 +188,7 @@ class LocalFileNode(LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, content_meta: ContentMeta, size_bytes: int, sync_ts,
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, content_meta: ContentMeta, size_bytes: int, sync_ts: Optional[int],
                  create_ts: Optional[int], modify_ts: Optional[int], change_ts: Optional[int], trashed, is_live: bool):
         super().__init__(node_identifier, parent_uid, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts)
         self.content_meta: ContentMeta = content_meta

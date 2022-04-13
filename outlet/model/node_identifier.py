@@ -331,6 +331,10 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
         super().__init__(path_uid, device_uid, full_path, parent_guid)
         self.category: ChangeTreeCategory = category
 
+    @staticmethod
+    def guid_for(path_uid: UID, device_uid: UID, category: ChangeTreeCategory) -> GUID:
+        return f'{device_uid}:{category.name}:{path_uid}'
+
     @property
     def path_uid(self) -> UID:
         # default
@@ -368,7 +372,9 @@ class ChangeTreeSPID(SinglePathNodeIdentifier):
             return self.device_uid > other.device_uid
 
     def __eq__(self, other):
-        return self.device_uid == other.device_uid and self.category == other.category and self.device_uid == other.device_uid
+        if isinstance(other, ChangeTreeSPID):
+            return self.device_uid == other.device_uid and self.category == other.category and self.device_uid == other.device_uid
+        return False
 
     def __ne__(self, other):
         return not self == other

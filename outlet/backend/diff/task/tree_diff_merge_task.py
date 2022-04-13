@@ -124,7 +124,17 @@ class TreeDiffMergeTask:
             merged_tree.add_op_list_with_target_sn(sn, op_list)
         else:
             if sn and sn.node.is_container_node():
-                if SUPER_DEBUG_ENABLED:
+                # If a MKDIR is required for an ancestor, it should have been created already in the src_tree
+                mkdir_op = src_tree.get_mkdir_for_sn(sn)
+                if mkdir_op:
+                    existing_op_list = merged_tree.get_op_list_for_guid(guid)
+                    if existing_op_list and existing_op_list[0].op_uid == mkdir_op.op_uid:
+                        logger.debug(f'merge_change_trees(): Already added MKDIR for: {guid}; skipping')
+                    else:
+                        logger.debug(f'merge_change_trees(): Adding MKDIR for: {sn.spid}')
+                        real_sn = SPIDNodePair(sn.spid, mkdir_op.src_node)  # add_op_list_with_target_sn() expects a real_sn, not container node
+                        merged_tree.add_op_list_with_target_sn(real_sn, [mkdir_op], category_override=sn.spid.category)
+                elif SUPER_DEBUG_ENABLED:
                     logger.debug(f'merge_change_trees(): Skipping node because it is only a display node: {guid}')
             else:
                 if SUPER_DEBUG_ENABLED:

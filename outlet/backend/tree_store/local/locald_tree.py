@@ -30,7 +30,8 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
         return self.get_node_for_identifier(uid)
 
     def can_add_without_mkdir(self, node: LocalNode) -> bool:
-        parent_path: str = node.derive_parent_path()
+        assert isinstance(node.node_identifier, LocalNodeIdentifier)
+        parent_path: str = node.node_identifier.get_single_parent_path()
         uid = self.backend.cacheman.get_uid_for_local_path(parent_path)
         return self.get_node_for_identifier(uid) is not None
 
