@@ -85,11 +85,19 @@ class OpGraph(HasLifecycle):
         with self._cv_can_get:
             ogn: OpGraphNode = self._get_last_pending_ogn_for_node(device_uid, node_uid)
             if ogn and not ogn.op.is_completed():
-                icon = ChangeTreeCategoryMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
-                if SUPER_DEBUG_ENABLED:
-                    op_str = f'{ogn.op.op_uid}: {ogn.op.op_type.name}, {ogn.op.get_status().name}'
-                    logger.debug(f'TNode {device_uid}:{node_uid} belongs to pending op ({op_str}): returning icon {icon.name}')
-                return icon
+                try:
+                    icon = ChangeTreeCategoryMeta.get_icon_for_node(ogn.get_tgt_node().is_dir(), is_dst=ogn.is_dst(), op=ogn.op)
+                    if icon:
+                        if SUPER_DEBUG_ENABLED:
+                            op_str = f'{ogn.op.op_uid}: {ogn.op.op_type.name}, {ogn.op.get_status().name}'
+                            logger.debug(f'TNode {device_uid}:{node_uid} belongs to pending op ({op_str}): returning icon {icon.name}')
+                        return icon
+                    else:
+                        logger.debug(f'Did not get icon for OGN tgt (OGN={ogn}); returning None')
+                        return None
+                except RuntimeError:
+                    logger.exception(f'Error getting icon for OGN: {ogn}; returning None')
+                    return None
 
             device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
             if device_ancestor_dict and device_ancestor_dict.get(node_uid):

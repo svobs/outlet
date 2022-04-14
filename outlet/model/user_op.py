@@ -216,10 +216,10 @@ class ChangeTreeCategoryMeta:
         ChangeTreeCategory.MV_ONTO.name: ChangeTreeCategory.MV_ONTO
     }
 
-    # Map of UserOpCode (backend) <-> ChangeTreeCategory (frontend/display)
+    # Map of UserOpCode (backend) <-> ChangeTreeCategory (frontend/display). Also determines icons
     _op_type_dict: Dict[UserOpCode, ChangeTreeCategory] = {
         UserOpCode.RM: ChangeTreeCategory.RM,
-        # MKDIR is never displayed in the FE
+        UserOpCode.MKDIR: ChangeTreeCategory.CP,
         UserOpCode.CP: ChangeTreeCategory.CP,
         UserOpCode.START_DIR_CP: ChangeTreeCategory.CP,
         UserOpCode.FINISH_DIR_CP: ChangeTreeCategory.CP,
@@ -323,7 +323,7 @@ class ChangeTreeCategoryMeta:
         return ChangeTreeCategoryMeta._icon_dst_dir_dict[category]
 
     @staticmethod
-    def get_icon_for_node(is_dir: bool, is_dst: bool, op: UserOp) -> IconId:
+    def get_icon_for_node(is_dir: bool, is_dst: bool, op: UserOp) -> Optional[IconId]:
         if op.get_status() == UserOpStatus.STOPPED_ON_ERROR:
             if is_dir:
                 return IconId.ICON_DIR_ERROR
@@ -336,6 +336,10 @@ class ChangeTreeCategoryMeta:
                 return IconId.ICON_FILE_WARNING
         else:
             category = ChangeTreeCategoryMeta.category_for_op_type(op.op_type)
+            if not category:
+                logger.error(f'Could not find category for op_code: {op.op_type}')
+                return None
+
             return ChangeTreeCategoryMeta.get_icon_for_node_with_category(is_dir, is_dst, category)
 
     @staticmethod

@@ -924,8 +924,10 @@ class LocalDiskMasterStore(TreeStore):
                     content_meta = self.backend.cacheman.calculate_signature_for_local_file(staging_path)
                 else:
                     content_meta = self.backend.cacheman.calculate_signature_for_local_file(self.device_uid, full_path)
-                assert content_meta and content_meta.size_bytes == size_bytes, \
-                    f'Unexpected value for content_meta: {content_meta}; size_bytes_2={size_bytes}'
+                if not content_meta:
+                    if staging_path:
+                        full_path = staging_path  # just for error msg
+                    raise RuntimeError(f'Failed to calculate signature for file "{full_path}"')
             except FileNotFoundError:
                 # bad link
                 return None

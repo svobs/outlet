@@ -94,7 +94,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
 
             with self._cv_can_get:
                 if not self.modified_file_set and not self.other_op_list:
-                    logger.debug(f'{self.name}: No pending operations. Will wait until notified')
+                    logger.debug(f'[{self.name}] No pending operations. Will wait until notified')
                     self._cv_can_get.wait()
 
                 other_op_list: List[PathOp] = self.other_op_list
@@ -104,10 +104,10 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
                 self.modified_file_set = set()
 
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'{self.name}: Submitting update task to Central Exec')
+                logger.debug(f'[{self.name}] Submitting update task to Central Exec')
             self.backend.executor.submit_async_task(Task(ExecPriority.P3_LIVE_UPDATE, self._apply_update_batch, modified_file_set, other_op_list))
 
-            logger.debug(f'{self.name}: sleeping for {self.local_change_batch_interval_ms} ms')
+            logger.debug(f'[{self.name}] Sleeping for {self.local_change_batch_interval_ms} ms')
             time.sleep(self.local_change_batch_interval_ms / 1000.0)
 
     def _apply_update_batch(self, this_task: Task, modified_file_set: Set[str], other_op_list: List[PathOp]):
@@ -115,26 +115,26 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
         assert this_task.priority == ExecPriority.P3_LIVE_UPDATE
 
         if len(other_op_list) > 0:
-            logger.debug(f'{self.name}: Executing batch of {len(other_op_list)} operations')
+            logger.debug(f'[{self.name}] Executing batch of {len(other_op_list)} operations')
             for op in other_op_list:
                 op.execute(this_task, self)
 
         if len(modified_file_set) > 0:
-            logger.debug(f'{self.name}: Applying batch of {len(other_op_list)} modifications')
+            logger.debug(f'[{self.name}] Applying batch of {len(other_op_list)} modifications')
             self._apply_modified_file_set(this_task, modified_file_set)
 
     def _apply_modified_file_set(self, this_task: Task, modified_file_set: Set[str]):
-        logger.debug(f'{self.name}: applying {len(modified_file_set)} local file updates...')
+        logger.debug(f'[{self.name}] applying {len(modified_file_set)} local file updates...')
         for change_path in modified_file_set:
             try:
-                logger.debug(f'Applying CH file: {change_path}')
+                logger.debug(f'[{self.name}] Applying CH file: {change_path}')
                 node: LocalNode = self.backend.cacheman.build_local_file_node(change_path)
                 if node:
                     self.backend.cacheman.upsert_single_node(node)
                 else:
-                    logger.debug(f'CH: failed to build LocalNode; skipping "{change_path}"')
+                    logger.debug(f'[{self.name}] CH: failed to build LocalNode; skipping "{change_path}"')
             except FileNotFoundError as err:
-                logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
+                logger.debug(f'[{self.name}] Cannot process external CH event: file not found: "{err.filename}"')
 
 # File Operations
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

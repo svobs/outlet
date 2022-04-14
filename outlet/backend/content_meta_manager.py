@@ -1,3 +1,4 @@
+import threading
 from typing import Dict, List, Optional
 import logging
 
@@ -22,6 +23,7 @@ class ContentMetaManager(HasLifecycle):
         self.backend = backend
         self.content_meta_db: ContentMetaDatabase = ContentMetaDatabase(backend, cache_path)
 
+        self._struct_lock = threading.Lock()
         self.meta_dict: Dict[UID, ContentMeta] = {}
 
     @start_func
@@ -60,30 +62,32 @@ class ContentMetaManager(HasLifecycle):
                 logger.debug(f'get_content_meta_for_uid(): Returning None because content_uid={content_uid}')
             return None
 
-        meta = self.meta_dict.get(content_uid)
-        if not meta:
-            raise RuntimeError(f'get_content_meta_for_uid(): no ContentMeta found in memstore for UID: {content_uid}')
+        with self._struct_lock:
+            meta = self.meta_dict.get(content_uid)
+            if not meta:
+                raise RuntimeError(f'get_content_meta_for_uid(): no ContentMeta found in memstore for UID: {content_uid}')
 
-        if TRACE_ENABLED:
-            logger.debug(f'get_content_meta_for_uid(): Returning {meta} for content_uid {content_uid}')
-        return meta
+            if TRACE_ENABLED:
+                logger.debug(f'get_content_meta_for_uid(): Returning {meta} for content_uid {content_uid}')
+            return meta
 
     def get_or_create_content_meta_for(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None) -> ContentMeta:
-        if md5:
-            for meta in self.meta_dict.values():
-                if meta.md5 == md5:
-                    return meta
+        with self._struct_lock:
+            if md5:
+                for meta in self.meta_dict.values():
+                    if meta.md5 == md5:
+                        return meta
 
-            return self._insert_new_content_meta(size_bytes, md5, sha256)
-        elif sha256:
-            for meta in self.meta_dict.values():
-                if meta.sha256 == sha256:
-                    return meta
+                return self._insert_new_content_meta(size_bytes, md5, sha256)
+            elif sha256:
+                for meta in self.meta_dict.values():
+                    if meta.sha256 == sha256:
+                        return meta
 
-            return self._insert_new_content_meta(size_bytes, md5, sha256)
-        else:
-            # faux-ContentMeta
-            return ContentMeta(uid=NULL_UID, md5=None, sha256=None, size_bytes=size_bytes)
+                return self._insert_new_content_meta(size_bytes, md5, sha256)
+            else:
+                # faux-ContentMeta
+                return ContentMeta(uid=NULL_UID, md5=None, sha256=None, size_bytes=size_bytes)
 
     def _insert_new_content_meta(self, size_bytes: int, md5: Optional[str] = None, sha256: Optional[str] = None) -> ContentMeta:
         uid = self.backend.uid_generator.next_uid()
