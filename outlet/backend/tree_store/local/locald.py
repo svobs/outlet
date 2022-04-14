@@ -67,6 +67,7 @@ class LocalDiskMasterStore(TreeStore):
         return False
 
     def _execute_write_op(self, operation: LocalWriteThroughOp):
+        # 3 stages. Failure at one stage cancels the stages after
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Executing operation: {operation}')
 

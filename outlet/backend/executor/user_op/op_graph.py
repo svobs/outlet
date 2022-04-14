@@ -4,7 +4,7 @@ import logging
 import threading
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Set
 
-from backend.executor.user_op.op_graph_node import OpGraphNode, RmOpNode, RootNode
+from backend.executor.user_op.op_graph_node import OpGraphNode, RootNode
 from constants import IconId, NULL_UID, OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import InvalidInsertOpGraphError, OpGraphError, UnsuccessfulBatchInsertError
@@ -1261,6 +1261,8 @@ class OpGraph(HasLifecycle):
         Finds all ops which have status STOPPED_ON_ERROR, and resets their status to NOT_STARTED. (Also resets the status of all their blocked
         descendents). If no ops have status STOPPED_ON_ERROR, then does nothing.
         """
+        logger.debug(f'RetryAllFailedOps() entered')
+
         with self._cv_can_get:
             # Just go over the graph and wipe out all the errors & blocked statuses in one swoop
             def _process(ogn):
@@ -1269,7 +1271,7 @@ class OpGraph(HasLifecycle):
                     self._add_tgt_node_to_icon_changes_dict(ogn.get_tgt_node())  # icon changed
 
                 if status == UserOpStatus.STOPPED_ON_ERROR or status == UserOpStatus.BLOCKED_BY_ERROR:
-                    logger.debug(f'[{self.name}] retry_all_failed_ops(): nulling out result of: {ogn.op}')
+                    logger.debug(f'[{self.name}] RetryAllFailedOps(): nulling out result of: {ogn.op}')
                     # For binary ops, we can rely on object reference to change both OGNs
                     self._reset_status(ogn)
                     _process.op_set.add(ogn.op.op_uid)
@@ -1277,7 +1279,7 @@ class OpGraph(HasLifecycle):
 
             _process.op_set = set()
             self._for_all_ogn_in_graph(_process)
-            logger.info(f'[{self.name}] retry_all_failed_ops(): did reset the status of {len(_process.op_set)}.')
+            logger.info(f'[{self.name}] RetryAllFailedOps(): Did reset the status of {len(_process.op_set)} failed or blocked operations.')
 
             # Found and reset. Notify graph that it has something to do:
             self._cv_can_get.notifyAll()

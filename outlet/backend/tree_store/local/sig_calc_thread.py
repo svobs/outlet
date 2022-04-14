@@ -115,7 +115,7 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
             self._cv_can_get.notifyAll()
 
     def _on_node_upserted_in_cache(self, sender: str, node: LocalNode):
-        if node.device_uid == self.device_uid and node.is_file() and not node.md5 and not node.sha256:
+        if node.device_uid == self.device_uid and node.is_file() and not node.has_signature():
             assert isinstance(node, LocalFileNode)
             self._enqueue_node(node)
 

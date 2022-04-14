@@ -29,7 +29,8 @@ class ContentMeta:
         return isinstance(other, ContentMeta) and self.size_bytes == other.size_bytes and self.md5 == other.md5 and self.sha256 == other.sha256
 
     def has_signature(self) -> bool:
-        return self.md5 is not None or self.sha256 is not None
+        # for now, only care about md5, cuz GDrive
+        return self.md5 is not None
 
     def to_tuple(self) -> Tuple:
         return self.uid, self.md5, self.sha256, self.size_bytes, time_util.now_sec()  # presumably we are calling this to do an insert
