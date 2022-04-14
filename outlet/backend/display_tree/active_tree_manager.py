@@ -395,10 +395,10 @@ class ActiveTreeManager(HasLifecycle):
 
         with self._display_tree_dict_lock:
             display_tree = self._display_tree_dict.pop(sender, None)
-        if display_tree:
-            logger.debug(f'[{sender}] Display tree deregistered in backend')
-        else:
-            logger.debug(f'[{sender}] Could not deregister display tree in backend: it was not found')
+            if display_tree:
+                logger.debug(f'[{sender}] Display tree deregistered in backend')
+            else:
+                logger.debug(f'[{sender}] Could not deregister display tree in backend: it was not found')
 
         # Also stop live capture, if any
         if self._is_live_monitoring_enabled and self._live_monitor:
@@ -421,6 +421,10 @@ class ActiveTreeManager(HasLifecycle):
         meta.change_tree = change_tree
         meta.src_tree_id = src_tree_id
         with self._display_tree_dict_lock:
+            if self._display_tree_dict.get(change_tree.tree_id, None):
+                logger.debug(f'[{change_tree.tree_id}] Registering DisplayTreeMeta for this change tree (overwriting existing)')
+            else:
+                logger.debug(f'[{change_tree.tree_id}] Registering DisplayTreeMeta for this change tree')
             self._display_tree_dict[change_tree.tree_id] = meta
 
         # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
@@ -482,16 +486,19 @@ class ActiveTreeManager(HasLifecycle):
         if display_tree_meta:
             if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
                 if request.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
-                    logger.info(f'[{sender_tree_id}] Looks like we are exiting diff mode: switching back to tree_id={display_tree_meta.src_tree_id}')
+                    logger.info(f'[{sender_tree_id}] Looks like we are exiting diff mode: switching back to tree_id: "{display_tree_meta.src_tree_id}"')
 
                     # Exiting diff mode -> look up prev tree
                     assert display_tree_meta.src_tree_id, f'Expected not-null src_tree_id for {display_tree_meta.tree_id}'
                     response_tree_id = display_tree_meta.src_tree_id
                     display_tree_meta = self.get_active_display_tree_meta(response_tree_id)
+                    assert display_tree_meta, f'display_tree_meta not found for tree_id {response_tree_id}'
 
                     with self._display_tree_dict_lock:
-                        if self._display_tree_dict.pop(sender_tree_id):
-                            logger.debug(f'Discarded meta for tree: {sender_tree_id}')
+                        if self._display_tree_dict.pop(sender_tree_id, None):
+                            logger.debug(f'Discarded meta for ChangeTree: {sender_tree_id}')
+                        else:
+                            logger.debug(f'Could not discard meta for ChangeTree because it was not found: {sender_tree_id}')
 
                 else:
                     # ChangeDisplayTrees are already loaded, and live capture should not apply
@@ -554,6 +561,7 @@ class ActiveTreeManager(HasLifecycle):
 
             # Store in dict here:
             with self._display_tree_dict_lock:
+                logger.debug(f'[{response_tree_id}] Registering DisplayTreeMeta for this tree')
                 self._display_tree_dict[response_tree_id] = display_tree_meta
 
         if root_path_persister:

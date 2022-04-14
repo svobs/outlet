@@ -5,7 +5,7 @@ from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
 from constants import ChangeTreeCategory, ROOT_PATH, SUPER_ROOT_UID
-from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED
+from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.directory_stats import DirectoryStats
@@ -327,7 +327,8 @@ class ChangeTree(DisplayTree):
                     if SUPER_DEBUG_ENABLED:
                         logger.error(f'[{self.tree_id}] Duplicate nodes for the same path & different content: old={conflict_sn.node} new={sn.node}')
 
-        if DIFF_DEBUG_ENABLED:
+        if TRACE_ENABLED:
+            # this prints something like O(n²) amount of lines to the logs when building a tree - use only if desperate!
             self.print_tree_contents_debug()
 
     def __repr__(self):

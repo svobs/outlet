@@ -134,7 +134,7 @@ class OpManager(HasLifecycle):
 
         Note: we update our input nodes with the returned values, as GDrive node paths in particular may be filled in"""
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Upserting src [and dst] node[s] to CacheMan from op {op.op_uid}')
+            logger.debug(f'Upserting src [and dst] node(s) to CacheMan from op {op.op_uid}')
         src_node = self.backend.cacheman.upsert_single_node(op.src_node)
         assert src_node, f'What happened?! {op}'
         op.src_node = src_node
@@ -433,7 +433,7 @@ class OpManager(HasLifecycle):
     def get_next_command(self) -> Optional[Command]:
         # Call this from Executor. Only returns None if shutting down
 
-        # This will block until a op is ready:
+        # This will block until next op is ready:
         op: UserOp = self._op_graph.get_next_op()
 
         if op:

@@ -219,8 +219,9 @@ class BatchGraphBuilder:
                 logger.debug(f'[{batch_graph.name}] Found op: {op}')
 
         # Some ancestors may not be in cacheman, because they are being added by the batch.
-        # so, store the batch nodes in a dict for additional lookup
-        tgt_node_dict: Dict[UID, Dict[UID, TNode]] = {}
+        # so, store the batch nodes in a dict for additional lookup. Build the dict beforehand; order of ops is unspecified
+        tgt_node_dict = self._build_tgt_node_dict(op_batch)
+
         for op in op_batch:
             self._insert_for_op(op, batch_graph, tgt_node_dict)
 
@@ -237,6 +238,22 @@ class BatchGraphBuilder:
         self._validate_batch_graph_against_cache(batch_graph, op_manager)
 
         return batch_graph.root
+
+    def _build_tgt_node_dict(self, op_batch: List[UserOp]) -> Dict[UID, Dict[UID, TNode]]:
+        tgt_node_dict: Dict[UID, Dict[UID, TNode]] = {}
+        for op in op_batch:
+            self._add_tgt_node_to_dict(op.src_node, tgt_node_dict)
+            if op.has_dst():
+                self._add_tgt_node_to_dict(op.dst_node, tgt_node_dict)
+        return tgt_node_dict
+
+    @staticmethod
+    def _add_tgt_node_to_dict(tgt_node, tgt_node_dict):
+        device_tgt_node_dict: Dict[UID, TNode] = tgt_node_dict.get(tgt_node.device_uid)
+        if not device_tgt_node_dict:
+            device_tgt_node_dict = {}
+            tgt_node_dict[tgt_node.device_uid] = device_tgt_node_dict
+        device_tgt_node_dict[tgt_node.uid] = tgt_node
 
     def _insert_for_op(self, op: UserOp, graph: OpGraph, tgt_node_dict):
         if SUPER_DEBUG_ENABLED:
@@ -270,10 +287,7 @@ class BatchGraphBuilder:
         # store tgt node in dict for possible later lookup
         device_tgt_node_dict: Dict[UID, TNode] = tgt_node_dict.get(tgt_node.device_uid)
         if not device_tgt_node_dict:
-            device_tgt_node_dict = {}
-            tgt_node_dict[tgt_node.device_uid] = device_tgt_node_dict
-        device_tgt_node_dict[tgt_node.uid] = tgt_node
-
+            raise RuntimeError(f'Tgt node device_id is not in tgt_dict! (tgt_node={tgt_node.node_identifier})')
         while len(queue) > 0:
             node = queue.popleft()
             if is_root(node.uid):

@@ -219,7 +219,7 @@ class ChangeTreeCategoryMeta:
     # Map of UserOpCode (backend) <-> ChangeTreeCategory (frontend/display)
     _op_type_dict: Dict[UserOpCode, ChangeTreeCategory] = {
         UserOpCode.RM: ChangeTreeCategory.RM,
-        UserOpCode.MKDIR: ChangeTreeCategory.CP,  # TODO: is this a good idea?
+        # MKDIR is never displayed in the FE
         UserOpCode.CP: ChangeTreeCategory.CP,
         UserOpCode.START_DIR_CP: ChangeTreeCategory.CP,
         UserOpCode.FINISH_DIR_CP: ChangeTreeCategory.CP,
@@ -339,17 +339,22 @@ class ChangeTreeCategoryMeta:
             return ChangeTreeCategoryMeta.get_icon_for_node_with_category(is_dir, is_dst, category)
 
     @staticmethod
-    def get_icon_for_node_with_category(is_dir: bool, is_dst: bool, category: ChangeTreeCategory) -> IconId:
+    def get_icon_for_node_with_category(is_dir: bool, is_dst: bool, category: ChangeTreeCategory) -> Optional[IconId]:
         if is_dir:
             if is_dst:
-                return ChangeTreeCategoryMeta._icon_dst_dir_dict[category]
+                icon_id = ChangeTreeCategoryMeta._icon_dst_dir_dict.get(category)
             else:
-                return ChangeTreeCategoryMeta._icon_src_dir_dict[category]
+                icon_id = ChangeTreeCategoryMeta._icon_src_dir_dict.get(category)
         else:
             if is_dst:
-                return ChangeTreeCategoryMeta._icon_dst_file_dict[category]
+                icon_id = ChangeTreeCategoryMeta._icon_dst_file_dict.get(category)
             else:
-                return ChangeTreeCategoryMeta._icon_src_file_dict[category]
+                icon_id = ChangeTreeCategoryMeta._icon_src_file_dict.get(category)
+
+        if not icon_id:
+            logger.error(f'Could not find icon_id for category={category} is_dir={is_dir} is_dst={is_dst}')
+
+        return icon_id
 
 
 class Batch:
