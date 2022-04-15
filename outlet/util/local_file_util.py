@@ -181,30 +181,38 @@ class LocalFileUtil:
                 If we set a modification time (which has millis) which is earlier than the existing creation time, the OS will set its creation
                 time identically.
                 """
+                src_create_ts = src_node.create_ts
                 if src_node.create_ts > src_node.modify_ts:
                     # So apparently this can happen in MacOS! In this case, we'll set the new file's create_ts to its modify_ts and ignore
                     # the bad create_ts from the original file.
-                    logger.warning(f'(MacOS): create_ts of src node ({src_node.create_ts}) is AFTER its modify_ts ({src_node.modify_ts})')
+                    logger.warning(f'(MacOS): create_ts of src node ({src_node.create_ts}) is AFTER its modify_ts ({src_node.modify_ts}): '
+                                   f'{src_node.node_identifier}; will use modify_ts for both')
+                    src_create_ts = src_node.modify_ts
 
-                if SUPER_DEBUG_ENABLED:
+                if TRACE_ENABLED:
                     logger.debug(f'(MacOS): Setting creation date to now()')
                 now_ts = time_util.now_ms()
                 _macos_set_file_create_ts(dst_path, now_ts)
-                create_ts_python = src_node.create_ts / 1000
+                create_ts_python = src_create_ts / 1000
+
                 if TRACE_ENABLED:
                     logger.debug(f'(MacOS): Setting modify time to now: "{dst_path}" = {create_ts_python}')
                 os.utime(dst_path, (create_ts_python, create_ts_python))
 
                 dst_stat = os.stat(dst_path)
                 create_ts = int(dst_stat.st_birthtime * 1000)
-                if create_ts == src_node.create_ts:
-                    logger.debug(f'Creation time of dst is correct: "{dst_path}" = {create_ts}')
+                if create_ts == src_create_ts:
+                    logger.debug(f'Creation time ({create_ts}) of dst is correct: "{dst_path}"')
+                elif int(create_ts/1000) == int(src_create_ts/1000):
+                    # Often we can't do much about this. Looks like Mac SMB doesn't support milliseconds.
+                    logger.warning(f'Creation time of dst is truncated to seconds precision (expected: {src_create_ts}, actual: {create_ts}): '
+                                   f'"{dst_path}"')
                 else:
-                    logger.error(f'Creation time of dst is incorrect: "{dst_path}" = {create_ts} (should be: {src_node.create_ts})')
+                    raise RuntimeError(f'Creation time of dst is incorrect: {create_ts} (should be: {src_create_ts}) for path: "{dst_path}"')
 
             else:
                 # FIXME: Set Linux create_ts
-                logger.error(f'Possible meta loss! Setting local node creation time is not yet implemented on {platform.system().lower()}')
+                raise RuntimeError(f'Possible meta loss! Setting local node creation time is not yet implemented on {platform.system().lower()}')
 
             # Set modify_ts (also set access_ts to same)
             modify_ts_python = src_node.modify_ts / 1000

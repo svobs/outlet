@@ -76,7 +76,9 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
             # However, make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats (below)
 
         # update cache:
-        dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path, is_live=True)
+        dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path, is_live=True, must_scan_signature=True)
+        if not dst_node:
+            raise RuntimeError(f'Failed to build new LocalFileNode after copy for path "{dst_path}"')
         assert dst_node.uid == self.op.dst_node.uid, f'LocalNode={dst_node}, DstNode={self.op.dst_node}'
         to_upsert.append(dst_node)
 
@@ -153,7 +155,7 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
         new_dst_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.get_single_path(), must_scan_signature=True,
                                                                          is_live=True)
         if not new_dst_node:
-            raise RuntimeError(f'Dst node not found after move: {self.op.dst_node.get_single_path()}')
+            raise RuntimeError(f'Failed to build LocalFileNode for dst node after move: {self.op.dst_node.get_single_path()}')
         assert new_dst_node.uid == self.op.dst_node.uid
         if not new_dst_node.is_signature_equal(src_node):
             raise RuntimeError(f'Signature incorrect after move to "{self.op.dst_node.get_single_path()}" '
@@ -467,6 +469,8 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
         # verify contents:
         node_dst: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path,
                                                                      must_scan_signature=True, is_live=True)
+        if not node_dst:
+            raise RuntimeError(f'Failed to build new LocalFileNode after download for path "{staging_path}"')
         if node_dst.md5 != self.op.src_node.md5:
             raise RuntimeError(f'Downloaded MD5 ({node_dst.md5}) does not matched expected ({self.op.src_node.md5})!')
 

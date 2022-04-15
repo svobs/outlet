@@ -804,7 +804,7 @@ class LocalDiskMasterStore(TreeStore):
             logger.error(f'Error getting parent for node: {node}, required_path: {required_subtree_path}')
             raise
 
-    def _get_stats(self, full_path: str, staging_path: Optional[str]):
+    def _get_stats(self, full_path: str, staging_path: Optional[str] = None):
         if staging_path:
             path = staging_path
         else:
@@ -858,9 +858,10 @@ class LocalDiskMasterStore(TreeStore):
                 raise RuntimeError(f'build_local_dir_node(): path is not a dir: "{full_path}"')
 
             try:
-                size_bytes, sync_ts, create_ts, modify_ts, change_ts = self._get_stats(full_path, None)
+                size_bytes, sync_ts, create_ts, modify_ts, change_ts = self._get_stats(full_path)
             except FileNotFoundError:
                 # Caller didn't check whether file existed (may also be a missing dir). Let them know:
+                logger.info(f'build_local_dir_node(): dir not found (returning None): "{full_path}" ')
                 return None
 
         else:
@@ -878,18 +879,15 @@ class LocalDiskMasterStore(TreeStore):
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False, is_live: bool = True) \
             -> Optional[LocalFileNode]:
-        uid = self.get_uid_for_path(full_path)
-
-        parent_path = str(pathlib.Path(full_path).parent)
-        parent_uid: UID = self.get_uid_for_path(parent_path)
+        effective_path = full_path if staging_path is None else staging_path
 
         if is_live:
-            if not os.path.exists(full_path):
-                logger.debug(f'build_local_file_node(): path does not exist: "{full_path}"')
+            if not os.path.exists(effective_path):
+                logger.debug(f'build_local_file_node(): path does not exist: "{effective_path}"')
                 return None
 
-            elif os.path.isdir(full_path):
-                raise RuntimeError(f'build_local_file_node(): path is actually a dir: {full_path}')
+            elif os.path.isdir(effective_path):
+                raise RuntimeError(f'build_local_file_node(): path is actually a dir: {effective_path}')
 
         # Check for broken links:
         if os.path.islink(full_path):
@@ -914,6 +912,7 @@ class LocalDiskMasterStore(TreeStore):
             size_bytes, sync_ts, create_ts, modify_ts, change_ts = self._get_stats(full_path, staging_path)
         except FileNotFoundError:
             # Caller didn't check whether file existed (may also be a missing dir). Let them know:
+            logger.debug(f'build_local_file_node(): file not found when getting stats (returning None): "{effective_path}" ')
             return None
 
         if self.backend.cacheman.lazy_load_local_file_signatures and not must_scan_signature:
@@ -921,17 +920,17 @@ class LocalDiskMasterStore(TreeStore):
             content_meta = None
         else:
             try:
-                if staging_path:
-                    content_meta = self.backend.cacheman.calculate_signature_for_local_file(staging_path)
-                else:
-                    content_meta = self.backend.cacheman.calculate_signature_for_local_file(self.device_uid, full_path)
+                content_meta = self.backend.cacheman.calculate_signature_for_local_file(device_uid=self.device_uid, full_path=effective_path)
                 if not content_meta:
-                    if staging_path:
-                        full_path = staging_path  # just for error msg
-                    raise RuntimeError(f'Failed to calculate signature for file "{full_path}"')
+                    raise RuntimeError(f'Failed to calculate signature for file "{effective_path}"')
             except FileNotFoundError:
                 # bad link
+                logger.debug(f'build_local_file_node(): file not found while calculating signature (returning None): "{effective_path}" ')
                 return None
+
+        uid = self.get_uid_for_path(full_path)
+        parent_path = str(pathlib.Path(full_path).parent)
+        parent_uid: UID = self.get_uid_for_path(parent_path)
 
         node_identifier = LocalNodeIdentifier(uid=uid, device_uid=self.device.uid, full_path=full_path)
         new_node = LocalFileNode(node_identifier, parent_uid, content_meta, size_bytes, sync_ts, create_ts, modify_ts, change_ts,

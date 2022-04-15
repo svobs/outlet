@@ -748,7 +748,7 @@ class OpGraph(HasLifecycle):
             self._insert_ogn(ogn_new)
 
     def _insert_ogn(self, ogn_new: OpGraphNode):
-        logger.info(f'[{self.name}] InsertOGN({ogn_new.node_uid}) called for: {ogn_new}')
+        logger.debug(f'[{self.name}] InsertOGN({ogn_new.node_uid}) called for: {ogn_new}')
 
         # First check whether the target node is known and has pending operations
         target_node: TNode = ogn_new.get_tgt_node()
@@ -809,7 +809,7 @@ class OpGraph(HasLifecycle):
         # notify consumers there is something to get:
         self._cv_can_get.notifyAll()
 
-        logger.info(f'[{self.name}] InsertOGN({ogn_new.node_uid}): successfully inserted: {ogn_new}')
+        logger.debug(f'[{self.name}] InsertOGN({ogn_new.node_uid}): successfully inserted: {ogn_new}')
         self._print_current_state()
 
     @staticmethod

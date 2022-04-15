@@ -231,14 +231,13 @@ class TNode(AbstractNode, HasParentList, ABC):
             other_create_ts = other_node._get_valid_create_ts_for_macos()
             self_create_ts = self._get_valid_create_ts_for_macos()
 
-            return other_create_ts == self_create_ts and \
-                other_node.modify_ts == self.modify_ts and \
-                (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
+            return other_create_ts == self_create_ts and other_node.modify_ts == self.modify_ts and \
+                   (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
 
         # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
         return other_node.create_ts == self.create_ts and \
-            other_node.modify_ts == self.modify_ts and \
-            (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
+               other_node.modify_ts == self.modify_ts and \
+               (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
 
     def how_is_meta_not_equal(self, other_node) -> str:
         """For use with debugging why is_meta_equal() returned false"""
@@ -288,7 +287,7 @@ class TNode(AbstractNode, HasParentList, ABC):
         assert isinstance(other_node, TNode), f'Invalid type: {type(other_node)}'
         assert other_node.node_identifier.node_uid == self.node_identifier.node_uid \
                and other_node.node_identifier.device_uid == self.node_identifier.device_uid, \
-            f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
+               f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
         HasParentList.update_from(self, other_node)
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())

@@ -268,7 +268,7 @@ class OpManager(HasLifecycle):
         if not next_batch:
             return
 
-        logger.info(f'Got next batch to submit: batch_uid={next_batch.batch_uid} with {len(next_batch.op_list)} ops')
+        logger.info(f'Submitting next op batch: batch_uid={next_batch.batch_uid} with {len(next_batch.op_list)} ops')
 
         if len(next_batch.op_list) == 0:
             raise RuntimeError(f'Failed to submit batch: batch has no ops!')
