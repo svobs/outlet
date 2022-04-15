@@ -250,7 +250,10 @@ class GDriveTreeLoader:
             if node.uid >= max_uid:
                 max_uid = node.uid
 
-        logger.warning(f'Found {count_orphans_found} GDrive orphans')
+        if count_orphans_found:
+            logger.warning(f'Found {count_orphans_found} GDrive orphans')
+        else:
+            logger.debug(f'Found no GDrive orphans')
 
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 

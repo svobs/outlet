@@ -138,7 +138,6 @@ class ChangeTreeBuilder:
                                                sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
                                                all_children_fetched=True)
             else:
-                assert isinstance(node_src, LocalFileNode)
                 node_dst: TNode = LocalFileNode(nid, dst_parent_uid, node_src.content_meta, size_bytes=node_src.get_size_bytes(),
                                                 sync_ts=None, create_ts=None, modify_ts=None, change_ts=None,
                                                 trashed=TrashStatus.NOT_TRASHED, is_live=False)
@@ -148,7 +147,6 @@ class ChangeTreeBuilder:
                                                trashed=TrashStatus.NOT_TRASHED, create_ts=None, modify_ts=None, owner_uid=None, drive_id=None,
                                                is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             else:
-                assert isinstance(node_src, GDriveFile)
                 node_dst: TNode = GDriveFile(node_identifier=nid, goog_id=dst_node_goog_id, node_name=os.path.basename(dst_path),
                                              mime_type_uid=None, trashed=TrashStatus.NOT_TRASHED, drive_id=None, version=None,
                                              content_meta=node_src.content_meta, size_bytes=node_src.get_size_bytes(),

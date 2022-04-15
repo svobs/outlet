@@ -187,7 +187,7 @@ class LiveMonitor(HasLifecycle):
                 self._active_gdrive_tree_set.add(tree_id)
 
                 if not needs_gdrive_start:
-                    logger.warning('Already capturing GDrive!')
+                    logger.info(f'[{tree_id}] Already capturing GDrive! Discarding capture request')
                     return
 
                 self._start_gdrive_capture(tree_id)

@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple
 from uuid import UUID
@@ -19,7 +20,8 @@ from backend.tree_store.gdrive.op_write import BatchChangesOp, CreateUserOp, Del
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
 from backend.tree_store.tree_store_interface import TreeStore
 from backend.uid.uid_mapper import UidGoogIdMapper
-from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, NodeIdentifierType, ROOT_PATH, TrashStatus, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, NodeIdentifierType, ROOT_PATH, \
+    TrashStatus, \
     TreeID
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import CacheNotLoadedError, NodeNotPresentError
@@ -184,7 +186,7 @@ class GDriveMasterStore(TreeStore):
 
     def is_cache_loaded_for(self, subtree_root: SinglePathNodeIdentifier) -> bool:
         # very easy: either our whole cache is loaded or it is not
-        return self._memstore.master_tree is not None
+        return self._memstore.is_loaded()
 
     def download_all_gdrive_data(self, invalidate_cache: bool):
         """See private method below.
@@ -564,6 +566,28 @@ class GDriveMasterStore(TreeStore):
         # Yuck...this is more expensive than preferred... at least there's no network call
         return self.to_sn(node, child_path)
 
+    def _load_cache_synchronously(self) -> bool:
+        """
+        Launches a Task in the Central Executor to (possibly download) and laod the GDrive tree into memory, waiting up to
+        CACHE_LOAD_TIMEOUT_SEC to return.
+        :returns True if successful; False if timed out
+        """
+        def load_gdrive_cache_and_notify(this_task: Task):
+            self._download_all_gdrive_meta(this_task, invalidate_cache=False)
+            load_gdrive_cache_and_notify.load_complete.set()
+
+        load_gdrive_cache_and_notify.load_complete = threading.Event()
+
+        self.backend.executor.submit_async_task(Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, load_gdrive_cache_and_notify))
+
+        if not load_gdrive_cache_and_notify.load_complete.is_set():
+            logger.debug('LoadCacheSynchronously(): Waiting for GDrive cache load to complete')
+        if not load_gdrive_cache_and_notify.load_complete.wait(CACHE_LOAD_TIMEOUT_SEC):
+            logger.error('LoadCacheSynchronously(): Timed out waiting for GDrive cache load!')
+            return False
+        logger.debug('LoadCacheSynchronously(): GDrive cache load completed!')
+        return True
+
     def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: Optional[FilterState]) -> List[SPIDNodePair]:
         """If the in-memory store is loaded, will return results from that.
         If it is not yet loaded, will try the disk store and return results from that.
@@ -576,8 +600,10 @@ class GDriveMasterStore(TreeStore):
         if filter_state and filter_state.has_criteria():
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'get_child_list_for_spid(): getting child list from filter_state')
-            if not self.is_cache_loaded_for(parent_spid):
-                raise CacheNotLoadedError(f'Cannot load filtered child list: GDrive cache not yet loaded!')
+            if not self._memstore.is_loaded():
+                # Attempt to load GDrive cache now:
+                if not self._load_cache_synchronously():
+                    raise CacheNotLoadedError(f'Cannot load filtered child list: GDrive cache not yet loaded!')
             return filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
 
         # ------------------------------------------------------------------------------------

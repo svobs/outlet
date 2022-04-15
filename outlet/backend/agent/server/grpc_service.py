@@ -439,9 +439,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             else:
                 logger.debug(f'[{request.tree_id}] get_child_list_for_spid(): Relaying {len(child_list)} children for {parent_spid}')
         except GetChildListFailedError as err:
-            response.error.fe_msg = err.fe_msg
-            response.error.fe_secondary_msg = err.fe_secondary_msg
-            response.error.be_msg = err.be_msg
+            if err.fe_msg:
+                response.error.fe_msg = err.fe_msg
+            if err.fe_secondary_msg:
+                response.error.fe_secondary_msg = err.fe_secondary_msg
+            if err.be_msg:
+                response.error.be_msg = err.be_msg
             logger.debug(f'[{request.tree_id}] Returning GetChildListFailedError: fe_msg="{response.error.fe_msg}"'
                          f' be_msg="{response.error.be_msg}")')
 
