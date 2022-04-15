@@ -45,7 +45,7 @@ def configure_logging(app_config):
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
-    # DEBUG LOG FILE
+    # --- DEBUG LOG FILE ---
     debug_log_enabled = ensure_bool(app_config.get_config('logging.debug_log.enable'))
     if debug_log_enabled:
         log_dir = app_config.get_config('logging.debug_log.log_dir')
@@ -61,21 +61,23 @@ def configure_logging(app_config):
             raise
 
         debug_file_handler = TimeOfLaunchRotatingFileHandler(log_dir=log_dir, filename_base=filename_base, mode=debug_log_mode)
-        debug_file_handler.setLevel(logging.DEBUG)
+        debug_file_level = logging.getLevelName(app_config.get_config('logging.debug_log.level'))
+        debug_file_handler.setLevel(debug_file_level)
 
         debug_file_formatter = logging.Formatter(fmt=debug_log_fmt, datefmt=debug_log_datetime_fmt)
         debug_file_handler.setFormatter(debug_file_formatter)
 
         root_logger.addHandler(debug_file_handler)
 
-    # CONSOLE
+    # --- CONSOLE ---
     console_enabled = app_config.get_config('logging.console.enable')
     if console_enabled:
-        console_fmt = app_config.get_config('logging.debug_log.format')
-        console_datetime_fmt = app_config.get_config('logging.debug_log.datetime_format')
+        console_fmt = app_config.get_config('logging.console.format')
+        console_datetime_fmt = app_config.get_config('logging.console.datetime_format')
 
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG)
+        console_level = logging.getLevelName(app_config.get_config('logging.console.level'))
+        console_handler.setLevel(console_level)
 
         console_formatter = logging.Formatter(fmt=console_fmt, datefmt=console_datetime_fmt)
         console_handler.setFormatter(console_formatter)
