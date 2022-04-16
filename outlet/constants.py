@@ -411,7 +411,7 @@ V_PAD = 5
 MAX_NUMBER_DISPLAYABLE_CHILD_NODES = 10000
 
 # File icon names:
-ICON_GENERIC_FILE = 'be/tree_store/local'
+ICON_GENERIC_FILE = 'be/tree_store/locald'
 ICON_FILE_RM = 'file-rm'
 ICON_FILE_MV_SRC = 'file-mv-src'
 ICON_FILE_UP_SRC = 'file-up-src'

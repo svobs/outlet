@@ -8,7 +8,7 @@ from uuid import UUID
 
 from be.exec.central import ExecPriority
 from logging_constants import TRACE_ENABLED
-from model.node.local_disk_node import LocalFileNode, LocalNode
+from model.node.locald_node import LocalFileNode, LocalNode
 from model.node_identifier import NodeIdentifier
 from model.uid import UID
 from signal_constants import Signal

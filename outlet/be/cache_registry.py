@@ -12,7 +12,7 @@ from be.content_meta_manager import ContentMetaManager
 from be.exec.central import ExecPriority
 from be.sqlite.cache_registry_db import CacheRegistryDatabase
 from be.tree_store.gdrive.gdrive import GDriveMasterStore
-from be.tree_store.local.locald import LocalDiskMasterStore
+from be.tree_store.locald.locald import LocalDiskMasterStore
 from be.tree_store.tree_store import TreeStore
 from be.uid.uid_mapper import UidGoogIdMapper, UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, CONTENT_META_FILE_NAME, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, \

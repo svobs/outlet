@@ -3,15 +3,15 @@ from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from be.tree_store.gdrive.path_list_computer import GDrivePathListComputer
+from be.tree_store.gdrive.path_list_builder import GDrivePathListBuilder
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, TreeID
 from logging_constants import SUPER_DEBUG_ENABLED
-from be.tree_store.gdrive.gdrive_tree import GDriveWholeTree
+from be.tree_store.gdrive.gd_tree import GDriveWholeTree
 from error import CacheNotFoundError, NodeNotPresentError
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from be.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
+from be.tree_store.gdrive.gd_memstore import GDriveMemoryStore
 from be.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from be.tree_store.gdrive.op_write import GDriveWriteThroughOp
 from be.sqlite.gdrive_db import GDriveMetaDownload, GDriveDatabase
@@ -34,7 +34,7 @@ class GDriveDiskStore(HasLifecycle):
         self.device_uid: UID = device_uid
         self._memstore: GDriveMemoryStore = memstore
         self._db: Optional[GDriveDatabase] = None
-        self._path_list_computer: GDrivePathListComputer = None
+        self._path_list_computer: GDrivePathListBuilder = None
 
         self.needs_meta_download: bool = False  # If true, indicates that a meta download should be started/resumed based on download table
         self.should_invalidate_cache: bool = False  # Iff needs_meta_download==true and this is true, existing cache should be wiped & replaced
@@ -44,7 +44,7 @@ class GDriveDiskStore(HasLifecycle):
         HasLifecycle.start(self)
         gdrive_db_path = self._get_gdrive_cache_path()
         self._db = GDriveDatabase(gdrive_db_path, self.backend, self.device_uid)
-        self._path_list_computer = GDrivePathListComputer(get_node_for_uid_func=self._db.get_node_with_uid)
+        self._path_list_computer = GDrivePathListBuilder(get_node_for_uid_func=self._db.get_node_with_uid)
 
         if not self.needs_meta_download:
             initial_download: GDriveMetaDownload = self.get_current_download(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD)
@@ -200,7 +200,7 @@ class GDriveDiskStore(HasLifecycle):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered get_node_with_path_list(): uid={uid}')
         try:
-            return self._path_list_computer.recompute_path_list_for_uid(uid=uid)
+            return self._path_list_computer.rebuild_path_list_for_uid(uid=uid)
         except NodeNotPresentError:
             return None
 

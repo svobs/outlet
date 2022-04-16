@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List, Optional, Tuple
 
-from be.tree_store.gdrive.gdrive_tree import GDriveWholeTree
+from be.tree_store.gdrive.gd_tree import GDriveWholeTree
 from be.uid.uid_mapper import UidGoogIdMapper
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED

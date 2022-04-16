@@ -13,7 +13,7 @@ from model.disp_tree.tree_action import TreeAction
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.dir_stats import DirStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.locald_node import LocalDirNode, LocalFileNode
 from model.node.node import TNode, NonexistentDirNode, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID

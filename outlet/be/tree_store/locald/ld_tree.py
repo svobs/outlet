@@ -2,9 +2,8 @@ import logging
 import os
 from typing import List, Optional, Tuple
 
-from constants import TrashStatus
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from model.uid import UID

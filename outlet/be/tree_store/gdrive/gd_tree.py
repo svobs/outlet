@@ -4,7 +4,7 @@ from collections import Counter, defaultdict, deque
 from pathlib import PurePosixPath
 from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
-from be.tree_store.gdrive.path_list_computer import GDrivePathListComputer
+from be.tree_store.gdrive.path_list_builder import GDrivePathListBuilder
 from constants import GDRIVE_ROOT_UID, NodeIdentifierType, ROOT_PATH, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import GDriveNodePathNotFoundError, NodeNotPresentError
@@ -46,7 +46,7 @@ class GDriveWholeTree(BaseTree):
 
         self.me: Optional[GDriveUser] = None
 
-        self._path_list_computer: GDrivePathListComputer = GDrivePathListComputer(get_node_for_uid_func=self.get_node_for_uid)
+        self._path_list_computer: GDrivePathListBuilder = GDrivePathListBuilder(get_node_for_uid_func=self.get_node_for_uid)
 
     def get_root_node(self) -> Optional[GDriveNode]:
         return self.uid_dict[GDRIVE_ROOT_UID]
@@ -132,19 +132,19 @@ class GDriveWholeTree(BaseTree):
             self._upsert_root(node)
 
         # Generate full_path for node, if not already done (we assume this is a newly created node)
-        node = self._path_list_computer.recompute_path_list_for_uid(node.uid)
+        node = self._path_list_computer.rebuild_path_list_for_uid(node.uid)
 
         # this may actually be an existing node (we favor that if it exists)
         return node
 
     def recompute_path_list_for_subtree(self, subtree_root_uid: UID):
         def action_func(visited_node):
-            self._path_list_computer.recompute_path_list_for_uid(visited_node.uid)
+            self._path_list_computer.rebuild_path_list_for_uid(visited_node.uid)
 
         self.for_each_node_breadth_first(action_func=action_func, subtree_root_identifier=subtree_root_uid)
 
-    def recompute_path_list_for_uid(self, uid: UID) -> GDriveNode:
-        return self._path_list_computer.recompute_path_list_for_uid(uid)
+    def rebuild_path_list_for_uid(self, uid: UID) -> GDriveNode:
+        return self._path_list_computer.rebuild_path_list_for_uid(uid)
 
     def remove_node(self, node: GDriveNode, fail_if_children_present: bool = True) -> Optional[GDriveNode]:
         """Remove given node from all data structures in this tree. Returns the node which was removed (which may be a different object
@@ -158,7 +158,7 @@ class GDriveWholeTree(BaseTree):
 
         if not node.get_path_list():
             # (Kind of a kludge): we need the old path list so that downstream processes can work properly.
-            node = self._path_list_computer.recompute_path_list_for_uid(node.uid)
+            node = self._path_list_computer.rebuild_path_list_for_uid(node.uid)
 
         if node.is_dir():
             child_list = self.get_child_list_for_node(node)

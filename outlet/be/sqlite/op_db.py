@@ -10,7 +10,7 @@ from be.sqlite.gdrive_db import GDriveDatabase
 from be.sqlite.local_db import LocalDiskDatabase
 from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TreeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.locald_node import LocalDirNode, LocalFileNode
 from model.node.node import TNode
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
 from model.uid import UID

@@ -1,11 +1,11 @@
 import logging
 from typing import Optional, Tuple
 
-from be.tree_store.local.locald_tree import LocalDiskTree
+from be.tree_store.locald.ld_tree import LocalDiskTree
 from constants import LOCAL_ROOT_UID, ROOT_PATH
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.container_node import RootTypeNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import TNode
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID

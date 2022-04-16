@@ -5,9 +5,9 @@ from typing import List
 from pydispatch import dispatcher
 
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from model.node.local_disk_node import LocalNode
+from model.node.locald_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from be.tree_store.local.locald_memstore import LocalDiskMemoryStore
+from be.tree_store.locald.ld_memstore import LocalDiskMemoryStore
 from be.sqlite.local_db import LocalDiskDatabase
 from signal_constants import Signal
 from signal_constants import ID_GLOBAL_CACHE

@@ -22,8 +22,8 @@ from be.exec.user_op.op_manager import OpManager
 from be.sqlite.content_meta_db import ContentMeta
 from be.tree_store.gdrive.gdrive import GDriveMasterStore
 from be.tree_store.gdrive.op_load import GDriveDiskLoadOp
-from be.tree_store.local import content_hasher
-from be.tree_store.local.sig_calc_thread import SigCalcBatchingThread
+from be.tree_store.locald import sig_calc
+from be.tree_store.locald.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
     LARGE_FILE_SIZE_THRESHOLD_BYTES, OPS_FILE_NAME, TreeDisplayMode, TreeID, TreeLoadState, TreeType
 from error import GetChildListFailedError
@@ -36,7 +36,7 @@ from model.disp_tree.filter_criteria import FilterCriteria
 from model.disp_tree.summary import TreeSummarizer
 from model.disp_tree.tree_action import TreeAction
 from model.node.gdrive_node import GDriveNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.locald_node import LocalDirNode, LocalFileNode
 from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID

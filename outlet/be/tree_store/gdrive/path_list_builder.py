@@ -10,12 +10,12 @@ from model.uid import UID
 logger = logging.getLogger(__name__)
 
 
-class GDrivePathListComputer:
+class GDrivePathListBuilder:
 
     def __init__(self, get_node_for_uid_func: Callable[[UID], GDriveNode]):
         self._get_node_for_uid_func: Callable[[UID], GDriveNode] = get_node_for_uid_func
 
-    def recompute_path_list_for_uid(self, uid: UID) -> GDriveNode:
+    def rebuild_path_list_for_uid(self, uid: UID) -> GDriveNode:
         """Derives the list filesystem-like-paths for the node with the given UID, sets them, and returns the node with the paths populated.
         Stops when a parent cannot be found, or the root of the tree is reached.
         Note: the get_node_for_uid_func param should return a fully-formed GDriveNode, with the exception that its parent paths do not need

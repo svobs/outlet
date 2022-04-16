@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 from be.sqlite.gdrive_db import GDriveDatabase
 from be.tree_store.gdrive.client.change_observer import GDriveChange, GDriveNodeChange
-from be.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
+from be.tree_store.gdrive.gd_memstore import GDriveMemoryStore
 from constants import GDRIVE_ROOT_UID, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.gdrive_meta import GDriveUser, MimeType
@@ -214,7 +214,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
                     change.node = removed_node
                 else:
                     # ensure full_path is populated:
-                    memstore.master_tree.recompute_path_list_for_uid(change.node.uid)
+                    memstore.master_tree.rebuild_path_list_for_uid(change.node.uid)
             else:
                 assert isinstance(change, GDriveNodeChange)
                 # need to use existing object if available to fulfill our contract (node will be sent via signals below)

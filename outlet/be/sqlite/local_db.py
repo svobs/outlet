@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 from be.sqlite.base_db import LiveTable, MetaDatabase, Table
 from model.uid import UID
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier
 
 logger = logging.getLogger(__name__)

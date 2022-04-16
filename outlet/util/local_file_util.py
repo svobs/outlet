@@ -11,7 +11,7 @@ from typing import List, Optional
 from constants import ENABLE_MACOS_FINDER_JUNK_FILE_WORKAROUND, IS_MACOS, IS_WINDOWS, MAC_FINDER_JUNK_FILE_NAME, MACOS_SETFILE_DATETIME_FMT
 from error import IdenticalFileExistsError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import TNode
 from util import file_util, time_util
 

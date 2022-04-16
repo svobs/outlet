@@ -6,12 +6,12 @@ from typing import Deque, Dict, List, Optional
 from pydispatch import dispatcher
 
 from be.sqlite.local_db import LocalDiskDatabase
-from be.tree_store.local.locald_tree import LocalDiskTree
-from be.tree_store.local.op_write import LocalDiskMultiNodeOp, LocalDiskSingleNodeOp
+from be.tree_store.locald.ld_tree import LocalDiskTree
+from be.tree_store.locald.op_write import LocalDiskMultiNodeOp, LocalDiskSingleNodeOp
 from constants import TreeType
 from logging_constants import TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID

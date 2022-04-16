@@ -3,7 +3,7 @@ from typing import List, Optional
 import logging
 
 from model.gdrive_meta import GDriveUser, MimeType
-from be.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
+from be.tree_store.gdrive.gd_memstore import GDriveMemoryStore
 from be.sqlite.gdrive_db import GDriveDatabase
 
 logger = logging.getLogger(__name__)

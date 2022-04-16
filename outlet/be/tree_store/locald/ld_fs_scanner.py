@@ -7,11 +7,11 @@ from typing import Callable, Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from be.tree_store.local.locald_tree import LocalDiskTree
-from be.tree_store.local.locald_tree_recurser import FileCounter
+from be.tree_store.locald.ld_tree import LocalDiskTree
+from be.tree_store.locald.ld_tree_recurser import FileCounter
 from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
 from logging_constants import SUPER_DEBUG_ENABLED
-from model.node.local_disk_node import LocalNode
+from model.node.locald_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier
 from signal_constants import Signal
 from util.task_runner import Task

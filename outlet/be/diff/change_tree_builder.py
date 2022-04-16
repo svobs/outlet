@@ -9,7 +9,7 @@ from constants import TrashStatus, TreeID, TreeType
 from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED
 from model.disp_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.locald_node import LocalDirNode, LocalFileNode
 from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GDriveIdentifier, GUID, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID

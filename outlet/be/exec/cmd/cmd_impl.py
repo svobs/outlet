@@ -9,7 +9,7 @@ from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID
 from error import GDriveItemNotFoundError, IdenticalFileExistsError, InvalidOperationError
 from model.gdrive_meta import MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import TNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpCode

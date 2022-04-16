@@ -12,9 +12,9 @@ from be.exec.central import ExecPriority
 from be.sqlite.gdrive_db import GDriveMetaDownload
 from be.tree_store.gdrive.client.change_observer import GDriveChange, GDriveRM, PagePersistingChangeObserver
 from be.tree_store.gdrive.client.gdrive_client import GDriveClient
-from be.tree_store.gdrive.gdrive_tree_loader import GDriveTreeLoader
-from be.tree_store.gdrive.gdrive_diskstore import GDriveDiskStore
-from be.tree_store.gdrive.gdrive_memstore import GDriveMemoryStore
+from be.tree_store.gdrive.gd_tree_loader import GDriveTreeLoader
+from be.tree_store.gdrive.gd_diskstore import GDriveDiskStore
+from be.tree_store.gdrive.gd_memstore import GDriveMemoryStore
 from be.tree_store.gdrive.op_load import GDriveDiskLoadOp
 from be.tree_store.gdrive.op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp

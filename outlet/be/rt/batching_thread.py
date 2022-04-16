@@ -7,7 +7,7 @@ from typing import Dict, List, Set
 
 from be.exec.central import ExecPriority
 from logging_constants import SUPER_DEBUG_ENABLED
-from model.node.local_disk_node import LocalDirNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalNode
 from util.ensure import ensure_int
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task

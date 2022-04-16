@@ -8,10 +8,10 @@ from typing import Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from be.disp_tree.filter_state import FilterState
-from be.tree_store.local.locald_diskstore import LocalDiskDiskStore
-from be.tree_store.local.locald_tree_scanner import LocalDiskTreeScanner
-from be.tree_store.local.locald_tree import LocalDiskTree
-from be.tree_store.local.op_write import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
+from be.tree_store.locald.ld_diskstore import LocalDiskDiskStore
+from be.tree_store.locald.ld_fs_scanner import LocalDiskTreeScanner
+from be.tree_store.locald.ld_tree import LocalDiskTree
+from be.tree_store.locald.op_write import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from be.tree_store.tree_store import TreeStore
 from be.uid.uid_mapper import UidPathMapper
@@ -21,7 +21,7 @@ from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
 from model.node.dir_stats import DirStats
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
