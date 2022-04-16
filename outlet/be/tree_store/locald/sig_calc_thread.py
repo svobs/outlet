@@ -13,6 +13,7 @@ from model.node_identifier import NodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
 from util.ensure import ensure_int
+from util.format import humanfriendlier_size
 from util.has_lifecycle import HasLifecycle
 from util.task_runner import Task
 
@@ -91,8 +92,8 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                     if size_bytes:
                         bytes_to_scan += size_bytes
 
-                logger.info(f'[{self.name}] Submitting batch calc task with {len(nodes_to_scan)} nodes and {bytes_to_scan:d} bytes total '
-                            f'({len(self._node_queue)} nodes still enqueued)')
+                logger.info(f'[{self.name}] Submitting batch calc task with {len(nodes_to_scan)} nodes and {humanfriendlier_size(bytes_to_scan)}'
+                            f' bytes total ({len(self._node_queue)} nodes still enqueued)')
                 calc_task = Task(ExecPriority.P7_SIGNATURE_CALC, self.batch_calculate_signatures, nodes_to_scan)
                 self._running_task_set.add(calc_task.task_uuid)
             self.backend.executor.submit_async_task(calc_task)

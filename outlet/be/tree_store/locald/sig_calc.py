@@ -81,7 +81,7 @@ def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opti
                 full_path = target
                 try:
                     md5: Optional[str] = compute_md5(full_path)
-                    # sha256 = local.content_hasher.dropbox_hash(full_path)
+                    # sha256 = local.sig_calc.dropbox_hash(full_path)
                     sha256: Optional[str] = None
                     return md5, sha256
                 except FileNotFoundError:

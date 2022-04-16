@@ -88,20 +88,25 @@ class LocalDiskMemoryStore:
                 # Not allowed. Need to first delete all descendants via other ops.
                 raise RuntimeError(f'Cannot replace a directory with a file: "{node.node_identifier}"')
 
-            if cached_node.is_live() and not node.is_live():
-                if cached_node.get_icon() != node.get_icon():
-                    cached_node.set_icon(node.get_icon())
-                    logger.info(f'Will not overwrite live node with non-live, but will copy its icon: {node}')
-                    return node, False
+            if not node.is_live():
+                if cached_node.is_live():
+                    if cached_node.get_icon() != node.get_icon():
+                        cached_node.set_icon(node.get_icon())
+                        logger.debug(f'Will not overwrite live node with non-live, but will copy its icon: {node}')
+                        return node, False
 
-                # In the future, let's close this hole with more elegant logic
-                logger.debug(f'Will not replace a live node with non-live; skipping memstore update for {node.node_identifier}')
-                return None, False
+                    # In the future, let's close this hole with more elegant logic
+                    logger.debug(f'Will not replace a live node with non-live; skipping memstore update for {node.node_identifier}')
+                    return None, False
+                elif not cached_node.is_live():
+                    # this shouldn't really happen
+                    logger.warning(f'Updating non-live node with another non-live-node: {node.node_identifier}')
 
-            if node.is_file() and cached_node.is_file():
+            elif node.is_file() and cached_node.is_file():
                 # Check for freshly scanned files which are missing signatures. If their other meta checks out, copy from the cache before doing
                 # equals comparison
                 assert isinstance(node, LocalFileNode) and isinstance(cached_node, LocalFileNode)
+                assert node.is_live(), f'Expected to be live: {node}'  # remember, non-live nodes probably don't have create_ts or modify_ts
                 if TRACE_ENABLED:
                     logger.debug(f'Before merging: cached_node={cached_node} fresh_node={node}')
                 node.copy_signature_if_is_meta_equal(cached_node, self.backend.cacheman.is_seconds_precision_enough)

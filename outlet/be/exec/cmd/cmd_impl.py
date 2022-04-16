@@ -475,7 +475,7 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
 
         if cxt.update_meta_also:
             local_file_util = LocalFileUtil(cxt.cacheman)
-            local_file_util.copy_meta(self.op.src_node, self.op.dst_node.get_single_path())
+            node_dst = local_file_util.copy_meta(self.op.src_node, self.op.dst_node.get_single_path())
 
         return self._maybe_delete_src_node_and_finish(cxt, node_dst, UserOpStatus.COMPLETED_OK)
 

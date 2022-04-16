@@ -235,9 +235,11 @@ class OpManager(HasLifecycle):
         this_task.add_next_task(self._submit_next_batch)
 
     def _batch_intake(self, this_task: Task, batch: Batch):
-        """Adds the given batch of UserOps to the graph, which will lead to their eventual execution. Optionally also saves the ops to disk,
+        """
+        Adds the given batch of UserOps to the graph, which will lead to their eventual execution. Optionally also saves the ops to disk,
         which should only be done if they haven't already been saved.
-        This method should only be called via the Executor."""
+        This method should only be called via the Executor.
+        """
         assert this_task and this_task.priority == ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, f'Bad task: {this_task}'
 
         batch.op_list.sort(key=lambda _op: _op.op_uid)
@@ -245,7 +247,13 @@ class OpManager(HasLifecycle):
         # Make sure all relevant caches are loaded. Do this via child tasks:
         big_node_list: List[TNode] = BatchGraphBuilder.get_all_nodes_in_batch(batch.op_list)
         logger.debug(f'Batch {batch.batch_uid} contains {len(big_node_list)} affected nodes. Adding task to ensure they are in memstore')
-        self.backend.cacheman.ensure_cache_loaded_for_node_list(this_task, big_node_list)
+
+        try:
+            self.backend.cacheman.ensure_cache_loaded_for_node_list(this_task, big_node_list)
+        except RuntimeError as err:
+            # Mark the batch as being in error, and follow error handling strategy:
+            logger.exception(f'[Batch-{batch.batch_uid}] Failed to ensure caches were loaded for batch')
+            self._on_batch_error_fight_or_flight('Failed to ensure relevant caches are loaded', str(err), batch=batch)
 
     def _get_next_batch_in_queue(self) -> Optional[Batch]:
         with self._lock:
@@ -301,14 +309,15 @@ class OpManager(HasLifecycle):
         # The lists are returned in order of BFS of their op graph. However, when upserting to the cache we need them in BFS order of the tree
         # which they are upserting to. Fortunately, the ChangeTree which they came from set their UIDs in the correct order. So sort by that:
         inserted_op_list.sort(key=lambda op: op.op_uid)
-        logger.debug(f'[Batch-{next_batch.batch_uid}] {sw} Batch insert succesful. InsertedOpList: '
-                     f'{",".join([str(op.op_uid) for op in inserted_op_list])}')
-        actual_op_uid_list = [op.op_uid for op in inserted_op_list]
-        expected_op_uid_list = [op.op_uid for op in next_batch.op_list]
-        if actual_op_uid_list != expected_op_uid_list:
-            # OK if some skipped. Output to log but keep going
-            logger.debug(f'[Batch-{next_batch.batch_uid}] List of ops inserted into main graph ({actual_op_uid_list}) does not match '
-                         f'planned list of ops ({expected_op_uid_list})')
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'[Batch-{next_batch.batch_uid}] {sw} Batch insert succesful. InsertedOpList: '
+                         f'{",".join([str(op.op_uid) for op in inserted_op_list])}')
+            actual_op_uid_list = [op.op_uid for op in inserted_op_list]
+            expected_op_uid_list = [op.op_uid for op in next_batch.op_list]
+            if actual_op_uid_list != expected_op_uid_list:
+                # OK if some skipped. Output to log but keep going
+                logger.debug(f'[Batch-{next_batch.batch_uid}] List of ops inserted into main graph ({actual_op_uid_list}) does not match '
+                             f'planned list of ops ({expected_op_uid_list})')
 
         with self._lock:
             logger.debug(f'[Batch-{next_batch.batch_uid}] Removing batch {next_batch.batch_uid} from the pending queue')
@@ -321,7 +330,7 @@ class OpManager(HasLifecycle):
             # Must do this AFTER adding to OpGraph, because icon determination algo will consult the OpGraph.
             logger.debug(f'[Batch-{next_batch.batch_uid}] Upserting affected nodes in memstore for {len(inserted_op_list)} ops')
             for op in inserted_op_list:
-                # NOTE: this REQUIRES that inserted_op_list is in the correct order:
+                # NOTE: this REQUIRES that inserted_op_list is in somewhat correct order:
                 # any directories which need to be made must come before their children
                 self._upsert_nodes_in_memstore(op)
         except RuntimeError as err:

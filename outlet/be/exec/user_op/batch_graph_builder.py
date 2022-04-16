@@ -10,6 +10,7 @@ from model.node.node import TNode
 from model.node_identifier import DN_UID
 from model.uid import UID
 from model.user_op import Batch, UserOp, UserOpCode
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +203,8 @@ class BatchGraphBuilder:
         batch_uid = op_batch[0].batch_uid
         logger.debug(f'[Batch-{batch_uid}] Building OpGraph for {len(op_batch)} ops...')
 
+        sw = Stopwatch()
+
         batch_graph = OpGraph(f'Batch-{batch_uid}')
 
         # Verify batch is properly sorted first:
@@ -225,11 +228,13 @@ class BatchGraphBuilder:
         for op in op_batch:
             self._insert_for_op(op, batch_graph, tgt_node_dict)
 
-        lines = batch_graph.root.print_recursively()
-        # note: GDrive paths may not be present at this point; this is ok.
-        logger.debug(f'[Batch-{batch_uid}] BuildBatchGraph: constructed graph with {len(lines)} OGNs:')
-        for line in lines:
-            logger.debug(f'[Batch-{batch_uid}] {line}')
+        if logger.isEnabledFor(logging.DEBUG):
+            lines = batch_graph.root.print_recursively()
+            # note: GDrive paths may not be present at this point; this is ok.
+            logger.debug(f'[Batch-{batch_uid}] {sw} BuildBatchGraph: constructed graph with {len(lines)} OGNs:')
+            for line in lines:
+                logger.debug(f'[Batch-{batch_uid}] {line}')
+        logger.info(f'[Batch-{batch_uid}] {sw} BuildBatchGraph: constructed graph of size {len(batch_graph)}')
 
         # Validate OGN graph is structurally consistent:
         batch_graph.validate_internal_consistency()

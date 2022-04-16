@@ -864,14 +864,14 @@ class CacheManager(HasLifecycle):
 
             is_large = size_bytes and size_bytes > LARGE_FILE_SIZE_THRESHOLD_BYTES
             if is_large:
-                logger.info(f'[device_uid={device_uid}] Calculating signature for local file (note: this file is very large '
+                logger.info(f'[device_uid={device_uid}] Calculating sig for local file (note: this file is very large '
                             f'({humanfriendlier_size(size_bytes)}) and may take a while: "{full_path}"')
             elif SUPER_DEBUG_ENABLED:
-                logger.debug(f'[device_uid={device_uid}] Calculating signature for local file: "{full_path}"')
+                logger.debug(f'[device_uid={device_uid}] Calculating sig for local file: "{full_path}"')
 
-            md5, sha256 = content_hasher.calculate_signatures(full_path)
+            md5, sha256 = sig_calc.calculate_signatures(full_path)
             if not md5 or sha256:
-                logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}"; '
+                logger.info(f'[device_uid={device_uid}] Failed to calculate sig for local file: "{full_path}"; '
                             f'assuming it was deleted from disk')
                 return None
 
@@ -881,11 +881,11 @@ class CacheManager(HasLifecycle):
             return self.get_content_meta_for(size_bytes, md5, sha256)
         except FileNotFoundError as err:
             # File could have been deleted
-            logger.info(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}": {repr(err)}')
+            logger.info(f'[device_uid={device_uid}] Failed to calculate sig for local file: "{full_path}": {repr(err)}')
             return None
         except Exception as err:
             # This can include a TimeoutError if examining a network share, for example
-            logger.error(f'[device_uid={device_uid}] Failed to calculate signature for local file: "{full_path}": {repr(err)}')
+            logger.error(f'[device_uid={device_uid}] Failed to calculate sig for local file: "{full_path}": {repr(err)}')
             return None
 
     def get_all_files_with_content(self, content_uid: UID) -> List[TNode]:

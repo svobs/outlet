@@ -216,35 +216,51 @@ class TNode(AbstractNode, HasParentList, ABC):
             return IconId.ICON_GENERIC_FILE
         return IconId.ICON_FILE_CP_DST
 
-    def _get_valid_create_ts_for_macos(self) -> Optional[int]:
+    def _get_valid_create_ts_for_macos(self, is_seconds_precision_enough) -> Optional[int]:
         if self.create_ts:
             if self.modify_ts:
                 if self.create_ts > self.modify_ts:
-                    logger.warning(f'(MacOS): create_ts ({self.create_ts}) is AFTER its modify_ts ({self.modify_ts}); using modify_ts for both')
+                    if is_seconds_precision_enough and logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'(MacOS): create_ts ({self.create_ts}) > modify_ts ({self.modify_ts}); '
+                                     f'using modify_ts for both in: {self.node_identifier}')
+                    else:
+                        logger.warning(f'(MacOS): create_ts ({self.create_ts}) is AFTER its modify_ts ({self.modify_ts}); '
+                                       f'using modify_ts for both in: {self.node_identifier}')
                     return self.modify_ts
             return self.create_ts
         return None
 
     def is_meta_equal(self, other_node, is_seconds_precision_enough: bool) -> bool:
+        # try:
         other_modify_ts = other_node.modify_ts
         self_modify_ts = self.modify_ts
         if IS_MACOS:
             assert isinstance(other_node, TNode)
-            other_create_ts = other_node._get_valid_create_ts_for_macos()
-            self_create_ts = self._get_valid_create_ts_for_macos()
+            other_create_ts = other_node._get_valid_create_ts_for_macos(is_seconds_precision_enough)
+            self_create_ts = self._get_valid_create_ts_for_macos(is_seconds_precision_enough)
         else:
             other_create_ts = other_node.create_ts
             self_create_ts = self.create_ts
 
         if is_seconds_precision_enough:
-            other_create_ts = int(other_create_ts/1000)
-            self_create_ts = int(self_create_ts/1000)
-            other_modify_ts = int(other_modify_ts/1000)
-            self_modify_ts = int(self_modify_ts/1000)
+            if self_create_ts:
+                self_create_ts = int(self_create_ts/1000)
+            if self_modify_ts:
+                self_modify_ts = int(self_modify_ts/1000)
+
+            if other_create_ts:
+                other_create_ts = int(other_create_ts/1000)
+            if other_modify_ts:
+                other_modify_ts = int(other_modify_ts/1000)
+
+        if not self_create_ts or not self_modify_ts:
+            raise RuntimeError(f'Failed to get either create_ts ({self_create_ts}) or modify_ts ({self_modify_ts}) from other: {self}')
+        if not other_create_ts or not other_modify_ts:
+            raise RuntimeError(f'Failed to get either create_ts ({other_create_ts}) or modify_ts ({other_modify_ts}) from other: {other_node}')
 
         # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
         return other_create_ts == self_create_ts and other_modify_ts == self_modify_ts and \
-               (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
+            (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
 
     def how_is_meta_not_equal(self, other_node) -> str:
         """For use with debugging why is_meta_equal() returned false"""

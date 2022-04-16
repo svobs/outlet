@@ -156,12 +156,14 @@ class GDriveClient(HasLifecycle):
                                 raise GDriveError(f'Google Drive returned HTTP {err.resp.status}: Reason: "{reason}": "{message}"')
                         except AttributeError as err2:
                             logger.error(f'Additional error: {err2}')
+                    else:
+                        logger.exception(err)
 
                     if retries_remaining == 0:
                         raise
                     # Typically a transport error (socket timeout, name server problem...)
-                    logger.error(f'Request failed: {repr(err)}: sleeping {GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC} sec '
-                                 f'(retries remaining: {retries_remaining})')
+                    logger.info(f'Request failed: {repr(err)}: sleeping {GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC} sec '
+                                f'(retries remaining: {retries_remaining})')
                 time.sleep(GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC)
                 retries_remaining -= 1
 
@@ -457,7 +459,7 @@ class GDriveClient(HasLifecycle):
 
         return self._execute_files_query(query, fields, initial_page_token, sync_ts, observer, this_task)
 
-    def copy_existing_file(self, src_goog_id: str, new_name: str, new_parent_goog_ids: List[str], uid: Optional[UID] = None)\
+    def copy_existing_file(self, src_goog_id: str, new_name: str, new_parent_goog_ids: List[str], uid: Optional[UID] = None) \
             -> Optional[GDriveNode]:
         if not src_goog_id:
             raise RuntimeError('GDriveClient.copy_existing_file(): no goog_id specified!')

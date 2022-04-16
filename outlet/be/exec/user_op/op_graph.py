@@ -189,6 +189,21 @@ class OpGraph(HasLifecycle):
     def __len__(self):
         """Returns the count of ops in the OpGraph."""
 
+        return self.get_ogn_count()
+
+    def get_ogn_count(self):
+
+        def _visit(_) -> bool:
+            _visit.count = _visit.count + 1
+            return False
+
+        _visit.count = 0
+
+        with self._cv_can_get:
+            self._for_all_ogn_in_graph(_visit)
+            return _visit.count
+
+    def get_op_count(self):
         with self._cv_can_get:
             op_set = set()
             self._for_all_ogn_in_graph(lambda _ogn: op_set.add(_ogn.op.op_uid) and False)
@@ -261,6 +276,8 @@ class OpGraph(HasLifecycle):
     def _validate_internal_consistency(self):
         """The caller is responsible for locking the graph before calling this."""
         logger.debug(f'[{self.name}] Validating internal structural consistency of OpGraph...')
+
+        sw = Stopwatch()
         error_count = 0
         ogn_coverage_dict: Dict[UID, OpGraphNode] = {self.root.node_uid: self.root}  # OGN uid -> OGN
         binary_op_src_coverage_dict: Dict[UID, OpGraphNode] = {}
@@ -449,7 +466,7 @@ class OpGraph(HasLifecycle):
         if error_count > 0:
             raise OpGraphError(f'Validation for OpGraph failed with {error_count} errors!')
         else:
-            logger.info(f'[{self.name}] ValidateGraph: validation done. No errors for {len_ogn_coverage_dict} OGNs')
+            logger.info(f'[{self.name}] {sw} ValidateGraph: validation done. No errors for {len_ogn_coverage_dict} OGNs')
 
     # INSERT logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -809,8 +826,9 @@ class OpGraph(HasLifecycle):
         # notify consumers there is something to get:
         self._cv_can_get.notifyAll()
 
-        logger.debug(f'[{self.name}] InsertOGN({ogn_new.node_uid}): successfully inserted: {ogn_new}')
-        self._print_current_state()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'[{self.name}] InsertOGN({ogn_new.node_uid}): successfully inserted: {ogn_new}')
+            self._print_current_state()
 
     @staticmethod
     def _uid_list_str(ogn_list: List[OpGraphNode]) -> str:
@@ -828,6 +846,8 @@ class OpGraph(HasLifecycle):
 
         batch_uid: UID = batch_root.get_first_child().op.batch_uid
         logger.info(f'[{self.name}] Inserting batch {batch_uid} into this OpGraph')
+
+        sw = Stopwatch()
 
         breadth_first_list: List[OpGraphNode] = batch_root.get_subgraph_bfs_list()
         processed_op_uid_set: Set[UID] = set()
@@ -860,6 +880,7 @@ class OpGraph(HasLifecycle):
                 if OP_GRAPH_VALIDATE_AFTER_BATCH_INSERT:
                     self._validate_internal_consistency()  # this will raise an OpGraphError if validation fails
 
+                logger.info(f'[{self.name}] {sw} InsertBatchGraph: inserted {len(inserted_op_list)} ops into OpGraph')
                 return inserted_op_list
 
             except OpGraphError as oge:
@@ -871,8 +892,8 @@ class OpGraph(HasLifecycle):
             except RuntimeError as err:
                 if not isinstance(err, OpGraphError):
                     # bad bad bad
-                    logger.error(f'Unexpected failure while adding batch {batch_uid} to main graph (after adding {len(inserted_ogn_list)} OGNs from '
-                                 f'{len(inserted_op_list)} ops) - rethrowing exception')
+                    logger.error(f'[{self.name}] Unexpected failure while adding batch {batch_uid} to main graph (after adding '
+                                 f'{len(inserted_ogn_list)} OGNs from {len(inserted_op_list)} ops) - rethrowing exception')
                     raise err
 
     # GET NEXT OP logic
@@ -1031,7 +1052,8 @@ class OpGraph(HasLifecycle):
             is_batch_complete: bool = self._is_batch_complete(op.batch_uid)
 
             logger.debug(f'[{self.name}] Done with pop_completed_op() for op: {op}')
-            self._print_current_state()
+            if logger.isEnabledFor(logging.DEBUG):
+                self._print_current_state()
 
             # this may have jostled the tree to make something else free:
             self._cv_can_get.notifyAll()
