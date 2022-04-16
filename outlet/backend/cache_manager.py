@@ -87,6 +87,9 @@ class CacheManager(HasLifecycle):
         self.lazy_load_local_file_signatures: bool = backend.get_config('cache.local_disk.signatures.lazy_load')
         logger.debug(f'lazy_load_local_file_signatures = {self.lazy_load_local_file_signatures}')
 
+        self.is_seconds_precision_enough = backend.get_config('user_ops.is_seconds_precision_enough')
+        logger.info(f'is_seconds_precision_enough = {self.is_seconds_precision_enough}')
+
         if not self.sync_from_local_disk_on_cache_load:
             logger.warning('sync_from_local_disk_on_cache_load is set to false. This should only be set to false for internal testing!')
 

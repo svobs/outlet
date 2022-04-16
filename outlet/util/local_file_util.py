@@ -48,7 +48,7 @@ class LocalFileUtil:
         fresh_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=node.get_single_path(), must_scan_signature=False, is_live=True)
         if not fresh_node:
             raise RuntimeError(f'File missing: {node.get_single_path()}')
-        fresh_node.copy_signature_if_is_meta_equal(node)
+        fresh_node.copy_signature_if_is_meta_equal(node, self.cacheman.is_seconds_precision_enough)
         if fresh_node.has_signature():
             return fresh_node
 
@@ -231,7 +231,7 @@ class LocalFileUtil:
             dst_node: LocalFileNode = self.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=False, is_live=True)
         if not dst_node:
             raise RuntimeError(f'Failed to build fresh node after copying meta for path: {dst_path}')
-        if not dst_node.is_meta_equal(src_node):
+        if not dst_node.is_meta_equal(src_node, self.cacheman.is_seconds_precision_enough):
             logger.error(dst_node.how_is_meta_not_equal(src_node))
             raise RuntimeError(f'Dst node meta does not match src node! src={src_node} dst={dst_node}')
 

@@ -242,11 +242,12 @@ class LocalFileNode(LocalNode):
         return self.uid, self.get_single_parent_uid(), self.content_meta_uid, self.get_size_bytes(), \
                self.sync_ts, self.create_ts, self.modify_ts, self.change_ts,  self.get_single_path(), self._trashed, self._is_live
 
-    def copy_signature_if_is_meta_equal(self, other) -> bool:
+    def copy_signature_if_is_meta_equal(self, other, is_seconds_precision_enough: bool) -> bool:
         """If meta is equal for this node & other, then copy signature from other to this."""
-        if self.is_meta_equal(other) and (other.has_signature()):
+        if other.has_signature() and self.is_meta_equal(other, is_seconds_precision_enough):
             if TRACE_ENABLED:
-                logger.debug(f'copy_signature_if_is_meta_equal(): Meta is equal for {self.node_identifier}')
+                logger.debug(f'copy_signature_if_is_meta_equal(is_seconds_precision_enough={is_seconds_precision_enough}): '
+                             f'Meta is equal for {self.node_identifier}')
             self.content_meta = other.content_meta
 
             if SUPER_DEBUG_ENABLED:
@@ -254,7 +255,8 @@ class LocalFileNode(LocalNode):
             return True
         else:
             if TRACE_ENABLED:
-                logger.debug(f'copy_signature_if_is_meta_equal(): NOT equal: this={self}; other={other}')
+                logger.debug(f'copy_signature_if_is_meta_equal(is_seconds_precision_enough={is_seconds_precision_enough}): '
+                             f'NOT equal: this={self}; other={other}')
             return False
 
     def _check_update_sanity(self, old_node):

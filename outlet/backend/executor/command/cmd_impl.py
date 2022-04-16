@@ -161,9 +161,8 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
             raise RuntimeError(f'Signature incorrect after move to "{self.op.dst_node.get_single_path()}" '
                                f'(expected: {src_node.md5}; found: {new_dst_node.md5})')
 
-        if cxt.update_meta_also and not new_dst_node.is_meta_equal(src_node):
-            raise RuntimeError(f'Meta incorrect after move to "{self.op.dst_node.get_single_path()}" '
-                               f'(expected: {src_node}; found: {new_dst_node})')
+        if cxt.update_meta_also and not new_dst_node.is_meta_equal(src_node, cxt.cacheman.is_seconds_precision_enough):
+            raise RuntimeError(f'Meta incorrect after move to "{self.op.dst_node.get_single_path()}" (expected: {src_node}; found: {new_dst_node})')
 
         # Verify src was deleted:
         if os.path.exists(src_node.get_single_path()):
@@ -178,10 +177,6 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
     def _cleanup_after_error(self):
         if os.path.exists(self.op.dst_node.get_single_path()):
             file_util.delete_file(self.op.dst_node.get_single_path(), to_trash=False)
-
-    @staticmethod
-    def _relevant_fields_match(actual_node, expected_node) -> bool:
-        return actual_node.name == expected_node.name and actual_node.is_signature_equal(expected_node) and actual_node.is_meta_equal(expected_node)
 
 
 class CreatLocalDirCommand(Command):
@@ -321,13 +316,13 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
                 else:
                     logger.debug(msg)
                     return self._upload_new_file(cxt, gdrive_client, src_node)
-            elif self._relevant_fields_match(existing_dst_node, src_node):
+            elif self._relevant_fields_match(cxt, existing_dst_node, src_node):
                 # Possibility #2: same exact node at dst -> no op
                 logger.info(f'Identical node (uid={existing_dst_node.uid}) already exists in Google Drive with same name, '
                             f'md5={existing_dst_node.md5}, size={existing_dst_node.get_size_bytes()} as src node ({src_node})')
                 return self._maybe_delete_src_node_and_finish(src_node, existing_dst_node, UserOpStatus.COMPLETED_NO_OP)
 
-            if not self._relevant_fields_match(existing_dst_node, self.op.dst_node):
+            if not self._relevant_fields_match(cxt, existing_dst_node, self.op.dst_node):
                 # Possibility #3: unexpected content at dst
                 msg = f'Dst node to overwrite has different meta/content than expected (using strict={cxt.use_strict_state_enforcement}): ' \
                       f'{self.op.dst_node.node_identifier}'
@@ -344,7 +339,7 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
                                                                              local_file_full_path=src_file_path,
                                                                              create_ts=src_node.create_ts,
                                                                              modify_ts=src_node.modify_ts)
-            if not self._relevant_fields_match(existing_dst_node, src_node):
+            if not self._relevant_fields_match(cxt, existing_dst_node, src_node):
                 raise RuntimeError(f'Result of upload does not match expected: upload={existing_dst_node}, expected={src_node}')
 
             return self._maybe_delete_src_node_and_finish(src_node, existing_dst_node, UserOpStatus.COMPLETED_OK)
@@ -355,7 +350,7 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
             existing_dst_node = gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
 
             if existing_dst_node:
-                if self._relevant_fields_match(existing_dst_node, src_node):
+                if self._relevant_fields_match(cxt, existing_dst_node, src_node):
                     # Possibility #1: same exact node at dst -> no op
                     logger.info(f'Identical node (uid={existing_dst_node.uid}) already exists in Google Drive with same name and parent, '
                                 f'md5={src_node.md5}, size={src_node.get_size_bytes()} (orig dst node uid={self.op.dst_node.uid})')
@@ -371,8 +366,9 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
                 return self._upload_new_file(cxt, gdrive_client, src_node)
 
     @staticmethod
-    def _relevant_fields_match(actual_node, expected_node) -> bool:
-        return actual_node.name == expected_node.name and actual_node.is_signature_equal(expected_node) and actual_node.is_meta_equal(expected_node)
+    def _relevant_fields_match(cxt, actual_node, expected_node) -> bool:
+        return actual_node.name == expected_node.name and actual_node.is_meta_equal(expected_node, cxt.cacheman.is_seconds_precision_enough) \
+               and actual_node.is_signature_equal(expected_node)
 
     def _upload_new_file(self, cxt, gdrive_client, src_node) -> UserOpResult:
         parent_goog_id_list: List[str] = cxt.cacheman.get_parent_goog_id_list(self.op.dst_node)
@@ -380,7 +376,7 @@ class CopyFileLocalToGDriveCommand(CopyNodeCommand):
         new_dst_node: GDriveFile = gdrive_client.upload_new_file(src_node.get_single_path(), parent_goog_ids=parent_goog_id_list,
                                                                  uid=self.op.dst_node.uid, create_ts=src_node.create_ts, modify_ts=src_node.modify_ts)
         assert new_dst_node.uid == self.op.dst_node.uid
-        if not self._relevant_fields_match(new_dst_node, src_node):
+        if not self._relevant_fields_match(cxt, new_dst_node, src_node):
             raise RuntimeError(f'Result of new file upload does not match expected: upload={new_dst_node}, expected={src_node}')
         return self._maybe_delete_src_node_and_finish(src_node, new_dst_node, UserOpStatus.COMPLETED_OK)
 

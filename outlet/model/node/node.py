@@ -225,18 +225,25 @@ class TNode(AbstractNode, HasParentList, ABC):
             return self.create_ts
         return None
 
-    def is_meta_equal(self, other_node) -> bool:
+    def is_meta_equal(self, other_node, is_seconds_precision_enough: bool) -> bool:
+        other_modify_ts = other_node.modify_ts
+        self_modify_ts = self.modify_ts
         if IS_MACOS:
             assert isinstance(other_node, TNode)
             other_create_ts = other_node._get_valid_create_ts_for_macos()
             self_create_ts = self._get_valid_create_ts_for_macos()
+        else:
+            other_create_ts = other_node.create_ts
+            self_create_ts = self.create_ts
 
-            return other_create_ts == self_create_ts and other_node.modify_ts == self.modify_ts and \
-                   (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
+        if is_seconds_precision_enough:
+            other_create_ts = int(other_create_ts/1000)
+            self_create_ts = int(self_create_ts/1000)
+            other_modify_ts = int(other_modify_ts/1000)
+            self_modify_ts = int(self_modify_ts/1000)
 
         # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
-        return other_node.create_ts == self.create_ts and \
-               other_node.modify_ts == self.modify_ts and \
+        return other_create_ts == self_create_ts and other_modify_ts == self_modify_ts and \
                (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
 
     def how_is_meta_not_equal(self, other_node) -> str:
@@ -292,6 +299,10 @@ class TNode(AbstractNode, HasParentList, ABC):
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
         self._icon = other_node._icon
+
+    def is_substantially_equal(self, other_node, is_seconds_precision_enough: bool) -> bool:
+        return self.name == other_node.name and self.is_meta_equal(other_node, is_seconds_precision_enough) \
+               and self.is_signature_equal(other_node)
 
 
 class NonexistentDirNode(TNode):

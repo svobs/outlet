@@ -131,7 +131,7 @@ class LocalDiskMasterStore(TreeStore):
 
         parent_spid: LocalNodeIdentifier = parent_dir.node_identifier
 
-        # Get children of target parent, and sort into dirs and nondirs:
+        # Get children of target parent, and sort into dirs and non-dirs:
         # Files can be removed in the main RefreshDirEntriesOp op, but dirs represent trees, so we will create a DeleteSubtreeOp for each.
         file_node_remove_list = []
         existing_child_list = self._get_child_list_from_cache_for_spid(parent_spid, only_if_all_children_fetched=False)
@@ -148,7 +148,7 @@ class LocalDiskMasterStore(TreeStore):
                     if TRACE_ENABLED:
                         logger.debug(f'overwrite_dir_entries_list(): checking signature for new child: {new_child}')
                     assert isinstance(new_child, LocalFileNode), f'Bad: {new_child}'
-                    new_child.copy_signature_if_is_meta_equal(existing_child)
+                    new_child.copy_signature_if_is_meta_equal(existing_child, self.backend.cacheman.is_seconds_precision_enough)
 
             dir_node_remove_list = []
             for node_to_remove in existing_child_dict.values():
