@@ -28,7 +28,7 @@ from error import CacheNotLoadedError, NodeNotPresentError
 from global_actions import GlobalActions
 from model.device import Device
 from model.gdrive_meta import GDriveUser, MimeType
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import GDriveIdentifier, GDriveSPID, NodeIdentifier, SinglePathNodeIdentifier
@@ -301,7 +301,7 @@ class GDriveMasterStore(TreeStore):
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self, subtree_root_node: GDriveFolder, tree_id: TreeID) -> Dict[UID, DirStats]:
         if TRACE_ENABLED:
             logger.debug(f'Entered generate_dir_stats(): tree_id={tree_id}, subtree_root_node={subtree_root_node}')
         return self._memstore.master_tree.generate_dir_stats(tree_id=tree_id, subtree_root_node=subtree_root_node)

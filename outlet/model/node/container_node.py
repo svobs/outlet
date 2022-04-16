@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from constants import ChangeTreeCategory, IconId, OBJ_TYPE_DIR, TreeType
 from error import InvalidOperationError
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.node import TNode
 from model.node_identifier import ChangeTreeSPID, SinglePathNodeIdentifier
 from model.uid import UID
@@ -20,7 +20,7 @@ class ContainerNode(TNode):
     """
     def __init__(self, node_identifier: SinglePathNodeIdentifier):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
-        self.dir_stats: Optional[DirectoryStats] = None
+        self.dir_stats: Optional[DirStats] = None
         TNode.__init__(self, node_identifier)
 
     def update_from(self, other_node):

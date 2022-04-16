@@ -7,8 +7,8 @@ from typing import DefaultDict, Dict, List, Optional, Set
 from pydispatch import dispatcher
 
 from be.exec.central import ExecPriority
-from be.exec.command.cmd_builder import CommandBuilder
-from be.exec.command.cmd_interface import Command
+from be.exec.cmd.cmd_builder import CommandBuilder
+from be.exec.cmd.cmd_interface import Command
 from be.exec.user_op.batch_graph_builder import BatchGraphBuilder
 from be.exec.user_op.op_disk_store import OpDiskStore
 from be.exec.user_op.op_graph import OpGraph

@@ -6,7 +6,7 @@ from be.disp_tree.filter_state import FilterState
 from constants import TreeID, TreeLoadState
 from model.disp_tree.display_tree import DisplayTreeUiState
 from be.disp_tree.root_path_config import RootPathConfigPersister
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node_identifier import GUID
 from model.uid import UID
 from signal_constants import ID_MERGE_TREE
@@ -39,8 +39,8 @@ class ActiveDisplayTreeMeta:
         self.selected_row_set: Set[GUID] = set()
 
         self.summary_msg: Optional[str] = None
-        self.dir_stats_unfiltered_by_uid: Dict[UID, DirectoryStats] = {}
-        self.dir_stats_unfiltered_by_guid: Dict[GUID, DirectoryStats] = {}
+        self.dir_stats_unfiltered_by_uid: Dict[UID, DirStats] = {}
+        self.dir_stats_unfiltered_by_guid: Dict[GUID, DirStats] = {}
         """A map containing the current stats for each dir node (with NO filter applied).
         See the filter_state for a map of stats WITH the filter applied"""
 

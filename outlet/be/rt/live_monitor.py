@@ -8,8 +8,8 @@ from pydispatch import dispatcher
 from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
-from be.realtime.batching_thread import LocalFileChangeBatchingThread
-from be.realtime.local_event_handler import LocalChangeEventHandler
+from be.rt.batching_thread import LocalFileChangeBatchingThread
+from be.rt.local_event_handler import LocalChangeEventHandler
 from constants import TreeID, TreeType
 from model.node_identifier import NodeIdentifier
 from signal_constants import ID_GDRIVE_POLLING_THREAD, Signal

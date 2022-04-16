@@ -8,7 +8,7 @@ from be.disp_tree.filter_state import FilterState
 from constants import TreeType
 from model.device import Device
 from model.node.container_node import CategoryNode, RootTypeNode
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node_identifier import GUID
 from model.uid import UID
 from model.user_op import ChangeTreeCategoryMeta
@@ -68,7 +68,7 @@ class TreeSummarizer:
             return TreeSummarizer._build_summary(root_stats, is_filtered, 'dir')
 
     @staticmethod
-    def _build_summary(stat: DirectoryStats, is_filtered: bool, dir_str: str) -> str:
+    def _build_summary(stat: DirStats, is_filtered: bool, dir_str: str) -> str:
         """For Order 1 trees (local master or gdrive master)"""
 
         total_bytes = stat.get_size_bytes() + stat.trashed_bytes
@@ -91,7 +91,7 @@ class TreeSummarizer:
         return f'{filter_pre}{size_hf} total in {total_files:n} file{file_s} & {total_dirs:n} {dir_str}{dir_s}{trashed_str}'
 
     @staticmethod
-    def _build_simple_summary(dir_stats: DirectoryStats, dir_str) -> str:
+    def _build_simple_summary(dir_stats: DirStats, dir_str) -> str:
         if not dir_stats or (not dir_stats.file_count and not dir_stats.dir_count):
             return '0 items'
         size = util.format.humanfriendlier_size(dir_stats.get_size_bytes())
@@ -119,7 +119,7 @@ class TreeSummarizer:
         return '. '.join(cat_summaries)
 
     @staticmethod
-    def _build_summary_cat_map(tree: ChangeTree, spid, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats]):
+    def _build_summary_cat_map(tree: ChangeTree, spid, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirStats]):
         include_empty_categories = False
         cat_count = 0
         if include_empty_categories:
@@ -140,7 +140,7 @@ class TreeSummarizer:
             return None
 
     @staticmethod
-    def _build_change_tree_summary(tree: ChangeTree, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirectoryStats], device_list: List[Device])\
+    def _build_change_tree_summary(tree: ChangeTree, filter_state: FilterState, dir_stats_dict: Dict[GUID, DirStats], device_list: List[Device])\
             -> str:
         # TODO: do we want to create a different summary for filtered views?
         if tree.is_super_root_tree:

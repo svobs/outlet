@@ -17,7 +17,7 @@ from be.disp_tree.change_tree import ChangeTree
 from be.disp_tree.context_menu_builder import ContextMenuBuilder
 from be.disp_tree.row_state_tracking import RowStateTracking
 from be.exec.central import ExecPriority
-from be.exec.command.cmd_interface import Command
+from be.exec.cmd.cmd_interface import Command
 from be.exec.user_op.op_manager import OpManager
 from be.sqlite.content_meta_db import ContentMeta
 from be.tree_store.gdrive.gdrive import GDriveMasterStore

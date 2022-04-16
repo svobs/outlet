@@ -5,7 +5,7 @@ from typing import Optional
 from be.sqlite.content_meta_db import ContentMeta
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TreeType
 from error import InvalidOperationError
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.node import TNode
 from model.node_identifier import GDriveIdentifier
 from model.uid import UID
@@ -150,7 +150,7 @@ class GDriveFolder(GDriveNode):
                  is_shared, shared_by_user_uid, sync_ts, all_children_fetched):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
-        self.dir_stats: Optional[DirectoryStats] = None
+        self.dir_stats: Optional[DirStats] = None
 
         self.all_children_fetched: bool = ensure_bool(all_children_fetched)
         """If true, all its children have been fetched from Google"""

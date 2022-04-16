@@ -10,7 +10,7 @@ from py7zr import SevenZipFile
 from pydispatch import dispatcher
 
 from be.backend_integrated import BackendIntegrated
-from be.exec.command.cmd_interface import Command
+from be.exec.cmd.cmd_interface import Command
 from be.sqlite.op_db import OpDatabase
 from ui.gtk.gtk_frontend import OutletApplication
 from app_config import AppConfig

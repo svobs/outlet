@@ -12,7 +12,7 @@ from be.disp_tree.active_tree_meta import ActiveDisplayTreeMeta
 from be.disp_tree.change_tree import ChangeTree
 from be.disp_tree.filter_state import FilterState
 from be.disp_tree.root_path_config import RootPathConfigPersister
-from be.realtime.live_monitor import LiveMonitor
+from be.rt.live_monitor import LiveMonitor
 from constants import GDRIVE_ROOT_UID, LOCAL_ROOT_UID, NULL_UID, STATS_REFRESH_HOLDOFF_TIME_MS, TreeDisplayMode, \
     TreeID, TreeLoadState, TreeType
 from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED

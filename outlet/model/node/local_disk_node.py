@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from be.sqlite.content_meta_db import ContentMeta
 from constants import IconId, IS_MACOS, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.node import TNode
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
@@ -104,7 +104,7 @@ class LocalDirNode(LocalNode):
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool, sync_ts: Optional[int],
                  create_ts: Optional[int], modify_ts: Optional[int], change_ts: Optional[int], all_children_fetched: bool):
         LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live, sync_ts, create_ts, modify_ts, change_ts)
-        self.dir_stats: Optional[DirectoryStats] = None
+        self.dir_stats: Optional[DirStats] = None
         self.all_children_fetched: bool = ensure_bool(all_children_fetched)
 
     def update_from(self, other_node):

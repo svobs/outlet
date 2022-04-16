@@ -20,7 +20,7 @@ from error import NodeNotPresentError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
 from model.device import Device
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
@@ -374,7 +374,7 @@ class LocalDiskMasterStore(TreeStore):
         assert isinstance(node_identifier, LocalNodeIdentifier)
         self._load_subtree_from_disk_for_identifier(this_task, node_identifier, tree_id, force_rescan_disk=True)
 
-    def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self, subtree_root_node: LocalNode, tree_id: TreeID) -> Dict[UID, DirStats]:
         """Generate DirStatsDict for the given subtree, with no filter applied"""
         return self._memstore.master_tree.generate_dir_stats(tree_id, subtree_root_node)
 

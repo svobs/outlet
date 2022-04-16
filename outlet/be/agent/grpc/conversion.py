@@ -11,7 +11,7 @@ from model.disp_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.disp_tree.filter_criteria import FilterCriteria, Ternary
 from model.disp_tree.tree_action import TreeAction
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import TNode, NonexistentDirNode, SPIDNodePair
@@ -196,8 +196,8 @@ class GRPCConverter:
         return node
 
     @staticmethod
-    def dir_stats_from_grpc(dir_meta: be.agent.grpc.generated.Node_pb2.DirMeta) -> DirectoryStats:
-        dir_stats = DirectoryStats()
+    def dir_stats_from_grpc(dir_meta: be.agent.grpc.generated.Node_pb2.DirMeta) -> DirStats:
+        dir_stats = DirStats()
         if dir_meta.has_data:
             dir_stats.file_count = dir_meta.file_count
             dir_stats.dir_count = dir_meta.dir_count
@@ -210,7 +210,7 @@ class GRPCConverter:
         return dir_stats
 
     @staticmethod
-    def dir_stats_to_grpc(dir_stats: DirectoryStats, dir_meta_parent):
+    def dir_stats_to_grpc(dir_stats: DirStats, dir_meta_parent):
         if dir_stats:
             dir_meta_parent.dir_meta.has_data = True
             dir_meta_parent.dir_meta.file_count = dir_stats.file_count
@@ -524,8 +524,8 @@ class GRPCConverter:
 
     def _convert_stats_and_status(self, stats_update, kwargs):
         kwargs['status_msg'] = stats_update.status_msg
-        dir_stats_dict_by_guid: Dict[GUID, DirectoryStats] = {}
-        dir_stats_dict_by_uid: Dict[UID, DirectoryStats] = {}
+        dir_stats_dict_by_guid: Dict[GUID, DirStats] = {}
+        dir_stats_dict_by_uid: Dict[UID, DirStats] = {}
         for dir_meta_grpc in stats_update.dir_meta_by_guid_list:
             dir_stats = self.dir_stats_from_grpc(dir_meta_grpc.dir_meta)
             dir_stats_dict_by_guid[dir_meta_grpc.guid] = dir_stats

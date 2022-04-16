@@ -4,7 +4,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, Generic, List, Optional, TypeVar
 
 from util.stopwatch_sec import Stopwatch
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from constants import TrashStatus, TreeID
 from logging_constants import TRACE_ENABLED
 
@@ -55,11 +55,11 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
         return n
 
     def generate_dir_stats(self, tree_id: TreeID, subtree_root_node: Optional[NodeT] = None) \
-            -> Dict[IdentifierT, DirectoryStats]:
+            -> Dict[IdentifierT, DirStats]:
         logger.debug(f'[{tree_id}] Generating unfiltered stats for tree, subtree_root_node={subtree_root_node}')
         stats_sw = Stopwatch()
 
-        dir_stats_dict: Dict[IdentifierT, DirectoryStats] = {}
+        dir_stats_dict: Dict[IdentifierT, DirStats] = {}
 
         if not subtree_root_node:
             subtree_root_node = self.get_root_node()
@@ -80,7 +80,7 @@ class BaseTree(Generic[IdentifierT, NodeT], ABC):
             node = second_pass_stack.pop()
             assert self.extract_node_func(node).is_dir()
 
-            dir_stats = DirectoryStats()
+            dir_stats = DirStats()
 
             child_list = self.get_child_list_for_node(node)
             if child_list:

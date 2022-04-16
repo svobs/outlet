@@ -10,7 +10,7 @@ from uuid import UUID
 
 from pydispatch import dispatcher
 
-from be.exec.command.cmd_executor import CommandExecutor
+from be.exec.cmd.cmd_executor import CommandExecutor
 from constants import CENTRAL_EXEC_THREAD_NAME, CFG_ENABLE_OP_EXECUTION, EngineSummaryState, OP_EXECUTION_THREAD_NAME, \
     TASK_EXEC_IMEOUT_SEC, TASK_RUNNER_MAX_CONCURRENT_USER_OP_TASKS, TASK_RUNNER_MAX_COCURRENT_NON_USER_OP_TASKS, \
     TASK_TIME_WARNING_THRESHOLD_SEC

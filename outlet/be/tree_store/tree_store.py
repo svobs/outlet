@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from be.disp_tree.filter_state import FilterState
 from constants import TreeID
 from model.device import Device
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.uid import UID
 from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
@@ -121,7 +121,7 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def generate_dir_stats(self, subtree_root_node: TNode, tree_id: TreeID) -> Dict[UID, DirectoryStats]:
+    def generate_dir_stats(self, subtree_root_node: TNode, tree_id: TreeID) -> Dict[UID, DirStats]:
         pass
 
     @abstractmethod

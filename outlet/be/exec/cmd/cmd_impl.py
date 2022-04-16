@@ -3,7 +3,7 @@ import mimetypes
 import os
 from typing import List, Optional
 
-from be.exec.command.cmd_interface import Command, CommandContext, CopyNodeCommand, DeleteNodeCommand, FinishCopyToDirCommand, \
+from be.exec.cmd.cmd_interface import Command, CommandContext, CopyNodeCommand, DeleteNodeCommand, FinishCopyToDirCommand, \
     TwoNodeCommand, UserOpResult, UserOpStatus
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus, TreeType
 from error import GDriveItemNotFoundError, IdenticalFileExistsError, InvalidOperationError

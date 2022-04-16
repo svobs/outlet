@@ -8,7 +8,7 @@ from constants import ChangeTreeCategory, ROOT_PATH, SUPER_ROOT_UID
 from logging_constants import DIFF_DEBUG_ENABLED, SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.disp_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import ChangeTreeSPID, GUID, SinglePathNodeIdentifier
 from model.user_op import ChangeTreeCategoryMeta, UserOp, UserOpCode
@@ -335,5 +335,5 @@ class ChangeTree(DisplayTree):
         return f'ChangeTree(state=[{self.state}], {len(self._category_tree)} nodes, ' \
                f'errors={self.count_conflict_errors}, warnings={self.count_conflict_warnings})'
 
-    def generate_dir_stats(self) -> Dict[GUID, DirectoryStats]:
+    def generate_dir_stats(self) -> Dict[GUID, DirStats]:
         return self._category_tree.generate_dir_stats(self.tree_id)

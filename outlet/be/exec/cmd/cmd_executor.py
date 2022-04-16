@@ -5,7 +5,7 @@ import logging
 
 from logging_constants import SUPER_DEBUG_ENABLED
 from util import file_util
-from be.exec.command.cmd_interface import Command, CommandContext, UserOpStatus
+from be.exec.cmd.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal
 from util.ensure import ensure_bool
 from util.has_lifecycle import HasLifecycle

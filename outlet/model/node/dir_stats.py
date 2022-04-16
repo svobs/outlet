@@ -2,10 +2,10 @@ from constants import TrashStatus
 from typing import Optional
 
 
-class DirectoryStats:
+class DirStats:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS DirectoryStats
+    CLASS DirStats
 
     Represents a generic directory (i.e. not an LocalFileNode or domain object) which contains metadeta about its
     enclosed descendants.
@@ -26,7 +26,7 @@ class DirectoryStats:
                f'trash: {self.trashed_file_count}f {self.trashed_dir_count}d {self.trashed_bytes}b)'
 
     def update_from(self, other):
-        if not isinstance(other, DirectoryStats):
+        if not isinstance(other, DirStats):
             raise RuntimeError(f'Bad: {other} (we are: {self})')
         self.file_count = other.file_count
         self.trashed_file_count = other.trashed_file_count
@@ -41,7 +41,7 @@ class DirectoryStats:
         self.dir_count = 0
 
     def add_dir_stats(self, child_dir_stats):
-        assert isinstance(child_dir_stats, DirectoryStats)
+        assert isinstance(child_dir_stats, DirStats)
         self._size_bytes += child_dir_stats._size_bytes
         self.dir_count += child_dir_stats.dir_count
         self.file_count += child_dir_stats.file_count

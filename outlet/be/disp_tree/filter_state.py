@@ -5,7 +5,7 @@ from typing import Deque, Dict, List
 from constants import TrashStatus, TreeID, TreeType, UI_STATE_CFG_SEGMENT
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.disp_tree.filter_criteria import FilterCriteria, Ternary
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
 from util.ensure import ensure_bool
@@ -28,7 +28,7 @@ class FilterState:
         self.filter: FilterCriteria = filter_criteria
         self.root_sn: SPIDNodePair = root_sn
         self.cached_node_dict: Dict[GUID, List[SPIDNodePair]] = {}
-        self.cached_dir_stats: Dict[GUID, DirectoryStats] = {}
+        self.cached_dir_stats: Dict[GUID, DirStats] = {}
 
     def __repr__(self):
         return f'FilterState(root={self.root_sn.spid}, cached_node_dict size={len(self.cached_node_dict)} ' \
@@ -79,7 +79,7 @@ class FilterState:
         subtree_root_node = self.root_sn.node
         logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
         node_dict: Dict[GUID, List[SPIDNodePair]] = {}
-        dir_stats_dict: Dict[GUID, DirectoryStats] = {}
+        dir_stats_dict: Dict[GUID, DirStats] = {}
 
         dir_queue: Deque[SPIDNodePair] = deque()
         second_pass_stack: Deque[SPIDNodePair] = deque()
@@ -109,7 +109,7 @@ class FilterState:
             # Calculate DirStats also. Compare with BaseTree.generate_dir_stats()
             dir_stats = dir_stats_dict.get(parent_guid, None)
             if not dir_stats:
-                dir_stats = DirectoryStats()
+                dir_stats = DirStats()
                 dir_stats_dict[parent_guid] = dir_stats
 
             for child_sn in child_list:
@@ -148,7 +148,7 @@ class FilterState:
         Builds the node cache and the dir stats.
         """
         filtered_list: List[SPIDNodePair] = []
-        dir_stats = DirectoryStats()  # Treat the whole list like one dir
+        dir_stats = DirStats()  # Treat the whole list like one dir
         queue: Deque[SPIDNodePair] = deque()
         for sn in parent_tree.get_child_list_for_spid(self.root_sn.spid):
             queue.append(sn)
@@ -221,7 +221,7 @@ class FilterState:
         logger.info(f'Got {len(sn_list)} child nodes for parent GUID: {guid}')
         return sn_list
 
-    def get_dir_stats(self) -> Dict[GUID, DirectoryStats]:
+    def get_dir_stats(self) -> Dict[GUID, DirStats]:
         assert self.cached_dir_stats
         return self.cached_dir_stats
 

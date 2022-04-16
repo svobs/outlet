@@ -1,13 +1,13 @@
 import logging
 from typing import Callable, Dict, Optional
 
-from be.exec.command.cmd_impl import CopyFileWithinGDriveCommand, CopyFileLocalToLocalCommand, CreateGDriveFolderCommand, \
+from be.exec.cmd.cmd_impl import CopyFileWithinGDriveCommand, CopyFileLocalToLocalCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveNodeCommand, DeleteLocalNodeCommand, \
     CopyFileGDriveToLocalCommand, \
     FinishCopyToGDriveFolderCommand, FinishCopyToLocalDirCommand, MoveFileWithinGDriveCommand, \
     MoveFileLocalToLocalCommand, \
     CopyFileLocalToGDriveCommand, StartCopyToGDriveFolderCommand, StartCopyToLocalDirCommand
-from be.exec.command.cmd_interface import Command
+from be.exec.cmd.cmd_interface import Command
 from constants import TreeType
 from model.node.node import TNode
 from model.user_op import UserOp, UserOpCode

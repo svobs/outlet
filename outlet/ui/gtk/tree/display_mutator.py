@@ -14,7 +14,7 @@ from global_actions import GlobalActions
 from model.disp_tree.build_struct import RowsOfInterest
 from model.disp_tree.filter_criteria import FilterCriteria
 from model.node.container_node import CategoryNode
-from model.node.directory_stats import DirectoryStats
+from model.node.dir_stats import DirStats
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, NodeIdentifier, SinglePathNodeIdentifier
@@ -584,7 +584,7 @@ class DisplayMutator(HasLifecycle):
         raise NotImplementedError  # FIXME
 
     def _on_stats_updated(self, sender: str, status_msg: str,
-                          dir_stats_dict_by_guid: Dict[GUID, DirectoryStats], dir_stats_dict_by_uid: Dict[UID, DirectoryStats]):
+                          dir_stats_dict_by_guid: Dict[GUID, DirStats], dir_stats_dict_by_uid: Dict[UID, DirStats]):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         listed in each dict with the current values from the cache."""
         if sender != self.con.tree_id:
@@ -592,8 +592,8 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.STATS_UPDATED.name}"')
         self._update_stats(sender, status_msg, dir_stats_dict_by_guid, dir_stats_dict_by_uid)
 
-    def _update_stats(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict[GUID, DirectoryStats],
-                      dir_stats_dict_by_uid: Dict[UID, DirectoryStats]):
+    def _update_stats(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict[GUID, DirStats],
+                      dir_stats_dict_by_uid: Dict[UID, DirStats]):
 
         def redraw_displayed_node(tree_iter):
             if self._is_shutdown:
