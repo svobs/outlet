@@ -253,11 +253,6 @@ class TNode(AbstractNode, HasParentList, ABC):
             if other_modify_ts:
                 other_modify_ts = int(other_modify_ts/1000)
 
-        if not self_create_ts or not self_modify_ts:
-            raise RuntimeError(f'Failed to get either create_ts ({self_create_ts}) or modify_ts ({self_modify_ts}) from other: {self}')
-        if not other_create_ts or not other_modify_ts:
-            raise RuntimeError(f'Failed to get either create_ts ({other_create_ts}) or modify_ts ({other_modify_ts}) from other: {other_node}')
-
         # Note that change_ts is not included, since this cannot be changed easily (and doesn't seem to be crucial to our purposes anyway)
         return other_create_ts == self_create_ts and other_modify_ts == self_modify_ts and \
             (not self.is_file() or (other_node.get_size_bytes() == self.get_size_bytes()))
