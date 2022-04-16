@@ -2,7 +2,7 @@ import logging
 import sys
 from main import bootstrap
 import util.main_util
-from backend.backend_integrated import BackendIntegrated
+from be.backend_integrated import BackendIntegrated
 
 from ui.gtk.gtk_frontend import OutletApplication
 

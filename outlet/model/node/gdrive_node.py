@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from backend.sqlite.content_meta_db import ContentMeta
+from be.sqlite.content_meta_db import ContentMeta
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TreeType
 from error import InvalidOperationError
 from model.node.directory_stats import DirectoryStats

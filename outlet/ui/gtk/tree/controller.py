@@ -3,7 +3,7 @@ from typing import List
 from pydispatch import dispatcher
 
 from logging_constants import SUPER_DEBUG_ENABLED
-from model.display_tree.display_tree import DisplayTree
+from model.disp_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
 from ui.gtk.dialog.base_dialog import BaseDialog

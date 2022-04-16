@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from pydispatch import dispatcher
 
 from constants import TreeID, TreeLoadState
-from model.display_tree.display_tree import DisplayTree
+from model.disp_tree.display_tree import DisplayTree
 from model.node.node import TNode, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory

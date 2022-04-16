@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TreeLoadState, TreeType
 from model.device import Device
-from model.display_tree.display_tree import DisplayTree
+from model.disp_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal

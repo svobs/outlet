@@ -3,10 +3,10 @@ from typing import List, Optional, Set
 
 from pydispatch import dispatcher
 
-from backend.diff.change_tree_builder import SPIDNodePair
+from be.diff.change_tree_builder import SPIDNodePair
 from constants import ActionID, DirConflictPolicy, DragOperation, FileConflictPolicy
-from model.display_tree.display_tree import DisplayTree
-from model.display_tree.tree_action import TreeAction
+from model.disp_tree.display_tree import DisplayTree
+from model.disp_tree.tree_action import TreeAction
 from model.node_identifier import GUID
 from model.uid import UID
 from signal_constants import Signal

@@ -8,7 +8,7 @@ from constants import APP_NAME, DEFAULT_MAIN_WIN_HEIGHT, DEFAULT_MAIN_WIN_WIDTH,
     IconId, \
     UI_STATE_CFG_SEGMENT, WIN_SIZE_STORE_DELAY_MS
 from global_actions import GlobalActions
-from model.display_tree.display_tree import DisplayTree
+from model.disp_tree.display_tree import DisplayTree
 from model.node_identifier import GUID
 from signal_constants import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from ui.gtk.dialog.base_dialog import BaseDialog

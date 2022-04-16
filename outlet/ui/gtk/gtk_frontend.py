@@ -5,8 +5,8 @@ from typing import Dict, Optional
 
 from pydispatch import dispatcher
 
-from backend.backend_interface import OutletBackend
-from backend.uid.uid_generator import SimpleUidGenerator
+from be.backend_interface import OutletBackend
+from be.uid.uid_generator import SimpleUidGenerator
 from constants import TreeID
 from signal_constants import Signal
 from signal_constants import ID_MAIN_WINDOW

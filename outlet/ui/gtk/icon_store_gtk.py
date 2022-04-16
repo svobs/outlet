@@ -1,4 +1,4 @@
-from backend.icon_store import IconStore, SimpleIcon
+from be.icon_store import IconStore, SimpleIcon
 from constants import IconId
 
 import gi

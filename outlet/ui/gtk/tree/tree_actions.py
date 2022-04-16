@@ -4,7 +4,7 @@ import subprocess
 from typing import List
 
 from constants import ActionID, OPEN, SHOW
-from model.display_tree.tree_action import TreeAction
+from model.disp_tree.tree_action import TreeAction
 from model.node.gdrive_node import GDriveFile
 from model.node.node import TNode, SPIDNodePair
 from signal_constants import Signal

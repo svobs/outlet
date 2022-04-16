@@ -3,7 +3,7 @@ import pathlib
 from abc import ABC
 from typing import Optional, Tuple
 
-from backend.sqlite.content_meta_db import ContentMeta
+from be.sqlite.content_meta_db import ContentMeta
 from constants import IconId, IS_MACOS, NULL_UID, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.directory_stats import DirectoryStats

@@ -11,8 +11,8 @@ from constants import IconId, MAX_NUMBER_DISPLAYABLE_CHILD_NODES, TreeDisplayMod
 from logging_constants import SUPER_DEBUG_ENABLED
 from error import GetChildListFailedError
 from global_actions import GlobalActions
-from model.display_tree.build_struct import RowsOfInterest
-from model.display_tree.filter_criteria import FilterCriteria
+from model.disp_tree.build_struct import RowsOfInterest
+from model.disp_tree.filter_criteria import FilterCriteria
 from model.node.container_node import CategoryNode
 from model.node.directory_stats import DirectoryStats
 from model.node.ephemeral_node import EmptyNode, LoadingNode

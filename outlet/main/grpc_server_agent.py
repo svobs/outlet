@@ -1,7 +1,7 @@
 #!/usr/local/bin/python3
 from main import bootstrap
 import sys
-from backend.agent.server.backend_grpc_server import OutletAgent
+from be.agent.svr.be_grpc_server import OutletAgent
 import logging
 
 from util import main_util

@@ -4,7 +4,7 @@ import sys
 from main import bootstrap
 from util import main_util, daemon_util
 from ui.gtk.gtk_frontend import OutletApplication
-from backend.agent.client.grpc_client import BackendGRPCClient
+from be.agent.client.grpc_client import BackendGRPCClient
 from util.ensure import ensure_bool
 
 logger = logging.getLogger(__name__)
