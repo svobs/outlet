@@ -199,7 +199,7 @@ class LocalDiskMasterStore(TreeStore):
         """
 
         if not os.path.exists(subtree_root.get_single_path()):
-            logger.warning(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
+            logger.warning(f'Cannot load meta for local disk subtree because it does not exist: "{subtree_root.get_single_path()}"')
             return
 
         self._ensure_uid_consistency(subtree_root)

@@ -9,6 +9,7 @@ from logging_constants import TRACE_ENABLED
 from model.node.node import AbstractNode, TNode
 from model.uid import UID
 from model.user_op import UserOp, UserOpStatus, UserOpCode
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,7 @@ class OpGraphNode(AbstractNode, ABC):
         Since this is a graph (with some nodes having multiple parents) and not a tree, we have the additional condition that
         nodes which have multiple parents are not included until after all of its parents.
         """
+        sw = Stopwatch()
         ogn_bfs_list: List[OpGraphNode] = []
 
         if not coverage_dict:
@@ -227,6 +229,7 @@ class OpGraphNode(AbstractNode, ABC):
                             logger.debug(f'get_subgraph_bfs_list(): Examining children of OGN: {ogn}')
                         queue.append(child_ogn)
 
+        logger.debug(f'{sw} get_subgraph_bfs_list(): returning {len(ogn_bfs_list)} ops')
         return ogn_bfs_list
 
     def is_this_tgt_a_descendant_of_ogn_tgt(self, ogn_other):

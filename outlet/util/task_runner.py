@@ -41,7 +41,7 @@ class Task:
 
     def run(self):
         self.task_start_time_ms = time_util.now_ms()
-        logger.info(f'Task starting: "{self.task_func.__name__}", {self.priority.name}, {self.task_uuid}')
+        logger.info(f'Task starting: "{self.task_func.__name__}" P{self.priority} {self.task_uuid}')
         task_time = Stopwatch()  # TODO: maybe just use task_start_time_ms and get rid of this var
         try:
             if not self._args or len(self._args) == 0:
@@ -61,7 +61,7 @@ class Task:
             raise
         finally:
             # TODO: success msg
-            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}", {self.priority.name}, {self.task_uuid}')
+            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}" P{self.priority} {self.task_uuid}')
 
     def add_next_task(self, next_task_func: Callable, *args):
         """Adds the given task to the end of the chain of tasks"""
