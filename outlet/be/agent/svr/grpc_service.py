@@ -210,7 +210,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             dir_stats_dict_by_guid = {}  # for safety when logging
         if dir_stats_dict_by_uid is None:
             dir_stats_dict_by_uid = {}  # for safety
-        logger.info(f'[{sender}] Pushing DirStats update across gRPC for {len(dir_stats_dict_by_guid)} GUIDs, {len(dir_stats_dict_by_uid)} UIDs')
+        logger.debug(f'[{sender}] Pushing DirStats update across gRPC for {len(dir_stats_dict_by_guid)} GUIDs, {len(dir_stats_dict_by_uid)} UIDs')
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_load_state_updated(self, sender: str, tree_load_state: TreeLoadState, status_msg: str,

@@ -278,11 +278,11 @@ class OpManager(HasLifecycle):
 
         logger.info(f'Submitting next op batch: batch_uid={next_batch.batch_uid} with {len(next_batch.op_list)} ops')
 
-        if len(next_batch.op_list) == 0:
-            raise RuntimeError(f'Failed to submit batch: batch has no ops!')
-
         if self._cancel_batch_if_needed(batch=next_batch):
             return
+
+        if len(next_batch.op_list) == 0:
+            raise RuntimeError(f'Failed to submit batch: batch has no ops!')
 
         try:
             batch_graph_root: RootNode = self._batch_graph_builder.build_batch_graph(next_batch.op_list, self)
@@ -370,18 +370,21 @@ class OpManager(HasLifecycle):
             # Pop the batch override (if any) - it is only good for a single use
             error_strategy: ErrorHandlingStrategy = self._error_handling_batch_override_dict.get(batch.batch_uid)
             if error_strategy == ErrorHandlingStrategy.CANCEL_BATCH:
-                logger.debug(f'User cancelled batch {batch.batch_uid}')
+                logger.info(f'User cancelled batch {batch.batch_uid}')
                 # remove from dict:
                 self._error_handling_batch_override_dict.pop(batch.batch_uid)
                 self._cancel_batch(batch)
+
+                # There may be another batch in the queue: try to process that if applicable
+                self.try_batch_submit()
+                return True
+            elif error_strategy == ErrorHandlingStrategy.PROMPT:
+                logger.info(f'Error handling strategy for batch {batch.batch_uid} is set to PROMPT: doing nothing for now')
+                return True
             else:
                 if TRACE_ENABLED:
                     logger.debug(f'No user cancellation for batch {batch.batch_uid}')
                 return False
-
-        # There may be another batch in the queue: try to process that if applicable
-        self.try_batch_submit()
-        return True
 
     def _on_batch_error_fight_or_flight(self, msg: str, secondary_msg: str, batch: Batch):
         """Executed AFTER batch insert error occured"""
@@ -394,6 +397,7 @@ class OpManager(HasLifecycle):
                 logger.debug(f'OnBatchError(): falling back to default error_strategy ({self._default_error_handling_strategy.name}) '
                              f'for batch {batch.batch_uid}')
                 error_strategy = self._default_error_handling_strategy
+                self._error_handling_batch_override_dict[batch.batch_uid] = error_strategy
 
         if error_strategy == ErrorHandlingStrategy.PROMPT:
             dispatcher.send(signal=Signal.BATCH_FAILED, sender=ID_OP_MANAGER, msg=msg, secondary_msg=secondary_msg,
