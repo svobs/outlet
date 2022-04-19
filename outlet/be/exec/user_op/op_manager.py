@@ -258,7 +258,7 @@ class OpManager(HasLifecycle):
     def _get_next_batch_in_queue(self) -> Optional[Batch]:
         with self._lock:
             if len(self._pending_batch_dict) == 0:
-                logger.debug(f'No pending batches to submit!.')
+                logger.debug(f'No pending batches to submit')
                 return None
             if not self._are_batches_loaded_from_last_run:
                 logger.info(f'Startup not finished. Returning for now')

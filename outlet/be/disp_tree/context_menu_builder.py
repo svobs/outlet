@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Dict, List, Optional
 
-from constants import ActionID, DATE_REGEX, MenuItemType, TreeID, TreeType
+from constants import ActionID, DATE_REGEX, IS_MACOS, IS_WINDOWS, MenuItemType, TreeID, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.context_menu import ContextMenuItem
 from model.device import Device
@@ -165,14 +165,33 @@ class ContextMenuBuilder(HasLifecycle):
     def _build_menu_items_for_single_node(self, sn: SPIDNodePair, tree_id: TreeID) -> List[ContextMenuItem]:
         """Generic method which dynamically builds a list of items for a single node."""
         if sn.node.is_container_node():
+            # TODO: dereference in CacheMan
             return []
 
         tree_type = self.backend.cacheman.get_tree_type_for_device_uid(sn.spid.device_uid)
         menu_item_list = []
 
+        tree_meta = self.backend.cacheman.get_active_display_tree_meta(tree_id)
+        if not tree_meta:
+            raise RuntimeError(f'No DisplayTreeMeta found for tree_id "{tree_id}"')
+
+        # MenuItem: 'Change Root of Tree to {dir}'
+        if sn.node.is_live() and sn.node.is_dir():
+            if tree_meta.can_change_root():
+                title = f'Change Current Root of Tree to "{sn.node.name}"'
+                item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=title, action_id=ActionID.GO_INTO_DIR)
+                item.target_guid_list = [sn.spid.guid]
+                menu_item_list.append(item)
+
         # MenuItem: 'Show in Nautilus'
         if sn.node.is_live() and tree_type == TreeType.LOCAL_DISK:
-            item = ContextMenuItem(item_type=MenuItemType.NORMAL, title='Show in File Explorer', action_id=ActionID.SHOW_IN_FILE_EXPLORER)
+            if IS_MACOS:
+                prog = 'Finder'
+            elif IS_WINDOWS:
+                prog = 'Windows Explorer'
+            else:
+                prog = 'File Explorer'
+            item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Show in {prog}', action_id=ActionID.SHOW_IN_FILE_EXPLORER)
             item.target_guid_list = [sn.spid.guid]
             menu_item_list.append(item)
 
@@ -192,18 +211,8 @@ class ContextMenuBuilder(HasLifecycle):
             # We have already filtered out container nodes, so this only leaves us with planning nodes
             menu_item_list.append(ContextMenuItem.make_italic_disabled('Does not exist'))
 
-        tree_meta = self.backend.cacheman.get_active_display_tree_meta(tree_id)
-        if not tree_meta:
-            raise RuntimeError(f'No DisplayTreeMeta found for tree_id "{tree_id}"')
-
         if sn.node.is_live():
             if sn.node.is_dir():
-                # MenuItem: 'Go Into {dir}'
-                if tree_meta.can_change_root():
-                    item = ContextMenuItem(item_type=MenuItemType.NORMAL, title=f'Go Into "{sn.node.name}"', action_id=ActionID.GO_INTO_DIR)
-                    item.target_guid_list = [sn.spid.guid]
-                    menu_item_list.append(item)
-
                 # MenuItem: 'Use EXIFTool on dir'
                 if tree_type == TreeType.LOCAL_DISK:
                     match = re.match(DATE_REGEX, sn.node.name)

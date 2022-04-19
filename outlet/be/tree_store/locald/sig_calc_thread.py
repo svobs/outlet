@@ -7,7 +7,7 @@ from typing import Deque, List, Set
 from uuid import UUID
 
 from be.exec.central import ExecPriority
-from logging_constants import TRACE_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.locald_node import LocalFileNode, LocalNode
 from model.node_identifier import NodeIdentifier
 from model.uid import UID
@@ -81,7 +81,8 @@ class SigCalcBatchingThread(HasLifecycle, threading.Thread):
                     self._cv_can_get.wait()
                     continue
                 elif len(self._running_task_set) > 0:
-                    logger.debug(f'[{self.name}] Prev batch has not yet returned. Will wait until notified')
+                    if SUPER_DEBUG_ENABLED:
+                        logger.debug(f'[{self.name}] Prev batch has not yet returned. Will wait until notified')
                     self._cv_can_get.wait()
                     continue
 
