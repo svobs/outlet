@@ -107,7 +107,7 @@ class ChangeTree(DisplayTree):
         return self._op_list
 
     def get_op_list_for_guid(self, guid: GUID) -> List[UserOp]:
-        return self._op_dict.get(guid, None)
+        return self._op_dict.get(guid, [])
 
     def append_mkdir(self, sn: SPIDNodePair, mkdir_op: UserOp):
         """MKDIR is a special type of op, because it may be needed for MV or CP (i.e. upstream of disparate operation types) but also might be

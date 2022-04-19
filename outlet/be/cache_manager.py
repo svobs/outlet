@@ -889,6 +889,9 @@ class CacheManager(HasLifecycle):
             return None
 
     def get_all_files_with_content(self, content_uid: UID) -> List[TNode]:
+        """
+        Very expensive: Requires loading ALL the stores + ALL the nodes!
+        """
         global_file_list: List[TNode] = []
         for device_uid, cache_info_list in self._cache_registry.get_all_cache_info_by_device_uid().items():
             if SUPER_DEBUG_ENABLED:
@@ -936,6 +939,14 @@ class CacheManager(HasLifecycle):
 
     def retry_all_failed_ops(self):
         return self._op_manager.retry_all_failed_ops()
+
+    def get_op_list_for_change_tree_guid(self, guid: GUID, tree_id: TreeID) -> List[UserOp]:
+        tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
+        if tree_meta.change_tree:
+            op_list = tree_meta.change_tree.get_op_list_for_guid(guid)
+            logger.debug(f'[{tree_id}] Found {len(op_list)} ops in ChangeTree for GUID {guid}')
+            return op_list
+        return []
 
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

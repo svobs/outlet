@@ -52,6 +52,15 @@ class ContextMenuBuilder(HasLifecycle):
         single_path = sn.spid.get_single_path()
 
         op: Optional[UserOp] = self.backend.cacheman.get_last_pending_op_for_node(device_uid=sn.node.device_uid, node_uid=sn.node.uid)
+        is_op_draft_only: bool = False
+
+        if not op:
+            # Maybe there's no op enqueued, but maybe we're looking at a change tree (such as the result of a diff) which has a corresponding op:
+            op_list = self.backend.cacheman.get_op_list_for_change_tree_guid(guid=sn.spid.guid, tree_id=tree_id)
+            if op_list:
+                op = op_list[0]  # START_DIR_*/FINISH_DIR_* pair? Just grab the first one
+                is_op_draft_only = True
+
         if op and op.has_dst():
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Building context menu for op: {op}')
@@ -60,8 +69,13 @@ class ContextMenuBuilder(HasLifecycle):
             retry_op_menu_item = None
             op_label = ChangeTreeCategoryMeta.op_label(ChangeTreeCategoryMeta.category_for_op_type(op.op_type))
             if op.get_status() == UserOpStatus.NOT_STARTED:
-                title = f'Pending Operation: "{op_label}"'
+                if is_op_draft_only:
+                    desc = 'Potential'
+                else:
+                    desc = 'Pending'
+                title = f'{desc} Operation: "{op_label}"'
             elif op.get_status() == UserOpStatus.EXECUTING:
+                assert not is_op_draft_only, f'Op is screwy: {op}'
                 title = f'Currently Executing Operation: "{op_label}"'
             elif op.get_status() == UserOpStatus.STOPPED_ON_ERROR:
                 title = f'Failed Operation: "{op_label}"'
