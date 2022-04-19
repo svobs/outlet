@@ -64,6 +64,9 @@ class LocalDiskMemoryStore:
         """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
         Second item in the tuple is True if update contained changes which should be saved to disk; False if otherwise"""
 
+        # FIXME: replace returned Tuple with object which specifies whether UI should be updated + whether DB should be updated
+        # FIXME: currently we are sending everything to the FE. We should send to the FE only if changed OR icon updated
+
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting to memstore: {node}')
 

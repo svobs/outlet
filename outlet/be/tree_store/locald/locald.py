@@ -3,10 +3,12 @@ import logging
 import math
 import os
 import pathlib
+import threading
 from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
+from be.exec.central import ExecPriority
 from be.disp_tree.filter_state import FilterState
 from be.tree_store.locald.ld_diskstore import LocalDiskDiskStore
 from be.tree_store.locald.ld_fs_scanner import LocalDiskTreeScanner
@@ -15,7 +17,7 @@ from be.tree_store.locald.op_write import BatchChangesOp, DeleteSingleNodeOp, De
     LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
 from be.tree_store.tree_store import TreeStore
 from be.uid.uid_mapper import UidPathMapper
-from constants import IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
+from constants import CACHE_LOAD_TIMEOUT_SEC, IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
 from error import NodeNotPresentError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
@@ -713,29 +715,55 @@ class LocalDiskMasterStore(TreeStore):
         logger.debug(f'_get_child_list_from_cache_for_spid(): both in-memory and disk caches missed: {parent_spid}')
         return None
 
-    def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
+    def _load_cache_synchronously_for(self, spid: LocalNodeIdentifier, tree_id: TreeID) -> bool:
+        """
+        Launches a Task in the Central Executor to (possibly download) and laod the GDrive tree into memory, waiting up to
+        CACHE_LOAD_TIMEOUT_SEC to return.
+        :returns True if successful; False if timed out
+        """
+        if self.is_cache_loaded_for(spid):
+            if TRACE_ENABLED:
+                logger.debug(f'[{tree_id}] LoadCacheSynchronously(): cache already loaded for {spid}')
+            return True
+
+        def load_cache_and_notify(this_task: Task):
+            self.load_subtree(this_task, subtree_root=spid, tree_id=tree_id)
+            load_cache_and_notify.load_complete.set()
+
+        load_cache_and_notify.load_complete = threading.Event()
+
+        self.backend.executor.submit_async_task(Task(ExecPriority.P2_USER_RELEVANT_CACHE_LOAD, load_cache_and_notify))
+
+        if not load_cache_and_notify.load_complete.is_set():
+            logger.debug(f'[{tree_id}] LoadCacheSynchronously(): Waiting for cache load to complete for {spid}')
+        if not load_cache_and_notify.load_complete.wait(CACHE_LOAD_TIMEOUT_SEC):
+            logger.debug(f'[{tree_id}] LoadCacheSynchronously(): Timed out waiting for cache load; returning false')
+            return False
+        logger.debug(f'[{tree_id}] LoadCacheSynchronously(): cache load completed! Returning true')
+        return True
+
+    def get_child_list_for_spid(self, parent_spid: LocalNodeIdentifier, filter_state: FilterState, tree_id: TreeID) -> List[SPIDNodePair]:
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state}')
+            logger.debug(f'[{tree_id}] Entered get_child_list_for_spid(): spid={parent_spid} filter_state={filter_state}')
 
         if filter_state and filter_state.has_criteria():
             # This only works if cache already loaded:
-            # FIXME: let's make this work even if the cache isn't loaded
-            if not self.is_cache_loaded_for(parent_spid):
-                raise RuntimeError(f'Cannot load filtered child list: cache not yet loaded for: {parent_spid}')
+            if not self._load_cache_synchronously_for(parent_spid, tree_id):
+                raise RuntimeError(f'Cannot load filtered child list: timed out waiting for cache to load for: {parent_spid}')
 
             child_list = filter_state.get_filtered_child_list(parent_spid, self._memstore.master_tree)
-            logger.debug(f'get_child_list_for_spid(): Returning {len(child_list)} filtered children for parent {parent_spid.guid}')
+            logger.debug(f'[{tree_id}] get_child_list_for_spid(): Returning {len(child_list)} filtered children for parent {parent_spid.guid}')
         else:
             child_list = self._get_child_list_from_cache_for_spid(parent_spid, only_if_all_children_fetched=True)
             if child_list is None:
                 # 3. No cache hits. Must do a live scan:
-                logger.debug(f'get_child_list_for_spid(): Caches are missing or only partial for children of parent {parent_spid}; '
+                logger.debug(f'[{tree_id}] get_child_list_for_spid(): Caches are missing or only partial for children of parent {parent_spid}; '
                              f'will attempt disk scan')
                 child_list = self._scan_and_cache_dir(parent_spid)
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'get_child_list_for_spid(): Scanner returned {len(child_list)} children for parent: {parent_spid.guid}')
+                    logger.debug(f'[{tree_id}] get_child_list_for_spid(): Scanner returned {len(child_list)} children for parent: {parent_spid.guid}')
             elif SUPER_DEBUG_ENABLED:
-                logger.debug(f'get_child_list_for_spid(): Returning {len(child_list)} children from cache for parent {parent_spid.guid}')
+                logger.debug(f'[{tree_id}] get_child_list_for_spid(): Returning {len(child_list)} children from cache for parent {parent_spid.guid}')
 
         return child_list
 
@@ -846,7 +874,7 @@ class LocalDiskMasterStore(TreeStore):
         return size_bytes, sync_ts, create_ts, modify_ts, change_ts
 
     def build_local_dir_node(self, full_path: str, is_live: bool, all_children_fetched: bool) -> Optional[LocalDirNode]:
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'build_local_dir_node() called for path "{full_path}", is_live={is_live}, all_children_fetched={all_children_fetched}')
         uid = self.get_uid_for_path(full_path)
 
@@ -879,6 +907,10 @@ class LocalDiskMasterStore(TreeStore):
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False, is_live: bool = True) \
             -> Optional[LocalFileNode]:
+        if TRACE_ENABLED:
+            logger.debug(f'build_local_file_node() called for path "{full_path}", staging_path={staging_path}, '
+                         f'must_scan_signature={must_scan_signature}, is_live={is_live}')
+
         effective_path = full_path if staging_path is None else staging_path
 
         if is_live:

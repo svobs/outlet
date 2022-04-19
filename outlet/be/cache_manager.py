@@ -531,7 +531,7 @@ class CacheManager(HasLifecycle):
             # Regular tree
             filter_state = tree_meta.filter_state if use_filter else None
             device_uid: UID = parent_spid.device_uid
-            child_list = self._cache_registry.get_store_for_device_uid(device_uid).get_child_list_for_spid(parent_spid, filter_state)
+            child_list = self._cache_registry.get_store_for_device_uid(device_uid).get_child_list_for_spid(parent_spid, filter_state, tree_id)
 
         if max_results and (len(child_list) > max_results):
             fe_msg = f"ERROR: too many items to display ({len(child_list)})"

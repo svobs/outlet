@@ -57,7 +57,7 @@ class TreeStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState) -> List[SPIDNodePair]:
+    def get_child_list_for_spid(self, parent_spid: SinglePathNodeIdentifier, filter_state: FilterState, tree_id: TreeID) -> List[SPIDNodePair]:
         pass
 
     @abstractmethod
