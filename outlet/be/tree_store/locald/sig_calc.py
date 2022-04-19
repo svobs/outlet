@@ -16,9 +16,25 @@ import os
 import pathlib
 import subprocess
 from typing import Optional, Tuple
-from constants import IS_MACOS, MAX_FS_LINK_DEPTH, READ_CHUNK_SIZE, TreeType
+from constants import IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, READ_CHUNK_SIZE, USE_LOW_PRIORITY_FOR_MD5_PROC
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_md5_via_external_proc(filename):
+    try:
+        cmd_line = ['/sbin/md5', '-q', filename]
+        # Run cmd and block until it returns (collect output too). Execute at low priority
+        if IS_WINDOWS and USE_LOW_PRIORITY_FOR_MD5_PROC:
+            output_bytes = subprocess.check_output(cmd_line, creationflags=subprocess.BELOW_NORMAL_PRIORITY_CLASS)
+        else:
+            output_bytes = subprocess.check_output(cmd_line)
+        output = output_bytes.decode().split('\n')[0]
+    except (subprocess.CalledProcessError, RuntimeError) as err:
+        logger.error(f'While computing MD5 via native proc for file "{filename}": {repr(err)}')
+        output = None
+
+    return output
 
 
 def _compute_md5_in_python(filename):
@@ -29,13 +45,9 @@ def _compute_md5_in_python(filename):
     return hash_md5.hexdigest()
 
 
-def compute_md5(filename):
+def _compute_md5(filename):
     if IS_MACOS:
-        try:
-            output = subprocess.check_output(['/sbin/md5', '-q', filename]).decode().split('\n')[0]
-        except (subprocess.CalledProcessError, RuntimeError) as err:
-            logger.error(f'While computing MD5 via MacOS tool for file "{filename}": {repr(err)}')
-            output = None
+        output = _compute_md5_via_external_proc(filename)
         if not output:
             logger.warning(f'Failed to compute MD5 using Mac cmdlkne tool; falling back to Python')
             return _compute_md5_in_python(filename)
@@ -60,9 +72,9 @@ def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opti
     try:
         # Open,close, read file and calculate hash of its contents
         if staging_path:
-            md5: Optional[str] = compute_md5(staging_path)
+            md5: Optional[str] = _compute_md5(staging_path)
         else:
-            md5: Optional[str] = compute_md5(full_path)
+            md5: Optional[str] = _compute_md5(full_path)
 
         # TODO: compute SHA-256 at the same time. See: compute_dropbox_hash()
         sha256: Optional[str] = None
@@ -80,7 +92,7 @@ def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opti
                 logger.debug(f'Resolved link (depth {count_attempt}): "{full_path}" -> "{target}"')
                 full_path = target
                 try:
-                    md5: Optional[str] = compute_md5(full_path)
+                    md5: Optional[str] = _compute_md5(full_path)
                     # sha256 = local.sig_calc.dropbox_hash(full_path)
                     sha256: Optional[str] = None
                     return md5, sha256

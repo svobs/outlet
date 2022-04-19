@@ -104,13 +104,13 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
                 self.modified_file_set = set()
 
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'[{self.name}] Submitting update task to Central Exec')
-            self.backend.executor.submit_async_task(Task(ExecPriority.P3_LIVE_UPDATE, self._apply_update_batch, modified_file_set, other_op_list))
+                logger.debug(f'[{self.name}] Submitting local filesystem update task to Central Exec')
+            self.backend.executor.submit_async_task(Task(ExecPriority.P3_LIVE_UPDATE, self._apply_fs_update_batch, modified_file_set, other_op_list))
 
             logger.debug(f'[{self.name}] Sleeping for {self.local_change_batch_interval_ms} ms')
             time.sleep(self.local_change_batch_interval_ms / 1000.0)
 
-    def _apply_update_batch(self, this_task: Task, modified_file_set: Set[str], other_op_list: List[PathOp]):
+    def _apply_fs_update_batch(self, this_task: Task, modified_file_set: Set[str], other_op_list: List[PathOp]):
         """One task is created for each execution of this method."""
         assert this_task.priority == ExecPriority.P3_LIVE_UPDATE
 

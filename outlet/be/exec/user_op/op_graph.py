@@ -150,7 +150,7 @@ class OpGraph(HasLifecycle):
 
     def _decrement_icon_update_counts(self, ogn: OpGraphNode):
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Decrement(before): Ancestor dict: {self._ancestor_dict}')
+            logger.debug(f'[{self.name}] DecrementIconCounts start: Ancestor dict: {self._ancestor_dict}')
 
         device_uid = ogn.get_tgt_node().device_uid
         device_ancestor_dict: Dict[UID, int] = self._ancestor_dict.get(device_uid)
@@ -174,7 +174,7 @@ class OpGraph(HasLifecycle):
                 device_ancestor_dict[ancestor_uid] = count
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'[{self.name}] Decrement(after): Ancestor dict: {self._ancestor_dict}')
+            logger.debug(f'[{self.name}] DecrementIconCounts done: Ancestor dict: {self._ancestor_dict}')
 
     def _add_tgt_node_to_icon_changes_dict(self, tgt_node: TNode):
         # TODO: merge this structure with ancestor change counts
