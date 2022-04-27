@@ -115,8 +115,8 @@ class ChangeTree(DisplayTree):
         self._op_list.append(mkdir_op)
         self._mkdir_dict[f'{sn.spid.device_uid}:{sn.spid.path_uid}'] = mkdir_op
 
-    def get_mkdir_for_sn(self, sn: SPIDNodePair) -> Optional[UserOp]:
-        return self._mkdir_dict.get(f'{sn.spid.device_uid}:{sn.spid.path_uid}')
+    def get_mkdir_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[UserOp]:
+        return self._mkdir_dict.get(f'{spid.device_uid}:{spid.path_uid}')
 
     def _append_op_list(self, sn: SPIDNodePair, op_list: List[UserOp]):
         guid = sn.spid.guid

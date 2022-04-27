@@ -1,3 +1,4 @@
+import os
 from enum import IntEnum
 from model.uid import UID
 import platform
@@ -150,6 +151,7 @@ CONFIG_DELIMITER = ','
 # --- FE + BE SHARED ---
 
 ROOT_PATH = '/'
+LOCAL_DISK_ROOT_PATH = os.path.abspath(os.sep)
 
 LOOPBACK_ADDRESS = '127.0.0.1'
 

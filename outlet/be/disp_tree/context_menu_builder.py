@@ -56,7 +56,7 @@ class ContextMenuBuilder(HasLifecycle):
 
         if not op:
             # Maybe there's no op enqueued, but maybe we're looking at a change tree (such as the result of a diff) which has a corresponding op:
-            op_list = self.backend.cacheman.get_op_list_for_change_tree_guid(guid=sn.spid.guid, tree_id=tree_id)
+            op_list = self.backend.cacheman.get_op_list_for_change_tree_spid(spid=sn.spid, tree_id=tree_id)
             if op_list:
                 op = op_list[0]  # START_DIR_*/FINISH_DIR_* pair? Just grab the first one
                 is_op_draft_only = True
@@ -178,16 +178,17 @@ class ContextMenuBuilder(HasLifecycle):
 
     def _build_menu_items_for_single_node(self, sn: SPIDNodePair, tree_id: TreeID) -> List[ContextMenuItem]:
         """Generic method which dynamically builds a list of items for a single node."""
-        if sn.node.is_container_node():
-            # TODO: dereference in CacheMan
-            return []
-
         tree_type = self.backend.cacheman.get_tree_type_for_device_uid(sn.spid.device_uid)
         menu_item_list = []
 
         tree_meta = self.backend.cacheman.get_active_display_tree_meta(tree_id)
         if not tree_meta:
             raise RuntimeError(f'No DisplayTreeMeta found for tree_id "{tree_id}"')
+
+        if sn.node.is_container_node():
+            # TODO: dereference in CacheMan
+            logger.debug(f'BuildContextMenu(): is a container node (will not display extended menu): {sn.node}')
+            return []
 
         # MenuItem: 'Change Root of Tree to {dir}'
         if sn.node.is_live() and sn.node.is_dir():

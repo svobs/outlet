@@ -24,10 +24,14 @@ class CommandExecutor(HasLifecycle):
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         self.backend = backend
-        self.staging_dir: str = file_util.get_resource_path(self.backend.get_config('agent.local_disk.staging_dir.location'))
-        logger.debug(f'Staging dir: "{self.staging_dir}"')
+        self.primary_staging_dir: str = file_util.get_resource_path(self.backend.get_config('agent.local_disk.staging_dir.primary.location'))
+        logger.debug(f'LocalDisk staging dir: "{self.primary_staging_dir}"')
 
-        self.clear_staging_dir_on_startup = self.backend.get_config('agent.local_disk.staging_dir.clear_on_startup')
+        self.secondary_mount_staging_dir_name: str = \
+            file_util.get_resource_path(self.backend.get_config('agent.local_disk.staging_dir.secondary_mount.dir_name'))
+        logger.debug(f'Staging dir name for econdary mounts: "{self.secondary_mount_staging_dir_name}"')
+
+        self.clear_staging_dir_on_startup = self.backend.get_config('agent.local_disk.staging_dir.primary.clear_on_startup')
 
         self.global_context: Optional[CommandContext] = None
 
@@ -43,7 +47,8 @@ class CommandExecutor(HasLifecycle):
             # TODO: optionally clean staging dir at startup
             pass
 
-        self.global_context = CommandContext(self.staging_dir, self.backend.cacheman, update_meta_for_dst_nodes, use_strict_state_enforcement=True)
+        self.global_context = CommandContext(self.primary_staging_dir, self.secondary_mount_staging_dir_name,
+                                             self.backend.cacheman, update_meta_for_dst_nodes, use_strict_state_enforcement=True)
         logger.debug('[CommandExecutor] Startup done')
 
     def shutdown(self):

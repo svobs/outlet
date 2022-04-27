@@ -1,8 +1,11 @@
 import logging
+import os
+import pathlib
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Optional, Union
 
-from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, IS_WINDOWS, LOCAL_DISK_ROOT_PATH
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpCode
 
 logger = logging.getLogger(__name__)
@@ -16,8 +19,9 @@ class CommandContext:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, staging_dir: str, cacheman, update_meta_also: bool, use_strict_state_enforcement: bool):
-        self.staging_dir: str = staging_dir
+    def __init__(self, primary_staging_dir: str, secondary_mount_staging_dir_name: str, cacheman, update_meta_also: bool, use_strict_state_enforcement: bool):
+        self.primary_staging_dir: str = primary_staging_dir
+        self.secondary_mount_staging_dir_name: str = secondary_mount_staging_dir_name
         self.cacheman = cacheman
 
         self.update_meta_also: bool = update_meta_also
@@ -25,6 +29,47 @@ class CommandContext:
 
         self.use_strict_state_enforcement: bool = use_strict_state_enforcement
         """If true, raise exception if we see something unexpected in src and dst nodes, even if we could otherwise work around it"""
+
+    def get_staging_dir_path(self, dst_path: str, only_if_not_primary: bool = False) -> Optional[str]:
+        """
+        Determines and returns the relevant staging directory for the given destination path, for a CP or MV operation.
+        Because a CP is a non-atomic, potentially long-running operation, the copy is first done to a staging directory, and then "moved" to
+        the dst location, which *is* a fast and atomic operation if done on the same volume. So if we are doing a CP or even an MV whose dst
+        is not local, we need to make sure that we stage the file on the same volume as the dst, and for that we can create a "secondary"
+        staging directory on that volume.
+
+        :param dst_path: destination path
+        :param only_if_not_primary: if false: checks if we need to use a secondary staging dir, and returns either that or the primary staging dir.
+        If true: checks if we need to use a secondary staging dir, and if so returns that and if not returns None
+        """
+        if IS_WINDOWS:
+            raise RuntimeError(f'get_staging_dir_path(): TODO: add Windows support!')
+
+        ancestor = pathlib.Path(dst_path).parent
+        while not ancestor.is_mount():
+            ancestor = pathlib.Path(dst_path).parent
+
+        if ancestor == LOCAL_DISK_ROOT_PATH:
+            if only_if_not_primary:
+                return None
+            else:
+                staging_dir = self.primary_staging_dir
+        else:
+            staging_dir = os.path.join(ancestor, self.secondary_mount_staging_dir_name)
+            # TODO: keep track of secondary staging dirs by storing them in a DB
+
+        if not os.path.exists(staging_dir):
+            logger.info(f'Creating staging dir: "{staging_dir}"')
+            try:
+                os.makedirs(name=staging_dir, exist_ok=True)
+            except Exception:
+                logger.error(f'Exception while making staging dir: {staging_dir}')
+                raise
+        else:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Staging dir for dst "{dst_path}" = "{staging_dir}"')
+
+        return staging_dir
 
 
 class Command(ABC):

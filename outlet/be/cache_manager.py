@@ -4,7 +4,7 @@ import os
 import pathlib
 import threading
 from collections import deque
-from typing import Callable, Deque, List, Optional, Set, Tuple
+from typing import Callable, Deque, Dict, List, Optional, Set, Tuple
 
 from pydispatch import dispatcher
 
@@ -904,6 +904,13 @@ class CacheManager(HasLifecycle):
         logger.debug(f'get_all_files_with_content(): found total of {len(global_file_list)} files with content_uid={content_uid}')
         return global_file_list
 
+    def get_content_meta_dict(self) -> Dict[UID, List[TNode]]:
+        for device_uid, cache_info_list in self._cache_registry.get_all_cache_info_by_device_uid().items():
+            store = self._cache_registry.get_store_for_device_uid(device_uid)
+            store_file_list = store.get_all_files_with_content(content_uid, cache_info_list)
+            global_file_list += store_file_list
+
+
     # OpGraph
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -940,9 +947,10 @@ class CacheManager(HasLifecycle):
     def retry_all_failed_ops(self):
         return self._op_manager.retry_all_failed_ops()
 
-    def get_op_list_for_change_tree_guid(self, guid: GUID, tree_id: TreeID) -> List[UserOp]:
+    def get_op_list_for_change_tree_spid(self, spid: SinglePathNodeIdentifier, tree_id: TreeID) -> List[UserOp]:
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if tree_meta.change_tree:
+            guid = spid.guid
             op_list = tree_meta.change_tree.get_op_list_for_guid(guid)
             logger.debug(f'[{tree_id}] Found {len(op_list)} ops in ChangeTree for GUID {guid}')
             return op_list

@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 
 # TODO: resumable GDrive upload: https://developers.google.com/drive/api/v3/manage-uploads#python
 
-# TODO: what if staging dir is not on same file system?
-
 
 # LOCAL COMMANDS begin
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -55,7 +53,7 @@ class CopyFileLocalToLocalCommand(CopyNodeCommand):
         src_node = local_file_util.ensure_up_to_date(self.op.src_node)
         to_upsert = [src_node]
 
-        staging_path = os.path.join(cxt.staging_dir, src_node.md5)
+        staging_path = os.path.join(cxt.get_staging_dir_path(dst_path), src_node.md5)
         logger.debug(f'CP: src="{src_path}" stg="{staging_path}" dst="{dst_path}"')
 
         try:
@@ -131,6 +129,11 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
         local_file_util = LocalFileUtil(cxt.cacheman)
         src_node = local_file_util.ensure_up_to_date(self.op.src_node)
 
+        # will be None if staging dir not needed
+        staging_dir: Optional[str] = cxt.get_staging_dir_path(self.op.dst_node.get_single_path(), only_if_not_primary=True)
+        staging_path: Optional[str] = os.path.join(staging_dir, src_node.md5) if staging_dir else None
+        logger.debug(f'MV: src="{src_node.get_single_path()}" stg="{staging_path}" dst="{self.op.dst_node.get_single_path()}"')
+
         # Do the move:
         if self.overwrite:
             node_dst_old = cxt.cacheman.get_node_for_uid(self.op.dst_node.uid, self.op.dst_node.device_uid)
@@ -139,13 +142,18 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
                 if cxt.use_strict_state_enforcement:
                     raise RuntimeError(f'TNode no longer found in cache (using strict=true): {self.op.dst_node.node_identifier}')
                 else:
-                    file_util.move_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
+                    self._move_file(src_node.get_single_path(), staging_path, self.op.dst_node.get_single_path())
             else:
+                # verify that whatever is there is exactly what we expected, before we overwrite it; fail if something's amiss
                 local_file_util.ensure_up_to_date(node_dst_old)
 
-                file_util.replace_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
+                if staging_path:
+                    file_util.move_file(src_node.get_single_path(), staging_path)
+                    file_util.replace_file(staging_path, self.op.dst_node.get_single_path())
+                else:
+                    file_util.replace_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
         else:
-            file_util.move_file(src_node.get_single_path(), self.op.dst_node.get_single_path())
+            self._move_file(src_node.get_single_path(), staging_path, self.op.dst_node.get_single_path())
 
         if cxt.update_meta_also:
             # Moving a file shouldn't change its meta (except possibly on MacOS), but let's update it to be sure:
@@ -173,6 +181,14 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
         to_upsert = [new_dst_node]
 
         return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_remove=to_remove)
+
+    @staticmethod
+    def _move_file(src_path: str, staging_path: Optional[str], dst_path: str):
+        if staging_path:
+            file_util.move_file(src_path, staging_path)
+            file_util.move_file(staging_path, dst_path)
+        else:
+            file_util.move_file(src_path, dst_path)
 
     def _cleanup_after_error(self):
         if os.path.exists(self.op.dst_node.get_single_path()):
@@ -437,13 +453,8 @@ class CopyFileGDriveToLocalCommand(CopyNodeCommand):
             else:
                 logger.warning(f'Cmd has "overwrite" specified for a local file which does not exist: {dst_path}')
 
-        # Set up staging vars:
-        try:
-            os.makedirs(name=cxt.staging_dir, exist_ok=True)
-        except Exception:
-            logger.error(f'Exception while making staging dir: {cxt.staging_dir}')
-            raise
-        staging_path = os.path.join(cxt.staging_dir, self.op.src_node.md5)
+        # Set up staging path:
+        staging_path = os.path.join(cxt.get_staging_dir_path(dst_path), self.op.src_node.md5)
 
         # File already exists in staging with the given content?
         if os.path.exists(staging_path):

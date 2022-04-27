@@ -125,7 +125,7 @@ class TreeDiffMergeTask:
         else:
             if sn and sn.node.is_container_node():
                 # If a MKDIR is required for an ancestor, it should have been created already in the src_tree
-                mkdir_op = src_tree.get_mkdir_for_sn(sn)
+                mkdir_op = src_tree.get_mkdir_for_spid(sn.spid)
                 if mkdir_op:
                     existing_op_list = merged_tree.get_op_list_for_guid(guid)
                     if existing_op_list and existing_op_list[0].op_uid == mkdir_op.op_uid:
