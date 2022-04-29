@@ -73,12 +73,14 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
         # Finally, add the node itself:
         existing: TNode = self.get_node_for_uid(node.uid)
         if existing:
-            if existing.is_dir() and node.is_dir():
-                # Just update
+            if existing.is_dir() == node.is_dir():
+                # Same type at least? Just update
                 assert isinstance(existing, LocalDirNode)
                 existing.update_from(node)
             else:
-                raise RuntimeError(f'New node is not a dir node! old={existing}, new={node}, path_segments={path_segments}')
+                # TODO: handle this case
+                raise RuntimeError(f'Cannot overwrite a dir node with a file node or vice versa! old={existing}, new={node}, '
+                                   f'path_segments={path_segments}')
         else:
             if not parent:
                 logger.error(f'Parent is None for node: {node}')

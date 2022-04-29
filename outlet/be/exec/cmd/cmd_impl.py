@@ -7,6 +7,7 @@ from be.exec.cmd.cmd_interface import Command, CommandContext, CopyNodeCommand, 
     TwoNodeCommand, UserOpResult, UserOpStatus
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, GDRIVE_ME_USER_UID, TrashStatus, TreeType
 from error import GDriveItemNotFoundError, IdenticalFileExistsError, InvalidOperationError
+from logging_constants import SUPER_DEBUG_ENABLED
 from model.gdrive_meta import MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.locald_node import LocalDirNode, LocalFileNode, LocalNode
@@ -185,9 +186,15 @@ class MoveFileLocalToLocalCommand(CopyNodeCommand):
     @staticmethod
     def _move_file(src_path: str, staging_path: Optional[str], dst_path: str):
         if staging_path:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Moving from src to secondary staging dir: MV "{src_path}" -> "{staging_path}")"')
             file_util.move_file(src_path, staging_path)
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Moving from secondary staging dir to dst: MV "{staging_path}" -> "{dst_path}")"')
             file_util.move_file(staging_path, dst_path)
         else:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Moving directly from src to dst: MV "{src_path}" -> "{dst_path}")"')
             file_util.move_file(src_path, dst_path)
 
     def _cleanup_after_error(self):

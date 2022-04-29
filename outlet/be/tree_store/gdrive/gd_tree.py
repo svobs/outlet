@@ -5,7 +5,7 @@ from pathlib import PurePosixPath
 from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from be.tree_store.gdrive.path_list_builder import GDrivePathListBuilder
-from constants import GDRIVE_ROOT_UID, NodeIdentifierType, ROOT_PATH, TreeType
+from constants import GDRIVE_ROOT_UID, NodeIdentifierType, NULL_UID, ROOT_PATH, TreeType
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from error import GDriveNodePathNotFoundError, NodeNotPresentError
 from model.gdrive_meta import GDriveUser
@@ -352,10 +352,11 @@ class GDriveWholeTree(BaseTree):
                     logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}"'
                                  f' (target_path: "{target_path}", path_so_far="{path_so_far}")')
                 if error_if_not_found:
-                    err_node_identifier = self.backend.node_identifier_factory.build_node_id(node_uid=None, device_uid=self.device_uid,
+                    err_node_identifier = self.backend.node_identifier_factory.build_node_id(node_uid=NULL_UID, device_uid=self.device_uid,
                                                                                              identifier_type=NodeIdentifierType.GDRIVE_MPID,
                                                                                              path_list=[full_path])
-                    raise GDriveNodePathNotFoundError(node_identifier=err_node_identifier, offending_path=path_so_far)
+                    offending_path = full_path[0:len(path_so_far)]
+                    raise GDriveNodePathNotFoundError(node_identifier=err_node_identifier, offending_path=offending_path)
                 else:
                     return []
 

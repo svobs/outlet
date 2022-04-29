@@ -60,6 +60,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
   * (c) GDrive paths which were computed
 
 #### FUTURE / NON-ESSENTIAL
+* [3] Assign client_ids to each client and track UI state separately for each
 * [3] Support for extra GDrive types (e.g. shortcuts, Google Docs files)
 * [3] Cascade failures and allow recovery
 * [1] Copy metadata when copying files (MAC times)

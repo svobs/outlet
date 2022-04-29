@@ -21,7 +21,7 @@ from model.disp_tree.build_struct import DisplayTreeRequest
 from model.disp_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.disp_tree.filter_criteria import FilterCriteria
 from model.node.node import TNode, NonexistentDirNode, SPIDNodePair
-from model.node_identifier import GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GDriveSPID, GUID, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import Batch
@@ -513,11 +513,16 @@ class ActiveTreeManager(HasLifecycle):
         self.backend.cacheman.get_cache_info_for_subtree(subtree_root=spid, create_if_not_found=True)
         # Try to retrieve the root node from the cache:
         try:
-            node: Optional[TNode] = self.backend.cacheman.read_node_for_spid(spid)
-            if node:
-                logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
+            if spid.node_uid:
+                node: Optional[TNode] = self.backend.cacheman.read_node_for_spid(spid)
+                if node:
+                    logger.debug(f'[{sender_tree_id}] Read DisplayTree root node: {node}')
+                else:
+                    logger.debug(f'[{sender_tree_id}] DisplayTree root node not found in cache')
             else:
-                logger.debug(f'[{sender_tree_id}] DisplayTree root node not found in cache')
+                logger.debug(f'[{sender_tree_id}] No node_uid in SPID! Will assume root doens\'t exist')
+                node = None
+
         except RuntimeError as e:
             logger.warning(f'[{sender_tree_id}] Could not retrieve DisplayTree root node (will try to recover): {spid} (error: {e})')
             node = None
@@ -640,7 +645,10 @@ class ActiveTreeManager(HasLifecycle):
 
                 root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
             except GDriveNodePathNotFoundError as ginf:
-                root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
+                # this returns a regular GDriveIdentifier, but we need a SPID
+                path_uid = self.backend.cacheman.get_uid_for_local_path(full_path)
+                gdrive_spid = GDriveSPID(node_uid=NULL_UID, device_uid=device_uid, path_uid=path_uid, full_path=full_path)
+                root_path_meta = RootPathMeta(gdrive_spid, root_exists=False)
                 root_path_meta.offending_path = ginf.offending_path
             except CacheNotLoadedError:
                 # FIXME: don't use NULL_UID. Just load the cache.
