@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import Optional, Set, Union
 
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, IS_WINDOWS, LOCAL_DISK_ROOT_PATH
 from logging_constants import SUPER_DEBUG_ENABLED
@@ -21,7 +21,12 @@ class CommandContext:
 
     def __init__(self, primary_staging_dir: str, secondary_mount_staging_dir_name: str, cacheman, update_meta_also: bool, use_strict_state_enforcement: bool):
         self.primary_staging_dir: str = primary_staging_dir
+        self._mkdir_if_not_exist(self.primary_staging_dir)
         self.secondary_mount_staging_dir_name: str = secondary_mount_staging_dir_name
+        if os.path.isabs(self.secondary_mount_staging_dir_name):
+            raise RuntimeError(f'secondary_mount_staging_dir_name should be a dir name only, not an absolute path: '
+                               f'"{self.secondary_mount_staging_dir_name}"')
+
         self.cacheman = cacheman
 
         self.update_meta_also: bool = update_meta_also
@@ -29,6 +34,9 @@ class CommandContext:
 
         self.use_strict_state_enforcement: bool = use_strict_state_enforcement
         """If true, raise exception if we see something unexpected in src and dst nodes, even if we could otherwise work around it"""
+
+        # TODO: Store these in a DB on disk so that we can track them across crashes/restarts and clean them up
+        self._secondary_cache_set: Set[str] = set()
 
     def get_staging_dir_path(self, dst_path: str, only_if_not_primary: bool = False) -> Optional[str]:
         """
@@ -45,9 +53,16 @@ class CommandContext:
         if IS_WINDOWS:
             raise RuntimeError(f'get_staging_dir_path(): TODO: add Windows support!')
 
+        # see if we already found relevant staging dir:
+        for staging_dir in self._secondary_cache_set:
+            if pathlib.PurePosixPath(dst_path).is_relative_to(pathlib.Path(staging_dir).parent):
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Found previously established secondary staging dir: "{staging_dir}"')
+                return staging_dir
+
         ancestor = pathlib.Path(dst_path).parent
-        while not ancestor.is_mount():
-            ancestor = pathlib.Path(dst_path).parent
+        while not ancestor.is_mount() and ancestor != LOCAL_DISK_ROOT_PATH:
+            ancestor = pathlib.Path(ancestor).parent
 
         if ancestor == LOCAL_DISK_ROOT_PATH:
             if only_if_not_primary:
@@ -55,9 +70,20 @@ class CommandContext:
             else:
                 staging_dir = self.primary_staging_dir
         else:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Found mount point: "{ancestor}"')
+            assert not os.path.isabs(self.secondary_mount_staging_dir_name), f'Should not be absolute: {self.secondary_mount_staging_dir_name}'
             staging_dir = os.path.join(ancestor, self.secondary_mount_staging_dir_name)
-            # TODO: keep track of secondary staging dirs by storing them in a DB
+            self._mkdir_if_not_exist(staging_dir)
+            self._secondary_cache_set.add(staging_dir)
 
+        if SUPER_DEBUG_ENABLED:
+            logger.debug(f'Staging dir for dst "{dst_path}" = "{staging_dir}"')
+
+        return staging_dir
+
+    @staticmethod
+    def _mkdir_if_not_exist(staging_dir: str):
         if not os.path.exists(staging_dir):
             logger.info(f'Creating staging dir: "{staging_dir}"')
             try:
@@ -65,11 +91,6 @@ class CommandContext:
             except Exception:
                 logger.error(f'Exception while making staging dir: {staging_dir}')
                 raise
-        else:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'Staging dir for dst "{dst_path}" = "{staging_dir}"')
-
-        return staging_dir
 
 
 class Command(ABC):

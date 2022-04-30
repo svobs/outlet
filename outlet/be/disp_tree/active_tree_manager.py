@@ -358,13 +358,13 @@ class ActiveTreeManager(HasLifecycle):
             left_tree = tree_already_cancelled
         else:
             request = DisplayTreeRequest(tree_id=ID_LEFT_DIFF_TREE, return_async=False, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
-            left_tree = self.request_display_tree(request, propogate_diff_tree_cancellation=False)
+            left_tree = self.request_display_tree(request, is_cancelling_diff=True, propogate_diff_tree_cancellation=False)
 
         if tree_already_cancelled and tree_already_cancelled.tree_id == ID_RIGHT_TREE:
             right_tree = tree_already_cancelled
         else:
             request = DisplayTreeRequest(tree_id=ID_RIGHT_DIFF_TREE, return_async=False, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
-            right_tree = self.request_display_tree(request, propogate_diff_tree_cancellation=False)
+            right_tree = self.request_display_tree(request, is_cancelling_diff=True, propogate_diff_tree_cancellation=False)
 
         logger.debug(f'Sending signal: {Signal.DIFF_TREES_CANCELLED.name}')
         dispatcher.send(signal=Signal.DIFF_TREES_CANCELLED, sender=ID_GLOBAL_CACHE, tree_left=left_tree, tree_right=right_tree)
@@ -417,12 +417,8 @@ class ActiveTreeManager(HasLifecycle):
             change_tree.print_op_structs_debug()
 
         with self._display_tree_dict_lock:
-            # Copy FilterState from src_tree. Check memory first; fall back to disk
-            src_tree_meta = self._display_tree_dict.get(src_tree_id, None)
-            if src_tree_meta:
-                filter_state = copy.copy(src_tree_meta.filter_state)
-            else:
-                filter_state = FilterState.from_config(self.backend, src_tree_id, change_tree.get_root_sn())
+            # Reset the FilterState to unfiltered:
+            filter_state = FilterState(filter_criteria=FilterCriteria(), root_sn=change_tree.get_root_sn())
 
             meta = ActiveDisplayTreeMeta(self.backend, change_tree.state, filter_state)
             meta.change_tree = change_tree
@@ -438,7 +434,8 @@ class ActiveTreeManager(HasLifecycle):
         return change_tree.state.to_display_tree(self.backend)
 
     # TODO: make this wayyyy less complicated by just making each tree_id represent a set of persisted configs. Minimize DisplayTreeRequest
-    def request_display_tree(self, request: DisplayTreeRequest, propogate_diff_tree_cancellation: bool = True) -> Optional[DisplayTree]:
+    def request_display_tree(self, request: DisplayTreeRequest, is_cancelling_diff: bool = False,
+                             propogate_diff_tree_cancellation: bool = True) -> Optional[DisplayTree]:
         """
         Gets the following into memory (if not already):
         1. Root SPID
@@ -479,15 +476,13 @@ class ActiveTreeManager(HasLifecycle):
         elif display_tree_meta:
             root_path_meta = RootPathMeta(display_tree_meta.root_sn.spid, display_tree_meta.root_exists, display_tree_meta.offending_path)
         else:
-            raise RuntimeError(f'Invalid args supplied to get_display_tree_ui_state()! (tree_id={sender_tree_id})')
+            raise RuntimeError(f'Invalid args supplied to request_display_tree()! (tree_id={sender_tree_id})')
 
         logger.debug(f'[{sender_tree_id}] Got {root_path_meta}')
 
         spid = root_path_meta.root_spid
         if not spid:
             raise RuntimeError(f"Root identifier is not valid for: '{sender_tree_id}'")
-
-        is_cancelling_diff = False
 
         response_tree_id = sender_tree_id
         if display_tree_meta:

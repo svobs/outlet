@@ -10,7 +10,7 @@ from pydispatch import dispatcher
 from be.tree_store.locald.ld_tree import LocalDiskTree
 from be.tree_store.locald.ld_tree_recurser import FileCounter
 from constants import DISK_SCAN_MAX_ITEMS_PER_TASK
-from logging_constants import SUPER_DEBUG_ENABLED
+from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.locald_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier
 from signal_constants import Signal
@@ -186,7 +186,7 @@ class LocalDiskTreeScanner:
         self._dir_queue += dir_list
         for child_dir_path in dir_list:
             if child_dir_path != target_dir:  # Do not include parent dir in child list
-                if SUPER_DEBUG_ENABLED:
+                if TRACE_ENABLED:
                     logger.debug(f'[{self.tree_id}] Adding scanned dir: {child_dir_path}')
 
                 dir_node = self.cacheman.build_local_dir_node(child_dir_path, is_live=True, all_children_fetched=True)
@@ -196,7 +196,7 @@ class LocalDiskTreeScanner:
         # FILES
         for child_file_path in nondir_list:
             if child_file_path != target_dir:   # Do not include parent dir in child list (if it was actually a file)
-                if SUPER_DEBUG_ENABLED:
+                if TRACE_ENABLED:
                     logger.debug(f'[{self.tree_id}] Adding scanned file: {child_file_path}')
                 file_node = self.cacheman.build_local_file_node(full_path=child_file_path)
                 if file_node:

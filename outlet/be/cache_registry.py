@@ -540,7 +540,7 @@ class CacheRegistry(HasLifecycle):
         self._wait_for_load_registry_done()
 
         for existing_cache in list(self._cache_info_dict.get_second_dict(device_uid).values()):
-            # Is existing_cache an ancestor of target tree?
+            # Is target tree a descendant of existing_cache?
             if PurePosixPath(full_path).is_relative_to(existing_cache.subtree_root.get_path_list()[0]):
                 return existing_cache
         # Nothing in the cache contains subtree

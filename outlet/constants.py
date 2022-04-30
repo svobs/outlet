@@ -40,7 +40,7 @@ DEFAULT_MAIN_WIN_Y = 50
 DEFAULT_MAIN_WIN_WIDTH = 1200
 DEFAULT_MAIN_WIN_HEIGHT = 500
 
-CENTRAL_EXEC_THREAD_NAME = 'CentralExecutorThread'
+CENTRAL_EXEC_THREAD_NAME = 'CentralExecThread'
 OP_EXECUTION_THREAD_NAME = 'OpExecutionThread'
 
 # IMPORTANT: Each client will require 2 worker threads: 1 is for receiving signals asynchronously and is always open;

@@ -27,8 +27,7 @@ class CommandExecutor(HasLifecycle):
         self.primary_staging_dir: str = file_util.get_resource_path(self.backend.get_config('agent.local_disk.staging_dir.primary.location'))
         logger.debug(f'LocalDisk staging dir: "{self.primary_staging_dir}"')
 
-        self.secondary_mount_staging_dir_name: str = \
-            file_util.get_resource_path(self.backend.get_config('agent.local_disk.staging_dir.secondary_mount.dir_name'))
+        self.secondary_mount_staging_dir_name: str = self.backend.get_config('agent.local_disk.staging_dir.secondary_mount.dir_name')
         logger.debug(f'Staging dir name for econdary mounts: "{self.secondary_mount_staging_dir_name}"')
 
         self.clear_staging_dir_on_startup = self.backend.get_config('agent.local_disk.staging_dir.primary.clear_on_startup')
