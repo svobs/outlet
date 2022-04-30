@@ -70,10 +70,6 @@ class DisplayMutator(HasLifecycle):
         if self.con.treeview_meta.lazy_load:
             self.connect_dispatch_listener(signal=Signal.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
-        self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_stats_updated)
-        """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
-        notfiying us that we can now refresh our display from it"""
-
         # Do not receive update notifications when displaying change trees.
         # (the need is not great enough to justify the effort - at present)
         if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
@@ -582,15 +578,6 @@ class DisplayMutator(HasLifecycle):
             return
 
         raise NotImplementedError  # FIXME
-
-    def _on_stats_updated(self, sender: str, status_msg: str,
-                          dir_stats_dict_by_guid: Dict[GUID, DirStats], dir_stats_dict_by_uid: Dict[UID, DirStats]):
-        """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
-        listed in each dict with the current values from the cache."""
-        if sender != self.con.tree_id:
-            return
-        logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.STATS_UPDATED.name}"')
-        self._update_stats(sender, status_msg, dir_stats_dict_by_guid, dir_stats_dict_by_uid)
 
     def _update_stats(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict[GUID, DirStats],
                       dir_stats_dict_by_uid: Dict[UID, DirStats]):

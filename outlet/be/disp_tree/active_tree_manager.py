@@ -174,11 +174,11 @@ class ActiveTreeManager(HasLifecycle):
                 if meta:
                     if meta.load_state == TreeLoadState.COMPLETELY_LOADED:
                         # Regenerate all the stats (+ status msg) and store the updates in the tree_meta:
-                        self.backend.cacheman.repopulate_dir_stats_for_tree(meta)
+                        meta.load_state = self.backend.cacheman.repopulate_dir_stats_for_tree(meta)
 
-                        # Push out the updates to all of the affected clients:
-                        dispatcher.send(signal=Signal.STATS_UPDATED, sender=tree_id, status_msg=meta.summary_msg,
-                                        dir_stats_dict_by_guid=meta.dir_stats_unfiltered_by_guid,
+                        # Push out the updates to all affected clients:
+                        dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=meta.tree_id, tree_load_state=meta.load_state,
+                                        status_msg=meta.summary_msg, dir_stats_dict_by_guid=meta.dir_stats_unfiltered_by_guid,
                                         dir_stats_dict_by_uid=meta.dir_stats_unfiltered_by_uid)
                     else:
                         logger.debug(f'Will skip regeneration of DirStats for tree_id "{tree_id}": tree is not in '

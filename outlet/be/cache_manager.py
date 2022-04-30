@@ -26,7 +26,7 @@ from be.tree_store.locald import sig_calc
 from be.tree_store.locald.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
     LARGE_FILE_SIZE_THRESHOLD_BYTES, OPS_FILE_NAME, TreeDisplayMode, TreeID, TreeLoadState, TreeType
-from error import GetChildListFailedError
+from error import GetChildListFailedError, NodeNotPresentError
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
 from model.context_menu import ContextMenuItem
@@ -316,17 +316,17 @@ class CacheManager(HasLifecycle):
 
     def _repopulate_dir_stats_and_finish(self, this_task, tree_meta, send_signals: bool):
         tree_meta.load_state = TreeLoadState.COMPLETELY_LOADED  # do this first to avoid race condition in ActiveTreeManager
-        self.repopulate_dir_stats_for_tree(tree_meta)
+        new_load_state = self.repopulate_dir_stats_for_tree(tree_meta)
         if send_signals:
             # Transition: Load State = COMPLETELY_LOADED
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
             logger.debug(f'[{tree_meta.tree_id}] Sending signal {Signal.TREE_LOAD_STATE_UPDATED.name} with'
                          f' tree_load_state={TreeLoadState.COMPLETELY_LOADED.name} status_msg="{tree_meta.summary_msg}"')
-            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=TreeLoadState.COMPLETELY_LOADED,
+            dispatcher.send(signal=Signal.TREE_LOAD_STATE_UPDATED, sender=tree_meta.tree_id, tree_load_state=new_load_state,
                             status_msg=tree_meta.summary_msg, dir_stats_dict_by_guid=tree_meta.dir_stats_unfiltered_by_guid,
                             dir_stats_dict_by_uid=tree_meta.dir_stats_unfiltered_by_uid)
 
-    def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta):
+    def repopulate_dir_stats_for_tree(self, tree_meta: ActiveDisplayTreeMeta) -> TreeLoadState:
         """
         BE-internal. NOT A CLIENT API
         """
@@ -338,8 +338,20 @@ class CacheManager(HasLifecycle):
 
                 # Calculate stats for all dir nodes:
                 logger.debug(f'[{tree_meta.tree_id}] Refreshing stats for subtree: {tree_meta.root_sn.spid}')
-                tree_meta.dir_stats_unfiltered_by_uid = store.generate_dir_stats(tree_meta.root_sn.node, tree_meta.tree_id)
-                tree_meta.dir_stats_unfiltered_by_guid = {}  # just to be sure we don't have old data
+                try:
+                    tree_meta.dir_stats_unfiltered_by_uid = store.generate_dir_stats(tree_meta.root_sn.node, tree_meta.tree_id)
+                    tree_meta.dir_stats_unfiltered_by_guid = {}  # just to be sure we don't have old data
+                except NodeNotPresentError as error:
+                    logger.debug(f'Caught NodeNotPresentError while repopulating dir stats: {error}')
+                    root_node = self.get_node_for_node_identifier(tree_meta.root_sn.node.node_identifier)
+                    if not root_node:
+                        tree_meta.state.root_exists = False
+                        # tree_meta.state.offending_path = ?  # TODO: find offending_path
+                        tree_meta.summary_msg = 'Tree does not exist'
+                        return TreeLoadState.NO_LONGER_EXISTS
+                    else:
+                        # Shouldn't get this error for nodes other than the root. Bring this to everyone's attention
+                        raise
             else:
                 # ChangeTree
                 assert not tree_meta.is_first_order()
@@ -352,6 +364,7 @@ class CacheManager(HasLifecycle):
         # Now that we have all the stats, we can calculate the summary:
         tree_meta.summary_msg = TreeSummarizer.build_tree_summary(tree_meta, self.get_device_list())
         logger.debug(f'[{tree_meta.tree_id}] New summary: "{tree_meta.summary_msg}"')
+        return TreeLoadState.COMPLETELY_LOADED
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
         """The FE needs to first call this to ensure the given tree_id has a ActiveDisplayTreeMeta loaded into memory.
@@ -907,9 +920,8 @@ class CacheManager(HasLifecycle):
     def get_content_meta_dict(self) -> Dict[UID, List[TNode]]:
         for device_uid, cache_info_list in self._cache_registry.get_all_cache_info_by_device_uid().items():
             store = self._cache_registry.get_store_for_device_uid(device_uid)
-            store_file_list = store.get_all_files_with_content(content_uid, cache_info_list)
-            global_file_list += store_file_list
 
+        # TODO!
 
     # OpGraph
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

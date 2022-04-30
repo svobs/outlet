@@ -505,8 +505,6 @@ class GRPCConverter:
             kwargs['subtree_root_spid'] = self.node_identifier_from_grpc(signal_msg.subtree.subtree_root_spid)
             kwargs['upserted_sn_list'] = self.sn_list_from_grpc(signal_msg.subtree.upserted_sn_list)
             kwargs['removed_sn_list'] = self.sn_list_from_grpc(signal_msg.subtree.removed_sn_list)
-        elif signal == Signal.STATS_UPDATED:
-            self._convert_stats_and_status(signal_msg.stats_update, kwargs)
         elif signal == Signal.DOWNLOAD_FROM_GDRIVE_DONE:
             kwargs['filename'] = signal_msg.download_msg.filename
         elif signal == Signal.TREE_LOAD_STATE_UPDATED:

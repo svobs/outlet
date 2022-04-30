@@ -86,7 +86,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.SUBTREE_NODES_CHANGED, receiver=self._on_subtree_nodes_changed)
 
         self.connect_dispatch_listener(signal=Signal.DEVICE_UPSERTED, receiver=self._on_device_upserted)
-        self.connect_dispatch_listener(signal=Signal.STATS_UPDATED, receiver=self._on_stats_updated)
         self.connect_dispatch_listener(signal=Signal.TREE_LOAD_STATE_UPDATED, receiver=self._on_load_state_updated)
 
         self.connect_dispatch_listener(signal=Signal.BATCH_FAILED, receiver=self._on_batch_failed)
@@ -200,25 +199,19 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     # Signal forwarding
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _on_stats_updated(self, sender: str, status_msg: str, dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict):
-        signal = SignalMsg(sig_int=Signal.STATS_UPDATED, sender=sender)
-        signal.stats_update.status_msg = status_msg
-
-        self._converter.dir_stats_dicts_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.stats_update)
-
-        if dir_stats_dict_by_guid is None:
-            dir_stats_dict_by_guid = {}  # for safety when logging
-        if dir_stats_dict_by_uid is None:
-            dir_stats_dict_by_uid = {}  # for safety
-        logger.debug(f'[{sender}] Pushing DirStats update across gRPC for {len(dir_stats_dict_by_guid)} GUIDs, {len(dir_stats_dict_by_uid)} UIDs')
-        self._send_grpc_signal_to_all_clients(signal)
-
     def _on_load_state_updated(self, sender: str, tree_load_state: TreeLoadState, status_msg: str,
                                dir_stats_dict_by_guid: Dict, dir_stats_dict_by_uid: Dict):
         signal = SignalMsg(sig_int=Signal.TREE_LOAD_STATE_UPDATED, sender=sender)
         signal.tree_load_update.load_state_int = tree_load_state.value
         signal.tree_load_update.stats_update.status_msg = status_msg
         self._converter.dir_stats_dicts_to_grpc(dir_stats_dict_by_guid, dir_stats_dict_by_uid, signal.tree_load_update.stats_update)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            if dir_stats_dict_by_guid is None:
+                dir_stats_dict_by_guid = {}  # for safety when logging
+            if dir_stats_dict_by_uid is None:
+                dir_stats_dict_by_uid = {}  # for safety
+            logger.debug(f'[{sender}] Pushing DirStats update across gRPC for {len(dir_stats_dict_by_guid)} GUIDs, {len(dir_stats_dict_by_uid)} UIDs')
         self._send_grpc_signal_to_all_clients(signal)
 
     def _on_batch_failed(self, sender: str, msg: str, secondary_msg: str, batch_uid: UID):

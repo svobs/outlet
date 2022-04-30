@@ -8,8 +8,7 @@ class Signal(IntEnum):
     """Sent from BE and received by FE: a TNode was upserted into the DisplayTree"""
     NODE_REMOVED = 2
     """Sent from BE and received by FE: a TNode was removed from the DisplayTree"""
-    STATS_UPDATED = 3
-    """Sent from BE and received by FE: stats were updated for nodes in the DisplayTree, and also possibly the StatusMsg"""
+    # STATS_UPDATED = 3  # Defunct
     SUBTREE_NODES_CHANGED = 4
     """Sent from BE and received by FE: a whole subtree of nodes was upserted and/or removed"""
 
@@ -53,7 +52,7 @@ class Signal(IntEnum):
     EXECUTE_ACTION = 36  # Request from BE to execute action(s) in FE
 
     TREE_LOAD_STATE_UPDATED = 40
-    """Fired by the backend each time the TreeLoadState changes for a given tree"""
+    """Fired by the backend each time the TreeLoadState changes for a given tree, or stats were updated and possibly the StatusMsg"""
     NODE_EXPANSION_TOGGLED = 42
     NODE_EXPANSION_DONE = 43
     DISPLAY_TREE_CHANGED = 44

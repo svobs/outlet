@@ -394,6 +394,7 @@ class TreeLoadState(IntEnum):
     UNKNOWN = 0  # should never be returned
     NOT_LOADED = 1
     LOAD_STARTED = 2
+    NO_LONGER_EXISTS = 3
     COMPLETELY_LOADED = 10  # final state: all unfiltered + filtered nodes loaded
 
 
