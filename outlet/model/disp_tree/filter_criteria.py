@@ -35,7 +35,7 @@ class FilterCriteria:
         self.show_ancestors_of_matches: bool = False
 
     def has_criteria(self) -> bool:
-        return self.search_query or self.is_trashed != Ternary.NOT_SPECIFIED or self.is_shared != Ternary.NOT_SPECIFIED
+        return bool(self.search_query) or self.is_trashed != Ternary.NOT_SPECIFIED or self.is_shared != Ternary.NOT_SPECIFIED
 
     def __repr__(self):
         return f'FilterCriteria(is_trashed={self.is_trashed.name} is_shared={self.is_shared.name} ignore_case={self.ignore_case} ' \

@@ -278,8 +278,8 @@ class CacheManager(HasLifecycle):
     def _load_cache_for_subtree(self, this_task: Task, tree_meta: ActiveDisplayTreeMeta, send_signals: bool):
         """Note: this method is the "owner" of this_task"""
 
-        logger.debug(f'[{tree_meta.tree_id}] Loading cache for subtree: has_filter_criteria={tree_meta.filter_state.has_criteria()} '
-                     f'spid={tree_meta.root_sn.spid}')
+        logger.debug(f'[{tree_meta.tree_id}] Loading cache for subtree: is_first_order={tree_meta.is_first_order()} '
+                     f'has_filter_criteria={tree_meta.filter_state.has_criteria()} spid={tree_meta.root_sn.spid}')
 
         if tree_meta.is_first_order():  # i.e. not ChangeTree
             # Load meta for all nodes:

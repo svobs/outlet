@@ -284,6 +284,5 @@ class FilterState:
         filter_criteria.show_ancestors_of_matches = show_ancestors_of_matches
 
         if filter_criteria.has_criteria():
-            logger.debug(f'[{tree_id}] Read FilterCriteria: ignore_case={filter_criteria.ignore_case} is_trashed={filter_criteria.is_trashed}'
-                         f' is_shared={filter_criteria.is_shared} show_subtrees={filter_criteria.show_ancestors_of_matches}')
+            logger.debug(f'[{tree_id}] Read filter with criteria: {filter_criteria}')
         return FilterState(filter_criteria, root_sn)

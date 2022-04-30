@@ -1,4 +1,5 @@
 import collections
+import copy
 import errno
 import logging
 import os
@@ -415,12 +416,18 @@ class ActiveTreeManager(HasLifecycle):
             change_tree.print_tree_contents_debug()
             change_tree.print_op_structs_debug()
 
-        filter_state = FilterState.from_config(self.backend, change_tree.tree_id, change_tree.get_root_sn())
-
-        meta = ActiveDisplayTreeMeta(self.backend, change_tree.state, filter_state)
-        meta.change_tree = change_tree
-        meta.src_tree_id = src_tree_id
         with self._display_tree_dict_lock:
+            # Copy FilterState from src_tree. Check memory first; fall back to disk
+            src_tree_meta = self._display_tree_dict.get(src_tree_id, None)
+            if src_tree_meta:
+                filter_state = copy.copy(src_tree_meta.filter_state)
+            else:
+                filter_state = FilterState.from_config(self.backend, src_tree_id, change_tree.get_root_sn())
+
+            meta = ActiveDisplayTreeMeta(self.backend, change_tree.state, filter_state)
+            meta.change_tree = change_tree
+            meta.src_tree_id = src_tree_id
+
             if self._display_tree_dict.get(change_tree.tree_id, None):
                 logger.debug(f'[{change_tree.tree_id}] Registering DisplayTreeMeta for this change tree (overwriting existing)')
             else:

@@ -24,9 +24,11 @@ class ActiveDisplayTreeMeta:
     """
 
     def __init__(self, backend, state: DisplayTreeUiState, filter_state: FilterState):
+        assert isinstance(state, DisplayTreeUiState), f'Not DisplayTreeUiState: {type(state)}: {state}'
         self.state: DisplayTreeUiState = state
 
         self.load_state: TreeLoadState = TreeLoadState.NOT_LOADED
+        assert isinstance(filter_state, FilterState), f'Not FilterState: {type(filter_state)}: {filter_state}'
         self.filter_state: FilterState = filter_state
 
         self.change_tree: Optional[ChangeTree] = None
