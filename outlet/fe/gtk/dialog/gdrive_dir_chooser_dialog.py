@@ -10,13 +10,13 @@ from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from signal_constants import ID_GDRIVE_DIR_SELECT, Signal
-from ui.gtk.tree import tree_factory
+from fe.gtk.tree import tree_factory
 
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
-from ui.gtk.dialog.base_dialog import BaseDialog
+from fe.gtk.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)
 

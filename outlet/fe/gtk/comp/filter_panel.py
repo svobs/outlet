@@ -8,7 +8,7 @@ from constants import FILTER_APPLY_DELAY_MS, IconId
 from logging_constants import SUPER_DEBUG_ENABLED
 from model.disp_tree.filter_criteria import FilterCriteria, Ternary
 from signal_constants import Signal
-from ui.gtk.dialog.base_dialog import BaseDialog
+from fe.gtk.dialog.base_dialog import BaseDialog
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 

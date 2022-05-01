@@ -10,7 +10,7 @@ from model.disp_tree.tree_action import TreeAction
 from model.node_identifier import GUID
 from model.uid import UID
 from signal_constants import Signal
-from ui.gtk.tree.context_menu import TreeContextMenu
+from fe.gtk.tree.context_menu import TreeContextMenu
 from util.has_lifecycle import HasLifecycle
 
 import gi

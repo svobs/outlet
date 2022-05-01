@@ -10,9 +10,9 @@ from be.uid.uid_generator import SimpleUidGenerator
 from constants import TreeID
 from signal_constants import Signal
 from signal_constants import ID_MAIN_WINDOW
-from ui.gtk.icon_store_gtk import IconStoreGtk
-from ui.gtk.tree.controller import TreePanelController
-from ui.gtk.two_pane_window import TwoPaneWindow
+from fe.gtk.icon_store_gtk import IconStoreGtk
+from fe.gtk.tree.controller import TreePanelController
+from fe.gtk.two_pane_window import TwoPaneWindow
 
 import gi
 gi.require_version("Gtk", "3.0")

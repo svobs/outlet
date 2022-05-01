@@ -6,13 +6,13 @@ from logging_constants import SUPER_DEBUG_ENABLED
 from model.disp_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
 from model.node_identifier import GUID, SinglePathNodeIdentifier
-from ui.gtk.dialog.base_dialog import BaseDialog
+from fe.gtk.dialog.base_dialog import BaseDialog
 from signal_constants import Signal
-from ui.gtk.tree import tree_factory_templates
-from ui.gtk.tree.display_mutator import DisplayMutator
-from ui.gtk.tree.display_store import DisplayStore
-from ui.gtk.tree.tree_actions import TreeActions
-from ui.gtk.tree.ui_listeners import TreeUiListeners
+from fe.gtk.tree import tree_factory_templates
+from fe.gtk.tree.display_mutator import DisplayMutator
+from fe.gtk.tree.display_store import DisplayStore
+from fe.gtk.tree.tree_actions import TreeActions
+from fe.gtk.tree.ui_listeners import TreeUiListeners
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 

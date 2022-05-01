@@ -8,9 +8,9 @@ from model.disp_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from signal_constants import Signal
-from ui.gtk.dialog.base_dialog import BaseDialog
-from ui.gtk.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
-from ui.gtk.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
+from fe.gtk.dialog.base_dialog import BaseDialog
+from fe.gtk.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
+from fe.gtk.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 from util import file_util
 from util.has_lifecycle import HasLifecycle
 

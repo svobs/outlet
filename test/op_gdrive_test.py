@@ -15,7 +15,7 @@ from model.uid import UID
 from signal_constants import ID_CENTRAL_EXEC, ID_GLOBAL_CACHE, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
-from ui.gtk.tree.ui_listeners import DragAndDropData
+from fe.gtk.tree.ui_listeners import DragAndDropData
 
 import gi
 gi.require_version("Gtk", "3.0")

@@ -4,12 +4,12 @@ import gi
 
 from constants import TreeDisplayMode
 from logging_constants import SUPER_DEBUG_ENABLED
-from ui.gtk.comp.filter_panel import TreeFilterPanel
-from ui.gtk.comp.root_path_panel import RootPathPanel
-from ui.gtk.dialog.base_dialog import BaseDialog
-from ui.gtk.tree import tree_factory_templates
-from ui.gtk.tree.controller import TreePanelController
-from ui.gtk.tree.treeview_meta import TreeViewMeta
+from fe.gtk.comp.filter_panel import TreeFilterPanel
+from fe.gtk.comp.root_path_panel import RootPathPanel
+from fe.gtk.dialog.base_dialog import BaseDialog
+from fe.gtk.tree import tree_factory_templates
+from fe.gtk.tree.controller import TreePanelController
+from fe.gtk.tree.treeview_meta import TreeViewMeta
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk

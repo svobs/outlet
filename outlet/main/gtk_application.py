@@ -4,7 +4,7 @@ from main import bootstrap
 import util.main_util
 from be.backend_integrated import BackendIntegrated
 
-from ui.gtk.gtk_frontend import OutletApplication
+from fe.gtk.gtk_frontend import OutletApplication
 
 logger = logging.getLogger(__name__)
 

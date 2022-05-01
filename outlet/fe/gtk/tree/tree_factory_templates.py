@@ -4,7 +4,7 @@ from constants import V_PAD
 
 import gi
 
-from ui.gtk.tree.multi_drag_tree_view import MultiDragTreeView
+from fe.gtk.tree.multi_drag_tree_view import MultiDragTreeView
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk

@@ -3,10 +3,10 @@ import logging
 from pydispatch import dispatcher
 
 from signal_constants import ID_MERGE_TREE
-from ui.gtk.tree import tree_factory
+from fe.gtk.tree import tree_factory
 
 from signal_constants import Signal
-from ui.gtk.dialog.base_dialog import BaseDialog
+from fe.gtk.dialog.base_dialog import BaseDialog
 
 import gi
 gi.require_version("Gtk", "3.0")

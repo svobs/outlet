@@ -12,7 +12,7 @@ from pydispatch import dispatcher
 from be.backend_integrated import BackendIntegrated
 from be.exec.cmd.cmd_interface import Command
 from be.sqlite.op_db import OpDatabase
-from ui.gtk.gtk_frontend import OutletApplication
+from fe.gtk.gtk_frontend import OutletApplication
 from app_config import AppConfig
 from constants import OPS_FILE_NAME
 from be import cache_manager
@@ -21,7 +21,7 @@ from model.disp_tree.display_tree import DisplayTree
 from model.node.node import TNode, SPIDNodePair
 from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from be.disp_tree import root_path_config
-from ui.gtk.tree.controller import TreePanelController
+from fe.gtk.tree.controller import TreePanelController
 from util import file_util
 
 LOAD_TIMEOUT_SEC = 6000
