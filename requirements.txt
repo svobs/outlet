@@ -42,3 +42,7 @@ netifaces==0.11.0
 #pycairo==1.19.1
 #PyGObject==3.36.0
 #PyGObject-stubs==0.0.2
+
+# For debug webapps
+flask>=2.1.2
+flask-classful>=0.14.2

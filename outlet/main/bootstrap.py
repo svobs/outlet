@@ -19,6 +19,3 @@ def configure():
 
         os.makedirs(name=config_py_dir, exist_ok=True)
         shutil.copyfile(template_py, dst=logging_constants_py, follow_symlinks=False)
-
-
-configure()
