@@ -75,7 +75,6 @@ class LocalDiskTree(SimpleTree[UID, LocalNode]):
         if existing:
             if existing.is_dir() == node.is_dir():
                 # Same type at least? Just update
-                assert isinstance(existing, LocalDirNode)
                 existing.update_from(node)
             else:
                 # TODO: handle this case

@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 from be.sqlite.local_db import LocalDiskDatabase
 from be.tree_store.locald.ld_tree import LocalDiskTree
-from be.tree_store.locald.op_write import LocalDiskMultiNodeOp, LocalDiskSingleNodeOp
+from be.tree_store.locald.op_cache_write import LDMultiNodeOp, LDSingleNodeOp
 from constants import TreeType
 from logging_constants import TRACE_ENABLED
 from model.cache_info import PersistedCacheInfo
@@ -68,13 +68,13 @@ class LocalDiskDiskStore(HasLifecycle):
     def execute_op(self, operation):
         with self._struct_lock:
             if operation.is_single_node_op():
-                assert isinstance(operation, LocalDiskSingleNodeOp)
+                assert isinstance(operation, LDSingleNodeOp)
                 self._update_diskstore_for_single_op(operation)
             else:
-                assert isinstance(operation, LocalDiskMultiNodeOp)
+                assert isinstance(operation, LDMultiNodeOp)
                 self._update_diskstore_for_subtree(operation)
 
-    def _update_diskstore_for_subtree(self, op: LocalDiskMultiNodeOp):
+    def _update_diskstore_for_subtree(self, op: LDMultiNodeOp):
         """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
 
         cache_dict: Dict[str, LocalDiskDatabase] = {}
@@ -92,7 +92,7 @@ class LocalDiskDiskStore(HasLifecycle):
         for cache in cache_dict.values():
             cache.commit()
 
-    def _update_diskstore_for_single_op(self, operation: LocalDiskSingleNodeOp):
+    def _update_diskstore_for_single_op(self, operation: LDSingleNodeOp):
         assert operation.node, f'No node for operation: {type(operation)}'
         cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.get_cache_info_for_subtree(operation.node.node_identifier)
         if not cache_info:

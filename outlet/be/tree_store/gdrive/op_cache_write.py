@@ -18,9 +18,9 @@ from signal_constants import ID_GLOBAL_CACHE, Signal
 logger = logging.getLogger(__name__)
 
 
-# ABSTRACT CLASS GDriveWriteThroughOp
+# ABSTRACT CLASS GDCacheWriteOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class GDriveWriteThroughOp(ABC):
+class GDCacheWriteOp(ABC):
     @abstractmethod
     def update_memstore(self, memstore: GDriveMemoryStore):
         pass
@@ -34,10 +34,10 @@ class GDriveWriteThroughOp(ABC):
         pass
 
 
-class UpsertSingleNodeOp(GDriveWriteThroughOp):
+class GDUpsertSingleNodeOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS UpsertSingleNodeOp
+    CLASS GDUpsertSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, node: GDriveNode, update_only: bool = False):
@@ -86,7 +86,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             return
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'UpsertSingleNodeOp: upserting GDriveNode to disk cache: {self.node}')
+            logger.debug(f'GDUpsertSingleNodeOp: upserting GDriveNode to disk cache: {self.node}')
 
         parent_mappings = []
         parent_uids = self.node.get_parent_uids()
@@ -119,10 +119,10 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
         dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
-class DeleteSingleNodeOp(GDriveWriteThroughOp):
+class GDRemoveSingleNodeOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS DeleteSingleNodeOp
+    CLASS GDRemoveSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, node: GDriveNode, to_trash: bool = False):
@@ -144,10 +144,10 @@ class DeleteSingleNodeOp(GDriveWriteThroughOp):
         dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
-class DeleteSubtreeOp(GDriveWriteThroughOp):
+class GDRemoveSubtreeOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS DeleteSubtreeOp
+    CLASS GDRemoveSubtreeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, subtree_root_node: GDriveNode, node_list: List[GDriveNode], to_trash: bool = False):
@@ -157,25 +157,25 @@ class DeleteSubtreeOp(GDriveWriteThroughOp):
         self.to_trash: bool = to_trash
 
     def update_memstore(self, memstore: GDriveMemoryStore):
-        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from memory cache')
+        logger.debug(f'GDRemoveSubtreeOp: removing {len(self.node_list)} nodes from memory cache')
         for node in reversed(self.node_list):
             memstore.remove_single_node(node, self.to_trash)
-        logger.debug(f'DeleteSubtreeOp: done removing nodes from memory cache')
+        logger.debug(f'GDRemoveSubtreeOp: done removing nodes from memory cache')
 
     def update_diskstore(self, cache: GDriveDatabase):
         # TODO: bulk remove
-        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from disk cache')
+        logger.debug(f'GDRemoveSubtreeOp: removing {len(self.node_list)} nodes from disk cache')
         for node in self.node_list:
             cache.delete_single_node(node, commit=False)
-        logger.debug(f'DeleteSubtreeOp: done removing nodes from disk cache')
+        logger.debug(f'GDRemoveSubtreeOp: done removing nodes from disk cache')
 
     def send_signals(self):
-        logger.debug(f'DeleteSubtreeOp: sending "{Signal.NODE_REMOVED_IN_CACHE}" signal for {len(self.node_list)} nodes')
+        logger.debug(f'GDRemoveSubtreeOp: sending "{Signal.NODE_REMOVED_IN_CACHE}" signal for {len(self.node_list)} nodes')
         for node in self.node_list:
             dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=node)
 
 
-class BatchChangesOp(GDriveWriteThroughOp):
+class BatchChangesOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS BatchChangesOp
@@ -278,7 +278,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
                 dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=change.node)
 
 
-class RefreshFolderOp(GDriveWriteThroughOp):
+class RefreshFolderOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS RefreshFolderOp
@@ -358,7 +358,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
             logger.debug(f'RefreshFolderOp: no need to send signal: no upserted nodes')
 
 
-class CreateUserOp(GDriveWriteThroughOp):
+class CreateUserOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS CreateUserOp
@@ -378,7 +378,7 @@ class CreateUserOp(GDriveWriteThroughOp):
         pass
 
 
-class UpsertMimeTypeOp(GDriveWriteThroughOp):
+class UpsertMimeTypeOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS UpsertMimeTypeOp
@@ -402,7 +402,7 @@ class UpsertMimeTypeOp(GDriveWriteThroughOp):
         pass
 
 
-class DeleteAllDataOp(GDriveWriteThroughOp):
+class DeleteAllDataOp(GDCacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS DeleteAllDataOp

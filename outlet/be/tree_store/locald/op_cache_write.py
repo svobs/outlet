@@ -33,10 +33,10 @@ class LocalSubtree(ABC):
         return f'LocalSubtree({self.subtree_root} remove_nodes={len(self.remove_node_list)} upsert_nodes={len(self.upsert_node_list)}'
 
 
-class LocalWriteThroughOp(ABC):
+class LDWriteCacheOp(ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ABSTRACT CLASS LocalWriteThroughOp
+    ABSTRACT CLASS LDWriteCacheOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -44,22 +44,26 @@ class LocalWriteThroughOp(ABC):
     def update_memstore(self, data: LocalDiskMemoryStore):
         pass
 
-    @classmethod
-    def is_single_node_op(cls) -> bool:
-        return False
+    @abstractmethod
+    def update_diskstore(self, cache: LocalDiskDatabase):
+        pass
 
     @abstractmethod
     def send_signals(self):
         pass
 
+    @classmethod
+    def is_single_node_op(cls) -> bool:
+        return False
+
     # Single-node
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
 
-class LocalDiskSingleNodeOp(LocalWriteThroughOp, ABC):
+class LDSingleNodeOp(LDWriteCacheOp, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ABSTRACT CLASS LocalDiskSingleNodeOp
+    ABSTRACT CLASS LDSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -67,19 +71,15 @@ class LocalDiskSingleNodeOp(LocalWriteThroughOp, ABC):
         assert node, f'No node for operation: {type(self)}'
         self.node: LocalNode = node
 
-    @abstractmethod
-    def update_diskstore(self, cache: LocalDiskDatabase):
-        pass
-
     @classmethod
     def is_single_node_op(cls) -> bool:
         return True
 
 
-class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
+class LDUpsertSingleNodeOp(LDSingleNodeOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS UpsertSingleNodeOp
+    CLASS LDUpsertSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -93,35 +93,35 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         if node:
             self.node = node
         elif SUPER_DEBUG_ENABLED:
-            logger.debug(f'UpsertSingleNodeOp: upsert_single_node() returned None for input node: {self.node}')
+            logger.debug(f'LDUpsertSingleNodeOp: upsert_single_node() returned None for input node: {self.node}')
 
     def update_diskstore(self, cache: LocalDiskDatabase):
         if not self.node.is_live():
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'UpsertSingleNodeOp: node is not live; skipping save to disk: {self.node}')
+                logger.debug(f'LDUpsertSingleNodeOp: node is not live; skipping save to disk: {self.node}')
             return
 
         if not self.was_updated:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'UpsertSingleNodeOp: node was not updated in memstore; skipping save to disk: {self.node}')
+                logger.debug(f'LDUpsertSingleNodeOp: node was not updated in memstore; skipping save to disk: {self.node}')
             return
 
-        logger.debug(f'UpsertSingleNodeOp: upserting LocalNode to diskstore: {self.node}')
+        logger.debug(f'LDUpsertSingleNodeOp: upserting LocalNode to diskstore: {self.node}')
         cache.upsert_single_node(self.node, commit=False)
 
     def send_signals(self):
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'UpsertSingleNodeOp: sending upsert signal for {self.node.node_identifier}')
+            logger.debug(f'LDUpsertSingleNodeOp: sending upsert signal for {self.node.node_identifier}')
         dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
     def __repr__(self):
-        return f'UpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
+        return f'LDUpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
 
 
-class DeleteSingleNodeOp(UpsertSingleNodeOp):
+class LDRemoveSingleNodeOp(LDUpsertSingleNodeOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS DeleteSingleNodeOp
+    CLASS LDRemoveSingleNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -147,16 +147,16 @@ class DeleteSingleNodeOp(UpsertSingleNodeOp):
         dispatcher.send(signal=Signal.NODE_REMOVED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
     def __repr__(self):
-        return f'DeleteSingleNodeOp({self.node.node_identifier} to_trash={self.to_trash})'
+        return f'LDRemoveSingleNodeOp({self.node.node_identifier} to_trash={self.to_trash})'
 
     # Multi-node
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
 
-class LocalDiskMultiNodeOp(LocalWriteThroughOp, ABC):
+class LDMultiNodeOp(LDWriteCacheOp, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ABSTRACT CLASS LocalDiskMultiNodeOp
+    ABSTRACT CLASS LDMultiNodeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -173,10 +173,10 @@ class LocalDiskMultiNodeOp(LocalWriteThroughOp, ABC):
         pass
 
 
-class BatchChangesOp(LocalDiskMultiNodeOp):
+class LDBatchWriteOp(LDMultiNodeOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS BatchChangesOp
+    CLASS LDBatchWriteOp
 
     REMEMBER: ALWAYS REMOVE BEFORE ADDING!
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -243,13 +243,13 @@ class BatchChangesOp(LocalDiskMultiNodeOp):
                             upserted_node_list=subtree.upsert_node_list, removed_node_list=list(reversed(subtree.remove_node_list)))
 
     def __repr__(self):
-        return f'BatchChangesOp({self.subtree_list})'
+        return f'LDBatchWriteOp({self.subtree_list})'
 
 
-class DeleteSubtreeOp(BatchChangesOp):
+class LDRemoveSubtreeOp(LDBatchWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS DeleteSubtreeOp
+    CLASS LDRemoveSubtreeOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -257,7 +257,7 @@ class DeleteSubtreeOp(BatchChangesOp):
         super().__init__(subtree_root=subtree_root, upsert_node_list=[], remove_node_list=node_list)
 
 
-class RefreshDirEntriesOp(BatchChangesOp):
+class RefreshDirEntriesOp(LDBatchWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS RefreshDirEntriesOp

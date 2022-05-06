@@ -21,7 +21,7 @@ from be.exec.cmd.cmd_interface import Command
 from be.exec.user_op.op_manager import OpManager
 from be.sqlite.content_meta_db import ContentMeta
 from be.tree_store.gdrive.gdrive import GDriveMasterStore
-from be.tree_store.gdrive.op_load import GDriveDiskLoadOp
+from be.tree_store.gdrive.op_cache_load import GDCacheLoadOp
 from be.tree_store.locald import sig_calc
 from be.tree_store.locald.sig_calc_thread import SigCalcBatchingThread
 from constants import CACHE_LOAD_TIMEOUT_SEC, DirConflictPolicy, DragOperation, FileConflictPolicy, GDRIVE_ROOT_UID, IconId, \
@@ -708,7 +708,7 @@ class CacheManager(HasLifecycle):
     def delete_all_gdrive_data(self, device_uid: UID):
         self._get_gdrive_store_for_device_uid(device_uid).delete_all_gdrive_data()
 
-    def execute_gdrive_load_op(self, device_uid: UID, op: GDriveDiskLoadOp):
+    def execute_gdrive_load_op(self, device_uid: UID, op: GDCacheLoadOp):
         self._get_gdrive_store_for_device_uid(device_uid).execute_load_op(op)
 
     def download_file_from_gdrive(self, device_uid: UID, node_uid: UID, requestor_id: str):

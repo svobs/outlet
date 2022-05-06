@@ -12,8 +12,8 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from be.tree_store.gdrive.gd_memstore import GDriveMemoryStore
-from be.tree_store.gdrive.op_load import GDriveDiskLoadOp
-from be.tree_store.gdrive.op_write import GDriveWriteThroughOp
+from be.tree_store.gdrive.op_cache_load import GDCacheLoadOp
+from be.tree_store.gdrive.op_cache_write import GDCacheWriteOp
 from be.sqlite.gdrive_db import GDriveMetaDownload, GDriveDatabase
 from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
@@ -174,11 +174,11 @@ class GDriveDiskStore(HasLifecycle):
         self.backend.uid_generator.ensure_next_uid_greater_than(max_uid)
         return tree
 
-    def execute_load_op(self, operation: GDriveDiskLoadOp):
+    def execute_load_op(self, operation: GDCacheLoadOp):
         operation.load_from_diskstore(self._db)
         # No need to commit since we only did reads
 
-    def execute_write_op(self, operation: GDriveWriteThroughOp):
+    def execute_write_op(self, operation: GDCacheWriteOp):
         operation.update_diskstore(self._db)
         self._db.commit()
 

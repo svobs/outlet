@@ -9,7 +9,7 @@ from be.sqlite.gdrive_db import GDriveMetaDownload
 from be.tree_store.gdrive.client.gdrive_client import GDriveClient
 from be.tree_store.gdrive.gd_tree import GDriveWholeTree
 from be.tree_store.gdrive.gd_diskstore import GDriveDiskStore
-from be.tree_store.gdrive.op_load import GDriveLoadAllMetaOp
+from be.tree_store.gdrive.op_cache_load import GDLoadAllMetaOp
 from be.tree_store.gdrive.client.query_observer import FileMetaPersister, FolderMetaPersister
 from constants import GDRIVE_CHECK_FOR_BROKEN_NODES, GDRIVE_COUNT_MULTIPLE_PARENTS, GDRIVE_FIND_DUPLICATE_NODE_NAMES, GDRIVE_DOWNLOAD_STATE_COMPLETE, \
     GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, \
@@ -93,7 +93,7 @@ class GDriveTreeLoader:
                 dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             # Load all users and MIME types
-            self.backend.cacheman.execute_gdrive_load_op(self.device_uid, GDriveLoadAllMetaOp())
+            self.backend.cacheman.execute_gdrive_load_op(self.device_uid, GDLoadAllMetaOp())
 
             tree: GDriveWholeTree = self._diskstore.load_tree_from_cache(initial_download.is_complete(), self.tree_id)
 

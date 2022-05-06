@@ -13,8 +13,8 @@ from be.disp_tree.filter_state import FilterState
 from be.tree_store.locald.ld_diskstore import LocalDiskDiskStore
 from be.tree_store.locald.ld_fs_scanner import LocalDiskTreeScanner
 from be.tree_store.locald.ld_tree import LocalDiskTree
-from be.tree_store.locald.op_write import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
-    LocalWriteThroughOp, RefreshDirEntriesOp, UpsertSingleNodeOp
+from be.tree_store.locald.op_cache_write import LDBatchWriteOp, LDRemoveSingleNodeOp, LDRemoveSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
+    LDWriteCacheOp, RefreshDirEntriesOp, LDUpsertSingleNodeOp
 from be.tree_store.tree_store import TreeStore
 from be.uid.uid_mapper import UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
@@ -68,7 +68,7 @@ class LocalDiskMasterStore(TreeStore):
     def is_gdrive(self) -> bool:
         return False
 
-    def _execute_write_op(self, operation: LocalWriteThroughOp):
+    def _execute_write_op(self, operation: LDWriteCacheOp):
         # 3 stages. Failure at one stage cancels the stages after
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Executing operation: {operation}')
@@ -98,7 +98,7 @@ class LocalDiskMasterStore(TreeStore):
 
     def submit_batch_of_changes(self, subtree_root: LocalNodeIdentifier,  upsert_node_list: List[LocalNode] = None,
                                 remove_node_list: List[LocalNode] = None):
-        self._execute_write_op(BatchChangesOp(subtree_root=subtree_root, upsert_node_list=upsert_node_list, remove_node_list=remove_node_list))
+        self._execute_write_op(LDBatchWriteOp(subtree_root=subtree_root, upsert_node_list=upsert_node_list, remove_node_list=remove_node_list))
 
     def overwrite_dir_entries_list(self, parent_full_path: str, child_list: List[LocalNode]):
         logger.debug(f'overwrite_dir_entries_list() called with {len(child_list)} children & parent: "{parent_full_path}"')
@@ -134,7 +134,7 @@ class LocalDiskMasterStore(TreeStore):
         parent_spid: LocalNodeIdentifier = parent_dir.node_identifier
 
         # Get children of target parent, and sort into dirs and non-dirs:
-        # Files can be removed in the main RefreshDirEntriesOp op, but dirs represent trees, so we will create a DeleteSubtreeOp for each.
+        # Files can be removed in the main RefreshDirEntriesOp op, but dirs represent trees, so we will create a LDRemoveSubtreeOp for each.
         file_node_remove_list = []
         existing_child_list = self._get_child_list_from_cache_for_spid(parent_spid, only_if_all_children_fetched=False)
         if existing_child_list:
@@ -454,7 +454,7 @@ class LocalDiskMasterStore(TreeStore):
             f'Internal error while trying to upsert node to cache: UID did not match expected ' \
             f'({self.uid_path_mapper.get_uid_for_path(node.get_single_path(), node.uid)}); node={node}'
 
-        write_op = UpsertSingleNodeOp(node)
+        write_op = LDUpsertSingleNodeOp(node)
         self._execute_write_op(write_op)
 
         return write_op.node
@@ -463,7 +463,7 @@ class LocalDiskMasterStore(TreeStore):
         if not node or node.tree_type != TreeType.LOCAL_DISK or node.device_uid != self.device.uid:
             raise RuntimeError(f'Cannot update node: invalid node provided: {node}')
 
-        write_op = UpsertSingleNodeOp(node, update_only=True)
+        write_op = LDUpsertSingleNodeOp(node, update_only=True)
         self._execute_write_op(write_op)
 
         return write_op.node
@@ -473,7 +473,7 @@ class LocalDiskMasterStore(TreeStore):
             raise RuntimeError(f'Cannot remove node: invalid node provided: {node}')
 
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
-        self._execute_write_op(DeleteSingleNodeOp(node, to_trash=to_trash))
+        self._execute_write_op(LDRemoveSingleNodeOp(node, to_trash=to_trash))
 
     def _migrate_node(self, node: LocalNode, src_full_path: str, dst_full_path: str) -> LocalNode:
         new_node_full_path: str = file_util.change_path_to_new_root(node.get_single_path(), src_full_path, dst_full_path)
@@ -534,7 +534,7 @@ class LocalDiskMasterStore(TreeStore):
 
                 # here, src_subtree contains nodes to remove from cache, & dst_subtree contains the migrated nodes to upsert
                 # (+ maybe cached nodes to remove)
-                self._execute_write_op(BatchChangesOp(subtree_list=[src_subtree, dst_subtree]))
+                self._execute_write_op(LDBatchWriteOp(subtree_list=[src_subtree, dst_subtree]))
 
                 return existing_src_node_list, dst_subtree.upsert_node_list
             else:
@@ -568,7 +568,7 @@ class LocalDiskMasterStore(TreeStore):
         subtree_node_list: List[LocalNode] = self._get_subtree_bfs_from_cache(subtree_root_node.node_identifier)
         if not subtree_node_list:
             raise RuntimeError(f'Unexpected error: no nodes returned from BFS search for subroot: {subtree_root_node.node_identifier}')
-        operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_node_list)
+        operation: LDRemoveSubtreeOp = LDRemoveSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_node_list)
         self._execute_write_op(operation)
 
     # Various public getters

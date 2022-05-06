@@ -15,9 +15,9 @@ from be.tree_store.gdrive.client.gdrive_client import GDriveClient
 from be.tree_store.gdrive.gd_tree_loader import GDriveTreeLoader
 from be.tree_store.gdrive.gd_diskstore import GDriveDiskStore
 from be.tree_store.gdrive.gd_memstore import GDriveMemoryStore
-from be.tree_store.gdrive.op_load import GDriveDiskLoadOp
-from be.tree_store.gdrive.op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
-    GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
+from be.tree_store.gdrive.op_cache_load import GDCacheLoadOp
+from be.tree_store.gdrive.op_cache_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, GDRemoveSingleNodeOp, GDRemoveSubtreeOp, \
+    GDCacheWriteOp, RefreshFolderOp, UpsertMimeTypeOp, GDUpsertSingleNodeOp
 from be.tree_store.tree_store import TreeStore
 from be.uid.uid_mapper import UidGoogIdMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_ME_USER_UID, GDRIVE_ROOT_UID, NodeIdentifierType, ROOT_PATH, \
@@ -156,8 +156,8 @@ class GDriveMasterStore(TreeStore):
     def get_gdrive_client(self) -> GDriveClient:
         return self.gdrive_client
 
-    def execute_load_op(self, operation: GDriveDiskLoadOp):
-        """Executes a single GDriveDiskLoadOp ({start}->disk->memory"""
+    def execute_load_op(self, operation: GDCacheLoadOp):
+        """Executes a single GDCacheLoadOp ({start}->disk->memory"""
 
         # 1. Load from disk store
         self._diskstore.execute_load_op(operation)
@@ -165,8 +165,8 @@ class GDriveMasterStore(TreeStore):
         # 2. Update memory store
         operation.update_memstore(self._memstore)
 
-    def _execute_write_op(self, operation: GDriveWriteThroughOp):
-        """Executes a single GDriveWriteThroughOp ({start}->memory->disk->UI)"""
+    def _execute_write_op(self, operation: GDCacheWriteOp):
+        """Executes a single GDCacheWriteOp ({start}->memory->disk->UI)"""
 
         # 1. Update memory store
         operation.update_memstore(self._memstore)
@@ -338,7 +338,7 @@ class GDriveMasterStore(TreeStore):
         if not parent_node:
             raise RuntimeError(f'Cannot refresh: node with goog_id "{subtree_root_node.goog_id}" not found in Google Drive! ({subtree_root_node})')
         if not parent_node.is_dir():
-            self._execute_write_op(UpsertSingleNodeOp(parent_node))
+            self._execute_write_op(GDUpsertSingleNodeOp(parent_node))
             return
 
         assert isinstance(parent_node, GDriveFolder)
@@ -379,14 +379,14 @@ class GDriveMasterStore(TreeStore):
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered upsert_single_node(): node={node}')
 
-        write_op = UpsertSingleNodeOp(node)
+        write_op = GDUpsertSingleNodeOp(node)
         self._execute_write_op(write_op)
         return write_op.node
 
     def update_single_node(self, node: GDriveNode) -> GDriveNode:
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Entered update_single_node(): node={node}')
-        write_op = UpsertSingleNodeOp(node, update_only=True)
+        write_op = GDUpsertSingleNodeOp(node, update_only=True)
         logger.debug(f'Updating GDrive node in caches: {node}')
         self._execute_write_op(write_op)
 
@@ -400,7 +400,7 @@ class GDriveMasterStore(TreeStore):
         if subtree_root.is_dir():
             subtree_nodes: List[GDriveNode] = self.get_subtree_bfs_node_list(subtree_root.node_identifier)
             logger.info(f'Removing subtree with {len(subtree_nodes)} nodes (to_trash={to_trash})')
-            self._execute_write_op(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
+            self._execute_write_op(GDRemoveSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
         else:
             logger.debug(f'Requested subtree is not a folder; calling remove_single_node()')
             self.remove_single_node(subtree_root, to_trash=to_trash)
@@ -414,7 +414,7 @@ class GDriveMasterStore(TreeStore):
             # this is actually an update
             return self.upsert_single_node(node)
         else:
-            self._execute_write_op(DeleteSingleNodeOp(node, to_trash))
+            self._execute_write_op(GDRemoveSingleNodeOp(node, to_trash))
             return None
 
     # Various public methods
