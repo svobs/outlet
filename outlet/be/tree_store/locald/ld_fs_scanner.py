@@ -106,7 +106,7 @@ class LocalDiskTreeScanner:
                     else:
                         nondirs.append(path)
 
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'_list_dir_entries(): returning {len(dirs)} dirs, {len(nondirs)} nondirs')
         return dirs, nondirs
 

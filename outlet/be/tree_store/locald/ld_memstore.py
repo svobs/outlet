@@ -1,6 +1,8 @@
 import logging
 from typing import Optional, Tuple
 
+from be.tree_store import cache_write_op
+from be.tree_store.cache_write_op import NodeUpdateInfo, NodeUpdateInfoFactory
 from be.tree_store.locald.ld_tree import LocalDiskTree
 from constants import LOCAL_ROOT_UID, ROOT_PATH
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
@@ -60,12 +62,9 @@ class LocalDiskMemoryStore:
         else:
             logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
 
-    def upsert_single_node(self, node: LocalNode, update_only: bool = False) -> Tuple[Optional[LocalNode], bool]:
+    def upsert_single_node(self, node: LocalNode, update_only: bool = False) -> NodeUpdateInfo:
         """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
         Second item in the tuple is True if update contained changes which should be saved to disk; False if otherwise"""
-
-        # FIXME: replace returned Tuple with object which specifies whether UI should be updated + whether DB should be updated
-        # FIXME: currently we are sending everything to the FE. We should send to the FE only if changed OR icon updated
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting to memstore: {node}')
@@ -82,7 +81,7 @@ class LocalDiskMemoryStore:
 
         # Update icon (this may be the only thing changed)
         self.backend.cacheman.update_node_icon(node)
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'TNode {node.device_uid}:{node.uid} has icon={node.get_icon().name}, custom_icon={node.get_custom_icon()}')
 
         cached_node: LocalNode = self.master_tree.get_node_for_uid(node.uid)
@@ -96,11 +95,11 @@ class LocalDiskMemoryStore:
                     if cached_node.get_icon() != node.get_icon():
                         cached_node.set_icon(node.get_icon())
                         logger.debug(f'Will not overwrite live node with non-live, but will copy its icon: {node}')
-                        return node, False
+                        return NodeUpdateInfo(node, False, True)
 
                     # In the future, let's close this hole with more elegant logic
                     logger.debug(f'Will not replace a live node with non-live; skipping memstore update for {node.node_identifier}')
-                    return None, False
+                    return NodeUpdateInfoFactory.no_update()
                 elif not cached_node.is_live():
                     # this shouldn't really happen
                     logger.warning(f'Updating non-live node with another non-live-node: {node.node_identifier}')
@@ -116,9 +115,8 @@ class LocalDiskMemoryStore:
 
             if cached_node == node:
                 if SUPER_DEBUG_ENABLED:
-                    logger.debug(f'TNode being upserted is identical to node already in the cache; skipping memstore update '
-                                 f'(CachedNode={cached_node}; NewNode={node}')
-                return cached_node, False
+                    logger.debug(f'TNode is identical to cached node; skipping memstore update (CachedNode={cached_node}; NewNode={node}')
+                return NodeUpdateInfoFactory.no_update()
 
             # just update the existing - much easier
             if SUPER_DEBUG_ENABLED:
@@ -139,11 +137,11 @@ class LocalDiskMemoryStore:
         elif update_only:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Skipping update of node {node.node_identifier.guid} because it is not in memstore')
-            return node, False
+            return NodeUpdateInfoFactory.no_update()
         else:
             # new file or directory insert
             self.master_tree.add_to_tree(node)
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'TNode {node.node_identifier.guid} was upserted into memstore')
-        return node, True
+        return NodeUpdateInfo(node, True, True)

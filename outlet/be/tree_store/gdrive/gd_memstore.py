@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, List, Optional, Tuple
 
+from be.tree_store.cache_write_op import NodeUpdateInfo, NodeUpdateInfoFactory
 from be.tree_store.gdrive.gd_tree import GDriveWholeTree
 from be.uid.uid_mapper import UidGoogIdMapper
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID
@@ -35,7 +36,7 @@ class GDriveMemoryStore:
     def is_loaded(self) -> bool:
         return self.master_tree is not None
 
-    def upsert_single_node(self, node: GDriveNode, update_only: bool = False) -> Tuple[Optional[GDriveNode], bool]:
+    def upsert_single_node(self, node: GDriveNode, update_only: bool = False) -> NodeUpdateInfo:
 
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Upserting to memstore: {node}')
@@ -51,7 +52,7 @@ class GDriveMemoryStore:
                 node.uid = uid_from_mapper
 
         self.backend.cacheman.update_node_icon(node)
-        if SUPER_DEBUG_ENABLED:
+        if TRACE_ENABLED:
             logger.debug(f'TNode {node.device_uid}:{node.uid} has icon: {node.get_icon().name}, custom_icon: {node.get_custom_icon()}')
 
         cached_node: GDriveNode = self.master_tree.get_node_for_uid(node.uid)
@@ -69,17 +70,17 @@ class GDriveMemoryStore:
                 if cached_node.get_icon() != node.get_icon():
                     cached_node.set_icon(node.get_icon())
                     logger.info(f'Will not overwrite existing node with non-existing, but will copy its icon: {node}')
-                    return node, False
+                    return NodeUpdateInfo(node, False, True)
 
                 # In the future, let's close this hole with more elegant logic
                 logger.info(f'Will not replace a node which exists with one which does not exist; ignoring: {node}')
-                return node, False
+                return NodeUpdateInfoFactory.no_update()
 
             if cached_node == node:
-                logger.debug(f'TNode being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                logger.debug(f'TNode is identical to cached node; skipping memstore update (CachedNode={cached_node}; NewNode={node}')
                 if SUPER_DEBUG_ENABLED:
                     logger.debug(f'Existing node: {cached_node}')
-                return cached_node, False
+                return NodeUpdateInfoFactory.no_update()
 
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Merging node UID={cached_node.uid} into cached node')
@@ -96,13 +97,13 @@ class GDriveMemoryStore:
         elif update_only:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'Skipping update for node because it is not in the memory cache: {node}')
-            return node, False
+            return NodeUpdateInfoFactory.no_update()
 
         # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
         # FIXME: determine if nodes were removed from parents. If so, send notifications to ATM
         node = self.master_tree.upsert_node(node)
 
-        return node, True
+        return NodeUpdateInfo(node, True, True)
 
     def remove_single_node(self, node: GDriveNode, to_trash: bool = False):
         """Note: this is not allowed for non-empty directories."""

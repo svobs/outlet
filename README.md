@@ -48,8 +48,8 @@ Create a virtual environment within this directory (`{project_name}`)  following
 ## Future Development
 
 #### ESSENTIAL FOR FIRST RELEASE
-* [3] [in progress] Give local dirs first-class support (copy stats, allow more operations than just MKDIR)
 * [5] [in progress] Mode Toolbar with Cut, Copy modes; Merge Folder Toolbar with Add if Not Present, Overwrite Conflicts vs Ignore Conflicts, Delete Extraneous vs Keep Extraneous toggles
+* [1] Rename support
 * [3] Google Drive connect flow
 * [5] Mac installer
 * [3] Google Drive single-parent migration check & assistant (see: https://developers.google.cn/drive/api/v3/multi-parenting?hl=zh-cn)

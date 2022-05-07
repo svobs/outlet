@@ -14,7 +14,7 @@ from be.tree_store.locald.ld_diskstore import LocalDiskDiskStore
 from be.tree_store.locald.ld_fs_scanner import LocalDiskTreeScanner
 from be.tree_store.locald.ld_tree import LocalDiskTree
 from be.tree_store.locald.op_cache_write import LDBatchWriteOp, LDRemoveSingleNodeOp, LDRemoveSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
-    LDWriteCacheOp, RefreshDirEntriesOp, LDUpsertSingleNodeOp
+    LDCacheWriteOp, RefreshDirEntriesOp, LDUpsertSingleNodeOp
 from be.tree_store.tree_store import TreeStore
 from be.uid.uid_mapper import UidPathMapper
 from constants import CACHE_LOAD_TIMEOUT_SEC, IS_MACOS, IS_WINDOWS, MAX_FS_LINK_DEPTH, ROOT_PATH, TrashStatus, TreeID, TreeType
@@ -68,7 +68,7 @@ class LocalDiskMasterStore(TreeStore):
     def is_gdrive(self) -> bool:
         return False
 
-    def _execute_write_op(self, operation: LDWriteCacheOp):
+    def _execute_write_op(self, operation: LDCacheWriteOp):
         # 3 stages. Failure at one stage cancels the stages after
         if SUPER_DEBUG_ENABLED:
             logger.debug(f'Executing operation: {operation}')

@@ -1,9 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
+from be.tree_store.cache_write_op import CacheWriteOp, NodeUpdateInfo
 from logging_constants import SUPER_DEBUG_ENABLED, TRACE_ENABLED
 from model.node.locald_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
@@ -33,34 +34,34 @@ class LocalSubtree(ABC):
         return f'LocalSubtree({self.subtree_root} remove_nodes={len(self.remove_node_list)} upsert_nodes={len(self.upsert_node_list)}'
 
 
-class LDWriteCacheOp(ABC):
+class LDCacheWriteOp(CacheWriteOp):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ABSTRACT CLASS LDWriteCacheOp
+    ABSTRACT CLASS LDCacheWriteOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
     @abstractmethod
-    def update_memstore(self, data: LocalDiskMemoryStore):
+    def update_memstore(self, memstore: LocalDiskMemoryStore):
         pass
 
     @abstractmethod
-    def update_diskstore(self, cache: LocalDiskDatabase):
+    def update_diskstore(self, diskstore: LocalDiskDatabase):
         pass
 
     @abstractmethod
     def send_signals(self):
         pass
 
+    # Single-node
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     @classmethod
     def is_single_node_op(cls) -> bool:
         return False
 
-    # Single-node
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-
-class LDSingleNodeOp(LDWriteCacheOp, ABC):
+class LDSingleNodeOp(LDCacheWriteOp, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ABSTRACT CLASS LDSingleNodeOp
@@ -85,34 +86,28 @@ class LDUpsertSingleNodeOp(LDSingleNodeOp):
 
     def __init__(self, node: LocalNode, update_only: bool = False):
         super().__init__(node)
-        self.was_updated: bool = True
         self.update_only: bool = update_only
+        self.update_info: Optional[NodeUpdateInfo] = None
 
     def update_memstore(self, memstore: LocalDiskMemoryStore):
-        node, self.was_updated = memstore.upsert_single_node(self.node, self.update_only)
-        if node:
-            self.node = node
-        elif SUPER_DEBUG_ENABLED:
+        self.update_info: NodeUpdateInfo = memstore.upsert_single_node(self.node, self.update_only)
+        if SUPER_DEBUG_ENABLED and not self.update_info.node:
             logger.debug(f'LDUpsertSingleNodeOp: upsert_single_node() returned None for input node: {self.node}')
 
     def update_diskstore(self, cache: LocalDiskDatabase):
-        if not self.node.is_live():
+        if not self.update_info.needs_disk_update:
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'LDUpsertSingleNodeOp: node is not live; skipping save to disk: {self.node}')
-            return
-
-        if not self.was_updated:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'LDUpsertSingleNodeOp: node was not updated in memstore; skipping save to disk: {self.node}')
+                logger.debug(f'LDUpsertSingleNodeOp: skipping save to disk: {self.node}')
             return
 
         logger.debug(f'LDUpsertSingleNodeOp: upserting LocalNode to diskstore: {self.node}')
         cache.upsert_single_node(self.node, commit=False)
 
     def send_signals(self):
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'LDUpsertSingleNodeOp: sending upsert signal for {self.node.node_identifier}')
-        dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
+        if self.update_info.needs_disk_update or self.update_info.has_icon_update:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'LDUpsertSingleNodeOp: sending upsert signal for {self.node.node_identifier}')
+            dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
     def __repr__(self):
         return f'LDUpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
@@ -153,7 +148,7 @@ class LDRemoveSingleNodeOp(LDUpsertSingleNodeOp):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
 
-class LDMultiNodeOp(LDWriteCacheOp, ABC):
+class LDMultiNodeOp(LDCacheWriteOp, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     ABSTRACT CLASS LDMultiNodeOp
@@ -208,12 +203,12 @@ class LDBatchWriteOp(LDMultiNodeOp):
                 # Only nodes which were updated in the memstore and for which is_live()==true should be written to disk.
                 # But in this case, I am too lazy to rework this API to make it work; should be fine to do some extra writes
                 for node in subtree.upsert_node_list:
-                    master_node, was_updated = memstore.upsert_single_node(node)
+                    update_info = memstore.upsert_single_node(node)
                     if TRACE_ENABLED:
-                        logger.debug(f'TNode {node.uid} was updated: {was_updated}')
-                    if master_node:
-                        node = master_node
-                    new_upsert_node_list.append(node)
+                        logger.debug(f'TNode {node.uid} needsDiskUpdate={update_info.needs_disk_update}, hasIconUpdate={update_info.has_icon_update}')
+                    if update_info.needs_disk_update or update_info.has_icon_update:
+                        # for now, write to disk even if it's just an icon update
+                        new_upsert_node_list.append(node)
 
                 subtree.upsert_node_list = new_upsert_node_list
 
@@ -223,24 +218,26 @@ class LDBatchWriteOp(LDMultiNodeOp):
 
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
-        else:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'No nodes to remove from diskstore')
+        elif TRACE_ENABLED:
+            logger.debug(f'No nodes to remove from diskstore')
 
         if subtree.upsert_node_list:
             # do not write non-live nodes to disk
             live_node_list = list(filter(lambda n: n.is_live(), subtree.upsert_node_list))
             if live_node_list:
                 cache.upsert_files_and_dirs(live_node_list, commit=False)
-        else:
-            if SUPER_DEBUG_ENABLED:
-                logger.debug(f'No nodes to upsert to diskstore')
+        elif TRACE_ENABLED:
+            logger.debug(f'No nodes to upsert to diskstore')
 
     def send_signals(self):
         # All nodes in our lists (whether live or not) should have signals sent for them.
         for subtree in self.subtree_list:
-            dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root=subtree.subtree_root,
-                            upserted_node_list=subtree.upsert_node_list, removed_node_list=list(reversed(subtree.remove_node_list)))
+            if subtree.upsert_node_list or subtree.remove_node_list:
+                if SUPER_DEBUG_ENABLED:
+                    logger.debug(f'Sending signal {Signal.SUBTREE_NODES_CHANGED_IN_CACHE.name} with {len(subtree.upsert_node_list)} upserts '
+                                 f'and {len(subtree.remove_node_list)} removes')
+                dispatcher.send(signal=Signal.SUBTREE_NODES_CHANGED_IN_CACHE, sender=ID_GLOBAL_CACHE, subtree_root=subtree.subtree_root,
+                                upserted_node_list=subtree.upsert_node_list, removed_node_list=list(reversed(subtree.remove_node_list)))
 
     def __repr__(self):
         return f'LDBatchWriteOp({self.subtree_list})'

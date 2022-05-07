@@ -106,7 +106,7 @@ class OpGraph(HasLifecycle):
                 logger.debug(f'TNode {device_uid}:{node_uid} has a downstream op: returning icon {IconId.ICON_DIR_PENDING_DOWNSTREAM_OP.name}')
                 return IconId.ICON_DIR_PENDING_DOWNSTREAM_OP
 
-            if SUPER_DEBUG_ENABLED:
+            if TRACE_ENABLED:
                 logger.debug(f'TNode {device_uid}:{node_uid}: no custom icon')
             return None
 

@@ -6,6 +6,7 @@ from typing import DefaultDict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from be.sqlite.gdrive_db import GDriveDatabase
+from be.tree_store.cache_write_op import CacheWriteOp, NodeUpdateInfo
 from be.tree_store.gdrive.client.change_observer import GDriveChange, GDriveNodeChange
 from be.tree_store.gdrive.gd_memstore import GDriveMemoryStore
 from constants import GDRIVE_ROOT_UID, TreeType
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ABSTRACT CLASS GDCacheWriteOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class GDCacheWriteOp(ABC):
+class GDCacheWriteOp(CacheWriteOp):
     @abstractmethod
     def update_memstore(self, memstore: GDriveMemoryStore):
         pass
@@ -43,7 +44,7 @@ class GDUpsertSingleNodeOp(GDCacheWriteOp):
     def __init__(self, node: GDriveNode, update_only: bool = False):
         super().__init__()
         self.node: GDriveNode = node
-        self.was_updated: bool = True
+        self.update_info: Optional[NodeUpdateInfo] = None
         self.parent_goog_ids = []
         self.update_only: bool = update_only
 
@@ -58,65 +59,64 @@ class GDUpsertSingleNodeOp(GDCacheWriteOp):
             raise RuntimeError(f'Unrecognized node type: {node}')
 
     def update_memstore(self, memstore: GDriveMemoryStore):
-        node, self.was_updated = memstore.upsert_single_node(self.node)
-        assert node, f'What happened? {self.node}'
-        self.node = node
-
-        parent_uids = self.node.get_parent_uids()
-        if parent_uids:
-            if len(parent_uids) == 1 and parent_uids[0] == GDRIVE_ROOT_UID:
-                logger.debug(f'Parent is GDrive root')
-                self.parent_goog_ids = [None]
-            try:
-                self.parent_goog_ids = memstore.master_tree.resolve_uids_to_goog_ids(parent_uids, fail_if_missing=True)
-            except RuntimeError:
-                logger.debug(f'Could not resolve goog_ids for parent UIDs ({parent_uids}); assuming parents do not exist')
-        else:
-            logger.debug(f'TNode has no parents; assuming it is a root node: {self.node}')
+        self.update_info = memstore.upsert_single_node(self.node)
+        if self.update_info.node and self.update_info.needs_disk_update:
+            parent_uids = self.node.get_parent_uids()
+            if parent_uids:
+                if len(parent_uids) == 1 and parent_uids[0] == GDRIVE_ROOT_UID:
+                    logger.debug(f'Parent is GDrive root')
+                    self.parent_goog_ids = [None]
+                try:
+                    self.parent_goog_ids = memstore.master_tree.resolve_uids_to_goog_ids(parent_uids, fail_if_missing=True)
+                except RuntimeError:
+                    logger.debug(f'Could not resolve goog_ids for parent UIDs ({parent_uids}); assuming parents do not exist')
+            else:
+                logger.debug(f'TNode has no parents; assuming it is a root node: {self.node}')
 
     def update_diskstore(self, cache: GDriveDatabase):
-        if not self.was_updated:
+        if not self.update_info.needs_disk_update:
             if SUPER_DEBUG_ENABLED:
                 logger.debug(f'TNode does not need disk update; skipping save to disk: {self.node}')
             return
 
-        if not self.node.is_live():
+        node = self.update_info.node
+        if not node.is_live():
             if SUPER_DEBUG_ENABLED:
-                logger.debug(f'TNode is not live; skipping save to disk: {self.node}')
+                logger.debug(f'TNode is not live; skipping save to disk: {node}')
             return
 
         if SUPER_DEBUG_ENABLED:
-            logger.debug(f'GDUpsertSingleNodeOp: upserting GDriveNode to disk cache: {self.node}')
+            logger.debug(f'GDUpsertSingleNodeOp: upserting GDriveNode to disk cache: {node}')
 
         parent_mappings = []
-        parent_uids = self.node.get_parent_uids()
+        parent_uids = node.get_parent_uids()
         if len(parent_uids) != len(self.parent_goog_ids):
             raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(self.parent_goog_ids)}) to parent UIDs '
-                               f'({len(parent_uids)}) for node: {self.node}')
+                               f'({len(parent_uids)}) for node: {node}')
         for parent_uid, parent_goog_id in zip(parent_uids, self.parent_goog_ids):
-            parent_mappings.append((self.node.uid, parent_uid, parent_goog_id, self.node.sync_ts))
+            parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
 
         # Write new values:
         if parent_mappings:
             logger.debug(f'Writing {len(parent_mappings)} id-parent mappings to the GDrive master cache: {parent_mappings}')
-            cache.upsert_parent_mappings_for_id(parent_mappings, self.node.uid, commit=False)
+            cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
 
-        if self.node.is_dir():
-            logger.debug(f'Writing folder node to the GDrive master cache: {self.node}')
-            assert isinstance(self.node, GDriveFolder)
-            cache.upsert_gdrive_folder_list([self.node], commit=False)
+        if node.is_dir():
+            logger.debug(f'Writing folder node to the GDrive master cache: {node}')
+            assert isinstance(node, GDriveFolder)
+            cache.upsert_gdrive_folder_list([node], commit=False)
         else:
-            logger.debug(f'Writing file node to the GDrive master cache: {self.node}')
-            assert isinstance(self.node, GDriveFile)
-            cache.upsert_gdrive_file_list([self.node], commit=False)
+            logger.debug(f'Writing file node to the GDrive master cache: {node}')
+            assert isinstance(node, GDriveFile)
+            cache.upsert_gdrive_file_list([node], commit=False)
 
         cache.commit()
 
     def send_signals(self):
-        # Always send signals:
-        if SUPER_DEBUG_ENABLED:
-            logger.debug(f'Sending signal {Signal.NODE_UPSERTED_IN_CACHE.name} with node: {self.node}')
-        dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
+        if self.update_info.needs_disk_update or self.update_info.has_icon_update:
+            if SUPER_DEBUG_ENABLED:
+                logger.debug(f'Sending signal {Signal.NODE_UPSERTED_IN_CACHE.name} with node: {self.node}')
+            dispatcher.send(signal=Signal.NODE_UPSERTED_IN_CACHE, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
 class GDRemoveSingleNodeOp(GDCacheWriteOp):
@@ -218,7 +218,8 @@ class BatchChangesOp(GDCacheWriteOp):
             else:
                 assert isinstance(change, GDriveNodeChange)
                 # need to use existing object if available to fulfill our contract (node will be sent via signals below)
-                change.node, was_updated = memstore.upsert_single_node(change.node)
+                update_info = memstore.upsert_single_node(change.node)
+                change.node = update_info.node
 
     def update_diskstore(self, cache: GDriveDatabase):
         mappings_list_list: List[List[Tuple]] = []
@@ -300,6 +301,7 @@ class RefreshFolderOp(GDCacheWriteOp):
         logger.debug(f'RefreshFolderOp: upserting into memory cache: parent folder ({self.parent_folder}) and children: {self.child_list} '
                      f'children in memory cache')
         # FIXME: determine if nodes were removed from parents. If so, send notifications to ATM
+        # TODO: only update what we was changed
         self._upserted_node_list = memstore.master_tree.upsert_folder_and_children(self.parent_folder, self.child_list)
         logger.debug(f'RefreshFolderOp: done upserting nodes to memory cache')
 
