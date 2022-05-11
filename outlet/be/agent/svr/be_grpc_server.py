@@ -54,7 +54,7 @@ class OutletAgent(BackendIntegrated):
                                                             ('grpc.keepalive_time_ms', 10000),
                                                             # send keepalive ping every 10 seconds, default is 2 hours
                                                             ('grpc.keepalive_timeout_ms', 5000),
-                                                            # keepalive ping time out after 5 seconds, default is 20 seoncds
+                                                            # keepalive ping time out after 5 seconds, default is 20 seconds
                                                             ('grpc.keepalive_permit_without_calls', True),
                                                             # allow keepalive pings when there's no gRPC calls
                                                             ('grpc.http2.max_pings_without_data', 0),
