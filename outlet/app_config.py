@@ -13,13 +13,6 @@ from util.file_util import get_resource_path
 logger = logging.getLogger(__name__)
 
 
-class ConfigRequest:
-    def __init__(self, cfg_path: str, default_val: Any = None, is_required: bool = True):
-        self.cfg_path: str = cfg_path
-        self.default_val: Any = default_val
-        self.is_required: bool = is_required
-
-
 class AppConfig:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -60,9 +53,6 @@ class AppConfig:
             
     def get_project_dir(self) -> str:
         return self._project_dir
-
-    def get_config_from_request(self, request: ConfigRequest):
-        return self.get_config(cfg_path=request.cfg_path, default_val=request.default_val, required=request.is_required)
 
     def get_config(self, cfg_path: str, default_val=None, required: bool = True):
         try:
