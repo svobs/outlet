@@ -35,8 +35,14 @@ Create a virtual environment within this directory (`{project_name}`)  following
 #### Save required packages
     make freeze
 
-#### Install required packages:
+#### Install required dependencies:
     make init
+
+#### Update dependencies:
+# First install pip-tools package
+	python3 -m pip install pip-review
+# Then compile a new requirements.txt
+	pip-compile requirements.txt
 
 # PROJECT GOALS
 
