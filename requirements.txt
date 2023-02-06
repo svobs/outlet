@@ -200,7 +200,7 @@ nuitka==0.9.6
     # via -r requirements.txt
 numpy==1.23.1
     # via -r requirements.txt
-oauthlib==3.2.1
+oauthlib==3.2.2
     # via
     #   -r requirements.txt
     #   requests-oauthlib
