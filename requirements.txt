@@ -391,7 +391,7 @@ user-agent==0.1.10
     # via -r requirements.txt
 watchdog==2.1.7
     # via -r requirements.txt
-werkzeug==2.2.1
+werkzeug==2.2.3
     # via
     #   -r requirements.txt
     #   flask
