@@ -1,6 +1,6 @@
 #!/bin/bash
 # /home/msvoboda/LocalDevel/outlet/outlet/agent/grpc
-PY_PKG='outlet/backend/agent/grpc/generated'
+PY_PKG='outlet/be/agent/grpc/generated'
 OUT_DIR=..
 
 mkdir -p $OUT_DIR

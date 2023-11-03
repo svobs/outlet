@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from outlet.be.agent.grpc.generated import Outlet_pb2 as outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2
+from outlet.be.agent.grpc.generated import Outlet_pb2 as outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2
 
 
 class OutletStub(object):
@@ -15,149 +15,149 @@ class OutletStub(object):
             channel: A grpc.Channel.
         """
         self.subscribe_to_signals = channel.unary_stream(
-                '/outlet.backend.agent.grpc.generated.Outlet/subscribe_to_signals',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/subscribe_to_signals',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.FromString,
                 )
         self.send_signal = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/send_signal',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/send_signal',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.FromString,
                 )
         self.get_config = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_config',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_config',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.FromString,
                 )
         self.put_config = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/put_config',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/put_config',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
                 )
         self.get_icon = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_icon',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_icon',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.FromString,
                 )
         self.get_device_list = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_device_list',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_device_list',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.FromString,
                 )
         self.get_child_list_for_spid = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_child_list_for_spid',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_child_list_for_spid',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Response.FromString,
                 )
         self.get_ancestor_list_for_spid = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_ancestor_list_for_spid',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_ancestor_list_for_spid',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.FromString,
                 )
         self.get_rows_of_interest = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_rows_of_interest',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_rows_of_interest',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
                 )
         self.set_selected_row_set = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/set_selected_row_set',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/set_selected_row_set',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.FromString,
                 )
         self.remove_expanded_row = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/remove_expanded_row',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/remove_expanded_row',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.FromString,
                 )
         self.get_filter = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_filter',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_filter',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.FromString,
                 )
         self.update_filter = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/update_filter',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/update_filter',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.FromString,
                 )
         self.get_context_menu = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_context_menu',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_context_menu',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.FromString,
                 )
         self.execute_tree_action_list = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/execute_tree_action_list',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/execute_tree_action_list',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.FromString,
                 )
         self.request_display_tree = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/request_display_tree',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/request_display_tree',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
                 )
         self.start_subtree_load = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/start_subtree_load',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/start_subtree_load',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
                 )
         self.refresh_subtree = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/refresh_subtree',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/refresh_subtree',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
                 )
         self.get_next_uid = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_next_uid',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_next_uid',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.FromString,
                 )
         self.get_node_for_uid = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_uid',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_node_for_uid',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
                 )
         self.get_uid_for_local_path = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_uid_for_local_path',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_uid_for_local_path',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
                 )
         self.get_sn_for = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_sn_for',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_sn_for',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.FromString,
                 )
         self.start_diff_trees = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/start_diff_trees',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/start_diff_trees',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
                 )
         self.generate_merge_tree = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/generate_merge_tree',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GenerateMergeTree_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/generate_merge_tree',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GenerateMergeTree_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
                 )
         self.drop_dragged_nodes = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/drop_dragged_nodes',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/drop_dragged_nodes',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.FromString,
                 )
         self.delete_subtree = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/delete_subtree',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/delete_subtree',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
                 )
         self.get_last_pending_op_for_node = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_last_pending_op_for_node',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Response.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_last_pending_op_for_node',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Response.FromString,
                 )
         self.download_file_from_gdrive = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/download_file_from_gdrive',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/download_file_from_gdrive',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
                 )
         self.get_op_exec_play_state = channel.unary_unary(
-                '/outlet.backend.agent.grpc.generated.Outlet/get_op_exec_play_state',
-                request_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
-                response_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
+                '/outlet.be.agent.grpc.generated.Outlet/get_op_exec_play_state',
+                request_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
+                response_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
                 )
 
 
@@ -346,152 +346,152 @@ def add_OutletServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'subscribe_to_signals': grpc.unary_stream_rpc_method_handler(
                     servicer.subscribe_to_signals,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Subscribe_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Subscribe_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
             ),
             'send_signal': grpc.unary_unary_rpc_method_handler(
                     servicer.send_signal,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.SerializeToString,
             ),
             'get_config': grpc.unary_unary_rpc_method_handler(
                     servicer.get_config,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.SerializeToString,
             ),
             'put_config': grpc.unary_unary_rpc_method_handler(
                     servicer.put_config,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.SerializeToString,
             ),
             'get_icon': grpc.unary_unary_rpc_method_handler(
                     servicer.get_icon,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.SerializeToString,
             ),
             'get_device_list': grpc.unary_unary_rpc_method_handler(
                     servicer.get_device_list,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.SerializeToString,
             ),
             'get_child_list_for_spid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_child_list_for_spid,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Response.SerializeToString,
             ),
             'get_ancestor_list_for_spid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_ancestor_list_for_spid,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.SerializeToString,
             ),
             'get_rows_of_interest': grpc.unary_unary_rpc_method_handler(
                     servicer.get_rows_of_interest,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.SerializeToString,
             ),
             'set_selected_row_set': grpc.unary_unary_rpc_method_handler(
                     servicer.set_selected_row_set,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.SerializeToString,
             ),
             'remove_expanded_row': grpc.unary_unary_rpc_method_handler(
                     servicer.remove_expanded_row,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.SerializeToString,
             ),
             'get_filter': grpc.unary_unary_rpc_method_handler(
                     servicer.get_filter,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.SerializeToString,
             ),
             'update_filter': grpc.unary_unary_rpc_method_handler(
                     servicer.update_filter,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.SerializeToString,
             ),
             'get_context_menu': grpc.unary_unary_rpc_method_handler(
                     servicer.get_context_menu,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.SerializeToString,
             ),
             'execute_tree_action_list': grpc.unary_unary_rpc_method_handler(
                     servicer.execute_tree_action_list,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.SerializeToString,
             ),
             'request_display_tree': grpc.unary_unary_rpc_method_handler(
                     servicer.request_display_tree,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.SerializeToString,
             ),
             'start_subtree_load': grpc.unary_unary_rpc_method_handler(
                     servicer.start_subtree_load,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.SerializeToString,
             ),
             'refresh_subtree': grpc.unary_unary_rpc_method_handler(
                     servicer.refresh_subtree,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
             ),
             'get_next_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_next_uid,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.SerializeToString,
             ),
             'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_node_for_uid,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
             ),
             'get_uid_for_local_path': grpc.unary_unary_rpc_method_handler(
                     servicer.get_uid_for_local_path,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.SerializeToString,
             ),
             'get_sn_for': grpc.unary_unary_rpc_method_handler(
                     servicer.get_sn_for,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.SerializeToString,
             ),
             'start_diff_trees': grpc.unary_unary_rpc_method_handler(
                     servicer.start_diff_trees,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.SerializeToString,
             ),
             'generate_merge_tree': grpc.unary_unary_rpc_method_handler(
                     servicer.generate_merge_tree,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GenerateMergeTree_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GenerateMergeTree_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
             ),
             'drop_dragged_nodes': grpc.unary_unary_rpc_method_handler(
                     servicer.drop_dragged_nodes,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.SerializeToString,
             ),
             'delete_subtree': grpc.unary_unary_rpc_method_handler(
                     servicer.delete_subtree,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
             ),
             'get_last_pending_op_for_node': grpc.unary_unary_rpc_method_handler(
                     servicer.get_last_pending_op_for_node,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Response.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Response.SerializeToString,
             ),
             'download_file_from_gdrive': grpc.unary_unary_rpc_method_handler(
                     servicer.download_file_from_gdrive,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.SerializeToString,
             ),
             'get_op_exec_play_state': grpc.unary_unary_rpc_method_handler(
                     servicer.get_op_exec_play_state,
-                    request_deserializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.FromString,
-                    response_serializer=outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.SerializeToString,
+                    request_deserializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.FromString,
+                    response_serializer=outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'outlet.backend.agent.grpc.generated.Outlet', rpc_method_handlers)
+            'outlet.be.agent.grpc.generated.Outlet', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
@@ -510,9 +510,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/outlet.backend.agent.grpc.generated.Outlet/subscribe_to_signals',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.FromString,
+        return grpc.experimental.unary_stream(request, target, '/outlet.be.agent.grpc.generated.Outlet/subscribe_to_signals',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -527,9 +527,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/send_signal',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/send_signal',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SignalMsg.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SendSignalResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -544,9 +544,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_config',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_config',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetConfig_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -561,9 +561,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/put_config',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/put_config',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PutConfig_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -578,9 +578,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_icon',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_icon',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetIcon_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -595,9 +595,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_device_list',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_device_list',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetDeviceList_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -612,9 +612,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_child_list_for_spid',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_child_list_for_spid',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetChildList_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -629,9 +629,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_ancestor_list_for_spid',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_ancestor_list_for_spid',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetAncestorList_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -646,9 +646,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_rows_of_interest',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_rows_of_interest',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetRowsOfInterest_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -663,9 +663,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/set_selected_row_set',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/set_selected_row_set',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SetSelectedRowSet_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -680,9 +680,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/remove_expanded_row',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/remove_expanded_row',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RemoveExpandedRow_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -697,9 +697,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_filter',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_filter',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetFilter_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -714,9 +714,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/update_filter',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/update_filter',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.UpdateFilter_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -731,9 +731,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_context_menu',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_context_menu',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetContextMenu_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -748,9 +748,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/execute_tree_action_list',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/execute_tree_action_list',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.ExecuteTreeActionList_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -765,9 +765,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/request_display_tree',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/request_display_tree',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -782,9 +782,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/start_subtree_load',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/start_subtree_load',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -799,9 +799,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/refresh_subtree',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/refresh_subtree',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.RefreshSubtree_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -816,9 +816,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_next_uid',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_next_uid',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNextUid_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -833,9 +833,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_node_for_uid',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_node_for_uid',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.SingleNode_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -850,9 +850,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_uid_for_local_path',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_uid_for_local_path',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -867,9 +867,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_sn_for',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_sn_for',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetSnFor_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -884,9 +884,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/start_diff_trees',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/start_diff_trees',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -901,9 +901,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/generate_merge_tree',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GenerateMergeTree_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/generate_merge_tree',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GenerateMergeTree_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -918,9 +918,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/drop_dragged_nodes',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/drop_dragged_nodes',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DragDrop_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -935,9 +935,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/delete_subtree',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/delete_subtree',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -952,9 +952,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_last_pending_op_for_node',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Response.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_last_pending_op_for_node',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetLastPendingOp_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -969,9 +969,9 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/download_file_from_gdrive',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/download_file_from_gdrive',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.DownloadFromGDrive_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -986,8 +986,8 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.backend.agent.grpc.generated.Outlet/get_op_exec_play_state',
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
-            outlet_dot_backend_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
+        return grpc.experimental.unary_unary(request, target, '/outlet.be.agent.grpc.generated.Outlet/get_op_exec_play_state',
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
+            outlet_dot_be_dot_agent_dot_grpc_dot_generated_dot_Outlet__pb2.PlayState.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

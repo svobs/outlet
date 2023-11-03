@@ -15,14 +15,22 @@ https://fontlibrary.org/assets/downloads/symbola/cf81aeb303c13ce765877d31571dc5c
     sudo apt-get install libarchive-dev  
     sudo apt-get install libyaml-dev
 
+### Confguring:
 Create a virtual environment within this directory (`{project_name}`)  following instructions from: https://docs.python.org/3/tutorial/venv.html)  
-
     cd ..
     python3 -m venv {projectName}
     # In a bash shell:
     chmod +x {projectName}/bin/activate 
     source {projectName}/bin/activate
     cd {projectName}
+    
+    # Set up config by copying default config file (note: this is also done by `make init`)
+    cp ./config_py/logging_constants.py.default ./config_py/logging_constants.py
+  
+NOTE: for Google Drive, need to download credentials.json and copy to `{projectName}/config/credentials.json`.
+
+#### Run:
+    # Add root of outlet package to PYTHONPATH:
     export PYTHONPATH=/Users/msvoboda/LocalHome/Dev/{projectName}/outlet
     # Run as a package!
     ./bin/python -m outlet.main.be_agent
