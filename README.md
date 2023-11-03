@@ -20,7 +20,12 @@ Create a virtual environment within this directory (`{project_name}`)  following
     cd ..
     python3 -m venv {projectName}
     # In a bash shell:
+    chmod +x {projectName}/bin/activate 
     source {projectName}/bin/activate
+    cd {projectName}
+    export PYTHONPATH=/Users/msvoboda/LocalHome/Dev/{projectName}/outlet
+    # Run as a package!
+    ./bin/python -m outlet.main.be_agent
 
 #### Install GTK3 UI prereqs
     sudo apt install libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev gir1.2-gtk-3.0
@@ -39,10 +44,10 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 #### Update dependencies:
-# First install pip-tools package
-	python3 -m pip install pip-review
+# First install pur package
+	pip3 install pur
 # Then compile a new requirements.txt
-	pip-compile requirements.txt
+	pur -r requirements.txt
 
 # PROJECT GOALS
 
