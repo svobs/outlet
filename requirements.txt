@@ -251,7 +251,7 @@ pycparser==2.21
     # via
     #   -r requirements.txt
     #   cffi
-pycryptodome==3.19.0
+pycryptodome==3.19.1
     # via -r requirements.txt
 pycryptodomex==3.19.1
     # via
