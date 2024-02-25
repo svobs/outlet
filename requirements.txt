@@ -65,7 +65,7 @@ config==0.5.1
     # via -r requirements.txt
 crtime==0.0.6
     # via -r requirements.txt
-cryptography==41.0.5
+cryptography==42.0.4
     # via
     #   -r requirements.txt
     #   pyopenssl
