@@ -214,7 +214,7 @@ packaging==23.2
     #   rst2pdf
 pathtools==0.1.2
     # via -r requirements.txt
-pillow==10.1.0
+pillow==10.2.0
     # via
     #   -r requirements.txt
     #   reportlab
